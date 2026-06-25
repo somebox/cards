@@ -1,0 +1,25 @@
+{
+  "id": "demo",
+  "name": "Demo workspace",
+  "columns": [
+    { "id": "backlog", "name": "Backlog" },
+    { "id": "todo", "name": "To Do" },
+    { "id": "in_progress", "name": "In Progress" },
+    { "id": "review", "name": "Review" },
+    { "id": "done", "name": "Done" }
+  ],
+  "tag_set": ["urgent", "bug", "feature"],
+  "link_types": [
+    { "id": "depends-on", "name": "Depends on", "type": "directional" },
+    { "id": "blocked-by", "name": "Blocked by", "type": "directional" },
+    { "id": "related", "name": "Related", "type": "bidirectional" },
+    { "id": "sent-to", "name": "Sent to", "type": "directional",
+      "target_types": ["printer"] }
+  ],
+  "settings": {
+    "enforce_transitions": false,
+    "strict_fields": true,
+    "tag_policy": "propose",
+    "default_user": "local-dev"
+  }
+}

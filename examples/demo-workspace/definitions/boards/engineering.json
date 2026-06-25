@@ -1,0 +1,27 @@
+{
+  "id": "engineering",
+  "name": "Engineering",
+  "columns": ["backlog", "todo", "in_progress", "review", "done"],
+  "card_type_ids": ["programming-task", "research-goal"],
+  "settings": { "enforce_transitions": true },
+  "transitions": {
+    "backlog": ["todo"],
+    "todo": ["in_progress"],
+    "in_progress": ["review"],
+    "review": ["done", "in_progress"],
+    "done": []
+  },
+  "presentation": {
+    "lane_group_by": "status",
+    "card_preview": {
+      "programming-task": ["branch", "pull_request_url"],
+      "research-goal": ["hypothesis"]
+    },
+    "filters": [
+      {
+        "id": "mine-open", "label": "My open",
+        "filter": { "owner": { "$eq": "me" }, "status": { "$nin": ["done"] } }
+      }
+    ]
+  }
+}

@@ -1,0 +1,32 @@
+# Go
+/bin/
+/dist/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+coverage.txt
+coverage.html
+
+# Build output
+/cards
+
+# Workspace runtime state (local dev)
+/.work-cards/
+*.db
+*.db-*
+/artifacts/
+/mirror/
+/.cards/logs/
+/.cards/sessions/
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
