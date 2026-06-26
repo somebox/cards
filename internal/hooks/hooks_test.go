@@ -27,9 +27,12 @@ func newSvc(t *testing.T) (*core.Service, *core.Workspace, string) {
 		"task": {ID: "task", Name: "Task", SchemaVersion: 1,
 			Fields:         []core.FieldDef{{ID: "description", Type: core.FieldText, Required: true}},
 			AllowedColumns: []string{"todo", "review", "done"}},
+		"bug": {ID: "bug", Name: "Bug", SchemaVersion: 1,
+			Fields:         []core.FieldDef{{ID: "description", Type: core.FieldText, Required: true}},
+			AllowedColumns: []string{"todo", "review", "done"}},
 	}
 	boards := map[string]*core.Board{
-		"eng": {ID: "eng", Name: "Eng", Columns: []string{"todo", "review", "done"}, CardTypeIDs: []string{"task"}},
+		"eng": {ID: "eng", Name: "Eng", Columns: []string{"todo", "review", "done"}, CardTypeIDs: []string{"task", "bug"}},
 	}
 	st, err := sqlite.Open(filepath.Join(dir, "test.db"), ws)
 	if err != nil {
@@ -122,4 +125,47 @@ func indexOf(s, sub string) int {
 		}
 	}
 	return -1
+}
+
+// TestHookFilterTypeID verifies the type_id filter only fires for matching
+// card types (was previously parsed but never applied in MatchesEvent).
+func TestHookFilterTypeID(t *testing.T) {
+	svc, ws, dir := newSvc(t)
+	logFile := filepath.Join(dir, "fired_type.log")
+	// Hook filtered to type_id=bug only.
+	hook := config.Extension{
+		ID: "bug-only", Kind: "hook", On: "status_changed",
+		Filter: config.HookFilter{TypeID: "bug", ToStatus: "review"},
+		Run: []string{"bash", "-c", `echo hit >> ` + logFile},
+	}
+	sup := hooks.New(svc, ws, []config.Extension{hook}, dir, "http://127.0.0.1:8787/v1")
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go sup.Run(ctx)
+	time.Sleep(100 * time.Millisecond) // let supervisor subscribe
+
+	// Create a task card and move to review — should NOT fire (filter is bug).
+	task, _ := svc.CreateCard(ctx, core.CreateCardRequest{TypeID: "task", Title: "T", Status: "todo",
+		Fields: map[string]any{"description": "d"}, Actor: "u"})
+	st := "review"
+	_, _ = svc.PatchCard(ctx, task.ID, core.PatchCardRequest{Version: 1, Status: &st, Actor: "u"})
+	time.Sleep(500 * time.Millisecond)
+	if _, err := os.Stat(logFile); err == nil {
+		t.Error("hook fired for task card (filter is type_id=bug)")
+	}
+
+	// Create a bug card and move to review — SHOULD fire.
+	bug, _ := svc.CreateCard(ctx, core.CreateCardRequest{TypeID: "bug", Title: "B", Status: "todo",
+		Fields: map[string]any{"description": "d"}, Actor: "u"})
+	_, _ = svc.PatchCard(ctx, bug.ID, core.PatchCardRequest{Version: 1, Status: &st, Actor: "u"})
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if _, err := os.Stat(logFile); err == nil {
+			break
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	if _, err := os.Stat(logFile); err != nil {
+		t.Fatal("hook did not fire for bug card matching type_id=bug")
+	}
 }

@@ -102,12 +102,19 @@ func validateExtensions(exts []Extension) error {
 
 // MatchesEvent reports whether a hook filter accepts an event (POC: type +
 // card_id + board_id membership + to_status from a status_changed diff).
-func (e Extension) MatchesEvent(ev *core.Event, cardBoardMembership func(cardID string) string) bool {
+// cardBoardMembership returns the board id a card belongs to (or "").
+// cardTypeID returns the card's type_id (or "").
+func (e Extension) MatchesEvent(ev *core.Event, cardBoardMembership func(cardID string) string, cardTypeID func(cardID string) string) bool {
 	if e.On != "" && string(ev.Type) != e.On {
 		return false
 	}
 	if e.Filter.CardID != "" && ev.CardID != e.Filter.CardID {
 		return false
+	}
+	if e.Filter.TypeID != "" {
+		if tid := cardTypeID(ev.CardID); tid != e.Filter.TypeID {
+			return false
+		}
 	}
 	if e.Filter.BoardID != "" {
 		bid := cardBoardMembership(ev.CardID)

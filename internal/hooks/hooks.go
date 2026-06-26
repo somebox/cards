@@ -79,7 +79,7 @@ func (s *Supervisor) Run(ctx context.Context) error {
 				continue
 			}
 			for _, h := range hooks {
-				if h.MatchesEvent(e, s.cardBoardMembership) {
+				if h.MatchesEvent(e, s.cardBoardMembership, s.cardTypeID) {
 					go s.spawn(ctx, h, e) // async: spawn ordered, completion not
 				}
 			}
@@ -154,6 +154,16 @@ func (s *Supervisor) cardBoardMembership(cardID string) string {
 		}
 	}
 	return ""
+}
+
+// cardTypeID returns the card's type_id, or "" on lookup failure. Used by
+// hook filters (filter.type_id).
+func (s *Supervisor) cardTypeID(cardID string) string {
+	c, err := s.svc.GetCard(context.Background(), cardID)
+	if err != nil {
+		return ""
+	}
+	return c.TypeID
 }
 
 // boards is a placeholder accessor; the supervisor holds boards via the
