@@ -218,7 +218,10 @@ func (s *Store) GetCard(ctx context.Context, id string) (*core.Card, error) {
 	row := s.db.QueryRowContext(ctx, "SELECT "+cardCols+" FROM cards c WHERE c.id = ?", id)
 	c, err := scanCard(row)
 	if err != nil {
-		return nil, err
+		if err == sql.ErrNoRows {
+			return nil, core.ErrNotFound
+		}
+		return nil, fmt.Errorf("get card: %w", err)
 	}
 	c.Links, _ = s.ListLinks(ctx, id)
 	c.Comments, _ = s.ListComments(ctx, id)

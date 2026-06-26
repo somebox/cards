@@ -270,6 +270,16 @@ func TestPatchCard_VersionConflict(t *testing.T) {
 	}
 }
 
+func TestGetCard_NotFound(t *testing.T) {
+	svc, _ := newTestService(t)
+	ctx := ctx2()
+	_, err := svc.GetCard(ctx, "card_doesnotexist")
+	ce := core.AsError(err)
+	if ce == nil || ce.Code != "not_found" || ce.HTTPStatus != 404 {
+		t.Fatalf("expected 404 not_found, got %v", err)
+	}
+}
+
 func TestPatchCard_FieldUpdate(t *testing.T) {
 	svc, _ := newTestService(t)
 	ctx := ctx2()

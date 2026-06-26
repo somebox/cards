@@ -125,6 +125,15 @@ func NotFound(resource string) *Error {
 	return &Error{Code: "not_found", Message: "Resource not found: " + resource, HTTPStatus: 404}
 }
 
+// Internal returns a 500 for unexpected server-side failures.
+func Internal(msg string) *Error {
+	return &Error{Code: "internal_error", Message: msg, HTTPStatus: 500}
+}
+
+// ErrNotFound is a sentinel returned by the store when a row is absent.
+// The service layer maps it to a 404 NotFound.
+var ErrNotFound = errors.New("not found")
+
 // ActorRequired returns a 403.
 func ActorRequired() *Error {
 	return &Error{

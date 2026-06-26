@@ -10,6 +10,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -120,7 +121,24 @@ func (s *Service) applyBoardScope(q *CardQuery, b *Board) {
 func (s *Service) GetCard(ctx context.Context, id string) (*Card, error) {
 	c, err := s.store.GetCard(ctx, id)
 	if err != nil {
-		return nil, NotFound("card " + id)
+		if errors.Is(err, ErrNotFound) {
+			return nil, NotFound("card " + id)
+		}
+		return nil, Internal("failed to get card: " + err.Error())
+	}
+	return c, nil
+}
+
+// getCard is the internal helper used by all mutating methods. It maps
+// store errors correctly: ErrNotFound→404, other→500 (previously all store
+// errors were masked as 404, hiding real failures).
+func (s *Service) getCard(ctx context.Context, id string) (*Card, error) {
+	c, err := s.store.GetCard(ctx, id)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return nil, NotFound("card " + id)
+		}
+		return nil, Internal("failed to get card: " + err.Error())
 	}
 	return c, nil
 }
@@ -193,9 +211,9 @@ func (s *Service) CreateCard(ctx context.Context, req CreateCardRequest) (*Card,
 
 // PatchCard applies a partial update with optimistic concurrency. SPEC §11.
 func (s *Service) PatchCard(ctx context.Context, id string, req PatchCardRequest) (*Card, error) {
-	current, err := s.store.GetCard(ctx, id)
+	current, err := s.getCard(ctx, id)
 	if err != nil {
-		return nil, NotFound("card " + id)
+		return nil, err
 	}
 	if req.Version != current.Version {
 		return nil, VersionConflict(current)
@@ -322,9 +340,9 @@ func (s *Service) PatchCard(ctx context.Context, id string, req PatchCardRequest
 // Each entry gets a stable server-generated entry_id; entries are addressed
 // by that id thereafter. SPEC §6 D6.
 func (s *Service) AppendEntry(ctx context.Context, id, field string, entry map[string]any, version int) (*Card, error) {
-	current, err := s.store.GetCard(ctx, id)
+	current, err := s.getCard(ctx, id)
 	if err != nil {
-		return nil, NotFound("card " + id)
+		return nil, err
 	}
 	if version != current.Version {
 		return nil, VersionConflict(current)
@@ -367,9 +385,9 @@ func (s *Service) AppendEntry(ctx context.Context, id, field string, entry map[s
 
 // UpdateEntry replaces an entry's data (keeping its entry_id). SPEC §11.
 func (s *Service) UpdateEntry(ctx context.Context, id, field, entryID string, entry map[string]any, version int) (*Card, error) {
-	current, err := s.store.GetCard(ctx, id)
+	current, err := s.getCard(ctx, id)
 	if err != nil {
-		return nil, NotFound("card " + id)
+		return nil, err
 	}
 	if version != current.Version {
 		return nil, VersionConflict(current)
@@ -413,9 +431,9 @@ func (s *Service) UpdateEntry(ctx context.Context, id, field, entryID string, en
 // the caller did not supply one (e.g. a DELETE with no body); the store CAS
 // still guards against lost updates.
 func (s *Service) RemoveEntry(ctx context.Context, id, field, entryID string, version int) (*Card, error) {
-	current, err := s.store.GetCard(ctx, id)
+	current, err := s.getCard(ctx, id)
 	if err != nil {
-		return nil, NotFound("card " + id)
+		return nil, err
 	}
 	if version != 0 && version != current.Version {
 		return nil, VersionConflict(current)
@@ -443,9 +461,9 @@ func (s *Service) RemoveEntry(ctx context.Context, id, field, entryID string, ve
 // Links are append-only graph state; the request does not carry a version
 // (the store CAS-guards against lost updates), but the card version bumps.
 func (s *Service) AddLink(ctx context.Context, id string, in LinkInput) (*Card, error) {
-	current, err := s.store.GetCard(ctx, id)
+	current, err := s.getCard(ctx, id)
 	if err != nil {
-		return nil, NotFound("card " + id)
+		return nil, err
 	}
 	actor := in.Actor
 	if actor == "" {
@@ -459,9 +477,12 @@ func (s *Service) AddLink(ctx context.Context, id string, in LinkInput) (*Card, 
 		return nil, newUnknownEnum("type_id", in.TypeID, linkTypeIDs(s.ws))
 	}
 	// Target must exist.
-	target, err := s.store.GetCard(ctx, in.Target)
+	target, err := s.getCard(ctx, in.Target)
 	if err != nil {
-		return nil, newTargetCardMissing(in.Target, lt.TargetTypes...)
+		if ce := AsError(err); ce != nil && ce.Code == "not_found" {
+			return nil, newTargetCardMissing(in.Target, lt.TargetTypes...)
+		}
+		return nil, err
 	}
 	// source/target type constraints.
 	if err := s.checkLinkTypeConstraints(lt, current.TypeID, target.TypeID); err != nil {
@@ -491,9 +512,9 @@ func (s *Service) AddLink(ctx context.Context, id string, in LinkInput) (*Card, 
 
 // RemoveLink deletes a link by (type_id, target). SPEC §11.
 func (s *Service) RemoveLink(ctx context.Context, id, typeID, target string) (*Card, error) {
-	current, err := s.store.GetCard(ctx, id)
+	current, err := s.getCard(ctx, id)
 	if err != nil {
-		return nil, NotFound("card " + id)
+		return nil, err
 	}
 	actor := ctxActor(ctx)
 	found := false
@@ -527,9 +548,9 @@ func (s *Service) RemoveLink(ctx context.Context, id, typeID, target string) (*C
 
 // AddComment adds a comment; returns the updated card. SPEC §11.
 func (s *Service) AddComment(ctx context.Context, id string, body string) (*Card, error) {
-	current, err := s.store.GetCard(ctx, id)
+	current, err := s.getCard(ctx, id)
 	if err != nil {
-		return nil, NotFound("card " + id)
+		return nil, err
 	}
 	actor := ctxActor(ctx)
 	if actor == "" {
@@ -555,9 +576,9 @@ func (s *Service) AddComment(ctx context.Context, id string, body string) (*Card
 
 // EditComment updates a comment's body. SPEC §11.
 func (s *Service) EditComment(ctx context.Context, id, commentID, body string) (*Card, error) {
-	current, err := s.store.GetCard(ctx, id)
+	current, err := s.getCard(ctx, id)
 	if err != nil {
-		return nil, NotFound("card " + id)
+		return nil, err
 	}
 	actor := ctxActor(ctx)
 	if strings.TrimSpace(body) == "" {
@@ -595,9 +616,9 @@ func (s *Service) EditComment(ctx context.Context, id, commentID, body string) (
 // Claim atomically sets owner (+optional status) via compare-and-set. SPEC §11.
 // Returns version_conflict (409) if the card is already owned by another actor.
 func (s *Service) Claim(ctx context.Context, id string, req ClaimRequest) (*Card, error) {
-	current, err := s.store.GetCard(ctx, id)
+	current, err := s.getCard(ctx, id)
 	if err != nil {
-		return nil, NotFound("card " + id)
+		return nil, err
 	}
 	if req.Version != current.Version {
 		return nil, VersionConflict(current)
@@ -626,9 +647,9 @@ func (s *Service) Claim(ctx context.Context, id string, req ClaimRequest) (*Card
 // e.g. moving a deferred card from todo to backlog when the enforced
 // transition graph has no todo→backlog edge.
 func (s *Service) Release(ctx context.Context, id string, req ReleaseRequest) (*Card, error) {
-	current, err := s.store.GetCard(ctx, id)
+	current, err := s.getCard(ctx, id)
 	if err != nil {
-		return nil, NotFound("card " + id)
+		return nil, err
 	}
 	if req.Version != current.Version {
 		return nil, VersionConflict(current)
@@ -705,8 +726,8 @@ func (s *Service) ListEvents(ctx context.Context, q EventQuery) ([]Event, error)
 
 // History renders a resumption-ready timeline for a card. SPEC §8.
 func (s *Service) History(ctx context.Context, id string) ([]HistoryEntry, error) {
-	if _, err := s.store.GetCard(ctx, id); err != nil {
-		return nil, NotFound("card " + id)
+	if _, err := s.getCard(ctx, id); err != nil {
+		return nil, err
 	}
 	evs, err := s.store.ListEvents(ctx, EventQuery{CardID: id, Limit: 500})
 	if err != nil {
@@ -800,9 +821,12 @@ func (s *Service) validateFieldValue(ctx context.Context, f *FieldDef, v any) er
 		if id == "" {
 			return nil
 		}
-		target, err := s.store.GetCard(ctx, id)
+		target, err := s.getCard(ctx, id)
 		if err != nil {
-			return newTargetCardMissing(id, f.TargetType)
+			if ce := AsError(err); ce != nil && ce.Code == "not_found" {
+				return newTargetCardMissing(id, f.TargetType)
+			}
+			return err
 		}
 		if f.TargetType != "" && target.TypeID != f.TargetType {
 			return newTargetCardTypeMismatch(id, []string{f.TargetType})
