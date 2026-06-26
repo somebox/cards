@@ -10,7 +10,7 @@
 </head>
 <body>
   <nav class="app-nav">
-    <span class="brand">🗂 Work Cards</span>
+    <a class="brand" href="/">🗂 Work Cards</a>
     {{range .Boards}}<a href="/ui/boards/{{.ID}}">{{.Name}}</a>{{end}}
     <span class="spacer"></span>
     <a href="/ui/cards/new?type=programming-task">+ New Card</a>

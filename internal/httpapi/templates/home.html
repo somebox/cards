@@ -1,0 +1,41 @@
+{{define "content"}}
+<div class="home">
+  <section class="home__hero">
+    <h1>{{.Workspace.Name}}</h1>
+    <p class="muted">{{len .Boards}} board{{if gt (len .Boards) 1}}s{{end}} · {{.CardCount}} card{{if ne .CardCount 1}}s{{end}}</p>
+  </section>
+
+  <section class="home__boards">
+    <h2>Boards</h2>
+    <div class="grid">
+      {{range .Boards}}
+      <a class="home__board-card" href="/ui/boards/{{.ID}}">
+        <h3>{{.Name}}</h3>
+        {{if .Description}}<p class="muted">{{.Description}}</p>{{end}}
+        <div class="home__board-meta">
+          <span>{{len .Columns}} columns</span>
+          <span>·</span>
+          <span>{{len .CardTypeIDs}} type{{if gt (len .CardTypeIDs) 1}}s{{end}}</span>
+        </div>
+      </a>
+      {{end}}
+    </div>
+  </section>
+
+  {{if .RecentCards}}
+  <section class="home__recent">
+    <h2>Recent activity</h2>
+    <div class="stack">
+      {{range .RecentCards}}
+      <div class="home__recent-row">
+        <span class="chip chip--type" data-type="{{.TypeID}}">{{.TypeLabel}}</span>
+        <a href="/ui/cards/{{.ID}}">{{.Title}}</a>
+        <span class="faint">{{.Status}}</span>
+        <span class="faint" data-ago="{{.UpdatedAt}}">{{.UpdatedAt}}</span>
+      </div>
+      {{end}}
+    </div>
+  </section>
+  {{end}}
+</div>
+{{end}}

@@ -59,6 +59,7 @@ func New(svc *core.Service, ws *core.Workspace, types map[string]*core.CardType,
 		"card_detail.html":  {"templates/card_detail.html"},
 		"card_form.html":    {"templates/card_form.html"},
 		"card_modal.html":   {"templates/card_modal.html"},
+		"home.html":         {"templates/home.html"},
 	}
 	pages := map[string]*template.Template{}
 	for name, files := range pageSets {
@@ -667,12 +668,30 @@ func (rw *recordingWriter) Write(b []byte) (int, error) { return rw.buf.Write(b)
 // --- UI handlers ---
 
 func (s *Server) uiIndex(w http.ResponseWriter, r *http.Request) {
-	// Redirect to first board.
-	for id := range s.boards {
-		http.Redirect(w, r, "/ui/boards/"+id, http.StatusFound)
-		return
+	// Home page: board list + recent activity.
+	page, _ := s.svc.ListCards(r.Context(), core.CardQuery{Limit: 10})
+	recent := []RecentCard{}
+	if page != nil {
+		for _, c := range page.Items {
+			label := c.TypeID
+			if ct := s.types[c.TypeID]; ct != nil {
+				label = ct.Name
+			}
+			recent = append(recent, RecentCard{
+				ID: c.ID, Title: c.Title, TypeID: c.TypeID, TypeLabel: label,
+				Status: c.Status, UpdatedAt: c.UpdatedAt.Format(time.RFC3339Nano),
+			})
+		}
 	}
-	http.Error(w, "no boards configured", http.StatusNotFound)
+	totalCount := 0
+	if all, _ := s.svc.ListCards(r.Context(), core.CardQuery{Limit: 200}); all != nil {
+		totalCount = len(all.Items)
+	}
+	data := s.baseData(s.ws.Name)
+	data.Workspace = s.ws
+	data.CardCount = totalCount
+	data.RecentCards = recent
+	s.renderPage(w, "home.html", data)
 }
 
 // uiStylesheet serves the embedded design-system CSS.
@@ -1071,6 +1090,16 @@ type Option struct {
 	Disabled bool
 }
 
+// RecentCard is a card summary for the home page's recent-activity list.
+type RecentCard struct {
+	ID        string
+	Title     string
+	TypeID    string
+	TypeLabel string
+	Status    string
+	UpdatedAt string
+}
+
 // FieldView is a rendered field in card_detail / card_form.
 type FieldView struct {
 	Def     *core.FieldDef
@@ -1100,6 +1129,10 @@ type ViewData struct {
 	StatusOptions  []Option
 	Users          []core.User
 	TagSet         []string
+	// Home page
+	Workspace      *core.Workspace
+	CardCount      int
+	RecentCards    []RecentCard
 }
 
 func (s *Server) baseData(title string) ViewData {
