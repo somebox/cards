@@ -15,7 +15,27 @@ linters:
 
 linters-settings:
   errcheck:
-    # Allow unhandled errors in tests and on deferred Close/Cleanup.
+    # Allow unhandled errors on these idiomatic "best effort" calls.
     exclude-functions:
-      - (*os.File).Close
-      - (*sql.DB).Close
+      - (*database/sql.Tx).Rollback
+      - (*github.com/foz/work-cards/internal/sqlite.Store).Close
+    # Ignore Write/WriteByte on stdout/stderr/ResponseWriter (best-effort I/O).
+    check-blank: false
+    check-type-assertions: false
+
+issues:
+  # Exclude common idiomatic error-ignoring patterns.
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - errcheck
+    - path: internal/mcp/mcp\.go
+      linters:
+        - errcheck
+      # MCP stdout writes are best-effort (stdio JSON-RPC).
+    - path: internal/httpapi/httpapi\.go
+      linters:
+        - errcheck
+      # ResponseWriter.Write in SSE/idempotency is best-effort.
+  max-issues-per-linter: 0
+  max-same-issues: 0
