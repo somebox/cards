@@ -1,0 +1,24 @@
+{{define "card_partial"}}
+<div class="card" id="card-{{.Card.ID}}" data-card-id="{{.Card.ID}}" data-type="{{.Card.TypeID}}" draggable="true">
+  <div class="card__title">
+    <a href="/ui/cards/{{.Card.ID}}" data-card-link="/ui/cards/{{.Card.ID}}/modal">{{.Card.Title}}</a>
+  </div>
+  <div class="card__meta">
+    <span class="chip chip--type" data-type="{{.Card.TypeID}}">{{.CardType.Name}}</span>
+    {{if .Card.Owner}}<span>👤 {{.Card.Owner}}</span>{{end}}
+    {{range .Card.Tags}}<span class="chip chip--tag">{{.}}</span>{{end}}
+  </div>
+  {{if .PreviewFields}}
+  <div class="card__meta">
+    {{range .PreviewFields}}<span><b>{{.Label}}:</b> {{.Value}}</span>{{end}}
+  </div>
+  {{end}}
+  {{if or .LinkChips .RepeatingChips}}
+  <div class="card__chips">
+    {{range .LinkChips}}<span class="chip chip--link" data-link-type="{{.TypeID}}">🔗 {{.Label}} ×{{.Count}}</span>{{end}}
+    {{range .RepeatingChips}}<span class="chip chip--rep">📝 {{.Label}} ×{{.Count}}</span>{{end}}
+  </div>
+  {{end}}
+  <div class="card__ago" data-ago="{{.Card.UpdatedAt}}">just now</div>
+</div>
+{{end}}

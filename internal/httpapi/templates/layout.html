@@ -1,0 +1,156 @@
+{{define "layout"}}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{.Title}} — Work Cards</title>
+  <link rel="stylesheet" href="/ui/style.css">
+  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+</head>
+<body>
+  <nav class="app-nav">
+    <span class="brand">🗂 Work Cards</span>
+    {{range .Boards}}<a href="/ui/boards/{{.ID}}">{{.Name}}</a>{{end}}
+    <span class="spacer"></span>
+    <a href="/ui/cards/new?type=programming-task">+ New Card</a>
+  </nav>
+  <main>
+    {{block "content" .}}{{end}}
+  </main>
+  <div id="toasts" class="toasts"></div>
+  <dialog id="card-modal" class="modal" aria-modal="true"></dialog>
+  <script>
+  // ---- Toasts ----
+  function toast(msg, kind) {
+    var c = document.getElementById('toasts');
+    var t = document.createElement('div');
+    t.className = 'toast' + (kind === 'err' ? ' toast--err' : '');
+    t.innerHTML = '<span>' + msg + '</span><button aria-label="dismiss">×</button>';
+    t.querySelector('button').onclick = function(){ t.remove(); };
+    c.appendChild(t);
+    setTimeout(function(){ if (t.parentNode) t.remove(); }, 6000);
+  }
+  document.body.addEventListener('htmx:responseError', function(e){
+    var msg = 'Request failed';
+    try { msg = JSON.parse(e.detail.xhr.responseText).message || msg; } catch(_){}
+    toast(msg, 'err');
+  });
+  document.body.addEventListener('htmx:afterRequest', function(e){
+    if (e.detail.failed && e.detail.xhr && e.detail.xhr.status >= 400) {
+      var msg = 'Error ' + e.detail.xhr.status;
+      try { msg = JSON.parse(e.detail.xhr.responseText).message || msg; } catch(_){}
+      toast(msg, 'err');
+    }
+  });
+
+  // ---- Modal ----
+  var modal = document.getElementById('card-modal');
+  function openModal(html) {
+    modal.innerHTML = html;
+    if (!modal.open) modal.showModal();
+    wireDirtySave(modal);
+  }
+  function closeModal() { if (modal.open) modal.close(); modal.innerHTML = ''; }
+  modal.addEventListener('click', function(e){ if (e.target === modal) closeModal(); });
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && modal.open) { e.preventDefault(); closeModal(); } });
+  document.body.addEventListener('click', function(e){
+    var a = e.target.closest('[data-card-link]');
+    if (a) { e.preventDefault(); loadModal(a.getAttribute('data-card-link')); }
+  });
+  function loadModal(url) {
+    fetch(url, {headers:{'HX-Request':'true','X-Modal':'true'}})
+      .then(function(r){ return r.text(); })
+      .then(function(html){ openModal(html); })
+      .catch(function(){ toast('Could not load card', 'err'); });
+  }
+
+  // ---- Dirty-save: activate the Save button only when a field changes ----
+  function wireDirtySave(root) {
+    var bar = root.querySelector('.modal__footer button');
+    if (!bar) return;
+    bar.disabled = true;
+    root.querySelectorAll('.field .input, .field .select, .field .textarea').forEach(function(el){
+      el.addEventListener('input', function(){ el.classList.add('is-dirty'); bar.disabled = false; });
+      el.addEventListener('change', function(){ el.classList.add('is-dirty'); bar.disabled = false; });
+    });
+    bar.onclick = function(){
+      var form = root.querySelector('form.save-form');
+      if (!form) return;
+      var fd = new FormData(form);
+      root.querySelectorAll('.field .input.is-dirty, .field .select.is-dirty, .field .textarea.is-dirty').forEach(function(el){
+        fd.append(el.name, el.value);
+      });
+      fd.append('version', form.getAttribute('data-version'));
+      fetch(form.action, {method:'POST', body:fd, headers:{'HX-Request':'true'}})
+        .then(function(r){ if (!r.ok) throw r; return r.text(); })
+        .then(function(html){ openModal(html); toast('Saved'); })
+        .catch(function(r){ r.text().then(function(t){
+          var msg = 'Save failed'; try { msg = JSON.parse(t).message || msg; } catch(_){}
+          toast(msg, 'err');
+        }); });
+    };
+  }
+
+  // ---- Drag-and-drop status changes ----
+  document.addEventListener('dragstart', function(e){
+    var card = e.target.closest('.card');
+    if (!card) return;
+    e.dataTransfer.setData('text/plain', card.getAttribute('data-card-id'));
+    e.dataTransfer.effectAllowed = 'move';
+    card.classList.add('is-dragging');
+  });
+  document.addEventListener('dragend', function(e){
+    var card = e.target.closest('.card');
+    if (card) card.classList.remove('is-dragging');
+  });
+  document.addEventListener('dragover', function(e){
+    var col = e.target.closest('.lane__body');
+    if (!col) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    col.classList.add('is-drag-over');
+  });
+  document.addEventListener('dragleave', function(e){
+    var col = e.target.closest('.lane__body');
+    if (col && !col.contains(e.relatedTarget)) col.classList.remove('is-drag-over');
+  });
+  document.addEventListener('drop', function(e){
+    var col = e.target.closest('.lane__body');
+    if (!col) return;
+    e.preventDefault();
+    col.classList.remove('is-drag-over');
+    var cardID = e.dataTransfer.getData('text/plain');
+    var status = col.getAttribute('data-status');
+    moveCard(cardID, status);
+  });
+  function moveCard(cardID, status) {
+    fetch('/v1/cards/' + cardID, {headers:{'Accept':'application/json'}})
+      .then(function(r){ return r.json(); })
+      .then(function(c){
+        return fetch('/v1/cards/' + cardID, {
+          method:'PATCH',
+          headers:{'Content-Type':'application/json','X-Work-Cards-Actor':'foz','Idempotency-Key':'move-'+cardID+'-to-'+status},
+          body: JSON.stringify({version: c.version, status: status})
+        });
+      })
+      .then(function(r){ if(!r.ok) throw r; return r.json(); })
+      .then(function(){ /* SSE will re-render the board */ })
+      .catch(function(r){ r.text().then(function(t){ var m='Move failed'; try{m=JSON.parse(t).message||m;}catch(_){} toast(m,'err'); }); });
+  }
+
+  // ---- relative time ----
+  function ago(iso) {
+    var then = new Date(iso), now = new Date(), s = Math.floor((now-then)/1000);
+    if (s < 60) return 'just now';
+    if (s < 3600) return Math.floor(s/60)+'m ago';
+    if (s < 86400) return Math.floor(s/3600)+'h ago';
+    return Math.floor(s/86400)+'d ago';
+  }
+  function refreshAgo(){ document.querySelectorAll('[data-ago]').forEach(function(el){ el.textContent = ago(el.getAttribute('data-ago')); }); }
+  document.addEventListener('DOMContentLoaded', refreshAgo);
+  document.addEventListener('htmx:afterSettle', refreshAgo);
+  </script>
+</body>
+</html>
+{{end}}

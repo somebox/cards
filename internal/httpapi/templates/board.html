@@ -1,0 +1,44 @@
+{{define "content"}}
+<h1 class="page-title">{{.Board.Name}}</h1>
+{{if .Board.Description}}<p class="muted">{{.Board.Description}}</p>{{end}}
+<div class="board" id="board">
+  {{range $col := .Columns}}
+  <section class="lane">
+    <div class="lane__head"><span>{{$col.Name}}</span><span class="lane__count">{{len (index $.CardsByColumn $col.ID)}}</span></div>
+    <div class="lane__body" id="col-{{$col.ID}}" data-status="{{$col.ID}}">
+      {{range (index $.CardsByColumn $col.ID)}}
+        {{template "card_partial" .}}
+      {{end}}
+    </div>
+  </section>
+  {{end}}
+</div>
+<script>
+// Live updates: subscribe to the board's event stream. On a mutation event,
+// re-fetch the board HTML and swap #board so the card lands in the right
+// column with fresh content. (htmx could do this more surgically; this is
+// the simplest correct live board.)
+(function () {
+  var board = document.getElementById('board');
+  if (!board || typeof EventSource === 'undefined') return;
+  var path = '/v1/events/stream?board_id={{.Board.ID}}&types=status_changed,card_created,field_updated,owner_changed,tags_changed,item_appended,item_updated,item_removed,link_added,comment_added';
+  var es = new EventSource(path);
+  ['status_changed','card_created','field_updated','owner_changed','tags_changed','item_appended','item_updated','item_removed','link_added','comment_added'].forEach(function(t){
+    es.addEventListener(t, handle);
+  });
+  function handle(e) {
+    fetch(window.location.href, {headers: {'HX-Request':'true'}})
+      .then(function(r){ return r.text(); })
+      .then(function(html){
+        var tmp = document.createElement('div');
+        tmp.innerHTML = html;
+        var fresh = tmp.querySelector('.board');
+        if (fresh) board.innerHTML = fresh.innerHTML;
+        refreshAgo();
+      })
+      .catch(function(){});
+  }
+  es.onerror = function() { es.close(); };
+})();
+</script>
+{{end}}
