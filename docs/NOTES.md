@@ -1,7 +1,9 @@
 # Design Notes — v0.4
 
-What changed in this pass and why. Read alongside [`SPEC.md`](SPEC.md) v0.4.
-These notes capture decisions; the normative text lives in the spec.
+What changed in the v0.4 design pass and why. These decisions are now
+**implemented** — the core kernel, HTTP API, CLI, MCP server, web UI, and
+hook supervisor are built and dogfooded. Read alongside [`SPEC.md`](SPEC.md)
+v0.4. These notes capture decisions; the normative text lives in the spec.
 
 ## Theme
 

@@ -1,9 +1,11 @@
 # Work Cards — Design Specification
 
-**Status:** Draft v0.4 — pre-implementation. v0.4 trims the field catalog,
-locks single-workspace-per-instance, fixes link direction and concurrency
-contracts, and makes the event/error contracts normative. See
-[`NOTES.md`](NOTES.md) for the full change log and rationale.
+**Status:** v0.4 — implemented (beta). The v0.4 pass trimmed the field
+catalog, locked single-workspace-per-instance, fixed link direction and
+concurrency contracts, and made the event/error contracts normative. See
+[`NOTES.md`](NOTES.md) for the full change log and rationale. The core
+kernel, HTTP API, CLI, MCP server, web UI, and hook supervisor are built and
+dogfooded; the API is stable for the current scope.
 
 Work Cards is a small substrate for typed-card coordination. It stores cards,
 events, links, and comments; validates writes against versioned schemas;

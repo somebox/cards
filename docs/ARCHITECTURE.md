@@ -1,9 +1,10 @@
-# Architecture — Go Core With Python and Node Integration
+# Architecture — Go Core With Extension Integration
 
 This document describes the implementation platform for Work Cards. The design
-assumes a Go **kernel** distributed as a small `cards` binary, with Python and
-Node packages that make it easy to embed in agent harnesses, and an extension
+is a Go **kernel** distributed as a small `cards` binary, with an extension
 model where behavior is added by independent processes in any language.
+Python and Node client packages are planned but not yet built; for now the
+binary, CLI, HTTP API, and MCP server are the integration surfaces.
 
 Normative product behavior lives in [`SPEC.md`](SPEC.md). The principles
 behind these choices live in [`PHILOSOPHY.md`](PHILOSOPHY.md). The extension
@@ -16,15 +17,15 @@ contract lives in [`EXTENSIONS.md`](EXTENSIONS.md). Schema authoring lives in
 
 - Run as a single local service or CLI with minimal setup.
 - Serve **exactly one workspace per process** (one SQLite file, possibly
-  assembled from multiple context files). Multi-workspace deployments run
+  assembled from multiple definition files). Multi-workspace deployments run
   multiple processes on different ports/paths — the binary, CLI, and clients
   all take `--workspace`/`--url`, so this is trivial and is the supported
   multi-tenancy path for v1.
-- Work as a sidecar for Python, Node/TypeScript, MCP, and other clients.
+- Work as a sidecar for MCP clients, CLIs, scripts, and other HTTP clients.
 - Use commonly available libraries and avoid mandatory external services.
 - Keep runtime state in SQLite and workspace artifacts on disk.
-- Load one or more git-backed config contexts from outside the app and merge
-  them into **one** workspace.
+- Load git-backed config from `definitions/` in the workspace directory and
+  merge them into **one** workspace.
 - Keep the core logic transport-independent so HTTP, CLI, MCP, and library use
   all share the same validation and storage behavior.
 
@@ -50,15 +51,12 @@ Why Go fits:
 - It can expose the same behavior as CLI, HTTP service, MCP subprocess, or Go
   library without changing the core model.
 
-Recommended dependencies:
+Recommended dependencies (all in use):
 
 - HTTP router: `net/http` plus `chi`.
-- CLI: `cobra` or `urfave/cli`.
-- SQLite: prefer `modernc.org/sqlite` for pure-Go builds; use CGO SQLite only
-  if FTS/build behavior requires it and release packaging covers it.
+- SQLite: `modernc.org/sqlite` (pure-Go, no CGO, FTS5 supported).
+- UUID: `github.com/google/uuid`.
 - YAML: `gopkg.in/yaml.v3`.
-- JSON Schema: `github.com/santhosh-tekuri/jsonschema` or equivalent.
-- File watching: `fsnotify`.
 
 Keep dependency choices boring. The project should be easy to build and reason
 about without a framework.
@@ -70,29 +68,30 @@ about without a framework.
 The Go binary provides several entry points:
 
 ```bash
-cards serve --workspace ./.work-cards --port 8787
-cards mcp --workspace ./.work-cards
+cards serve --workspace ./examples/demo-workspace --port 8787
+cards mcp --workspace ./examples/demo-workspace
 cards list --board engineering --owner me
-cards workspace show
 ```
 
 Internally, these entry points call the same service layer.
 
-Suggested package boundaries:
+Actual package boundaries:
 
 ```text
-cmd/cards/          CLI binary and subcommand wiring
-internal/core/      cards, schemas, transitions, validation, events
-internal/config/    load/merge/validate JSON/YAML contexts
-internal/store/     storage interfaces
-internal/sqlite/    SQLite implementation
-internal/httpapi/   REST and SSE handlers
+cmd/cards/          CLI binary and subcommand wiring (serve, mcp, extensions, do)
+internal/core/      cards, schemas, transitions, validation, events, Store interface
+internal/config/    load/merge/validate JSON/YAML definitions + extensions config
+internal/sqlite/    SQLite implementation (FTS5, migrations)
+internal/httpapi/   REST, SSE, and htmx web UI handlers
 internal/mcp/       MCP adapter over core services
+internal/hooks/     hook supervisor (spawns subprocesses on events)
+internal/cli/       CLI client (talks to the HTTP API)
+internal/seed/      demo workspace seed data
 internal/artifacts/ workspace file/artifact helpers
 ```
 
 Public Go library use can be added later by promoting stable packages out of
-`internal/`, but v1 can keep API stability focused on HTTP/CLI/MCP.
+`internal/`, but v1 keeps API stability focused on HTTP/CLI/MCP.
 
 ---
 
@@ -124,15 +123,15 @@ The service layer owns:
 - event writing,
 - artifact metadata validation.
 
-The HTTP layer should not reimplement these rules.
+The HTTP layer does not reimplement these rules.
 
 ---
 
 ## Storage
 
-Use SQLite as the operational store.
+SQLite is the operational store.
 
-Recommended tables:
+Tables:
 
 - `cards`: materialized card snapshot; JSON `fields`; denormalized `type_id`,
   `status`, `owner`, timestamps, `schema_version`, `version`.
@@ -140,52 +139,33 @@ Recommended tables:
 - `links`: source card, link type, target card, note, timestamps.
 - `comments`: card id, author, markdown body, timestamps.
 - `users`: registered users.
-- `idempotency_keys`: request key, actor, result hash/body reference.
-- `fts_cards`: FTS5 index for title and configured searchable fields/comments.
+- `idempotency_keys`: request key, actor, status, body, created_at
+  (composite PK `key, actor`).
+- `fts_cards`: FTS5 index for title and searchable text fields.
 
-Definitions are not primarily stored in SQLite. They are loaded from
-`definitions/` and cached in memory as normalized config. SQLite can keep a
-small `definition_digest` table for reload diagnostics and event metadata, but
-git-backed files remain the source of truth.
-
-Large data goes to `artifacts/` or external URIs. Cards hold `artifact`, `path`,
-`json`, `yaml`, or `command` metadata depending on the use case.
+Definitions are not stored in SQLite. They are loaded from `definitions/`
+and cached in memory as normalized config. Git-backed files remain the source
+of truth.
 
 ---
 
-## Config Contexts
+## Workspace Loading
 
-Configs are loaded from one or more paths supplied by CLI flags, environment, or
-wrapper libraries.
-
-Examples:
+A workspace is a directory with `definitions/` loaded at startup. The binary,
+CLI, and clients all take `--workspace <dir>`:
 
 ```bash
-cards serve \
-  --context ./cards.workspace.yaml \
-  --context ./cards.engineering.yaml \
-  --context ./cards.shop.yaml
+cards serve --workspace ./examples/demo-workspace --port 8787
+cards list --workspace ./examples/demo-workspace
 ```
 
-```bash
-CARDS_CONTEXT=./cards.workspace.yaml,./cards.engineering.yaml cards workspace show
-```
+The `--workspace` flag points at a directory containing `definitions/`
+(workspace.json, card-types/, boards/, extensions.json). The loader reads
+and merges these into **exactly one** in-memory workspace, exposed through
+`GET /v1/workspace`.
 
-A context may point at:
-
-- a workspace directory containing `definitions/`,
-- a single YAML/JSON file,
-- a directory of partial config files.
-
-Merge rules should be explicit and deterministic, and produce **exactly one
-workspace**:
-
-- Load contexts in command-line order.
-- Later contexts can add boards, views, card types, link types, and tags.
-- Later contexts can override settings only when the key is present.
-- Duplicate ids with different definitions are rejected unless
-  `--allow-override` is explicitly set.
-- The normalized result is one workspace, exposed through `GET /v1/workspace`.
+Remote/CLI clients use `--url` (or `CARDS_URL`) to point at a running server
+and `--as` (or `CARDS_USER`) to set the actor.
 
 This lets an app ship a base workspace config while an agent harness layers on
 local boards, views, or card types.
@@ -199,7 +179,7 @@ local boards, views, or card types.
 Primary mode for Python and Node harnesses:
 
 ```bash
-cards serve --workspace ./.work-cards --port 8787
+cards serve --workspace ./examples/demo-workspace --port 8787
 ```
 
 Clients connect to `http://127.0.0.1:8787/v1`. SSE streams use the same process.
@@ -221,7 +201,7 @@ CLI commands call the same service layer directly when local, or optionally call
 The Go binary can expose MCP over stdio:
 
 ```bash
-cards mcp --workspace ./.work-cards
+cards mcp --workspace ./examples/demo-workspace
 ```
 
 MCP tools should be generated from the same normalized workspace introspection
@@ -267,107 +247,45 @@ examples.
 
 ---
 
-## Python Integration
+## Planned Integrations
 
-The Python package should be a small client and launcher around the Go binary.
+Python and Node client packages are **planned** but not yet built. They will
+be thin clients and launchers around the Go binary, so agent harnesses can
+embed Work Cards without managing a separate process.
 
-Package name example: `work-cards`.
-
-User experience:
-
-```bash
-pip install work-cards
-```
+**Python** (`work-cards`):
 
 ```python
 from work_cards import Cards
 
-cards = Cards.start(
-    workspace=".work-cards",
-    context=["cards.workspace.yaml", "cards.engineering.yaml"],
-)
-
-cards.create(
-    type_id="programming-task",
-    title="Update docs",
-    status="todo",
-    fields={"description": "Clarify setup", "branch": "docs/setup"},
-)
+cards = Cards.start(workspace="./examples/demo-workspace")
+cards.create(type_id="programming-task", title="Update docs", status="todo",
+             fields={"description": "Clarify setup", "branch": "docs/setup"})
 ```
 
-The Python package can provide:
-
-- `Cards.connect(url=...)` for an existing service.
-- `Cards.start(workspace=..., context=[...])` to launch the bundled binary.
-- `Cards.cli([...])` for simple subprocess use when a long-lived service is not
-  needed.
-
-Binary distribution options:
-
-- Preferred: platform wheels that include the matching `cards` binary.
-- Acceptable: download the matching binary from GitHub Releases at install time
-  or first use.
-- Avoid: requiring users to install Go and compile during `pip install`.
-
-Python wheels should not write runtime state into site-packages. The wrapper
-passes workspace paths explicitly and stores PID/port metadata in the workspace
-or a user cache directory.
-
----
-
-## Node / TypeScript Integration
-
-The Node package should mirror the Python shape.
-
-Package name example: `@work-cards/client`.
-
-User experience:
-
-```bash
-npm install @work-cards/client
-```
+**Node/TypeScript** (`@work-cards/client`):
 
 ```ts
 import { Cards } from "@work-cards/client";
-
-const cards = await Cards.start({
-  workspace: ".work-cards",
-  context: ["cards.workspace.yaml", "cards.engineering.yaml"],
-});
-
-await cards.create({
-  type_id: "programming-task",
-  title: "Update docs",
-  status: "todo",
-  fields: { description: "Clarify setup", branch: "docs/setup" },
-});
+const cards = await Cards.start({ workspace: "./examples/demo-workspace" });
+await cards.create({ type_id: "programming-task", title: "Update docs", status: "todo",
+                     fields: { description: "Clarify setup", branch: "docs/setup" } });
 ```
 
-Binary distribution options:
+Both will provide `connect(url)` for an existing server and `start(workspace)`
+to launch the bundled binary. Binary distribution will use platform wheels /
+npm platform packages so no Go toolchain is required at install time.
 
-- Preferred: main package plus platform-specific optional dependencies, e.g.
-  `@work-cards/cards-darwin-arm64`, `@work-cards/cards-linux-x64`.
-- Acceptable: postinstall download from GitHub Releases.
-- Avoid: building Go during `npm install`.
+For MCP-heavy TypeScript harnesses, launch `cards mcp` directly as the MCP
+server — it keeps one source of tool behavior.
 
-The Node client can provide:
-
-- `Cards.connect({ url })`.
-- `Cards.start({ workspace, context })`.
-- typed request/response helpers generated from the OpenAPI spec later.
-
-For MCP-heavy TypeScript harnesses, either:
-
-- launch `cards mcp` directly as an MCP server, or
-- expose a TypeScript MCP server that delegates to the Go HTTP API.
-
-The first option is simpler and keeps one source of tool behavior.
+Until these land, use the HTTP API, CLI, or MCP server directly.
 
 ---
 
 ## Release and Packaging Pipeline
 
-CI should build the Go binary for common targets:
+CI builds the Go binary for common targets:
 
 ```text
 darwin-arm64
@@ -377,32 +295,23 @@ linux-arm64
 windows-amd64
 ```
 
-Release artifacts:
+Release artifacts (planned):
 
 - `cards_<version>_<os>_<arch>.tar.gz`
 - checksums (`SHA256SUMS`)
 - optional SBOM
-- npm platform packages
-- Python wheels or downloader package
+- npm platform packages (when Node client lands)
+- Python wheels (when Python client lands)
 
-The same binary should support `serve`, `mcp`, and CLI commands. Avoid separate
-server and CLI binaries unless size or dependency isolation becomes necessary.
+The same binary supports `serve`, `mcp`, and CLI commands. No separate
+server and CLI binaries.
 
 ---
 
 ## Port and Lifecycle Management
 
-Python/Node launchers should:
-
-- prefer `CARDS_URL` if set,
-- otherwise start the bundled binary on `127.0.0.1` with port `0` or a requested
-  port,
-- read a startup line or health endpoint to discover the selected port,
-- stop the child process when the client closes,
-- keep logs in the workspace or user cache,
-- avoid leaving orphan processes when possible.
-
-Recommended health endpoint:
+The server binds to `127.0.0.1` by default and serves one workspace per
+process. Health endpoint:
 
 ```http
 GET /v1/health
@@ -411,12 +320,16 @@ GET /v1/health
 Response includes version, **workspace id** (singular — one process serves one
 workspace), config digest, and SQLite path.
 
+Future Python/Node launchers will prefer `CARDS_URL` if set, otherwise start
+the bundled binary on `127.0.0.1` and read the selected port from the health
+endpoint.
+
 ---
 
 ## Security and Trust Boundary
 
-Work Cards is designed for local single-instance coordination. The first version
-should bind to `127.0.0.1` by default.
+Work Cards is designed for local single-instance coordination. The server
+binds to `127.0.0.1` by default.
 
 Important boundaries:
 
@@ -424,21 +337,21 @@ Important boundaries:
   extensions own execution contracts. The core never executes anything.
 - `path`/`json`/`yaml` field types were also removed; store such content as
   `string`/`text`/`artifact` and let an extension validate and annotate.
-- Python/Node wrappers should not pass untrusted config paths silently.
-- If exposed beyond localhost, callers should put the service behind their
-  application's auth or a local reverse proxy.
+- If exposed beyond localhost, put the service behind a reverse proxy or an
+  auth extension. There is no baked-in auth; Work Cards is treated as an
+  internal tool.
 - Mirror import is version-gated: each markdown file declares the `version` it
   was edited from; stale imports are `409 version_conflict`, never a silent
   overwrite (see `SPEC.md` §3).
 
 ---
 
-## Recommendation
+## Summary
 
-Build the core in Go, distribute `cards` as a self-contained binary, and treat
-Python/Node packages as thin clients plus launchers. Keep state in SQLite,
-definitions in git-backed JSON/YAML, artifacts on disk, and all business logic
-inside the Go service layer.
+The core is built in Go, distributed as a self-contained `cards` binary, with
+Python/Node packages planned as thin clients plus launchers. State lives in
+SQLite, definitions in git-backed JSON/YAML, artifacts on disk, and all
+business logic inside the Go service layer.
 
 This gives agent harnesses a low-friction local dependency while preserving a
 clean API boundary for other applications.
