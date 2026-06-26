@@ -1,0 +1,12 @@
+{
+  "extensions": [
+    {
+      "id": "review-notify",
+      "kind": "hook",
+      "description": "Notify when a card reaches review on the engineering board",
+      "on": "status_changed",
+      "filter": { "board_id": "engineering", "to_status": "review" },
+      "run": ["bash", ".cards/ext/notify.sh"]
+    }
+  ]
+}
