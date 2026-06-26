@@ -6,7 +6,7 @@
     { "id": "hypothesis", "type": "text", "required": true },
     { "id": "researcher", "type": "user", "required": false },
     {
-      "id": "sources", "type": "repeating", "required": false,
+      "id": "sources", "type": "repeating", "required": false, "display": "feed",
       "item_fields": [
         { "id": "url", "type": "string", "required": true },
         { "id": "query", "type": "string", "required": false },

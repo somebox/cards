@@ -272,6 +272,11 @@ main { padding: var(--s-4); max-width: 100%; }
   margin: var(--s-1) 0; font-size: var(--t-sm); background: var(--c-surface-2);
   border-radius: 0 var(--r-sm) var(--r-sm) 0;
 }
+/* feed: reverse-chrono entry list (display:feed hint) */
+.feed { display: flex; flex-direction: column; gap: var(--s-2); }
+.feed .entry { border-left-color: var(--c-accent); }
+/* mono: monospace text (display:monospace hint) */
+.mono { font-family: var(--font-mono, 'SF Mono', 'Cascadia Code', 'Consolas', monospace); font-size: var(--t-xs); }
 
 /* --- Error / alert ------------------------------------------------------ */
 .alert {

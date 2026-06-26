@@ -1079,6 +1079,7 @@ type FieldView struct {
 	Entries [][]PreviewField
 	Users   []core.User
 	ValueRendered string
+	Display string // UI hint from FieldDef.Display (feed|badge|hidden|link|monospace)
 }
 
 // ViewData is the template payload.
@@ -1316,7 +1317,7 @@ func fieldViews(ct *core.CardType, fields any, users []core.User) []FieldView {
 		if f.Label == "" {
 			f.Label = humanizeID(f.ID)
 		}
-		fv := FieldView{Def: &f, Users: users}
+		fv := FieldView{Def: &f, Users: users, Display: f.Display}
 		if v, ok := fm[f.ID]; ok {
 			fv.Value = v
 			fv.ValueStr = renderValue(v)

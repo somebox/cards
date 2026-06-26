@@ -53,20 +53,40 @@
   </div>
 
   {{range .Fields}}
+  {{if eq .Display "hidden"}}{{else}}
   <div class="field">
     <label class="field__label">{{.Def.Label}}{{if .Def.Required}} <span class="req">*</span>{{end}}</label>
     {{if eq .Def.Type "repeating"}}
       {{if .Entries}}
+        <div class="{{if eq .Display "feed"}}feed{{else}}stack{{end}}">
         {{range .Entries}}
         <div class="entry">
           {{range .}}<div><b>{{.Label}}:</b> {{.Value}}</div>{{end}}
         </div>
         {{end}}
+        </div>
       {{else}}<span class="muted">No entries.</span>{{end}}
     {{else if eq .Def.Type "artifact"}}
       {{if .Value}}<div class="field__val">{{.ValueRendered}}</div>{{else}}<span class="muted">—</span>{{end}}
     {{else if eq .Def.Type "card_link"}}
-      {{if .Value}}<div class="field__val">{{.Value}}</div>{{else}}<span class="muted">—</span>{{end}}
+      {{if .Value}}
+        {{if eq .Display "link"}}<a href="/ui/cards/{{.Value}}">{{.Value}}</a>
+        {{else}}<div class="field__val">{{.Value}}</div>{{end}}
+      {{else}}<span class="muted">—</span>{{end}}
+    {{else if eq .Def.Type "enum"}}
+      {{if eq .Display "badge"}}
+        {{if .ValueStr}}<span class="chip chip--tag">{{.ValueStr}}</span>{{else}}<span class="muted">—</span>{{end}}
+      {{else}}
+        <form hx-post="/ui/cards/{{$.Card.ID}}/field" hx-target="#detail-body" hx-swap="outerHTML">
+          {{template "field_input" .}}
+          <button type="submit" class="btn btn--primary btn--sm">Save</button>
+        </form>
+      {{end}}
+    {{else if eq .Def.Type "text"}}
+      <form hx-post="/ui/cards/{{$.Card.ID}}/field" hx-target="#detail-body" hx-swap="outerHTML">
+        {{template "field_input" .}}
+        <button type="submit" class="btn btn--primary btn--sm">Save</button>
+      </form>
     {{else}}
       <form hx-post="/ui/cards/{{$.Card.ID}}/field" hx-target="#detail-body" hx-swap="outerHTML">
         {{template "field_input" .}}
@@ -74,6 +94,7 @@
       </form>
     {{end}}
   </div>
+  {{end}}
   {{end}}
 
   {{/* --- Links (read-only list) --- */}}

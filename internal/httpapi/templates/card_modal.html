@@ -43,27 +43,41 @@
 
     {{range .Fields}}
     {{$field := .}}
+    {{if eq .Display "hidden"}}{{else}}
     <div class="field">
       <label class="field__label">{{.Def.Label}}{{if .Def.Required}} <span class="req">*</span>{{end}}</label>
       {{if eq .Def.Type "repeating"}}
         {{if .Entries}}
+          <div class="{{if eq .Display "feed"}}feed{{else}}stack{{end}}">
           {{range .Entries}}
           <div class="entry">
             {{range .}}<div><b>{{.Label}}:</b> {{.Value}}</div>{{end}}
           </div>
           {{end}}
+          </div>
         {{else}}<span class="muted">No entries.</span>{{end}}
       {{else if eq .Def.Type "artifact"}}
         {{if .Value}}<div class="field__val">{{.ValueRendered}}</div>{{else}}<span class="muted">—</span>{{end}}
       {{else if eq .Def.Type "card_link"}}
-        {{if .Value}}<div class="field__val">{{.Value}}</div>{{else}}<span class="muted">—</span>{{end}}
+        {{if .Value}}
+          {{if eq .Display "link"}}<a href="/ui/cards/{{.Value}}" data-card-link="/ui/cards/{{.Value}}/modal">{{.Value}}</a>
+          {{else}}<div class="field__val">{{.Value}}</div>{{end}}
+        {{else}}<span class="muted">—</span>{{end}}
       {{else if eq .Def.Type "text"}}
-        <textarea class="textarea" name="field:{{.Def.ID}}">{{.ValueStr}}</textarea>
+        <textarea class="textarea{{if eq .Display "monospace"}} mono{{end}}" name="field:{{.Def.ID}}">{{.ValueStr}}</textarea>
       {{else if eq .Def.Type "enum"}}
-        <select class="select" name="field:{{.Def.ID}}">
-          <option value="">—</option>
-          {{range .Def.Options}}<option value="{{.}}" {{if eq . $field.ValueStr}}selected{{end}}>{{.}}</option>{{end}}
-        </select>
+        {{if eq .Display "badge"}}
+          {{if .ValueStr}}<span class="chip chip--tag">{{.ValueStr}}</span>{{else}}<span class="muted">—</span>{{end}}
+          <select class="select" name="field:{{.Def.ID}}">
+            <option value="">—</option>
+            {{range .Def.Options}}<option value="{{.}}" {{if eq . $field.ValueStr}}selected{{end}}>{{.}}</option>{{end}}
+          </select>
+        {{else}}
+          <select class="select" name="field:{{.Def.ID}}">
+            <option value="">—</option>
+            {{range .Def.Options}}<option value="{{.}}" {{if eq . $field.ValueStr}}selected{{end}}>{{.}}</option>{{end}}
+          </select>
+        {{end}}
       {{else if eq .Def.Type "number"}}
         <input type="number" class="input" name="field:{{.Def.ID}}" value="{{.ValueStr}}">
       {{else if eq .Def.Type "date"}}
@@ -74,9 +88,11 @@
           {{range .Users}}<option value="{{.ID}}" {{if eq .ID $field.ValueStr}}selected{{end}}>{{.ID}}</option>{{end}}
         </select>
       {{else}}
+        {{if eq .Display "badge"}}{{if .ValueStr}}<span class="chip chip--tag">{{.ValueStr}}</span>{{end}}{{end}}
         <input type="text" class="input" name="field:{{.Def.ID}}" value="{{.ValueStr}}">
       {{end}}
     </div>
+    {{end}}
     {{end}}
 
     {{/* --- Links (read-only list) --- */}}

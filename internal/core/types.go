@@ -40,6 +40,7 @@ type FieldDef struct {
 	LinkType       string     `json:"link_type,omitempty"`       // card_link
 	ItemFields     []FieldDef `json:"item_fields,omitempty"`      // repeating
 	ArtifactPolicy string     `json:"artifact_policy,omitempty"` // artifact: "local"|"uri"
+	Display        string     `json:"display,omitempty"`          // UI hint: feed|badge|hidden|link|monospace
 	Deprecated     bool       `json:"deprecated,omitempty"`
 }
 
@@ -118,10 +119,22 @@ type Workspace struct {
 }
 
 // BoardPresentation carries UI hints. See SPEC.md §4 + DEVELOPER-REFERENCE.md §7.
+// These hints drive the schema-driven UI: which fields show on the board card,
+// which field is the accent color, which fields show in detail and in what order.
 type BoardPresentation struct {
-	LaneGroupBy string                       `json:"lane_group_by,omitempty"`
-	CardPreview map[string][]string          `json:"card_preview,omitempty"`
-	Filters     []BoardFilter                 `json:"filters,omitempty"`
+	LaneGroupBy     string              `json:"lane_group_by,omitempty"`      // status (default) or an enum field id
+	CardPreview     map[string][]string `json:"card_preview,omitempty"`       // per-type: field ids to show on the board card
+	CardTitleField  string              `json:"card_title_field,omitempty"`   // field to use as the card title (default: title)
+	CardAccentField string              `json:"card_accent_field,omitempty"`  // enum field whose value drives card accent color
+	DetailSections  []DetailSection     `json:"detail_sections,omitempty"`    // ordered sections for the detail/modal view
+	Filters         []BoardFilter       `json:"filters,omitempty"`
+}
+
+// DetailSection is an ordered group of fields in the card detail/modal view.
+// If empty, all schema fields render in definition order.
+type DetailSection struct {
+	Title  string   `json:"title,omitempty"`
+	Fields []string `json:"fields"`
 }
 
 // BoardFilter is a named saved filter on a board.
