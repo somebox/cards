@@ -257,6 +257,7 @@ type PatchCardRequest struct {
 	Owner   *string        `json:"owner,omitempty"`
 	Tags    *[]string      `json:"tags,omitempty"`
 	Fields  map[string]any `json:"fields,omitempty"`
+	Force   bool           `json:"force,omitempty"` // bypass enforced-transition check (admin/force-move)
 	DryRun  bool           `json:"dry_run,omitempty"`
 	Actor   string         `json:"actor,omitempty"`
 }
@@ -279,6 +280,17 @@ type CommentInput struct {
 type ClaimRequest struct {
 	Version int    `json:"version"`
 	Status  string `json:"status,omitempty"`
+	Actor   string `json:"actor,omitempty"`
+}
+
+// ReleaseRequest is the body of POST /cards/:id/release. See SPEC.md §11.
+// Release clears the card's owner (the inverse of claim). Optionally moves
+// status (e.g. back to backlog/todo) with force=true to bypass enforced
+// transitions — the recovery path for mis-claimed or mis-triaged cards.
+type ReleaseRequest struct {
+	Version int    `json:"version"`
+	Status  string `json:"status,omitempty"` // optional status to move to
+	Force   bool   `json:"force,omitempty"`   // bypass enforced-transition check
 	Actor   string `json:"actor,omitempty"`
 }
 

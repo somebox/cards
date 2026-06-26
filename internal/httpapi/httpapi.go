@@ -92,6 +92,7 @@ func (s *Server) Router() http.Handler {
 	r.Patch("/v1/cards/{id}", s.idempotent(s.withActor(s.apiPatchCard)))
 	r.Post("/v1/cards/take-next", s.idempotent(s.withActor(s.apiTakeNext)))
 	r.Post("/v1/cards/{id}/claim", s.idempotent(s.withActor(s.apiClaim)))
+	r.Post("/v1/cards/{id}/release", s.idempotent(s.withActor(s.apiRelease)))
 	r.Post("/v1/cards/{id}/links", s.idempotent(s.withActor(s.apiAddLink)))
 	r.Delete("/v1/cards/{id}/links/{typeID}/{target}", s.withActor(s.apiRemoveLink))
 	r.Post("/v1/cards/{id}/comments", s.idempotent(s.withActor(s.apiAddComment)))
@@ -280,6 +281,21 @@ func (s *Server) apiClaim(w http.ResponseWriter, r *http.Request) {
 	}
 	req.Actor = s.actorFromCtx(r)
 	c, err := s.svc.Claim(r.Context(), chi.URLParam(r, "id"), req)
+	if err != nil {
+		writeAPIError(w, core.AsError(err))
+		return
+	}
+	writeJSON(w, 200, c)
+}
+
+func (s *Server) apiRelease(w http.ResponseWriter, r *http.Request) {
+	var req core.ReleaseRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeAPIError(w, core.NewValidationError("body", "invalid JSON: "+err.Error()))
+		return
+	}
+	req.Actor = s.actorFromCtx(r)
+	c, err := s.svc.Release(r.Context(), chi.URLParam(r, "id"), req)
 	if err != nil {
 		writeAPIError(w, core.AsError(err))
 		return

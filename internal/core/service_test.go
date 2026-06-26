@@ -173,6 +173,81 @@ func TestPatchCard_TransitionLegalAndIllegal(t *testing.T) {
 	}
 }
 
+func TestPatchCard_ForceBypassesTransition(t *testing.T) {
+	svc, _ := newTestService(t)
+	ctx := ctx2()
+	c, _ := svc.CreateCard(ctx, core.CreateCardRequest{
+		TypeID: "task", Title: "T", Status: "in_progress",
+		Fields: map[string]any{"description": "go"}, Actor: "u",
+	})
+
+	// illegal without force: in_progress -> done (must go via review)
+	bad := "done"
+	_, err := svc.PatchCard(ctx, c.ID, core.PatchCardRequest{Version: 1, Status: &bad, Actor: "u"})
+	if core.AsError(err) == nil || core.AsError(err).Code != "transition_illegal" {
+		t.Fatalf("expected transition_illegal without force, got %v", err)
+	}
+
+	// force bypasses the enforced-transition check
+	updated, err := svc.PatchCard(ctx, c.ID, core.PatchCardRequest{Version: 1, Status: &bad, Force: true, Actor: "u"})
+	if err != nil {
+		t.Fatalf("force move: %v", err)
+	}
+	if updated.Status != "done" {
+		t.Errorf("got status=%s, want done", updated.Status)
+	}
+}
+
+func TestRelease_ClearsOwner(t *testing.T) {
+	svc, _ := newTestService(t)
+	ctx := ctx2()
+	c, _ := svc.CreateCard(ctx, core.CreateCardRequest{
+		TypeID: "task", Title: "T", Status: "todo",
+		Fields: map[string]any{"description": "go"}, Actor: "u",
+	})
+	claimed, _ := svc.Claim(ctx, c.ID, core.ClaimRequest{Version: 1, Status: "in_progress", Actor: "u"})
+	if claimed.Owner != "u" {
+		t.Fatalf("claim: owner=%s", claimed.Owner)
+	}
+
+	released, err := svc.Release(ctx, c.ID, core.ReleaseRequest{Version: claimed.Version, Actor: "u"})
+	if err != nil {
+		t.Fatalf("release: %v", err)
+	}
+	if released.Owner != "" {
+		t.Errorf("owner=%s, want empty", released.Owner)
+	}
+}
+
+func TestRelease_ForceMoveBacklog(t *testing.T) {
+	svc, _ := newTestService(t)
+	ctx := ctx2()
+	// Card in todo; enforced board has no todo->done edge (must go via in_progress,review).
+	c, _ := svc.CreateCard(ctx, core.CreateCardRequest{
+		TypeID: "task", Title: "T", Status: "todo",
+		Fields: map[string]any{"description": "go"}, Actor: "u",
+	})
+
+	// Without force: todo -> done should be illegal.
+	done := "done"
+	_, err := svc.Release(ctx, c.ID, core.ReleaseRequest{Version: 1, Status: done, Actor: "u"})
+	if core.AsError(err) == nil || core.AsError(err).Code != "transition_illegal" {
+		t.Fatalf("expected transition_illegal, got %v", err)
+	}
+
+	// With force: clears owner AND moves to done (bypassing the transition graph).
+	released, err := svc.Release(ctx, c.ID, core.ReleaseRequest{Version: 1, Status: done, Force: true, Actor: "u"})
+	if err != nil {
+		t.Fatalf("force release: %v", err)
+	}
+	if released.Status != "done" {
+		t.Errorf("status=%s, want done", released.Status)
+	}
+	if released.Owner != "" {
+		t.Errorf("owner=%s, want empty", released.Owner)
+	}
+}
+
 func TestPatchCard_VersionConflict(t *testing.T) {
 	svc, _ := newTestService(t)
 	ctx := ctx2()

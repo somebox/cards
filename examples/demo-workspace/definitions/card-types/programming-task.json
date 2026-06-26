@@ -18,5 +18,5 @@
     },
     { "id": "definition_of_done", "type": "text", "required": false }
   ],
-  "allowed_columns": ["todo", "in_progress", "review", "done"]
+  "allowed_columns": ["backlog", "todo", "in_progress", "review", "done"]
 }

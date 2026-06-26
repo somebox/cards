@@ -232,7 +232,7 @@ func (s *Service) PatchCard(ctx context.Context, id string, req PatchCardRequest
 		if err := s.checkColumn(newStatus, ct, nil); err != nil {
 			return nil, err
 		}
-		if b := s.boardForCard(current); b != nil && b.Settings.EnforceTransitions {
+		if b := s.boardForCard(current); b != nil && b.Settings.EnforceTransitions && !req.Force {
 			allowed, ok := b.Transitions[current.Status]
 			if ok && !contains(allowed, newStatus) {
 				return nil, newTransitionIllegal(current.Status, allowed)
@@ -613,6 +613,35 @@ func (s *Service) Claim(ctx context.Context, id string, req ClaimRequest) (*Card
 		return nil, VersionConflict(current) // owned by another
 	}
 	patch := PatchCardRequest{Version: req.Version, Owner: &actor, Actor: actor}
+	if req.Status != "" {
+		st := req.Status
+		patch.Status = &st
+	}
+	return s.PatchCard(ctx, id, patch)
+}
+
+// Release clears the card's owner (the inverse of claim). SPEC §11.
+// If req.Status is set, the card is also moved to that status; combined with
+// req.Force this is the recovery path for mis-claimed or mis-triaged cards —
+// e.g. moving a deferred card from todo to backlog when the enforced
+// transition graph has no todo→backlog edge.
+func (s *Service) Release(ctx context.Context, id string, req ReleaseRequest) (*Card, error) {
+	current, err := s.store.GetCard(ctx, id)
+	if err != nil {
+		return nil, NotFound("card " + id)
+	}
+	if req.Version != current.Version {
+		return nil, VersionConflict(current)
+	}
+	actor := req.Actor
+	if actor == "" {
+		actor = ctxActor(ctx)
+	}
+	if actor == "" {
+		return nil, ActorRequired()
+	}
+	empty := ""
+	patch := PatchCardRequest{Version: req.Version, Owner: &empty, Actor: actor, Force: req.Force}
 	if req.Status != "" {
 		st := req.Status
 		patch.Status = &st
