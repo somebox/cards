@@ -26,6 +26,9 @@ func run(args []string) error {
 	}
 	// Peel leading global flags (e.g. --url=... --as=... list ...).
 	globals, rest := peelGlobals(args)
+	if len(rest) == 0 {
+		return fmt.Errorf("%s\n\nmissing subcommand", usage)
+	}
 	switch rest[0] {
 	case "serve":
 		return serveCmd(rest[1:])

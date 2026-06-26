@@ -752,7 +752,11 @@ func (s *Server) uiCreateCard(w http.ResponseWriter, r *http.Request) {
 	}
 	typeID := r.FormValue("type_id")
 	boardID := r.FormValue("board_id")
-	ct := s.types[typeID]
+	ct, ok := s.types[typeID]
+	if !ok {
+		http.Error(w, "unknown card type: "+typeID, http.StatusBadRequest)
+		return
+	}
 	b := s.boards[boardID]
 
 	fields := map[string]any{}
