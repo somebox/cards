@@ -100,12 +100,14 @@ func (s *Store) Init(ctx context.Context) error {
 			edited_at  TEXT
 		)`,
 		`CREATE INDEX IF NOT EXISTS idx_comments_card ON comments(card_id)`,
+		`DROP TABLE IF EXISTS idempotency_keys`, // ephemeral cache; safe to clear on restart
 		`CREATE TABLE IF NOT EXISTS idempotency_keys (
-			key        TEXT PRIMARY KEY,
+			key        TEXT NOT NULL,
 			actor      TEXT NOT NULL,
 			status     INTEGER NOT NULL,
 			body       TEXT NOT NULL,
-			created_at TEXT NOT NULL
+			created_at TEXT NOT NULL,
+			PRIMARY KEY (key, actor)
 		)`,
 		`CREATE VIRTUAL TABLE IF NOT EXISTS fts_cards USING fts5(card_id UNINDEXED, title, body)`,
 	}

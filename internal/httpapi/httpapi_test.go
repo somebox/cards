@@ -361,6 +361,45 @@ func TestDryRunCreate(t *testing.T) {
 	}
 }
 
+func TestIdempotencyActorScoping(t *testing.T) {
+	// Two different actors using the SAME idempotency key must NOT collide —
+	// each gets its own replay. This was the bug: the wrapper order
+	// (idempotent(withActor(...))) meant idempotent ran before withActor set
+	// the context, so actor was always default_user, and the PK was just
+	// (key) so the second actor overwrote the first's replay.
+	ts, _ := newServer(t)
+	base := core.CreateCardRequest{
+		TypeID: "programming-task", Title: "Actor A", Status: "todo",
+		Fields: map[string]any{"description": "d", "branch": "b"},
+	}
+	// Actor A creates with key "shared-key"
+	HA := map[string]string{"X-Work-Cards-Actor": "alice", "Content-Type": "application/json", "Idempotency-Key": "shared-key"}
+	_, bA := do(t, ts, "POST", "/v1/cards", base, HA)
+	cardA := bA["id"]
+
+	// Actor B creates with the SAME key "shared-key" — must be a NEW card, not a replay of A's.
+	HB := map[string]string{"X-Work-Cards-Actor": "bob", "Content-Type": "application/json", "Idempotency-Key": "shared-key"}
+	respB, bB := do(t, ts, "POST", "/v1/cards", core.CreateCardRequest{
+		TypeID: "programming-task", Title: "Actor B", Status: "todo",
+		Fields: map[string]any{"description": "d", "branch": "b"},
+	}, HB)
+	if respB.Header.Get("Idempotent-Replay") == "true" {
+		t.Fatal("bob should NOT get alice's replay — idempotency must be scoped per actor")
+	}
+	if bB["id"] == cardA {
+		t.Fatalf("bob got alice's card %s — cross-actor idempotency collision", cardA)
+	}
+
+	// Actor A replays with the same key → gets A's card back.
+	respA2, bA2 := do(t, ts, "POST", "/v1/cards", base, HA)
+	if respA2.Header.Get("Idempotent-Replay") != "true" {
+		t.Error("alice replay should return Idempotent-Replay=true")
+	}
+	if bA2["id"] != cardA {
+		t.Errorf("alice replay returned %s, want %s", bA2["id"], cardA)
+	}
+}
+
 func TestFTSSearch(t *testing.T) {
 	ts, _ := newServer(t)
 	resp, b := do(t, ts, "GET", "/v1/cards?q=OpenAPI&limit=20", nil, nil)
