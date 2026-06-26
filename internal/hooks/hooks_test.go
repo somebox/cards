@@ -52,9 +52,7 @@ func TestHookFiresOnMatchingEvent(t *testing.T) {
 		Filter: config.HookFilter{BoardID: "eng", ToStatus: "review"},
 		Run: []string{"bash", "-c", `echo "$(cat)" >> ` + logFile},
 	}
-	sup := hooks.New(svc, ws, nil, dir, "http://127.0.0.1:8787/v1")
-	// Inject the hook via the Supervisor's extensions — reconstruct with it.
-	sup = hooks.New(svc, ws, []config.Extension{hook}, dir, "http://127.0.0.1:8787/v1")
+	sup := hooks.New(svc, ws, []config.Extension{hook}, dir, "http://127.0.0.1:8787/v1")
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

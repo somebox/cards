@@ -16,7 +16,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -1476,13 +1475,3 @@ func containsStr(s []string, v string) bool {
 }
 
 func containsBoard(s []string, v string) bool { return containsStr(s, v) }
-
-// sortBoards returns board ids in deterministic order (for nav).
-func sortBoards(boards map[string]*core.Board) []string {
-	ids := []string{}
-	for id := range boards {
-		ids = append(ids, id)
-	}
-	sort.Strings(ids)
-	return ids
-}

@@ -40,7 +40,7 @@ func call(t *testing.T, srv *mcp.Server, req string) map[string]any {
 	in := io.NopCloser(strings.NewReader(req + "\n"))
 	out := new(bytes.Buffer)
 	if err := srv.ServeOn(in, out); err != nil && err != io.EOF {
-		// Serve returns nil on scanner end; tolerate either.
+		t.Fatalf("serve: %v", err)
 	}
 	for _, line := range strings.Split(out.String(), "\n") {
 		line = strings.TrimSpace(line)
