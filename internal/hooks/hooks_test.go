@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/foz/work-cards/internal/config"
-	"github.com/foz/work-cards/internal/core"
-	"github.com/foz/work-cards/internal/hooks"
-	"github.com/foz/work-cards/internal/sqlite"
+	"github.com/somebox/cards/internal/config"
+	"github.com/somebox/cards/internal/core"
+	"github.com/somebox/cards/internal/hooks"
+	"github.com/somebox/cards/internal/sqlite"
 )
 
 // newSvc builds an in-memory service for hook tests.

@@ -19,7 +19,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/foz/work-cards/internal/core"
+	"github.com/somebox/cards/internal/core"
 )
 
 // Server is the stdio MCP server.

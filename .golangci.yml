@@ -1,0 +1,21 @@
+# golangci-lint config — pragmatic for a POC codebase.
+# Focuses on real bugs, not style pedantry.
+run:
+  timeout: 5m
+
+linters:
+  enable:
+    - errcheck      # catch ignored errors
+    - gosimple      # simplifications
+    - govet         # go vet
+    - ineffassign   # ineffectual assignments
+    - staticcheck   # real bug detector
+    - typecheck     # type errors
+    - unused        # unused code
+
+linters-settings:
+  errcheck:
+    # Allow unhandled errors in tests and on deferred Close/Cleanup.
+    exclude-functions:
+      - (*os.File).Close
+      - (*sql.DB).Close

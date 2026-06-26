@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/foz/work-cards/internal/core"
+	"github.com/somebox/cards/internal/core"
 )
 
 // Extension is one declared extension. Kind is hook|service|run.

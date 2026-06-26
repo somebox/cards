@@ -8,11 +8,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/foz/work-cards/internal/config"
-	"github.com/foz/work-cards/internal/core"
-	"github.com/foz/work-cards/internal/mcp"
-	"github.com/foz/work-cards/internal/seed"
-	"github.com/foz/work-cards/internal/sqlite"
+	"github.com/somebox/cards/internal/config"
+	"github.com/somebox/cards/internal/core"
+	"github.com/somebox/cards/internal/mcp"
+	"github.com/somebox/cards/internal/seed"
+	"github.com/somebox/cards/internal/sqlite"
 )
 
 func newMCPServer(t *testing.T) *mcp.Server {

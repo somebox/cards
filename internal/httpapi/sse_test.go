@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/foz/work-cards/internal/core"
+	"github.com/somebox/cards/internal/core"
 )
 
 // readSSEEvents reads text/event-stream lines until n data lines arrive or timeout.

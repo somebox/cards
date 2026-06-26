@@ -10,7 +10,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/foz/work-cards/internal/core"
+	"github.com/somebox/cards/internal/core"
 )
 
 // Loader reads definitions from one workspace directory and produces a

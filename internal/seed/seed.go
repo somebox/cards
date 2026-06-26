@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/foz/work-cards/internal/core"
+	"github.com/somebox/cards/internal/core"
 )
 
 // IfEmpty seeds users + a few demo cards when no cards exist yet.

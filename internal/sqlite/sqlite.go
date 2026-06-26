@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/foz/work-cards/internal/core"
+	"github.com/somebox/cards/internal/core"
 	_ "modernc.org/sqlite" // pure-Go driver
 )
 

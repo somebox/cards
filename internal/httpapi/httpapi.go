@@ -23,7 +23,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/foz/work-cards/internal/core"
+	"github.com/somebox/cards/internal/core"
 )
 
 //go:embed templates/*.html templates/*.css

@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/foz/work-cards/internal/core"
+	"github.com/somebox/cards/internal/core"
 )
 
 func testStore(t *testing.T) (*Store, *core.Workspace) {

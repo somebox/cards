@@ -3,7 +3,7 @@ package core_test
 import (
 	"testing"
 
-	"github.com/foz/work-cards/internal/core"
+	"github.com/somebox/cards/internal/core"
 )
 
 func TestEventBus_FilteredFanOut(t *testing.T) {

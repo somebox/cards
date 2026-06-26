@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/foz/work-cards/internal/cli"
+	"github.com/somebox/cards/internal/cli"
 )
 
 func main() {

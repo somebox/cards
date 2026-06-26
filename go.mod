@@ -1,4 +1,4 @@
-module github.com/foz/work-cards
+module github.com/somebox/cards
 
 go 1.26.4
 

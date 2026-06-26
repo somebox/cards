@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/foz/work-cards/internal/core"
-	"github.com/foz/work-cards/internal/sqlite"
+	"github.com/somebox/cards/internal/core"
+	"github.com/somebox/cards/internal/sqlite"
 )
 
 // newTestService builds an in-memory store + service with an engineering-like

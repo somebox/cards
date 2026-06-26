@@ -18,8 +18,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/foz/work-cards/internal/config"
-	"github.com/foz/work-cards/internal/core"
+	"github.com/somebox/cards/internal/config"
+	"github.com/somebox/cards/internal/core"
 )
 
 // Supervisor subscribes to the event bus and spawns hook subprocesses.
