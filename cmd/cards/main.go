@@ -32,6 +32,8 @@ func run(args []string) error {
 	switch rest[0] {
 	case "serve":
 		return serveCmd(rest[1:])
+	case "export":
+		return exportCmd(rest[1:])
 	case "mcp":
 		return mcpCmd(rest[1:])
 	case "run-extensions":
@@ -147,6 +149,7 @@ Commands:
   boards show [board_id]
 
   serve        Run the HTTP + web UI server
+  export       Dump all card data as JSONL (local; --workspace <dir>)
   mcp          Run the stdio MCP server (--workspace <dir>)
   run-extensions  Run the hook supervisor (--workspace <dir>)
   do <id>      Invoke a run extension (--param k=v)

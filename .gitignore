@@ -34,3 +34,4 @@ coverage.html
 # runtime demo database — never commit, never wipe
 examples/demo-workspace/work-cards.db
 examples/demo-workspace/work-cards.db-*
+examples/demo-workspace/export.jsonl
