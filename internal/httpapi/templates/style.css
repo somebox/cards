@@ -193,6 +193,8 @@ main { padding: var(--s-4); max-width: 100%; }
   white-space: nowrap;
 }
 .chip--tag     { background: var(--c-warn-soft); color: var(--c-warn); }
+.chip--owner   { background: var(--c-accent-soft); color: var(--c-accent); cursor: pointer; border: none; font: inherit; padding: 0 .5rem; }
+.chip--owner:hover { background: var(--c-danger-soft); color: var(--c-danger); }
 .chip--link    { background: var(--c-accent-soft); color: var(--c-accent-2); }
 .chip--rep     { background: var(--c-success-soft); color: var(--c-success); }
 /* Per-type badge: the type chip picks its color from [data-type] tokens. */

@@ -5,7 +5,7 @@
   </div>
   <div class="card__meta">
     <span class="chip chip--type" data-type="{{.Card.TypeID}}">{{.CardType.Name}}</span>
-    {{if .Card.Owner}}<span>👤 {{.Card.Owner}}</span>{{end}}
+    {{if .Card.Owner}}<button class="chip chip--owner" title="click to unclaim" onclick="releaseCard('{{.Card.ID}}',event)">👤 {{.Card.Owner}}</button>{{end}}
     {{range .Card.Tags}}<span class="chip chip--tag">{{.}}</span>{{end}}
   </div>
   {{if .PreviewFields}}

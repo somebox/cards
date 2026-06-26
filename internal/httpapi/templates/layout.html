@@ -128,15 +128,59 @@
     fetch('/v1/cards/' + cardID, {headers:{'Accept':'application/json'}})
       .then(function(r){ return r.json(); })
       .then(function(c){
+        // Try a normal move first. If the transition is illegal (enforced
+        // board), retry with force=true after a confirm (force-move).
         return fetch('/v1/cards/' + cardID, {
           method:'PATCH',
           headers:{'Content-Type':'application/json','X-Work-Cards-Actor':'foz','Idempotency-Key':'move-'+cardID+'-to-'+status},
           body: JSON.stringify({version: c.version, status: status})
+        }).then(function(r){
+          if (r.status === 422) {
+            // transition_illegal — offer force-move.
+            return r.json().then(function(e){
+              if (e.error === 'transition_illegal' && confirm('Move to "'+status+'" is not an allowed transition. Force-move anyway?')) {
+                return fetch('/v1/cards/' + cardID, {headers:{'Accept':'application/json'}})
+                  .then(function(r2){ return r2.json(); })
+                  .then(function(c2){
+                    return fetch('/v1/cards/' + cardID, {
+                      method:'PATCH',
+                      headers:{'Content-Type':'application/json','X-Work-Cards-Actor':'foz','Idempotency-Key':'force-'+cardID+'-to-'+status},
+                      body: JSON.stringify({version: c2.version, status: status, force: true})
+                    });
+                  });
+              }
+              throw {message: e.message || 'Move failed'};
+            });
+          }
+          if (!r.ok) throw r;
+          return r;
         });
       })
       .then(function(r){ if(!r.ok) throw r; return r.json(); })
       .then(function(){ /* SSE will re-render the board */ })
-      .catch(function(r){ r.text().then(function(t){ var m='Move failed'; try{m=JSON.parse(t).message||m;}catch(_){} toast(m,'err'); }); });
+      .catch(function(r){
+        var msg = (r && r.message) || 'Move failed';
+        if (r && r.text) { r.text().then(function(t){ var m='Move failed'; try{m=JSON.parse(t).message||m;}catch(_){} toast(m,'err'); }); return; }
+        toast(msg,'err');
+      });
+  }
+  // releaseCard clears a card's owner (unclaim). Called when clicking the
+  // owner chip on a board card.
+  function releaseCard(cardID, ev) {
+    ev.stopPropagation(); ev.preventDefault();
+    if (!confirm('Unclaim this card?')) return;
+    fetch('/v1/cards/' + cardID, {headers:{'Accept':'application/json'}})
+      .then(function(r){ return r.json(); })
+      .then(function(c){
+        return fetch('/v1/cards/' + cardID + '/release', {
+          method:'POST',
+          headers:{'Content-Type':'application/json','X-Work-Cards-Actor':'foz','Idempotency-Key':'release-'+cardID},
+          body: JSON.stringify({version: c.version})
+        });
+      })
+      .then(function(r){ if(!r.ok) throw r; return r.json(); })
+      .then(function(){ /* SSE will re-render */ })
+      .catch(function(r){ r.text().then(function(t){ var m='Release failed'; try{m=JSON.parse(t).message||m;}catch(_){} toast(m,'err'); }); });
   }
 
   // ---- relative time ----
