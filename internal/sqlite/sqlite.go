@@ -179,6 +179,7 @@ func buildCardWhere(q core.CardQuery) (string, []any) {
 			b.WriteString(" AND (c.updated_at, c.id) < (?, ?)")
 			args = append(args, updatedAt.UTC().Format(time.RFC3339Nano), id)
 		}
+		// Bad cursors are rejected by the service layer before reaching the store.
 	}
 	return b.String(), args
 }

@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"net/http"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -120,4 +121,93 @@ func itoa(n int64) string {
 }
 
 // keep context imported for future use
+
+func TestSSEInvalidLastEventID(t *testing.T) {
+	ts, _ := newServer(t)
+	// Invalid Last-Event-ID should return 400, not silently start streaming.
+	req, _ := http.NewRequest("GET", ts.URL+"/v1/events/stream", nil)
+	req.Header.Set("Last-Event-ID", "not-a-number")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 422 {
+		t.Fatalf("expected 422 for invalid Last-Event-ID, got %d", resp.StatusCode)
+	}
+}
+
+func TestSSEInvalidSince(t *testing.T) {
+	ts, _ := newServer(t)
+	// Invalid since= should return 400, not silently start streaming.
+	resp, err := http.Get(ts.URL + "/v1/events/stream?since=abc")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 422 {
+		t.Fatalf("expected 422 for invalid since=, got %d", resp.StatusCode)
+	}
+}
+
+func TestRemoveEntry_RequiresVersion(t *testing.T) {
+	ts, _ := newServer(t)
+	H := map[string]string{"X-Work-Cards-Actor": "local-dev", "Content-Type": "application/json"}
+	// Create a card with a work_log entry.
+	_, b := do(t, ts, "POST", "/v1/cards", core.CreateCardRequest{
+		TypeID: "programming-task", Title: "T", Status: "todo",
+		Fields: map[string]any{"description": "d", "branch": "b"},
+	}, H)
+	cardID := b["id"].(string)
+	version := int(b["version"].(float64))
+
+	// Append an entry.
+	_, b2 := do(t, ts, "POST", "/v1/cards/"+cardID+"/fields/work_log/append", map[string]any{
+		"version": version, "entry": map[string]any{"commit_hash": "abc", "author": "local-dev", "timestamp": "2026-01-01"},
+	}, H)
+	entryID := ""
+	if wl, ok := b2["fields"].(map[string]any)["work_log"].([]any); ok && len(wl) > 0 {
+		entryID = wl[0].(map[string]any)["entry_id"].(string)
+	}
+	if entryID == "" {
+		t.Fatal("no entry_id found")
+	}
+	curVersion := int(b2["version"].(float64))
+
+	// DELETE without ?version= → 422.
+	req, _ := http.NewRequest("DELETE", ts.URL+"/v1/cards/"+cardID+"/fields/work_log/"+entryID, nil)
+	req.Header.Set("X-Work-Cards-Actor", "local-dev")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != 422 {
+		t.Fatalf("expected 422 for missing version, got %d", resp.StatusCode)
+	}
+
+	// DELETE with stale version → 409.
+	req2, _ := http.NewRequest("DELETE", ts.URL+"/v1/cards/"+cardID+"/fields/work_log/"+entryID+"?version=999", nil)
+	req2.Header.Set("X-Work-Cards-Actor", "local-dev")
+	resp2, err := http.DefaultClient.Do(req2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp2.Body.Close()
+	if resp2.StatusCode != 409 {
+		t.Fatalf("expected 409 for stale version, got %d", resp2.StatusCode)
+	}
+
+	// DELETE with correct version → 200.
+	req3, _ := http.NewRequest("DELETE", ts.URL+"/v1/cards/"+cardID+"/fields/work_log/"+entryID+"?version="+strconv.Itoa(curVersion), nil)
+	req3.Header.Set("X-Work-Cards-Actor", "local-dev")
+	resp3, err := http.DefaultClient.Do(req3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp3.Body.Close()
+	if resp3.StatusCode != 200 {
+		t.Fatalf("expected 200 for correct version, got %d", resp3.StatusCode)
+	}
+}
 var _ = context.Background

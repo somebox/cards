@@ -101,6 +101,13 @@ func (s *Service) ListCards(ctx context.Context, q CardQuery) (*Page[Card], erro
 	if err := s.compileFilterInto(&q); err != nil {
 		return nil, err
 	}
+	// Validate cursor before hitting the store — a bad cursor should be a
+	// 400, not a silent fallthrough to the first page.
+	if q.Cursor != "" {
+		if _, _, err := DecodeCursor(q.Cursor); err != nil {
+			return nil, NewValidationError("cursor", "invalid cursor: "+err.Error())
+		}
+	}
 	return s.store.ListCards(ctx, q)
 }
 
@@ -427,15 +434,18 @@ func (s *Service) UpdateEntry(ctx context.Context, id, field, entryID string, en
 	return &next, nil
 }
 
-// RemoveEntry deletes an entry by entry_id. SPEC §11. A zero version means
-// the caller did not supply one (e.g. a DELETE with no body); the store CAS
-// still guards against lost updates.
+// RemoveEntry deletes an entry by entry_id. SPEC §11. The version must be
+// supplied (the HTTP handler enforces this via ?version=N) for lost-update
+// protection; a mismatch yields version_conflict.
 func (s *Service) RemoveEntry(ctx context.Context, id, field, entryID string, version int) (*Card, error) {
 	current, err := s.getCard(ctx, id)
 	if err != nil {
 		return nil, err
 	}
-	if version != 0 && version != current.Version {
+	if version == 0 {
+		return nil, NewValidationError("version", "version is required for entry deletion")
+	}
+	if version != current.Version {
 		return nil, VersionConflict(current)
 	}
 	arr, _ := getMapField(current.Fields, field).([]any)

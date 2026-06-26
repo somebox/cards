@@ -357,7 +357,22 @@ func (s *Server) apiUpdateEntry(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) apiRemoveEntry(w http.ResponseWriter, r *http.Request) {
-	c, err := s.svc.RemoveEntry(r.Context(), chi.URLParam(r, "id"), chi.URLParam(r, "field"), chi.URLParam(r, "entryID"), 0)
+	// Version is required for CAS (lost-update protection). Accept it via
+	// query param (?version=N) since DELETE requests typically have no body.
+	versionStr := r.URL.Query().Get("version")
+	if versionStr == "" {
+		writeAPIError(w, core.NewValidationError("version", "version is required for entry deletion (use ?version=N)"))
+		return
+	}
+	version := 0
+	for _, c := range versionStr {
+		if c < '0' || c > '9' {
+			writeAPIError(w, core.NewValidationError("version", "version must be a positive integer"))
+			return
+		}
+		version = version*10 + int(c-'0')
+	}
+	c, err := s.svc.RemoveEntry(r.Context(), chi.URLParam(r, "id"), chi.URLParam(r, "field"), chi.URLParam(r, "entryID"), version)
 	if err != nil {
 		writeAPIError(w, core.AsError(err))
 		return
@@ -456,6 +471,24 @@ func (s *Server) apiEventStream(w http.ResponseWriter, r *http.Request) {
 	types := splitCSV(r.URL.Query().Get("types"))
 	boardID := r.URL.Query().Get("board_id")
 
+	// Validate Last-Event-ID / since before committing the SSE response —
+	// an invalid value should be a 400, not silently treated as 0.
+	var afterID int64
+	var leidRaw string
+	if leid := r.Header.Get("Last-Event-ID"); leid != "" {
+		leidRaw = leid
+	} else if since := r.URL.Query().Get("since"); since != "" {
+		leidRaw = since
+	}
+	if leidRaw != "" {
+		n, ok := parseEventID(leidRaw)
+		if !ok {
+			writeAPIError(w, core.NewValidationError("last_event_id", "invalid Last-Event-ID (or since=): must be a positive integer"))
+			return
+		}
+		afterID = n
+	}
+
 	// SSE headers.
 	h := w.Header()
 	h.Set("Content-Type", "text/event-stream")
@@ -466,12 +499,6 @@ func (s *Server) apiEventStream(w http.ResponseWriter, r *http.Request) {
 	flusher.Flush()
 
 	// Replay: events after Last-Event-ID (or since=) matching the filter.
-	var afterID int64
-	if leid := r.Header.Get("Last-Event-ID"); leid != "" {
-		afterID = atoiSafe(leid)
-	} else if since := r.URL.Query().Get("since"); since != "" {
-		afterID = atoiSafe(since)
-	}
 	if afterID > 0 {
 		evs, _ := s.svc.ListEvents(r.Context(), core.EventQuery{CardID: cardID, Types: types, AfterID: afterID, Limit: 500})
 		for _, e := range filterBoardEvents(s, evs, boardID) {
@@ -562,15 +589,20 @@ func splitCSV(s string) []string {
 	return out
 }
 
-func atoiSafe(s string) int64 {
+// parseEventID validates and parses a positive-integer event id (used for
+// Last-Event-ID / since=). Returns false on any non-numeric or empty input.
+func parseEventID(s string) (int64, bool) {
+	if s == "" {
+		return 0, false
+	}
 	var n int64
 	for _, c := range s {
 		if c < '0' || c > '9' {
-			return 0
+			return 0, false
 		}
 		n = n*10 + int64(c-'0')
 	}
-	return n
+	return n, true
 }
 
 // --- idempotency ---

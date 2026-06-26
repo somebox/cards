@@ -596,3 +596,41 @@ func TestBlockedQuery(t *testing.T) {
 		t.Errorf("blocked = %+v, want [A]", page.Items)
 	}
 }
+
+func TestRemoveEntry_RequiresVersion(t *testing.T) {
+	svc, _ := newTestService(t)
+	ctx := core.WithActor(ctx2(), "u")
+	c, _ := svc.CreateCard(ctx, core.CreateCardRequest{TypeID: "task", Title: "T", Status: "todo", Fields: map[string]any{"description": "d"}, Actor: "u"})
+	added, _ := svc.AppendEntry(ctx, c.ID, "work_log", map[string]any{"commit_hash": "a"}, c.Version)
+	entryID := added.Fields.(map[string]any)["work_log"].([]any)[0].(map[string]any)["entry_id"].(string)
+
+	// version=0 → rejected (was previously silently allowed, skipping CAS).
+	_, err := svc.RemoveEntry(ctx, c.ID, "work_log", entryID, 0)
+	if ce := core.AsError(err); ce == nil || ce.Code != "validation_failed" {
+		t.Fatalf("expected validation_failed for version=0, got %v", err)
+	}
+
+	// stale version → version_conflict
+	_, err = svc.RemoveEntry(ctx, c.ID, "work_log", entryID, 999)
+	if ce := core.AsError(err); ce == nil || ce.Code != "version_conflict" {
+		t.Fatalf("expected version_conflict for stale version, got %v", err)
+	}
+
+	// correct version → success
+	_, err = svc.RemoveEntry(ctx, c.ID, "work_log", entryID, added.Version)
+	if err != nil {
+		t.Fatalf("remove with correct version: %v", err)
+	}
+}
+
+func TestListCards_InvalidCursor(t *testing.T) {
+	svc, _ := newTestService(t)
+	ctx := ctx2()
+	_, err := svc.ListCards(ctx, core.CardQuery{Cursor: "not-a-valid-cursor!!"})
+	if ce := core.AsError(err); ce == nil || ce.Code != "validation_failed" || ce.HTTPStatus != 422 {
+		t.Fatalf("expected 422 validation_failed for bad cursor, got %v", err)
+	}
+	if ce := core.AsError(err); ce.Field != "cursor" {
+		t.Errorf("error field = %q, want cursor", ce.Field)
+	}
+}
