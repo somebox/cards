@@ -126,14 +126,29 @@ on file change.
 No separate document DB, broker, or cluster. Single-file DB is sufficient for
 coordination scale (typically <100k active cards).
 
-### Optional file mirror
+### Portable export/import
 
-SQLite is authoritative. For git/PR-style human review, the core can maintain
-a markdown mirror (`cards export --mirror`, `cards import --mirror`). Import is
-**version-gated**: each file's frontmatter declares the `version` it was
-edited from; a stale import is `409 version_conflict`, never a silent
-overwrite. An optional `mirror.autoexport: true` setting keeps the mirror in
-sync on every write.
+SQLite is authoritative. Two file-based escape hatches make the state portable;
+both are **implemented**:
+
+**Full-snapshot JSONL (backup / migration / disaster recovery).**
+`cards export --workspace <dir>` dumps the whole workspace — a header line, then
+users, cards (with embedded comments + links), then the full event log — as one
+JSON object per line. `cards import --workspace <dir>` is the inverse: it
+restores that snapshot into a **fresh** workspace DB, preserving card ids,
+versions, and timestamps verbatim so links and history stay intact. It is a
+restore, not a merge: import refuses a workspace that already holds cards, and a
+duplicate card id is a hard error — never a silent overwrite. Both run locally
+against SQLite with no server. Commit the JSONL alongside `definitions/` to make
+the full workspace state git-portable.
+
+**Markdown mirror (git/PR-style human review).** For per-card review the core
+can maintain a markdown mirror (`cards export --mirror`, `cards import
+--mirror`). Unlike the snapshot restore, mirror import is a per-file **PATCH**
+and is **version-gated**: each file's frontmatter declares the `version` it was
+edited from; a stale import is `409 version_conflict`, never a silent overwrite.
+An optional `mirror.autoexport: true` setting keeps the mirror in sync on every
+write. (Snapshot export/import shipped first; the markdown mirror is planned.)
 
 ### Deployment modes
 

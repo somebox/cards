@@ -506,6 +506,10 @@ cards history CARD_ID
 
 cards users register --id coder-agent --kind agent
 cards views query order-parts --param order_id=34
+
+# Local, no server needed — full-snapshot backup/restore (reads SQLite directly):
+cards export --workspace ./demo-workspace --out backup.jsonl
+cards import --workspace ./fresh-workspace --in backup.jsonl   # restores into a fresh DB
 ```
 
 Environment:

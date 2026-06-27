@@ -2,14 +2,12 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
 
 	"github.com/somebox/cards/internal/config"
-	"github.com/somebox/cards/internal/core"
 	"github.com/somebox/cards/internal/sqlite"
 )
 
@@ -66,64 +64,13 @@ func exportCmd(args []string) error {
 		w = f
 	}
 
-	enc := json.NewEncoder(w)
-	enc.SetIndent("", "")
-	enc.SetEscapeHTML(false)
-
-	// Header — identifies the export format + workspace.
-	header := map[string]any{
-		"type":         "export",
-		"version":      1,
-		"workspace_id": result.Workspace.ID,
-		"workspace":    result.Workspace.Name,
-	}
-	if err := enc.Encode(header); err != nil {
+	stats, err := exportJSONL(ctx, st, w, result.Workspace)
+	if err != nil {
 		return err
-	}
-
-	// Users
-	users, err := st.ListUsers(ctx)
-	if err != nil {
-		return fmt.Errorf("export users: %w", err)
-	}
-	for _, u := range users {
-		if err := enc.Encode(map[string]any{"type": "user", "data": u}); err != nil {
-			return err
-		}
-	}
-
-	// Cards (with links + comments loaded via GetCard)
-	page, err := st.ListCards(ctx, core.CardQuery{Limit: 10000})
-	if err != nil {
-		return fmt.Errorf("export cards: %w", err)
-	}
-	commentCount := 0
-	linkCount := 0
-	for _, c := range page.Items {
-		full, err := st.GetCard(ctx, c.ID)
-		if err != nil {
-			continue
-		}
-		commentCount += len(full.Comments)
-		linkCount += len(full.Links)
-		if err := enc.Encode(map[string]any{"type": "card", "data": full}); err != nil {
-			return err
-		}
-	}
-
-	// Events (all — full audit log)
-	evs, err := st.ListEvents(ctx, core.EventQuery{Limit: 100000})
-	if err != nil {
-		return fmt.Errorf("export events: %w", err)
-	}
-	for _, e := range evs {
-		if err := enc.Encode(map[string]any{"type": "event", "data": e}); err != nil {
-			return err
-		}
 	}
 
 	// Summary to stderr (so stdout stays clean JSONL).
 	fmt.Fprintf(os.Stderr, "exported: %d cards, %d events, %d comments, %d links, %d users\n",
-		len(page.Items), len(evs), commentCount, linkCount, len(users))
+		stats.Cards, stats.Events, stats.Comments, stats.Links, stats.Users)
 	return nil
 }

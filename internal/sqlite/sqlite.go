@@ -388,6 +388,17 @@ func (s *Store) ListEvents(ctx context.Context, q core.EventQuery) ([]core.Event
 	return out, nil
 }
 
+// InsertEventRaw appends a single event verbatim (preserving card_id, type,
+// actor, at, and diff). The events table assigns a fresh autoincrement id, so
+// import preserves chronological order without forcing original ids. Used by
+// the import command to restore the audit log from a JSONL export.
+func (s *Store) InsertEventRaw(ctx context.Context, ev *core.Event) error {
+	diffB, _ := json.Marshal(ev.Diff)
+	_, err := s.db.ExecContext(ctx, `INSERT INTO events(card_id, type, actor, at, diff) VALUES(?,?,?,?,?)`,
+		ev.CardID, string(ev.Type), ev.Actor, ev.At.Format(time.RFC3339Nano), string(diffB))
+	return err
+}
+
 // --- Links ---
 
 func (s *Store) ListLinks(ctx context.Context, cardID string) ([]core.Link, error) {

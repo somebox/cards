@@ -34,6 +34,8 @@ func run(args []string) error {
 		return serveCmd(rest[1:])
 	case "export":
 		return exportCmd(rest[1:])
+	case "import":
+		return importCmd(rest[1:])
 	case "mcp":
 		return mcpCmd(rest[1:])
 	case "run-extensions":
@@ -150,6 +152,7 @@ Commands:
 
   serve        Run the HTTP + web UI server
   export       Dump all card data as JSONL (local; --workspace <dir>)
+  import       Load a JSONL export into the workspace DB (local; --workspace <dir>)
   mcp          Run the stdio MCP server (--workspace <dir>)
   run-extensions  Run the hook supervisor (--workspace <dir>)
   do <id>      Invoke a run extension (--param k=v)
