@@ -21,17 +21,28 @@ func main() {
 }
 
 func run(args []string) error {
-	if len(args) == 0 {
-		return fmt.Errorf("%s", usage)
-	}
 	// Peel leading global flags (e.g. --url=... --as=... list ...).
 	globals, rest := peelGlobals(args)
 	if len(rest) == 0 {
-		return fmt.Errorf("%s\n\nmissing subcommand", usage)
+		// Zero-config: `cards` with no subcommand serves the resolved
+		// workspace (nearest .cards/ or the personal workspace).
+		return serveCmd(nil)
+	}
+	switch rest[0] {
+	case "-h", "--help", "help":
+		fmt.Print(usage)
+		return nil
+	}
+	// A leading flag (e.g. `cards --port 9000 --seed`) is serve with those
+	// flags — the zero-config server, just customized.
+	if len(rest[0]) > 0 && rest[0][0] == '-' {
+		return serveCmd(rest)
 	}
 	switch rest[0] {
 	case "serve":
 		return serveCmd(rest[1:])
+	case "init":
+		return initCmd(rest[1:])
 	case "export":
 		return exportCmd(rest[1:])
 	case "import":
@@ -44,9 +55,6 @@ func run(args []string) error {
 		return doCmd(rest[1:])
 	case "extensions":
 		return extensionsCmd(rest[1:])
-	case "-h", "--help", "help":
-		fmt.Print(usage)
-		return nil
 	default:
 		return runCLI(globals, rest)
 	}
@@ -120,7 +128,9 @@ func runCLI(cfg cli.Config, rest []string) error {
 const usage = `Work Cards — typed-card coordination.
 
 Usage:
-  cards serve --workspace <dir> [--port 8787] [--seed]
+  cards                                (serve nearest .cards/ or ~/.cards)
+  cards init [dir] [--global]          Scaffold a new workspace
+  cards serve [--workspace <dir>] [--port 8787] [--seed]
   cards <command> [flags]              (client; set CARDS_URL or --url)
 
 Global flags (before the command):
@@ -150,6 +160,7 @@ Commands:
   workspace show
   boards show [board_id]
 
+  init         Scaffold a new workspace (./.cards or, with --global, ~/.cards)
   serve        Run the HTTP + web UI server
   export       Dump all card data as JSONL (local; --workspace <dir>)
   import       Load a JSONL export into the workspace DB (local; --workspace <dir>)

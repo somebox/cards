@@ -31,12 +31,20 @@ func serveCmd(args []string) error {
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	if *workspace == "" {
-		return fmt.Errorf("--workspace is required")
-	}
-	abs, err := filepath.Abs(*workspace)
+	abs, autoInit, err := resolveWorkspaceDir(*workspace)
 	if err != nil {
 		return err
+	}
+	if autoInit {
+		created, ierr := initWorkspace(abs)
+		if ierr != nil {
+			return fmt.Errorf("initialize workspace: %w", ierr)
+		}
+		if created {
+			log.Printf("no workspace given; created a personal workspace at %s", abs)
+		} else {
+			log.Printf("no workspace given; using personal workspace at %s", abs)
+		}
 	}
 
 	// 1. Load definitions.
@@ -112,12 +120,14 @@ func mcpCmd(args []string) error {
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	if *workspace == "" {
-		return fmt.Errorf("--workspace is required")
-	}
-	abs, err := filepath.Abs(*workspace)
+	abs, autoInit, err := resolveWorkspaceDir(*workspace)
 	if err != nil {
 		return err
+	}
+	if autoInit {
+		if _, ierr := initWorkspace(abs); ierr != nil {
+			return fmt.Errorf("initialize workspace: %w", ierr)
+		}
 	}
 	result, err := config.New(abs).Load()
 	if err != nil {

@@ -1,0 +1,16 @@
+{
+  "id": "personal",
+  "name": "My Cards",
+  "columns": [
+    { "id": "todo", "name": "To Do" },
+    { "id": "doing", "name": "Doing" },
+    { "id": "done", "name": "Done" }
+  ],
+  "tag_set": [],
+  "settings": {
+    "enforce_transitions": false,
+    "strict_fields": true,
+    "tag_policy": "open",
+    "default_user": "me"
+  }
+}

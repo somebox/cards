@@ -180,22 +180,25 @@ baked-in auth; isolation is the host's responsibility (see
 
 ## Setup and customization
 
-**Today.** Create a workspace by hand: make a directory, add a `definitions/`
-tree (the simplest starting point is to copy `examples/demo-workspace/definitions`),
-then `cards serve --workspace <dir>`. Customize by editing that workspace's JSON
-and restarting. There are no built-in default definitions and no `cards init`.
+Cards resolves a workspace the way git resolves a repository:
 
-**Planned.** A git-like ergonomics layer:
+- **`cards init`** scaffolds a new workspace from baked-in starter definitions
+  (the columns `todo`/`doing`/`done`, a simple `task` type, and a `welcome`
+  board) and seeds an onboarding board. By default it creates `./.cards/` in the
+  current directory; `cards init --global` creates the personal workspace
+  instead. It never clobbers an existing workspace.
+- **`.cards/` is the workspace marker.** Running `cards` with no arguments walks
+  up from the current directory to find the nearest `.cards/` (which holds
+  `definitions/`, `work-cards.db`, and the `ext/`, `logs/`, `sessions/` subdirs)
+  and serves it — the way git resolves `.git/`.
+- **Global fallback.** With no `.cards/` found anywhere up the tree, `cards`
+  serves a personal workspace at `~/.cards` (override with `CARDS_HOME`),
+  creating and seeding it on first run.
+- **The `welcome` board is the tutorial.** Its cards explain editing
+  definitions, adding boards, the CLI/MCP surface, and export/import, so a fresh
+  workspace is self-documenting. Delete them once you're oriented.
 
-- **`.cards/` as the workspace marker.** Running `cards` walks up from the
-  current directory to find the nearest `.cards/` (which holds `definitions/`,
-  `work-cards.db`, and the existing `ext/`, `logs/`, `sessions/` subdirs) and
-  serves that workspace — the way git resolves `.git/`.
-- **A global fallback.** With no `.cards/` found, `cards` serves a personal
-  workspace at `~/.cards` (overridable via `CARDS_HOME`), created on first run.
-- **`cards init`.** Explicitly create a local `.cards/` workspace in the current
-  directory from baked-in starter definitions (sensible columns, a simple
-  generic `task`/`note` type, and a `welcome` board).
-- **An onboarding board.** The starter `welcome` board's cards are the tutorial
-  — they teach defining types, adding boards, import/export, and MCP — so a
-  fresh workspace is self-documenting.
+`cards serve --workspace <dir>` remains the explicit form (used, for example, by
+the repo's `examples/demo-workspace`); an explicit path is never auto-created.
+Customizing a workspace still means editing the JSON under its own
+`definitions/` and restarting.

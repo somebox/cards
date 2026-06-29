@@ -1,0 +1,9 @@
+{
+  "id": "task",
+  "name": "Task",
+  "schema_version": 1,
+  "fields": [
+    { "id": "notes", "type": "text", "required": false, "display": "monospace" }
+  ],
+  "allowed_columns": ["todo", "doing", "done"]
+}

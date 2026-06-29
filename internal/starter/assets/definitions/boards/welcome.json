@@ -1,0 +1,10 @@
+{
+  "id": "welcome",
+  "name": "Welcome",
+  "columns": ["todo", "doing", "done"],
+  "card_type_ids": ["task"],
+  "presentation": {
+    "lane_group_by": "status",
+    "card_preview": { "task": [] }
+  }
+}

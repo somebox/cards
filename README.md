@@ -56,10 +56,21 @@ useful constraints without owning a separate copy of the data.
 You need Go `1.26.4` or newer as declared in `go.mod`. There is no separate
 database server; the project uses embedded SQLite through `modernc.org/sqlite`.
 
-Build and run the demo workspace:
+Build, then start your own workspace with zero configuration:
 
 ```bash
 go build -o cards ./cmd/cards
+./cards init          # scaffold ./.cards with a welcome board
+./cards               # serve the nearest .cards/ (or ~/.cards)
+open http://127.0.0.1:8787/ui/boards/welcome
+```
+
+`cards` with no arguments walks up for a `.cards/` workspace like git finds
+`.git/`, falling back to a personal workspace at `~/.cards`. To run the bundled
+demo board (the project's own dogfooding backlog) instead, point at it
+explicitly:
+
+```bash
 ./cards serve --workspace ./examples/demo-workspace --port 8787 --seed
 open http://127.0.0.1:8787/ui/boards/engineering
 ```
