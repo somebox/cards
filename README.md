@@ -5,6 +5,12 @@ its card types, boards, columns, transitions, and extensions in a JSON or YAML s
 The `cards` binary loads those definitions, stores card state and events in
 SQLite, and exposes the same model through HTTP, CLI, MCP, and a small web UI.
 
+`cards` is written in Go so the binary is fast, easy to ship, and portable, but
+the project you manage with it does not need to be in Go. You can use the same
+workspace layout in a Python repo, a Node.js repo, a Go repo, or a mixed-language
+monorepo because cards only cares about the workspace definitions and the commands
+you choose to run around them.
+
 It was built for projects where plain todos are too local, but a hosted tracker
 is more process than the team needs. Humans, scripts, and agents can claim
 cards, update typed fields, append evidence, and resume from the card history
@@ -53,8 +59,10 @@ useful constraints without owning a separate copy of the data.
 
 ## Quick Start
 
-You need Go `1.26.4` or newer as declared in `go.mod`. There is no separate
-database server; the project uses embedded SQLite through `modernc.org/sqlite`.
+You only need Go `1.26.4` or newer if you want to build `cards` from source as
+declared in `go.mod`. The codebase you track with cards can be Python, Node.js,
+Go, or anything else. There is no separate database server; the project uses
+embedded SQLite through `modernc.org/sqlite`.
 
 Build and run the demo workspace:
 
@@ -93,6 +101,27 @@ export CARDS_USER=alice
 ./cards take-next --board engineering --type programming-task --status in_progress
 ./cards history card_123
 ```
+
+Use the same binary from non-Go projects too:
+
+```bash
+# Python project
+./cards --as alice create \
+  --type programming-task \
+  --title "Add pytest coverage" \
+  --status todo \
+  --field description="Cover billing edge cases" \
+  --field branch="feat/pytest-coverage"
+python -m pytest
+
+# Node.js project
+./cards --as bob take-next --board engineering --type programming-task --status in_progress
+npm test
+```
+
+Those commands are running against the same cards server and workspace. The task
+metadata lives in cards; your implementation and test commands stay in whatever
+language your project already uses.
 
 For MCP clients, run the stdio server:
 
