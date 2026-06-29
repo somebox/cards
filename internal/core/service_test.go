@@ -53,6 +53,12 @@ func newTestService(t *testing.T) (*core.Service, *sqlite.Store) {
 				"done":        {},
 			},
 		},
+		"hipri": {
+			ID: "hipri", Name: "High priority",
+			Columns:       []string{"todo", "in_progress", "review", "done"},
+			CardTypeIDs:   []string{"task"},
+			DefaultFilter: map[string]any{"fields.priority": map[string]any{"$eq": "high"}},
+		},
 	}
 	boards["eng"].Settings.EnforceTransitions = true
 
@@ -578,6 +584,45 @@ func TestFilterDSL_BasicOps(t *testing.T) {
 	if len(page.Items) != 1 || page.Items[0].Title != "beta" {
 		t.Errorf("filter result = %+v", page.Items)
 	}
+}
+
+// TestBoardDefaultFilterScope verifies that a board's default_filter is
+// enforced as a hard isolation boundary on board_id queries: cards outside the
+// filter never appear, and a caller filter is AND-ed (narrows, cannot widen).
+func TestBoardDefaultFilterScope(t *testing.T) {
+	svc, _ := newTestService(t)
+	ctx := core.WithActor(ctx2(), "u")
+	_, _ = svc.CreateCard(ctx, core.CreateCardRequest{TypeID: "task", Title: "H", Status: "todo", Fields: map[string]any{"description": "d", "priority": "high"}, Actor: "u"})
+	_, _ = svc.CreateCard(ctx, core.CreateCardRequest{TypeID: "task", Title: "L", Status: "todo", Fields: map[string]any{"description": "d", "priority": "low"}, Actor: "u"})
+
+	// Board scope alone: only the high-priority card is visible.
+	page, err := svc.ListCards(ctx, core.CardQuery{BoardID: "hipri", Limit: 10})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(page.Items) != 1 || page.Items[0].Title != "H" {
+		t.Fatalf("board scope = %+v, want only [H]", titlesOf(page.Items))
+	}
+
+	// A caller filter for the excluded value cannot escape the board boundary:
+	// high AND low = nothing.
+	page, err = svc.ListCards(ctx, core.CardQuery{BoardID: "hipri", Limit: 10, Filter: map[string]any{
+		"fields.priority": map[string]any{"$eq": "low"},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(page.Items) != 0 {
+		t.Fatalf("caller filter widened board scope: %+v", titlesOf(page.Items))
+	}
+}
+
+func titlesOf(cards []core.Card) []string {
+	out := make([]string, len(cards))
+	for i, c := range cards {
+		out[i] = c.Title
+	}
+	return out
 }
 
 func TestBlockedQuery(t *testing.T) {

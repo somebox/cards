@@ -122,6 +122,16 @@ func (s *Service) applyBoardScope(q *CardQuery, b *Board) {
 	if q.Status == "" && len(q.StatusIn) == 0 && len(b.Columns) > 0 {
 		q.StatusIn = b.Columns
 	}
+	// The board's default_filter is a hard isolation boundary: AND it with any
+	// caller-supplied filter so the board's scope can be narrowed but never
+	// widened. SPEC §9: a board_id query applies the board's default_filter.
+	if len(b.DefaultFilter) > 0 {
+		if len(q.Filter) == 0 {
+			q.Filter = b.DefaultFilter
+		} else {
+			q.Filter = map[string]any{"$and": []any{b.DefaultFilter, q.Filter}}
+		}
+	}
 }
 
 // GetCard returns a single card by id, with links + comments loaded.
@@ -1008,12 +1018,29 @@ func (s *Service) boardForTypeID(typeID, boardID string) *Board {
 			return b
 		}
 	}
-	for _, b := range s.boards {
-		if contains(b.CardTypeIDs, typeID) {
+	// A card's type may belong to several boards (e.g. one board per sub-app).
+	// This lookup only gates transition enforcement, so prefer a board that
+	// enforces transitions; break ties by board id so the choice never depends
+	// on Go's randomized map iteration order.
+	ids := make([]string, 0, len(s.boards))
+	for id := range s.boards {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	var match *Board
+	for _, id := range ids {
+		b := s.boards[id]
+		if !contains(b.CardTypeIDs, typeID) {
+			continue
+		}
+		if b.Settings.EnforceTransitions {
 			return b
 		}
+		if match == nil {
+			match = b
+		}
 	}
-	return nil
+	return match
 }
 
 // allowedFromStatuses returns statuses that may transition to `to` under b's graph.
