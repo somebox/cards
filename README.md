@@ -180,8 +180,10 @@ workspace is under `examples/`, and the longer design references are in `docs/`.
 
 ## Documentation And Development
 
-Start with [`docs/DEVELOPER-REFERENCE.md`](docs/DEVELOPER-REFERENCE.md) for
-workspace authoring and [`docs/SPEC.md`](docs/SPEC.md) for the API and data
+Start with [`docs/CONCEPTS.md`](docs/CONCEPTS.md) for the vocabulary
+(workspaces, boards, card types) and how setups differ by use case, then
+[`docs/DEVELOPER-REFERENCE.md`](docs/DEVELOPER-REFERENCE.md) for workspace
+authoring and [`docs/SPEC.md`](docs/SPEC.md) for the API and data
 model. Design background is in [`docs/PHILOSOPHY.md`](docs/PHILOSOPHY.md) and
 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md); agent and extension details are
 in [`docs/MCP.md`](docs/MCP.md) and [`docs/EXTENSIONS.md`](docs/EXTENSIONS.md).
