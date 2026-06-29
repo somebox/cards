@@ -25,8 +25,8 @@ func TestLoadDemoWorkspace(t *testing.T) {
 	if got := len(r.Workspace.LinkTypes); got != 4 {
 		t.Errorf("link_types = %d, want 4", got)
 	}
-	if got := len(r.CardTypes); got != 2 {
-		t.Fatalf("card types = %d, want 2", got)
+	if got := len(r.CardTypes); got != 3 {
+		t.Fatalf("card types = %d, want 3", got)
 	}
 	if _, ok := r.CardTypes["programming-task"]; !ok {
 		t.Error("missing programming-task type")
@@ -34,8 +34,14 @@ func TestLoadDemoWorkspace(t *testing.T) {
 	if _, ok := r.CardTypes["research-goal"]; !ok {
 		t.Error("missing research-goal type")
 	}
-	if got := len(r.Boards); got != 1 {
-		t.Fatalf("boards = %d, want 1", got)
+	if _, ok := r.CardTypes["task"]; !ok {
+		t.Error("missing task type")
+	}
+	if got := len(r.Boards); got != 2 {
+		t.Fatalf("boards = %d, want 2", got)
+	}
+	if _, ok := r.Boards["welcome"]; !ok {
+		t.Error("missing welcome board")
 	}
 	b := r.Boards["engineering"]
 	if b == nil || !b.Settings.EnforceTransitions {
