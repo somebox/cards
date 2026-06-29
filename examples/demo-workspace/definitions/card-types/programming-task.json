@@ -5,8 +5,6 @@
   "fields": [
     { "id": "description", "type": "text", "required": true, "display": "monospace" },
     { "id": "branch", "type": "string", "required": true, "display": "badge" },
-    { "id": "pull_request_url", "type": "string", "required": false, "display": "hidden" },
-    { "id": "assignee", "type": "user", "required": false },
     {
       "id": "work_log", "type": "repeating", "required": false, "display": "feed",
       "item_fields": [
@@ -15,8 +13,7 @@
         { "id": "author", "type": "user", "required": true },
         { "id": "timestamp", "type": "date", "required": true }
       ]
-    },
-    { "id": "definition_of_done", "type": "text", "required": false, "display": "monospace" }
+    }
   ],
   "allowed_columns": ["backlog", "todo", "in_progress", "review", "done"]
 }

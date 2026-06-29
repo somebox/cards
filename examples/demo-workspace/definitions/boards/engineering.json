@@ -14,7 +14,7 @@
   "presentation": {
     "lane_group_by": "status",
     "card_preview": {
-      "programming-task": ["branch", "pull_request_url"],
+      "programming-task": ["branch"],
       "research-goal": ["hypothesis"]
     },
     "filters": [

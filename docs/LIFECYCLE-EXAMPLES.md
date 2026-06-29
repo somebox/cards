@@ -237,8 +237,7 @@ X-Work-Cards-Actor: coder-agent
 
 {
   "status": "review",
-  "version": 2,
-  "fields": { "pull_request_url": "https://github.com/org/repo/pull/42" }
+  "version": 2
 }
 ```
 

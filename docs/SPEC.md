@@ -460,8 +460,6 @@ Use `artifact` for g-code, logs, exports; keep card JSON small.
   "fields": [
     { "id": "description", "type": "text", "required": true },
     { "id": "branch", "type": "string", "required": true },
-    { "id": "pull_request_url", "type": "string", "required": false },
-    { "id": "assignee", "type": "user", "required": false },
     {
       "id": "work_log", "type": "repeating", "required": false,
       "item_fields": [
@@ -470,8 +468,7 @@ Use `artifact` for g-code, logs, exports; keep card JSON small.
         { "id": "author", "type": "user", "required": true },
         { "id": "timestamp", "type": "date", "required": true }
       ]
-    },
-    { "id": "definition_of_done", "type": "text", "required": false }
+    }
   ],
   "allowed_columns": ["todo", "in_progress", "review", "done"]
 }

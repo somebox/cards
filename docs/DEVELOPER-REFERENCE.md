@@ -376,7 +376,7 @@ File: `definitions/boards/<board_id>.json`
   "presentation": {
     "lane_group_by": "status",
     "card_preview": {
-      "programming-task": ["branch", "pull_request_url"],
+      "programming-task": ["branch"],
       "research-goal": ["hypothesis"]
     },
     "filters": [
@@ -491,7 +491,7 @@ cards create --type programming-task --title "..." --status todo \
   --field branch=feature/x --as coder-agent
 cards get CARD_ID
 cards patch CARD_ID --status review --version 3 \
-  --field pull_request_url=https://github.com/org/repo/pull/42
+  --field branch=feat/oauth
 cards claim CARD_ID --as coder-agent --status in_progress
 cards take-next --board engineering --filter-file ./filters/todo.json \
   --as coder-agent --status in_progress
