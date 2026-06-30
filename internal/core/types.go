@@ -55,6 +55,18 @@ type CardType struct {
 	AllowedColumns   []string   `json:"allowed_columns,omitempty"`
 	Icon             string     `json:"icon,omitempty"`
 	SearchableFields []string   `json:"searchable_fields,omitempty"`
+	// Migrations describes how to reach each schema version, keyed by the
+	// target version as a string (e.g. "2"). Used by UpgradeSchema. SPEC §6.
+	Migrations map[string]Migration `json:"migrations,omitempty"`
+}
+
+// Migration declares how a card reaches a target schema version from a prior
+// one: which version it upgrades from, a human summary, and defaults to apply
+// for fields introduced at the target version.
+type Migration struct {
+	From          int            `json:"from"`
+	Summary       string         `json:"summary,omitempty"`
+	FieldDefaults map[string]any `json:"field_defaults,omitempty"`
 }
 
 // Column is a status lane. Status values on cards are column IDs.

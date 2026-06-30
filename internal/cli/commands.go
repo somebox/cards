@@ -27,6 +27,7 @@ func Commands() []Command {
 		{Name: "create", Short: "Create a card", Run: cmdCreate},
 		{Name: "patch", Short: "Patch a card (status/owner/tags/fields)", Run: cmdPatch},
 		{Name: "claim", Short: "Atomically claim a card", Run: cmdClaim},
+		{Name: "upgrade-schema", Short: "Upgrade a card to a newer schema version", Run: cmdUpgradeSchema},
 		{Name: "take-next", Short: "Pick + claim the next matching unowned card", Run: cmdTakeNext},
 		{Name: "append", Short: "Append a repeating entry", Run: cmdAppend},
 		{Name: "patch-entry", Short: "Update a repeating entry by entry_id", Run: cmdPatchEntry},
@@ -175,6 +176,31 @@ func cmdPatch(c *Client, args []string) error {
 		body["dry_run"] = true
 	}
 	data, _, err := c.do("PATCH", "/cards/"+fs.Args()[0], body)
+	if err != nil {
+		return err
+	}
+	c.Print(data, false, "id")
+	return nil
+}
+
+func cmdUpgradeSchema(c *Client, args []string) error {
+	fs := NewFlagSet()
+	target := fs.Int("target", 0)
+	dryRun := fs.Bool("dry-run", false)
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if len(fs.Args()) == 0 {
+		return fmt.Errorf("usage: cards upgrade-schema <id> [--target N] [--dry-run]")
+	}
+	body := map[string]any{}
+	if *target != 0 {
+		body["target_version"] = *target
+	}
+	if *dryRun {
+		body["dry_run"] = true
+	}
+	data, _, err := c.do("POST", "/cards/"+fs.Args()[0]+"/upgrade-schema", body)
 	if err != nil {
 		return err
 	}

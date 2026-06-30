@@ -146,6 +146,7 @@ Commands:
   create       --type T --title T [--status S] [--field k=v]... [--tag t]... [--dry-run]
   patch <id>   --version N [--status S] [--owner U] [--field k=v]... [--dry-run]
   claim <id>   --version N [--status S]
+  upgrade-schema <id>  [--target N] [--dry-run]
   take-next    [--type T] [--board B] [--assign-to U] [--status S] [--filter-file F]
   append <id> <field> --version N --entry-json '{...}'
   patch-entry <id> <field> <entry_id> --version N --entry-json '{...}'

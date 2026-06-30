@@ -90,6 +90,7 @@ func (s *Server) Router() http.Handler {
 	r.Post("/v1/cards", s.withActor(s.idempotent(s.apiCreateCard)))
 	r.Get("/v1/cards/{id}", s.apiGetCard)
 	r.Patch("/v1/cards/{id}", s.withActor(s.idempotent(s.apiPatchCard)))
+	r.Post("/v1/cards/{id}/upgrade-schema", s.withActor(s.idempotent(s.apiUpgradeSchema)))
 	r.Post("/v1/cards/take-next", s.withActor(s.idempotent(s.apiTakeNext)))
 	r.Post("/v1/cards/{id}/claim", s.withActor(s.idempotent(s.apiClaim)))
 	r.Post("/v1/cards/{id}/release", s.withActor(s.idempotent(s.apiRelease)))
@@ -241,6 +242,28 @@ func (s *Server) apiPatchCard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if req.DryRun {
+		w.Header().Set("Dry-Run", "true")
+	}
+	writeJSON(w, 200, c)
+}
+
+func (s *Server) apiUpgradeSchema(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		TargetVersion int  `json:"target_version"`
+		DryRun        bool `json:"dry_run"`
+	}
+	if err := decodeJSON(r, &body); err != nil {
+		writeAPIError(w, core.NewValidationError("body", "invalid JSON: "+err.Error()))
+		return
+	}
+	c, err := s.svc.UpgradeSchema(r.Context(), chi.URLParam(r, "id"), core.UpgradeSchemaRequest{
+		TargetVersion: body.TargetVersion, DryRun: body.DryRun, Actor: s.actorFromCtx(r),
+	})
+	if err != nil {
+		writeAPIError(w, core.AsError(err))
+		return
+	}
+	if body.DryRun {
 		w.Header().Set("Dry-Run", "true")
 	}
 	writeJSON(w, 200, c)

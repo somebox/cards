@@ -353,6 +353,104 @@ func (s *Service) PatchCard(ctx context.Context, id string, req PatchCardRequest
 	return &next, nil
 }
 
+// UpgradeSchemaRequest re-pins a card to a newer schema version of its type.
+type UpgradeSchemaRequest struct {
+	TargetVersion int  // 0 means the type's current schema_version
+	DryRun        bool // preview the upgraded card without persisting
+	Actor         string
+}
+
+// UpgradeSchema re-pins a card to a newer schema version of its type. It drops
+// fields no longer in the target schema, applies the migrations' field_defaults
+// for fields introduced between the card's version and the target, then
+// validates the result against the target schema. Emits schema_upgraded. SPEC §6.
+//
+// MVP scope: the target must equal the type's current schema_version (the only
+// schema the server has loaded) and upgrades go forward only.
+func (s *Service) UpgradeSchema(ctx context.Context, id string, req UpgradeSchemaRequest) (*Card, error) {
+	if req.Actor == "" {
+		return nil, ActorRequired()
+	}
+	current, err := s.getCard(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	ct, ok := s.types[current.TypeID]
+	if !ok {
+		return nil, NotFound("card_type " + current.TypeID)
+	}
+	target := req.TargetVersion
+	if target == 0 {
+		target = ct.SchemaVersion
+	}
+	if target == current.SchemaVersion {
+		return current, nil // already at target; no-op
+	}
+	if target < current.SchemaVersion {
+		return nil, NewValidationError("target_version",
+			fmt.Sprintf("cannot downgrade card from version %d to %d", current.SchemaVersion, target))
+	}
+	if target != ct.SchemaVersion {
+		return nil, NewValidationError("target_version",
+			fmt.Sprintf("only upgrading to the current type version %d is supported", ct.SchemaVersion))
+	}
+
+	// Start from the card's fields, dropping any no longer defined in the
+	// target schema (a field removed in a newer version).
+	known := map[string]bool{}
+	for _, f := range ct.Fields {
+		known[f.ID] = true
+	}
+	base, _ := current.Fields.(map[string]any)
+	merged := map[string]any{}
+	dropped := []string{}
+	for k, v := range base {
+		if known[k] {
+			merged[k] = v
+		} else {
+			dropped = append(dropped, k)
+		}
+	}
+	// Apply field_defaults for each migration step (current+1 .. target),
+	// filling only fields not already present.
+	applied := map[string]any{}
+	for v := current.SchemaVersion + 1; v <= target; v++ {
+		m, ok := ct.Migrations[fmt.Sprintf("%d", v)]
+		if !ok {
+			continue
+		}
+		for fid, def := range m.FieldDefaults {
+			if _, present := merged[fid]; !present {
+				merged[fid] = def
+				applied[fid] = def
+			}
+		}
+	}
+	// The upgraded card must be fully valid at the target schema.
+	validated, err := s.validateFields(ctx, ct, merged, true)
+	if err != nil {
+		return nil, err
+	}
+
+	now := s.now()
+	next := *current
+	next.SchemaVersion = target
+	next.Fields = validated
+	next.Version = current.Version + 1
+	next.UpdatedAt = now
+	if req.DryRun {
+		return &next, nil
+	}
+
+	ev := &Event{CardID: id, Type: EventSchemaUpgraded, Actor: req.Actor, At: now,
+		Diff: map[string]any{"from": current.SchemaVersion, "to": target, "defaults_applied": applied, "fields_dropped": dropped}}
+	if err := s.store.UpdateCard(ctx, &next, []*Event{ev}); err != nil {
+		return nil, err
+	}
+	s.publishOne(ev)
+	return &next, nil
+}
+
 // AppendEntry appends to a repeating field; returns the updated card. SPEC §11.
 // Each entry gets a stable server-generated entry_id; entries are addressed
 // by that id thereafter. SPEC §6 D6.

@@ -255,8 +255,8 @@ func (s *Store) UpdateCard(ctx context.Context, c *core.Card, evs []*core.Event)
 		return err
 	}
 	defer tx.Rollback()
-	res, err := tx.ExecContext(ctx, `UPDATE cards SET title=?, status=?, owner=?, tags=?, fields=?, version=?, updated_at=? WHERE id=? AND version=?`,
-		c.Title, c.Status, nullableString(c.Owner), tagsJSON(c.Tags), fieldsJSON(c.Fields), c.Version, c.UpdatedAt.Format(time.RFC3339Nano), c.ID, c.Version-1)
+	res, err := tx.ExecContext(ctx, `UPDATE cards SET title=?, status=?, owner=?, tags=?, fields=?, schema_version=?, version=?, updated_at=? WHERE id=? AND version=?`,
+		c.Title, c.Status, nullableString(c.Owner), tagsJSON(c.Tags), fieldsJSON(c.Fields), c.SchemaVersion, c.Version, c.UpdatedAt.Format(time.RFC3339Nano), c.ID, c.Version-1)
 	if err != nil {
 		return fmt.Errorf("update card: %w", err)
 	}

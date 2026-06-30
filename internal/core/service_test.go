@@ -625,6 +625,99 @@ func titlesOf(cards []core.Card) []string {
 	return out
 }
 
+// TestUpgradeSchema exercises re-pinning a card to a newer type version:
+// applying a migration's field_defaults, dropping a field removed in the new
+// version, dry-run previews, and the already-current no-op.
+func TestUpgradeSchema(t *testing.T) {
+	ws := &core.Workspace{
+		ID: "t", Name: "T",
+		Columns:  []core.Column{{ID: "todo", Name: "Todo"}},
+		Settings: core.WorkspaceSettings{StrictFields: true, DefaultUser: "u"},
+	}
+	// v1 schema: description + a legacy field that v2 will remove.
+	taskType := &core.CardType{
+		ID: "task", Name: "Task", SchemaVersion: 1,
+		Fields: []core.FieldDef{
+			{ID: "description", Type: core.FieldText, Required: true},
+			{ID: "legacy", Type: core.FieldString, Required: false},
+		},
+		AllowedColumns: []string{"todo"},
+	}
+	types := map[string]*core.CardType{"task": taskType}
+	st, err := sqlite.Open(":memory:", ws)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	t.Cleanup(func() { st.Close() })
+	_ = st.InsertUser(context.Background(), core.User{ID: "u", Kind: "human", CreatedAt: time.Now().UTC()})
+	svc := core.NewService(ws, types, map[string]*core.Board{}, st)
+	ctx := core.WithActor(context.Background(), "u")
+
+	c, err := svc.CreateCard(ctx, core.CreateCardRequest{
+		TypeID: "task", Title: "T", Status: "todo",
+		Fields: map[string]any{"description": "d", "legacy": "x"}, Actor: "u",
+	})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	// Evolve the type to v2: drop 'legacy', add a required 'priority' with a
+	// migration default.
+	taskType.SchemaVersion = 2
+	taskType.Fields = []core.FieldDef{
+		{ID: "description", Type: core.FieldText, Required: true},
+		{ID: "priority", Type: core.FieldEnum, Options: []string{"low", "high"}, Required: true},
+	}
+	taskType.Migrations = map[string]core.Migration{
+		"2": {From: 1, Summary: "drop legacy; add priority", FieldDefaults: map[string]any{"priority": "low"}},
+	}
+
+	// Dry-run: previews v2 without persisting.
+	preview, err := svc.UpgradeSchema(ctx, c.ID, core.UpgradeSchemaRequest{DryRun: true, Actor: "u"})
+	if err != nil {
+		t.Fatalf("dry-run: %v", err)
+	}
+	if preview.SchemaVersion != 2 {
+		t.Errorf("dry-run schema_version = %d, want 2", preview.SchemaVersion)
+	}
+	if got, _ := svc.GetCard(ctx, c.ID); got.SchemaVersion != 1 {
+		t.Errorf("dry-run persisted: stored schema_version = %d, want 1", got.SchemaVersion)
+	}
+
+	// Real upgrade.
+	up, err := svc.UpgradeSchema(ctx, c.ID, core.UpgradeSchemaRequest{Actor: "u"})
+	if err != nil {
+		t.Fatalf("upgrade: %v", err)
+	}
+	if up.SchemaVersion != 2 {
+		t.Errorf("schema_version = %d, want 2", up.SchemaVersion)
+	}
+	if up.Version != c.Version+1 {
+		t.Errorf("version = %d, want %d", up.Version, c.Version+1)
+	}
+	f := up.Fields.(map[string]any)
+	if f["priority"] != "low" {
+		t.Errorf("priority = %v, want low (migration default)", f["priority"])
+	}
+	if _, ok := f["legacy"]; ok {
+		t.Errorf("legacy should be dropped on upgrade, got %v", f["legacy"])
+	}
+
+	// No-op: already at the current version.
+	again, err := svc.UpgradeSchema(ctx, c.ID, core.UpgradeSchemaRequest{Actor: "u"})
+	if err != nil {
+		t.Fatalf("re-upgrade: %v", err)
+	}
+	if again.Version != up.Version {
+		t.Errorf("no-op upgrade bumped version: %d -> %d", up.Version, again.Version)
+	}
+
+	// Downgrade is rejected.
+	if _, err := svc.UpgradeSchema(ctx, c.ID, core.UpgradeSchemaRequest{TargetVersion: 1, Actor: "u"}); err == nil {
+		t.Error("expected downgrade to be rejected")
+	}
+}
+
 func TestBlockedQuery(t *testing.T) {
 	svc, _ := newTestService(t)
 	ctx := core.WithActor(ctx2(), "u")
