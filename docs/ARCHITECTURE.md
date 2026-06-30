@@ -247,6 +247,26 @@ examples.
 
 ---
 
+## Event Taxonomy: Mutation vs Condition
+
+Events have two origins. **Mutation events** (`status_changed`, `comment_added`,
+…) are the synchronous consequence of a write and are always card-scoped — this
+is what exists today. **Condition events** (planned) are emitted when a declared
+threshold crosses: instant ones (`wip_exceeded`, `lane_drained`, `card_blocked`,
+`transition_rejected`) evaluated right after the triggering mutation, and
+temporal ones (`status_timeout`, `card_idle`) emitted by a **monitor evaluator**
+goroutine that sits beside the extension supervisor and ticks on an interval.
+
+Condition events are declared as `monitors` on a board (data, not code) and
+publish onto the same bus as mutation events, so SSE/webhooks/hooks consume one
+unified stream. Two model changes enable board-level conditions: events gain a
+`scope` (`card` | `board`) with a nullable `card_id` and a recorded `board_id`.
+Critically, the core only **emits** condition signals — it never acts on them;
+reprioritizing, escalating, and reassigning are the integrator's policy. See
+[`INTEGRATION.md`](INTEGRATION.md) for the full contract.
+
+---
+
 ## Planned Integrations
 
 Python and Node client packages are **planned** but not yet built. They will
