@@ -23,6 +23,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/somebox/cards/internal/core"
+	"github.com/somebox/cards/internal/openapi"
 )
 
 //go:embed templates/*.html templates/*.css
@@ -104,6 +105,7 @@ func (s *Server) Router() http.Handler {
 	r.Get("/v1/cards/{id}/events", s.apiCardEvents)
 	r.Get("/v1/cards/{id}/history", s.apiCardHistory)
 	r.Get("/v1/events/stream", s.apiEventStream)
+	r.Get("/v1/openapi.json", s.apiOpenAPI)
 	r.Post("/v1/users", s.apiRegisterUser)
 
 	// --- UI ---
@@ -245,6 +247,10 @@ func (s *Server) apiPatchCard(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Dry-Run", "true")
 	}
 	writeJSON(w, 200, c)
+}
+
+func (s *Server) apiOpenAPI(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, 200, openapi.Build(s.ws, s.types))
 }
 
 func (s *Server) apiUpgradeSchema(w http.ResponseWriter, r *http.Request) {
