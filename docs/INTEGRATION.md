@@ -63,7 +63,7 @@ core's evaluator. Two trigger kinds:
 | `card_blocked` / `card_unblocked` | card | a card's open-blocker set becomes non-empty / empties |
 | `transition_rejected` | card | an enforced transition is attempted and refused (opt-in) |
 
-**Temporal** (require the periodic evaluator — nothing mutates at the deadline):
+**Temporal** (nothing mutates at the deadline — see the deadline scheduler below):
 
 | Event | Scope | Fires when |
 |---|---|---|
@@ -71,7 +71,8 @@ core's evaluator. Two trigger kinds:
 | `card_idle` | card | no event on a card for longer than the idle threshold |
 
 Condition events flow onto the **same** bus as mutation events, so every
-consumer below receives them identically.
+consumer below receives them identically. Unlike mutation events they are
+**ephemeral and derived** — see [Ephemeral signals](#condition-events-are-ephemeral).
 
 ## Monitors — declaring conditions **[proposed]**
 
@@ -92,11 +93,68 @@ workspace defaults), they tell the core which condition events to emit:
 Durations use Go-style strings (`"8h"`, `"2d"` → normalized). The core emits the
 matching event **once per crossing** (idempotent): it tracks the last-emitted
 state per `(board, column, condition)` and per `(card, status-entry)` so a
-condition that stays tripped does not re-fire every tick. The inverse event
+condition that stays tripped does not re-fire. The inverse event
 (`wip_cleared`, `lane_refilled`, `card_unblocked`) fires when it recovers.
 
 The core only emits — it does not promote cards, reassign owners, or move
 status in response. That is the integrator's job (see Coordinate).
+
+### A temporal event, step by step
+
+`max_time_in_status: { review: "8h" }`. A card enters `review` at `T` (a
+`status_changed` event with `at=T`); its deadline is `T + 8h`, **computed, not
+discovered**. At the deadline the core re-checks the card is still in `review`
+and, if so, emits `status_timeout` once. Two pieces of state make this exact:
+`status_since` (when the card entered its current status — a denormalized
+column, since `updated_at` moves on any edit) and a fired-marker keyed by
+`(card, status, status_since)` so re-entering `review` arms a fresh deadline.
+If the card moves out of `review` first, the deadline is simply discarded.
+
+### The deadline scheduler (no fixed tick)
+
+There is no polling interval. Pending deadlines live in a **min-heap ordered by
+fire time**, and a single timer is set to the *earliest* one:
+
+- on `status_changed` (consumed from the bus): cancel the card's old deadline,
+  push the new one, reset the timer if the head changed;
+- on wake: pop everything now-due, re-verify + emit, reset the timer to the new head;
+- **empty heap ⇒ no timer at all** — zero wakeups when nothing is pending.
+
+Resolution is automatic: the scheduler always sleeps until the nearest real
+deadline. The heap is **reconstructible from state** (query cards in monitored
+statuses, compute `status_since + max`, skip fired), so a restart or
+`definition_reloaded` just rebuilds it — nothing to persist. One safety net: a
+max-sleep cap (~1h) so a dropped bus event can't strand a deadline. Instant
+conditions never touch the heap; they evaluate synchronously on the mutation
+that could trip them.
+
+### Lazy: monitors run only while someone is listening
+
+Because condition events are ephemeral and derived, a monitor's deadlines are
+scheduled **only while it has a live consumer** — an SSE subscriber whose
+`types` filter includes the event, a declared hook/webhook on that type, or an
+explicit `persist: true`. When the last consumer for `status_timeout`
+disconnects, those deadlines are dropped from the heap and the core stops
+computing them; when a consumer re-subscribes, the relevant deadlines are
+rebuilt from current state. A signal that would have fired while nobody was
+listening was, by definition, for nobody — and catch-up does not rely on replay
+(see below). So cancellation has two clean triggers: the condition no longer
+holds, or no one is left to tell.
+
+### Condition events are ephemeral
+
+Mutation events are **facts**: persisted, replayable via `Last-Event-ID`, always
+emitted. Condition events are a **derived view** over state: by default not
+persisted, computed only for whoever is watching. This is what makes the lazy
+scheduler above safe — there is no stored stream to fall behind on.
+
+Catch-up therefore splits in two: replay missed *facts* from the feed, and ask
+for *current* conditions via the [breaches query](#current-breaches-catch-up-for-conditions).
+A breach is itself derivable from the facts — the feed shows a card entered
+`review` at `T` and is still there, so "it's 9h overdue" is computable; the
+condition event is just a convenience signal on top. A monitor may set
+`persist: true` to also record its events in the feed (audit/history), at which
+point they replay like mutation events.
 
 ## Observe
 
@@ -114,7 +172,19 @@ cards" the same primitive.
 GET /v1/events?actor=&owner=&type=&board_id=&since=&cursor=
 ```
 A cursor-paged query over the persisted events table (which already stores
-`actor`) for audit and "what did I miss while disconnected".
+`actor`) for audit and "what did I miss while disconnected". The feed is a log
+of **facts** — mutation events only (plus any monitor marked `persist: true`).
+
+### Current breaches (catch-up for conditions) **[proposed]**
+```
+GET /v1/breaches?board_id=&type=         (or GET /v1/cards?breaching=status_timeout)
+```
+Condition events are [ephemeral](#condition-events-are-ephemeral), so you don't replay missed ones —
+you ask the current truth. This computes, on demand, which cards *currently*
+violate which monitors by evaluating thresholds against live state. It's the
+catch-up path for conditions and doubles as a dashboard's "needs attention"
+panel. A reconnecting integrator does two things: replay missed mutations via
+the feed (`Last-Event-ID`), then query current breaches.
 
 ### Webhooks **[proposed]**
 A `webhook` extension kind: the core POSTs each matching event to an external
@@ -170,8 +240,12 @@ by priority — the *policy* (which card, when) lives in the extension, the
 - **The evaluator.** Instant conditions are evaluated in the service
   immediately after the triggering mutation commits. Temporal conditions run in
   a **monitor evaluator** goroutine — a sibling to the hook supervisor already
-  spawned in `serve` — ticking on a configurable interval (default ~60s),
-  scanning for crossings and emitting once. It holds no policy; it only emits.
+  spawned in `serve` — driven by a deadline min-heap, not a fixed tick: it sleeps
+  until the earliest pending deadline, wakes, re-verifies and emits, and sleeps
+  again (no wakeups when the heap is empty). Deadlines are scheduled only while a
+  monitor has a live consumer and are reconstructible from state, so nothing is
+  persisted. It holds no policy; it only emits. See the deadline scheduler and
+  lazy-monitor sections above.
 - **Delivery.** All events (both origins, both scopes) publish to the in-process
   bus and the persisted events table, so SSE, the feed, webhooks, and hooks see
   a single unified stream.
@@ -180,9 +254,12 @@ by priority — the *policy* (which card, when) lives in the extension, the
 
 1. Actor/owner stream filters + `GET /v1/events` feed (observe: watch/follow).
 2. Board-scoped event model (`scope`, nullable `card_id`, `board_id`).
-3. Monitors + condition events (WIP, time-in-status, empty lane, idle) + evaluator.
-4. `transition_rejected` (watch friction).
-5. Artifact upload (attach files).
-6. `card_ready`/`card_unblocked` (DAG coordination).
-7. Priority/rank + reprioritize-on-`lane_drained`.
-8. Webhooks (push delivery).
+3. `status_since` denormalized column (arming temporal deadlines).
+4. Monitors + instant condition events (WIP, empty lane, blocked) — synchronous.
+5. Deadline-heap evaluator + temporal events (time-in-status, idle), lazy/refcounted.
+6. `GET /v1/breaches` (current-conditions catch-up for the ephemeral signals).
+7. `transition_rejected` (watch friction).
+8. Artifact upload (attach files).
+9. `card_ready`/`card_unblocked` (DAG coordination).
+10. Priority/rank + reprioritize-on-`lane_drained`.
+11. Webhooks (push delivery).

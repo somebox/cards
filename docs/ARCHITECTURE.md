@@ -255,7 +255,9 @@ is what exists today. **Condition events** (planned) are emitted when a declared
 threshold crosses: instant ones (`wip_exceeded`, `lane_drained`, `card_blocked`,
 `transition_rejected`) evaluated right after the triggering mutation, and
 temporal ones (`status_timeout`, `card_idle`) emitted by a **monitor evaluator**
-goroutine that sits beside the extension supervisor and ticks on an interval.
+goroutine that sits beside the extension supervisor and is driven by a deadline
+min-heap (it sleeps until the next deadline rather than polling on a fixed tick,
+and only schedules deadlines a live consumer is listening for).
 
 Condition events are declared as `monitors` on a board (data, not code) and
 publish onto the same bus as mutation events, so SSE/webhooks/hooks consume one
