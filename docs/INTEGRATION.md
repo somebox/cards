@@ -8,6 +8,56 @@ Status legend: **[built]** exists today · **[proposed]** designed here, not yet
 implemented. See [`SPEC.md`](SPEC.md) for the normative contract of built
 features and [`ARCHITECTURE.md`](ARCHITECTURE.md) for the runtime.
 
+## Quickstart (Node) **[built]**
+
+Cards emits an **event** on every state change, on a single stream, so your app
+reacts to work instead of polling for it. There are three ways in.
+
+**1. Catch up — the feed.** A cursor-paged log of what happened; use it on
+startup to replay what you missed.
+
+```js
+const res = await fetch(`http://127.0.0.1:8787/v1/events?board_id=engineering&since=${lastSeen}`);
+const { events } = await res.json();        // each: { id, type, actor, at, card_id, diff }
+```
+
+**2. React live — the SSE stream.** A long-lived connection, filtered by card,
+board, or type. `?card_id=` is "watch this card"; `?types=status_changed` is
+"watch transitions".
+
+```js
+import { EventSource } from "eventsource"; // or browser-native
+
+const es = new EventSource(
+  "http://127.0.0.1:8787/v1/events/stream?board_id=engineering&types=status_changed,comment_added"
+);
+es.onmessage = (e) => {
+  const evt = JSON.parse(e.data);
+  if (evt.type === "status_changed" && evt.diff.to === "review") runReviewBot(evt.card_id);
+};
+```
+
+The stream is **resumable**: it sets `Last-Event-ID` and `EventSource` sends it
+back on reconnect, so a dropped connection replays the gap rather than losing it.
+
+**3. The worker loop.** Events pair with the claim API to pull work, do it, and
+write results back:
+
+```js
+es.addEventListener("message", async (e) => {
+  if (JSON.parse(e.data).type !== "card_created") return;
+  const card = await claimNext("programming-task", "in_progress"); // POST /v1/cards/take-next
+  if (!card) return;
+  await doWork(card);
+  await comment(card.id, "done ✓");                                 // POST /v1/cards/{id}/comments
+  await patch(card.id, { status: "review", version: card.version }); // PATCH /v1/cards/{id}
+});
+```
+
+Mutation events (above) exist today; **condition events** (`status_timeout`,
+`wip_exceeded`, …) arrive on the *same* stream once implemented, so this consumer
+code does not change. The rest of this document is the full contract.
+
 ## Three planes
 
 - **Observe** — learn what changed: the event stream (live), the events feed
