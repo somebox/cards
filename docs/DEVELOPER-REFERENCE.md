@@ -480,6 +480,13 @@ appends findings as comments or `status_updates` entries.
 The binary is **`cards`** (avoids clashing with Unix `wc`). It mirrors the HTTP
 API.
 
+Client commands run **serverless by default**: with no `CARDS_URL` set they run
+the same `/v1` router in-process against the resolved workspace
+(`$CARDS_WORKSPACE`, else the nearest `.cards/`, else `~/.cards`) — no `cards
+serve` required. Set `CARDS_URL` (or `--url`) to talk to a running server
+instead. Prefer the server when one is up: a direct write bypasses that
+process's event bus, so its SSE stream and hooks would not observe the change.
+
 ```bash
 cards serve --workspace ./demo-workspace --port 8787
 
@@ -516,8 +523,8 @@ Environment:
 
 | Variable | Purpose |
 |---|---|
-| `CARDS_URL` | API base (default `http://127.0.0.1:8787/v1`) |
-| `CARDS_WORKSPACE` | Workspace directory for embedded/local mode |
+| `CARDS_URL` | API base; **unset = serverless** (in-process). Set it to target a running server |
+| `CARDS_WORKSPACE` | Workspace directory for serverless/embedded mode |
 | `CARDS_USER` | Default actor (`me` / `--as`) |
 
 Concurrency: pass `--version` on every PATCH/claim (or `If-Match`); stale

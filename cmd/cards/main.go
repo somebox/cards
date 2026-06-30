@@ -117,12 +117,29 @@ func runCLI(cfg cli.Config, rest []string) error {
 		return fmt.Errorf("%s", usage)
 	}
 	name := rest[0]
-	for _, cmd := range cli.Commands() {
-		if cmd.Name == name {
-			return cmd.Run(cli.New(cfg), rest[1:])
+	var cmd *cli.Command
+	for i := range cli.Commands() {
+		if c := cli.Commands()[i]; c.Name == name {
+			cmd = &c
+			break
 		}
 	}
-	return fmt.Errorf("unknown command %q\n%s", name, usage)
+	if cmd == nil {
+		return fmt.Errorf("unknown command %q\n%s", name, usage)
+	}
+
+	// Backend selection: an explicit CARDS_URL/--url talks to a running server
+	// (preserving its event bus/SSE/hooks); otherwise run the router in-process
+	// against the resolved workspace — no server required.
+	if cfg.URL != "" {
+		return cmd.Run(cli.New(cfg), rest[1:])
+	}
+	backend, err := newDirectBackend()
+	if err != nil {
+		return err
+	}
+	defer backend.Close()
+	return cmd.Run(cli.NewWithTransport(cfg, backend), rest[1:])
 }
 
 const usage = `Work Cards — typed-card coordination.
@@ -131,10 +148,15 @@ Usage:
   cards                                (serve nearest .cards/ or ~/.cards)
   cards init [dir] [--global]          Scaffold a new workspace
   cards serve [--workspace <dir>] [--port 8787] [--seed]
-  cards <command> [flags]              (client; set CARDS_URL or --url)
+  cards <command> [flags]              (serverless by default; CARDS_URL targets a server)
+
+Client commands run in-process against the resolved workspace
+($CARDS_WORKSPACE, else nearest .cards/, else ~/.cards) with no server. Set
+CARDS_URL (or --url) to talk to a running 'cards serve' instead — preferred
+when a server is up so its event stream and hooks stay correct.
 
 Global flags (before the command):
-  --url URL    API base (default $CARDS_URL or http://127.0.0.1:8787/v1)
+  --url URL    API base ($CARDS_URL); unset runs serverless in-process
   --as USER    actor for writes (default $CARDS_USER)
   --json       pretty-print single object
   --jsonl      newline-delimited JSON (default for list/events)

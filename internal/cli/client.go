@@ -28,27 +28,64 @@ type Config struct {
 	JSONL  bool   // newline-delimited JSON
 }
 
-// DefaultConfig resolves from env vars.
+// DefaultConfig resolves from env vars. URL is left empty when CARDS_URL is
+// unset: an empty URL selects the serverless (in-process) backend, a set URL
+// targets a running `cards serve`.
 func DefaultConfig() Config {
-	u := os.Getenv("CARDS_URL")
-	if u == "" {
-		u = "http://127.0.0.1:8787/v1"
-	}
 	return Config{
-		URL: u,
+		URL: os.Getenv("CARDS_URL"),
 		As:  os.Getenv("CARDS_USER"),
 	}
 }
 
-// Client is the HTTP client bound to a Config.
-type Client struct {
-	cfg Config
-	hc  *http.Client
+// Transport performs one API round-trip. The HTTP implementation talks to a
+// `cards serve` process; cmd/cards provides an in-process implementation that
+// runs the same /v1 router directly against a workspace — no server required.
+type Transport interface {
+	Do(method, path string, body []byte, header http.Header) (status int, resp []byte, err error)
 }
 
-// New returns a Client.
+// httpTransport is the default Transport: a real HTTP client against cfg.URL.
+type httpTransport struct {
+	base string
+	hc   *http.Client
+}
+
+func (t httpTransport) Do(method, path string, body []byte, header http.Header) (int, []byte, error) {
+	var r io.Reader
+	if body != nil {
+		r = bytes.NewReader(body)
+	}
+	req, err := http.NewRequest(method, t.base+path, r)
+	if err != nil {
+		return 0, nil, err
+	}
+	if header != nil {
+		req.Header = header
+	}
+	resp, err := t.hc.Do(req)
+	if err != nil {
+		return 0, nil, fmt.Errorf("request: %w", err)
+	}
+	defer resp.Body.Close()
+	data, _ := io.ReadAll(resp.Body)
+	return resp.StatusCode, data, nil
+}
+
+// Client is bound to a Config and a Transport (HTTP or in-process).
+type Client struct {
+	cfg Config
+	t   Transport
+}
+
+// New returns a Client that talks HTTP to cfg.URL.
 func New(cfg Config) *Client {
-	return &Client{cfg: cfg, hc: http.DefaultClient}
+	return &Client{cfg: cfg, t: httpTransport{base: cfg.URL, hc: http.DefaultClient}}
+}
+
+// NewWithTransport returns a Client over a custom Transport (e.g. in-process).
+func NewWithTransport(cfg Config, t Transport) *Client {
+	return &Client{cfg: cfg, t: t}
 }
 
 // --- request helpers ---
@@ -56,34 +93,27 @@ func New(cfg Config) *Client {
 // do performs a request and returns the raw body + status. On a non-2xx it
 // returns a *cliError parsed from the JSON error body.
 func (c *Client) do(method, path string, body any) ([]byte, int, error) {
-	var r io.Reader
+	var raw []byte
+	hdr := http.Header{}
 	if body != nil {
 		b, err := json.Marshal(body)
 		if err != nil {
 			return nil, 0, err
 		}
-		r = bytes.NewReader(b)
+		raw = b
+		hdr.Set("Content-Type", "application/json")
 	}
-	req, err := http.NewRequest(method, c.cfg.URL+path, r)
+	if c.cfg.As != "" {
+		hdr.Set("X-Work-Cards-Actor", c.cfg.As)
+	}
+	status, data, err := c.t.Do(method, path, raw, hdr)
 	if err != nil {
 		return nil, 0, err
 	}
-	if body != nil {
-		req.Header.Set("Content-Type", "application/json")
+	if status >= 400 {
+		return data, status, parseErr(data)
 	}
-	if c.cfg.As != "" {
-		req.Header.Set("X-Work-Cards-Actor", c.cfg.As)
-	}
-	resp, err := c.hc.Do(req)
-	if err != nil {
-		return nil, 0, fmt.Errorf("request: %w", err)
-	}
-	defer resp.Body.Close()
-	data, _ := io.ReadAll(resp.Body)
-	if resp.StatusCode >= 400 {
-		return data, resp.StatusCode, parseErr(data)
-	}
-	return data, resp.StatusCode, nil
+	return data, status, nil
 }
 
 // get is a convenience for GET with query params.
