@@ -2,6 +2,8 @@ package sqlite
 
 import (
 	"context"
+	"strconv"
+	"sync"
 	"testing"
 	"time"
 
@@ -175,6 +177,72 @@ func TestClaimAtomicPicksOldestUnowned(t *testing.T) {
 	claimed3, _, _ := st.ClaimAtomic(ctx, core.CardQuery{Unowned: true, Limit: 1}, "carol", "", "carol", time.Now().UTC())
 	if claimed3 != nil {
 		t.Errorf("expected nil, got %+v", claimed3)
+	}
+}
+
+// TestClaimAtomicNoDoubleClaim fires many concurrent claimants at a pool of
+// cards and asserts the no-double-claim guarantee: every card ends up with at
+// most one owner, and the number of successful claims never exceeds the pool.
+// This is the contract picraft's worker-pull pattern depends on (SPEC §11).
+func TestClaimAtomicNoDoubleClaim(t *testing.T) {
+	st, _ := testStore(t)
+	ctx := context.Background()
+	const pool = 20
+	const claimants = 50
+	t0 := time.Now().UTC()
+	for i := 0; i < pool; i++ {
+		id := "card-" + strconv.Itoa(i)
+		_ = st.InsertCard(ctx, &core.Card{
+			ID: id, WorkspaceID: "t", TypeID: "task", SchemaVersion: 1,
+			Title: id, Status: "todo", Fields: map[string]any{}, Version: 1,
+			CreatedAt: t0.Add(time.Duration(i) * time.Millisecond),
+			UpdatedAt: t0.Add(time.Duration(i) * time.Millisecond), CreatedBy: "u",
+		}, nil)
+	}
+
+	type result struct {
+		id    string
+		owner string
+	}
+	results := make(chan result, claimants)
+	var wg sync.WaitGroup
+	for i := 0; i < claimants; i++ {
+		wg.Add(1)
+		owner := "w" + strconv.Itoa(i)
+		go func() {
+			defer wg.Done()
+			c, _, err := st.ClaimAtomic(ctx, core.CardQuery{Unowned: true, Limit: 1}, owner, "in_progress", owner, time.Now().UTC())
+			if err != nil {
+				t.Errorf("claim error: %v", err)
+				return
+			}
+			if c != nil {
+				results <- result{id: c.ID, owner: c.Owner}
+			}
+		}()
+	}
+	wg.Wait()
+	close(results)
+
+	claimedBy := map[string]string{}
+	successes := 0
+	for r := range results {
+		successes++
+		if prev, dup := claimedBy[r.id]; dup {
+			t.Fatalf("card %s double-claimed: by %s and %s", r.id, prev, r.owner)
+		}
+		claimedBy[r.id] = r.owner
+	}
+	if successes != pool {
+		t.Fatalf("expected exactly %d successful claims, got %d", pool, successes)
+	}
+	// Every card must now be owned exactly once.
+	for i := 0; i < pool; i++ {
+		id := "card-" + strconv.Itoa(i)
+		got, _ := st.GetCard(ctx, id)
+		if got.Owner == "" {
+			t.Errorf("card %s left unowned", id)
+		}
 	}
 }
 

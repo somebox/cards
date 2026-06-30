@@ -188,7 +188,14 @@ write. (Snapshot export/import shipped first; the markdown mirror is planned.)
 
 ### Workspace
 
-Top-level scope. All cards belong to one workspace. Shared vocabulary:
+Top-level scope. All cards belong to one workspace. **One process serves
+exactly one workspace** — this is a locked, long-term contract, not a v1
+limitation. Multi-tenancy is "run multiple processes" (each with its own
+`--workspace`/port/SQLite file); there is no multi-workspace router in the
+kernel and integrators should not design for one. Within a single workspace,
+isolation between concerns is achieved with **boards** (filtered views over a
+shared card pool, scoped by `card_type_ids`), not multiple workspaces. Shared
+vocabulary:
 
 ```
 Workspace {
@@ -722,8 +729,19 @@ These ship in core because they need atomicity hard to replicate from outside.
   compare-and-set on `version`; `409` if already owned by another actor.
 - `POST /cards/take-next` → body `{ filter, assign_to, status? }`. Picks the
   oldest matching unowned card (`updated_at ASC, id ASC`), atomically claims
-  it, returns it. `200 { card: null }` when nothing matches. `409` on a race
-  → client retries. Same `Idempotency-Key` returns the same card.
+  it, returns it. `200 { card: null }` when nothing matches. Same
+  `Idempotency-Key` returns the same card.
+- **No-double-claim guarantee.** `claim`/`take-next` run inside a single
+  `BEGIN IMMEDIATE` transaction and update with a guard —
+  `UPDATE … WHERE id=? AND (owner IS NULL OR owner='')`. Under *N* concurrent
+  callers exactly one update affects a row; the rest see zero rows affected and
+  do **not** claim. A single card can never be handed to two owners, regardless
+  of concurrency (the single writer connection serializes commits as well).
+  Note the current limitation: a racing loser on `take-next` receives
+  `200 { card: null }` (it cannot yet distinguish "raced" from "queue empty");
+  retrying to the *next* candidate within the same call is a tracked
+  enhancement, not yet shipped — until then a caller that got `null` under
+  contention should re-issue `take-next`.
 
 ### Repeating fields (addressed by `entry_id`)
 - `POST /cards/:id/fields/:field/append` → append; returns `entry_id`.
@@ -759,7 +777,18 @@ GETs.
 - The server sets `created_by` and event `actor` from the resolved identity.
   In the trusted-local model, the configured identity is trusted; stronger
   identity binding (signed tokens, per-user keys) is an extension/host concern.
-- `claim`/`take-next` use the actor as the new `owner`.
+- **The actor is not validated against the user registry.** Any string is
+  accepted as an actor for create/patch/comment/append — registration is *open*
+  and there is no auth. This is deliberate: a harness can spawn many short-lived
+  workers, each with its own `CARDS_USER`, without pre-registering them.
+- **Ownership is the exception.** `owner` is a validated `user` reference:
+  setting it (including `claim`/`take-next`, which use the actor as the new
+  `owner`) requires that id to be a **registered** user, else `unknown_user`. So
+  an actor that only creates/comments needs no registration, but a worker that
+  *claims* cards must be registered first via `POST /v1/users {id, kind}`
+  (open, no auth). Registering each worker once at spawn is the intended pattern.
+  (Other `user`-typed *fields* — e.g. a work-log author — are type-checked only,
+  not existence-checked.)
 - `created_at`, `updated_at`, and event `at` are **server-set only**; clients
   cannot supply them.
 
