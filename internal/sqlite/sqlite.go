@@ -24,11 +24,22 @@ type Store struct {
 
 // Open opens (or creates) the SQLite file at path and initializes schema.
 func Open(path string, ws *core.Workspace) (*Store, error) {
-	dsn := "file:" + path + "?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&_pragma=foreign_keys(1)"
+	// WAL for concurrent readers; busy_timeout so a blocked writer waits rather
+	// than failing; synchronous=NORMAL is the safe/fast WAL pairing; foreign_keys
+	// on; _txlock=immediate makes every BeginTx grab the write lock up front, so
+	// read-then-write transactions (e.g. ClaimAtomic/take-next) can't hit
+	// SQLITE_BUSY_SNAPSHOT — which busy_timeout cannot retry away. This matters
+	// across processes too (a `cards serve` and a serverless CLI on one DB).
+	dsn := "file:" + path + "?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&_pragma=synchronous(NORMAL)&_pragma=foreign_keys(1)&_txlock=immediate"
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("open sqlite: %w", err)
 	}
+	// Serialize access to the single DB file through one connection. At this
+	// scale queries are sub-millisecond, so the simplicity (no in-process write
+	// contention, and a stable handle for :memory:) outweighs lost read
+	// parallelism. A separate read pool is a possible future optimization.
+	db.SetMaxOpenConns(1)
 	if err := db.Ping(); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("ping sqlite: %w", err)

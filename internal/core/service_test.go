@@ -3,6 +3,7 @@ package core_test
 import (
 	"context"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -763,6 +764,56 @@ func TestListCardsPagination(t *testing.T) {
 	}
 	if len(seen) != n {
 		t.Errorf("paged %d unique cards, want %d", len(seen), n)
+	}
+}
+
+// TestTakeNextConcurrent hammers take-next from many goroutines and asserts
+// every card is claimed exactly once (no double-claim, no lost cards). Guards
+// the atomic-claim CAS + IMMEDIATE-transaction behavior under contention.
+func TestTakeNextConcurrent(t *testing.T) {
+	svc, _ := newTestService(t)
+	ctx := core.WithActor(ctx2(), "u")
+	const n = 30
+	for i := 0; i < n; i++ {
+		if _, err := svc.CreateCard(ctx, core.CreateCardRequest{
+			TypeID: "task", Title: fmt.Sprintf("t%d", i), Status: "todo",
+			Fields: map[string]any{"description": "d"}, Actor: "u",
+		}); err != nil {
+			t.Fatalf("create %d: %v", i, err)
+		}
+	}
+
+	var mu sync.Mutex
+	claimed := map[string]int{}
+	var wg sync.WaitGroup
+	for w := 0; w < 8; w++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for {
+				c, err := svc.TakeNext(ctx, core.TakeNextRequest{AssignTo: "u", Actor: "u"})
+				if err != nil {
+					t.Errorf("take-next: %v", err)
+					return
+				}
+				if c == nil {
+					return // exhausted
+				}
+				mu.Lock()
+				claimed[c.ID]++
+				mu.Unlock()
+			}
+		}()
+	}
+	wg.Wait()
+
+	if len(claimed) != n {
+		t.Errorf("claimed %d distinct cards, want %d", len(claimed), n)
+	}
+	for id, cnt := range claimed {
+		if cnt != 1 {
+			t.Errorf("card %s claimed %d times (double-claim)", id, cnt)
+		}
 	}
 }
 
