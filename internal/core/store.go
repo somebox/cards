@@ -29,6 +29,11 @@ type Store interface {
 
 	// Events
 	ListEvents(ctx context.Context, q EventQuery) ([]Event, error)
+	// ListEventsPage is the cursor-paged catch-up feed (GET /v1/events).
+	// Events are ordered by id ASC; NextCursor is the last event id returned
+	// (use as cursor=/since= to continue). Supports actor/owner/type/card-type
+	// filters; AfterID is the floor (events with id > AfterID).
+	ListEventsPage(ctx context.Context, q EventQuery) (*Page[Event], error)
 
 	// Links
 	ListLinks(ctx context.Context, cardID string) ([]Link, error)

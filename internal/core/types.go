@@ -329,12 +329,16 @@ type TakeNextRequest struct {
 	Actor    string         `json:"actor,omitempty"`
 }
 
-// EventQuery filters events for GET /cards/:id/events and SSE replay.
+// EventQuery filters events for GET /cards/:id/events, the GET /v1/events
+// catch-up feed, and SSE replay.
 type EventQuery struct {
-	CardID  string
-	Types   []string
-	Limit   int
-	AfterID int64 // replay: events with id > this (SSE Last-Event-ID)
+	CardID     string
+	Types      []string
+	Actor      string   // events caused by this actor
+	Owner      string   // events on cards currently owned by this user
+	CardTypeIn []string // events on cards of these types (board scope)
+	Limit      int
+	AfterID    int64 // replay/cursor floor: events with id > this (SSE Last-Event-ID / since= / cursor=)
 }
 
 // HistoryEntry is one rendered line of the resumption timeline.

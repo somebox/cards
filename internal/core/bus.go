@@ -16,6 +16,7 @@ type EventFilter struct {
 	CardID  string
 	BoardID string
 	Types   []string
+	Actor   string // events caused by this actor
 }
 
 // Matches reports whether the filter accepts the event. BoardID matching
@@ -23,6 +24,9 @@ type EventFilter struct {
 // publish for board-scoped events).
 func (f EventFilter) Matches(e *Event) bool {
 	if f.CardID != "" && e.CardID != f.CardID {
+		return false
+	}
+	if f.Actor != "" && e.Actor != f.Actor {
 		return false
 	}
 	if len(f.Types) > 0 {

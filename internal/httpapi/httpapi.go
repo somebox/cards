@@ -104,6 +104,7 @@ func (s *Server) Router() http.Handler {
 	r.Delete("/v1/cards/{id}/fields/{field}/{entryID}", s.withActor(s.apiRemoveEntry))
 	r.Get("/v1/cards/{id}/events", s.apiCardEvents)
 	r.Get("/v1/cards/{id}/history", s.apiCardHistory)
+	r.Get("/v1/events", s.apiEventFeed)
 	r.Get("/v1/events/stream", s.apiEventStream)
 	r.Get("/v1/openapi.json", s.apiOpenAPI)
 	r.Post("/v1/users", s.apiRegisterUser)
@@ -479,6 +480,59 @@ func (s *Server) apiCardEvents(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, map[string]any{"items": evs})
 }
 
+// apiEventFeed is the cursor-paged catch-up feed:
+// GET /v1/events?since=&cursor=&actor=&owner=&type=&types=&board_id=&limit=
+// since= and cursor= are both event-id floors (events with id > value); cursor=
+// is the pagination continuation (the prior page's next_cursor) and overrides
+// since= when present. This is the durable recovery path — replay missed facts,
+// then resume the live SSE stream. SPEC §11, docs/INTEGRATION.md.
+func (s *Server) apiEventFeed(w http.ResponseWriter, r *http.Request) {
+	qv := r.URL.Query()
+	q := core.EventQuery{
+		Actor: qv.Get("actor"),
+		Owner: qv.Get("owner"),
+	}
+	// type= (single) and types= (CSV) both populate the type filter.
+	if t := qv.Get("types"); t != "" {
+		q.Types = splitCSV(t)
+	} else if t := qv.Get("type"); t != "" {
+		q.Types = splitCSV(t)
+	}
+	// board_id scopes the feed to the board's card types.
+	if boardID := qv.Get("board_id"); boardID != "" {
+		b := s.boards[boardID]
+		if b == nil {
+			writeAPIError(w, core.NewValidationError("board_id", "unknown board_id"))
+			return
+		}
+		q.CardTypeIn = b.CardTypeIDs
+	}
+	// cursor= overrides since=; both are event-id floors.
+	floor := qv.Get("cursor")
+	if floor == "" {
+		floor = qv.Get("since")
+	}
+	if floor != "" {
+		n, ok := parseEventID(floor)
+		if !ok {
+			writeAPIError(w, core.NewValidationError("cursor", "invalid cursor/since: must be a positive integer event id"))
+			return
+		}
+		q.AfterID = n
+	}
+	if l := qv.Get("limit"); l != "" {
+		if n, err := strconv.Atoi(l); err == nil {
+			q.Limit = n
+		}
+	}
+	page, err := s.svc.ListEventsPage(r.Context(), q)
+	if err != nil {
+		writeAPIError(w, core.AsError(err))
+		return
+	}
+	writeJSON(w, 200, page)
+}
+
 func (s *Server) apiCardHistory(w http.ResponseWriter, r *http.Request) {
 	h, err := s.svc.History(r.Context(), chi.URLParam(r, "id"))
 	if err != nil {
@@ -499,6 +553,8 @@ func (s *Server) apiEventStream(w http.ResponseWriter, r *http.Request) {
 	cardID := r.URL.Query().Get("card_id")
 	types := splitCSV(r.URL.Query().Get("types"))
 	boardID := r.URL.Query().Get("board_id")
+	actor := r.URL.Query().Get("actor")
+	owner := r.URL.Query().Get("owner")
 
 	// Validate Last-Event-ID / since before committing the SSE response —
 	// an invalid value should be a 400, not silently treated as 0.
@@ -529,7 +585,7 @@ func (s *Server) apiEventStream(w http.ResponseWriter, r *http.Request) {
 
 	// Replay: events after Last-Event-ID (or since=) matching the filter.
 	if afterID > 0 {
-		evs, _ := s.svc.ListEvents(r.Context(), core.EventQuery{CardID: cardID, Types: types, AfterID: afterID, Limit: 500})
+		evs, _ := s.svc.ListEvents(r.Context(), core.EventQuery{CardID: cardID, Types: types, Actor: actor, Owner: owner, AfterID: afterID, Limit: 500})
 		for _, e := range filterBoardEvents(s, evs, boardID) {
 			writeSSEEvent(w, &e)
 		}
@@ -537,7 +593,7 @@ func (s *Server) apiEventStream(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Live: subscribe to the bus.
-	filter := core.EventFilter{CardID: cardID, Types: types}
+	filter := core.EventFilter{CardID: cardID, Types: types, Actor: actor}
 	sub := s.svc.Bus().Subscribe(filter, 64)
 	defer s.svc.Bus().Unsubscribe(sub.ID)
 
@@ -555,6 +611,9 @@ func (s *Server) apiEventStream(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			if boardID != "" && !s.cardInBoard(e.CardID, boardID) {
+				continue
+			}
+			if owner != "" && !s.cardOwnedBy(e.CardID, owner) {
 				continue
 			}
 			writeSSEEvent(w, e)
@@ -602,6 +661,16 @@ func (s *Server) cardInBoard(cardID, boardID string) bool {
 		}
 	}
 	return false
+}
+
+// cardOwnedBy reports whether the card is currently owned by owner. Used to
+// filter the live SSE stream by owner (the feed does this in SQL).
+func (s *Server) cardOwnedBy(cardID, owner string) bool {
+	c, err := s.svc.GetCard(context.Background(), cardID)
+	if err != nil {
+		return false
+	}
+	return c.Owner == owner
 }
 
 func splitCSV(s string) []string {

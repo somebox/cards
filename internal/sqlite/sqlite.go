@@ -9,6 +9,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -359,28 +360,48 @@ func (s *Store) ClaimAtomic(ctx context.Context, q core.CardQuery, owner, status
 
 // --- Events ---
 
-func (s *Store) ListEvents(ctx context.Context, q core.EventQuery) ([]core.Event, error) {
-	query := "SELECT id, card_id, type, actor, at, diff FROM events WHERE 1=1"
+const eventCols = "e.id, e.card_id, e.type, e.actor, e.at, e.diff"
+
+// buildEventFromWhere assembles the FROM/JOIN/WHERE for an EventQuery. A JOIN
+// to cards is added only when an owner or card-type filter is present, so the
+// common card-scoped/replay path stays a plain events scan.
+func buildEventFromWhere(q core.EventQuery) (string, []any) {
+	needCards := q.Owner != "" || len(q.CardTypeIn) > 0
+	sb := strings.Builder{}
+	sb.WriteString(" FROM events e")
+	if needCards {
+		sb.WriteString(" JOIN cards c ON c.id = e.card_id")
+	}
+	sb.WriteString(" WHERE 1=1")
 	args := []any{}
 	if q.CardID != "" {
-		query += " AND card_id = ?"
+		sb.WriteString(" AND e.card_id = ?")
 		args = append(args, q.CardID)
 	}
 	if q.AfterID > 0 {
-		query += " AND id > ?"
+		sb.WriteString(" AND e.id > ?")
 		args = append(args, q.AfterID)
 	}
+	if q.Actor != "" {
+		sb.WriteString(" AND e.actor = ?")
+		args = append(args, q.Actor)
+	}
 	if len(q.Types) > 0 {
-		query += " AND type IN (" + placeholders(len(q.Types)) + ")"
+		sb.WriteString(" AND e.type IN (" + placeholders(len(q.Types)) + ")")
 		args = append(args, toAny(q.Types)...)
 	}
-	query += " ORDER BY id ASC LIMIT ?"
-	args = append(args, q.Limit)
-	rows, err := s.db.QueryContext(ctx, query, args...)
-	if err != nil {
-		return nil, err
+	if q.Owner != "" {
+		sb.WriteString(" AND c.owner = ?")
+		args = append(args, q.Owner)
 	}
-	defer rows.Close()
+	if len(q.CardTypeIn) > 0 {
+		sb.WriteString(" AND c.type_id IN (" + placeholders(len(q.CardTypeIn)) + ")")
+		args = append(args, toAny(q.CardTypeIn)...)
+	}
+	return sb.String(), args
+}
+
+func scanEvents(rows *sql.Rows) ([]core.Event, error) {
 	out := []core.Event{}
 	for rows.Next() {
 		var e core.Event
@@ -397,6 +418,45 @@ func (s *Store) ListEvents(ctx context.Context, q core.EventQuery) ([]core.Event
 		out = append(out, e)
 	}
 	return out, nil
+}
+
+func (s *Store) ListEvents(ctx context.Context, q core.EventQuery) ([]core.Event, error) {
+	fromWhere, args := buildEventFromWhere(q)
+	query := "SELECT " + eventCols + fromWhere + " ORDER BY e.id ASC LIMIT ?"
+	args = append(args, q.Limit)
+	rows, err := s.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanEvents(rows)
+}
+
+// ListEventsPage is the cursor-paged catch-up feed. It fetches Limit+1 rows to
+// detect a further page, trims to Limit, and sets NextCursor to the last event
+// id (the client passes it back as cursor=/since= to continue).
+func (s *Store) ListEventsPage(ctx context.Context, q core.EventQuery) (*core.Page[core.Event], error) {
+	if q.Limit <= 0 || q.Limit > 500 {
+		q.Limit = 100
+	}
+	fromWhere, args := buildEventFromWhere(q)
+	query := "SELECT " + eventCols + fromWhere + " ORDER BY e.id ASC LIMIT ?"
+	args = append(args, q.Limit+1)
+	rows, err := s.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	evs, err := scanEvents(rows)
+	if err != nil {
+		return nil, err
+	}
+	next := ""
+	if len(evs) > q.Limit {
+		evs = evs[:q.Limit]
+		next = strconv.FormatInt(evs[len(evs)-1].ID, 10)
+	}
+	return &core.Page[core.Event]{Items: evs, NextCursor: next}, nil
 }
 
 // InsertEventRaw appends a single event verbatim (preserving card_id, type,

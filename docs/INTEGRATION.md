@@ -208,22 +208,45 @@ point they replay like mutation events.
 
 ## Observe
 
-### Live stream (SSE) **[built]**, filters extended **[proposed]**
+### Live stream (SSE) **[built]**
 ```
 GET /v1/events/stream?card_id=&board_id=&types=&actor=&owner=
 ```
-Resumable via `Last-Event-ID` / `since=`. `card_id`/`board_id`/`types` are
-built; `actor=` (events a user caused) and `owner=` (events on a user's cards)
-are proposed — they make "watch this card", "follow @alice", and "follow my
-cards" the same primitive.
+Resumable via `Last-Event-ID` / `since=`. All five filters are built: `card_id`,
+`board_id`, `types` (CSV), `actor=` (events a user caused), and `owner=` (events
+on a user's cards). They make "watch this card", "follow @alice", and "follow my
+cards" the same primitive. The live stream is **best-effort**: a slow consumer
+whose buffer fills is dropped with a `: dropped, reconnect` comment — reconnect
+and replay from the feed (below). For durable catch-up, use the feed, not the
+stream.
 
-### Catch-up feed **[proposed]**
+### Catch-up feed **[built]**
 ```
-GET /v1/events?actor=&owner=&type=&board_id=&since=&cursor=
+GET /v1/events?actor=&owner=&type=&board_id=&since=&cursor=&limit=
+→ { "items": [ {id, type, actor, at, card_id, diff}, … ], "next_cursor": "<id>" }
 ```
-A cursor-paged query over the persisted events table (which already stores
-`actor`) for audit and "what did I miss while disconnected". The feed is a log
-of **facts** — mutation events only (plus any monitor marked `persist: true`).
+A cursor-paged query over the persisted events table for audit and "what did I
+miss while disconnected". The feed is a log of **facts** — mutation events only
+(plus any monitor marked `persist: true`). Ordered by event id ascending.
+
+- **`since=` and `cursor=` are both event-id floors** (events with `id >` the
+  value). `since=` is the recovery floor — your last-persisted event id; `cursor=`
+  is the pagination continuation (the previous response's `next_cursor`) and
+  overrides `since=` when both are present. Same mechanism, two names for two
+  intents.
+- **`next_cursor`** is the id of the last item in the page, or `""`/absent when
+  there are no more events. Keep paging until it's empty, then switch to the live
+  stream from that id (`Last-Event-ID`).
+- **Filters**: `actor=`, `owner=` (current card owner), `type=`/`types=` (CSV),
+  `board_id=` (the board's card types). `limit=` defaults to 100, max 500.
+
+**Retention / replay guarantee.** The events table is append-only and never
+trimmed, so the feed is a *complete* durable log — replay is gap-free from any
+id, however long the consumer was gone. (The in-memory SSE buffer is bounded and
+may drop under backpressure; that is why durable recovery goes through the feed,
+then resumes the live stream.) Recovery is therefore: read the feed from your
+last id, paging on `cursor`, until `next_cursor` is empty → open the stream with
+`Last-Event-ID` set to that id. No event is lost between the two.
 
 ### Current breaches (catch-up for conditions) **[proposed]**
 ```
@@ -302,7 +325,7 @@ by priority — the *policy* (which card, when) lives in the extension, the
 
 ## Build order
 
-1. Actor/owner stream filters + `GET /v1/events` feed (observe: watch/follow).
+1. ~~Actor/owner stream filters + `GET /v1/events` feed (observe: watch/follow).~~ **[done]**
 2. Board-scoped event model (`scope`, nullable `card_id`, `board_id`).
 3. `status_since` denormalized column (arming temporal deadlines).
 4. Monitors + instant condition events (WIP, empty lane, blocked) — synchronous.

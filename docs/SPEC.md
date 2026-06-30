@@ -160,10 +160,26 @@ write. (Snapshot export/import shipped first; the markdown mirror is planned.)
 
 ### Event delivery
 
-- **SSE (v1):** `GET /events/stream?board=&card=&types=&since=`. Supports
-  `Last-Event-ID` for resumable replay — a dropped connection replays events
-  after the last acknowledged id. Event payload: `type`, `id`, `card_id`,
-  `actor`, `at`, `diff`, optional `board_ids`/`view_ids`.
+- **SSE (v1):** `GET /v1/events/stream?card_id=&board_id=&types=&actor=&owner=`.
+  Supports `Last-Event-ID` (or `since=`) for resumable replay — a dropped
+  connection replays events after the last acknowledged id. Filters: `card_id`,
+  `board_id`, `types` (CSV), `actor` (events a user caused), `owner` (events on a
+  user's cards). Event payload: `type`, `id`, `card_id`, `actor`, `at`, `diff`,
+  optional `board_ids`/`view_ids`. The live stream is **best-effort**: a slow
+  consumer whose buffer fills is dropped (a `: dropped, reconnect` comment is
+  sent); durable catch-up is the feed below, not the stream.
+- **Catch-up feed (v1):** `GET /v1/events?actor=&owner=&type=&types=&board_id=&since=&cursor=&limit=`
+  → `{ "items": [...], "next_cursor": "<id>" }`. A cursor-paged query over the
+  append-only events table; the log of **facts** (mutation events, plus monitors
+  marked `persist: true`). Ordered by event id ascending. `since=` and `cursor=`
+  are both event-id floors (`id >` value); `cursor=` is the pagination
+  continuation and overrides `since=`. `next_cursor` is the last item's id, or
+  empty when the feed is exhausted. `limit` defaults to 100, max 500.
+  **Retention guarantee:** the events table is append-only and never trimmed, so
+  the feed is a *complete*, gap-free durable log replayable from any id regardless
+  of how long a consumer was disconnected. Recovery = page the feed from your last
+  id until `next_cursor` is empty, then open the stream with `Last-Event-ID` set
+  to that id.
 - **Embedded:** in-process subscriber callbacks on mutation (no HTTP).
 
 ---
@@ -726,7 +742,8 @@ These ship in core because they need atomicity hard to replicate from outside.
 ### History and streams
 - `GET /cards/:id/events?…`
 - `GET /cards/:id/history` → resumption-ready timeline projection.
-- `GET /events?workspace=&since=&limit=` → workspace feed (cursor).
+- `GET /events?actor=&owner=&type=&board_id=&since=&cursor=&limit=` → cursor-paged
+  catch-up feed (append-only, gap-free; see §3 Event delivery).
 - `GET /events/stream?…` → SSE with `Last-Event-ID` replay.
 
 Write responses include the updated card (or batch results) to avoid extra

@@ -842,6 +842,14 @@ func (s *Service) ListEvents(ctx context.Context, q EventQuery) ([]Event, error)
 	return s.store.ListEvents(ctx, q)
 }
 
+// ListEventsPage is the cursor-paged catch-up feed (GET /v1/events): the
+// durable path for an integrator to replay what it missed while disconnected,
+// then resume the live SSE stream. Ordered by id ASC; NextCursor is the last
+// event id. See docs/INTEGRATION.md.
+func (s *Service) ListEventsPage(ctx context.Context, q EventQuery) (*Page[Event], error) {
+	return s.store.ListEventsPage(ctx, q)
+}
+
 // History renders a resumption-ready timeline for a card. SPEC §8.
 func (s *Service) History(ctx context.Context, id string) ([]HistoryEntry, error) {
 	if _, err := s.getCard(ctx, id); err != nil {
