@@ -32,11 +32,9 @@ func (d directBackend) Do(method, path string, body []byte, header http.Header) 
 		r = bytes.NewReader(body)
 	}
 	req := httptest.NewRequest(method, "/v1"+path, r)
-	if header != nil {
-		for k, vs := range header {
-			for _, v := range vs {
-				req.Header.Add(k, v)
-			}
+	for k, vs := range header {
+		for _, v := range vs {
+			req.Header.Add(k, v)
 		}
 	}
 	rr := httptest.NewRecorder()
