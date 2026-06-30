@@ -2,6 +2,7 @@ package core_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -715,6 +716,53 @@ func TestUpgradeSchema(t *testing.T) {
 	// Downgrade is rejected.
 	if _, err := svc.UpgradeSchema(ctx, c.ID, core.UpgradeSchemaRequest{TargetVersion: 1, Actor: "u"}); err == nil {
 		t.Error("expected downgrade to be rejected")
+	}
+}
+
+// TestListCardsPagination walks the keyset pages and asserts no page exceeds
+// the limit (the "one extra row" guard), pages don't overlap or skip, and the
+// last page clears the cursor.
+func TestListCardsPagination(t *testing.T) {
+	svc, _ := newTestService(t)
+	ctx := core.WithActor(ctx2(), "u")
+	const n = 5
+	for i := 0; i < n; i++ {
+		if _, err := svc.CreateCard(ctx, core.CreateCardRequest{
+			TypeID: "task", Title: fmt.Sprintf("c%d", i), Status: "todo",
+			Fields: map[string]any{"description": "d"}, Actor: "u",
+		}); err != nil {
+			t.Fatalf("create %d: %v", i, err)
+		}
+	}
+
+	seen := map[string]bool{}
+	cursor := ""
+	pages := 0
+	for {
+		page, err := svc.ListCards(ctx, core.CardQuery{Limit: 2, Cursor: cursor})
+		if err != nil {
+			t.Fatalf("list: %v", err)
+		}
+		if len(page.Items) > 2 {
+			t.Fatalf("page returned %d items, want <= limit 2", len(page.Items))
+		}
+		for _, c := range page.Items {
+			if seen[c.ID] {
+				t.Fatalf("card %s returned on more than one page", c.ID)
+			}
+			seen[c.ID] = true
+		}
+		pages++
+		if pages > n+2 {
+			t.Fatal("pagination did not terminate")
+		}
+		if page.NextCursor == "" {
+			break
+		}
+		cursor = page.NextCursor
+	}
+	if len(seen) != n {
+		t.Errorf("paged %d unique cards, want %d", len(seen), n)
 	}
 }
 
