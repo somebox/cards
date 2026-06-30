@@ -33,7 +33,7 @@ const es = new EventSource(
 );
 es.onmessage = (e) => {
   const evt = JSON.parse(e.data);
-  if (evt.type === "status_changed" && evt.diff.to === "review") runReviewBot(evt.card_id);
+  if (evt.type === "status_changed" && evt.diff.after === "review") runReviewBot(evt.card_id);
 };
 ```
 
