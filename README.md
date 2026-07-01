@@ -199,7 +199,9 @@ model. Design background is in [`docs/PHILOSOPHY.md`](docs/PHILOSOPHY.md) and
 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md); agent and extension details are
 in [`docs/MCP.md`](docs/MCP.md) and [`docs/EXTENSIONS.md`](docs/EXTENSIONS.md).
 How other apps observe changes, dispatch work, and react to timeouts/WIP/empty
-lanes is in [`docs/INTEGRATION.md`](docs/INTEGRATION.md).
+lanes is in [`docs/INTEGRATION.md`](docs/INTEGRATION.md); the internal event core
+(the emission seam, log, bus, observers) is specified in
+[`docs/EVENTS.md`](docs/EVENTS.md).
 
 Work Cards is in beta. The core service, HTTP API, CLI, MCP server, web UI, and
 hook system are implemented, but the API should still be treated as
