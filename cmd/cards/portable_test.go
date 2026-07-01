@@ -149,7 +149,7 @@ func TestExportImportRoundTrip(t *testing.T) {
 	}
 
 	// Event log restored in order.
-	evs, err := dst.ListEvents(ctx, core.EventQuery{CardID: "card_a", Limit: 100})
+	evs, err := dst.List(ctx, core.EventQuery{CardID: "card_a", Limit: 100})
 	if err != nil {
 		t.Fatalf("list events: %v", err)
 	}

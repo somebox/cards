@@ -420,7 +420,7 @@ func scanEvents(rows *sql.Rows) ([]core.Event, error) {
 	return out, nil
 }
 
-func (s *Store) ListEvents(ctx context.Context, q core.EventQuery) ([]core.Event, error) {
+func (s *Store) List(ctx context.Context, q core.EventQuery) ([]core.Event, error) {
 	fromWhere, args := buildEventFromWhere(q)
 	query := "SELECT " + eventCols + fromWhere + " ORDER BY e.id ASC LIMIT ?"
 	args = append(args, q.Limit)
@@ -432,10 +432,56 @@ func (s *Store) ListEvents(ctx context.Context, q core.EventQuery) ([]core.Event
 	return scanEvents(rows)
 }
 
+// Append persists standalone events (board / persisted condition events),
+// assigning each a monotonic id in one transaction. Card-mutation events are
+// persisted via InsertCard/UpdateCard instead (atomic with the card).
+func (s *Store) Append(ctx context.Context, evs ...*core.Event) error {
+	if len(evs) == 0 {
+		return nil
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	for _, ev := range evs {
+		if ev == nil {
+			continue
+		}
+		if err := execEventInsert(tx, ev); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+// Replay streams events with id > fromID in ascending order into fn, stopping
+// on the first error fn returns. The primitive behind recovery and projection
+// rebuilds; reads in batches so history of any size is bounded in memory.
+func (s *Store) Replay(ctx context.Context, fromID int64, fn func(*core.Event) error) error {
+	const batch = 500
+	after := fromID
+	for {
+		evs, err := s.List(ctx, core.EventQuery{AfterID: after, Limit: batch})
+		if err != nil {
+			return err
+		}
+		for i := range evs {
+			if err := fn(&evs[i]); err != nil {
+				return err
+			}
+			after = evs[i].ID
+		}
+		if len(evs) < batch {
+			return nil
+		}
+	}
+}
+
 // ListEventsPage is the cursor-paged catch-up feed. It fetches Limit+1 rows to
 // detect a further page, trims to Limit, and sets NextCursor to the last event
 // id (the client passes it back as cursor=/since= to continue).
-func (s *Store) ListEventsPage(ctx context.Context, q core.EventQuery) (*core.Page[core.Event], error) {
+func (s *Store) Page(ctx context.Context, q core.EventQuery) (*core.Page[core.Event], error) {
 	if q.Limit <= 0 || q.Limit > 500 {
 		q.Limit = 100
 	}

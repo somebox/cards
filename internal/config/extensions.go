@@ -122,19 +122,45 @@ func (e Extension) MatchesEvent(ev *core.Event, cardBoardMembership func(cardID 
 			return false
 		}
 	}
-	if e.Filter.ToStatus != "" {
-		d, _ := ev.Diff.(map[string]any)
-		if after, _ := d["after"].(string); after != e.Filter.ToStatus {
+	if e.Filter.ToStatus != "" || e.Filter.FromStatus != "" {
+		before, after := beforeAfterStrings(ev.Diff)
+		if e.Filter.ToStatus != "" && after != e.Filter.ToStatus {
 			return false
 		}
-	}
-	if e.Filter.FromStatus != "" {
-		d, _ := ev.Diff.(map[string]any)
-		if before, _ := d["before"].(string); before != e.Filter.FromStatus {
+		if e.Filter.FromStatus != "" && before != e.Filter.FromStatus {
 			return false
 		}
 	}
 	return true
+}
+
+// beforeAfterStrings extracts {before,after} string fields from an event's
+// Diff regardless of its concrete Go type. Diff is `any` on the wire (docs/
+// EVENTS.md §3/§4): built-in events carry typed structs (e.g.
+// core.BeforeAfterDiff) in-process, but may also arrive as a decoded
+// map[string]any (e.g. replayed from JSON). Round-tripping through JSON
+// handles both without this package depending on internal/core's diff types.
+func beforeAfterStrings(diff any) (before, after string) {
+	if diff == nil {
+		return "", ""
+	}
+	if m, ok := diff.(map[string]any); ok {
+		b, _ := m["before"].(string)
+		a, _ := m["after"].(string)
+		return b, a
+	}
+	b, err := json.Marshal(diff)
+	if err != nil {
+		return "", ""
+	}
+	var ba struct {
+		Before string `json:"before"`
+		After  string `json:"after"`
+	}
+	if err := json.Unmarshal(b, &ba); err != nil {
+		return "", ""
+	}
+	return ba.Before, ba.After
 }
 
 // parseYAMLExtensions is a minimal YAML parser for the EXTENSIONS.md subset

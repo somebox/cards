@@ -51,24 +51,36 @@ type Subscriber struct {
 	Ch     chan *Event
 }
 
-// Bus fans out published events to filtered subscribers. It is safe for
+// Bus is the live fan-out surface: best-effort delivery to current subscribers.
+// It is an interface so tests can substitute a recording/fake bus; the
+// production implementation is InProcBus.
+type Bus interface {
+	// Subscribe registers a filter + buffered channel and returns the Subscriber.
+	Subscribe(filter EventFilter, buf int) *Subscriber
+	// Unsubscribe removes and closes a subscriber's channel.
+	Unsubscribe(id int64)
+	// Publish fans out an event to all matching subscribers, non-blocking.
+	Publish(e *Event)
+}
+
+// InProcBus fans out published events to filtered subscribers. It is safe for
 // concurrent use. The bus is bounded: each subscriber has a buffered channel;
 // a full buffer means the subscriber is dropped (its channel is closed and
 // removed) so a slow client never blocks a writer.
-type Bus struct {
+type InProcBus struct {
 	mu          sync.RWMutex
 	nextID      int64
 	subscribers map[int64]*Subscriber
 }
 
 // NewBus constructs an in-process event bus.
-func NewBus() *Bus {
-	return &Bus{subscribers: map[int64]*Subscriber{}}
+func NewBus() *InProcBus {
+	return &InProcBus{subscribers: map[int64]*Subscriber{}}
 }
 
 // Subscribe registers a filter + buffered channel of the given size and
 // returns the Subscriber. Cancel via Unsubscribe(id).
-func (b *Bus) Subscribe(filter EventFilter, buf int) *Subscriber {
+func (b *InProcBus) Subscribe(filter EventFilter, buf int) *Subscriber {
 	if buf <= 0 {
 		buf = 16
 	}
@@ -81,7 +93,7 @@ func (b *Bus) Subscribe(filter EventFilter, buf int) *Subscriber {
 }
 
 // Unsubscribe removes and closes a subscriber's channel.
-func (b *Bus) Unsubscribe(id int64) {
+func (b *InProcBus) Unsubscribe(id int64) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	if sub, ok := b.subscribers[id]; ok {
@@ -92,7 +104,7 @@ func (b *Bus) Unsubscribe(id int64) {
 
 // Publish fans out an event to all matching subscribers. Non-blocking: a full
 // subscriber channel causes that subscriber to be dropped (closed + removed).
-func (b *Bus) Publish(e *Event) {
+func (b *InProcBus) Publish(e *Event) {
 	b.mu.RLock()
 	subs := make([]*Subscriber, 0, len(b.subscribers))
 	for _, s := range b.subscribers {
@@ -119,7 +131,7 @@ func (b *Bus) Publish(e *Event) {
 }
 
 // SubscriberCount returns the current number of subscribers (for diagnostics).
-func (b *Bus) SubscriberCount() int {
+func (b *InProcBus) SubscriberCount() int {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
 	return len(b.subscribers)
