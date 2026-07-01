@@ -70,7 +70,7 @@ func exportJSONL(ctx context.Context, st *sqlite.Store, w io.Writer, ws *core.Wo
 	stats.Cards = len(page.Items)
 
 	// Events (all — full audit log).
-	evs, err := st.ListEvents(ctx, core.EventQuery{Limit: 1000000})
+	evs, err := st.List(ctx, core.EventQuery{Limit: 1000000})
 	if err != nil {
 		return stats, fmt.Errorf("export events: %w", err)
 	}

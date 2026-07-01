@@ -21,37 +21,44 @@ import (
 
 // Service is the transport-independent core. Construct with NewService.
 type Service struct {
-	ws     *Workspace
-	types  map[string]*CardType
-	boards map[string]*Board
-	store  Store
-	bus    *Bus
-	now    func() time.Time
+	ws      *Workspace
+	types   map[string]*CardType
+	boards  map[string]*Board
+	store   Store
+	bus     Bus
+	emitter *Emitter
+	now     func() time.Time
 }
 
 // NewService binds loaded config + a Store implementation.
 func NewService(ws *Workspace, types map[string]*CardType, boards map[string]*Board, st Store) *Service {
-	return &Service{ws: ws, types: types, boards: boards, store: st, bus: NewBus(), now: func() time.Time {
-		return time.Now().UTC()
-	}}
-}
-
-// Bus returns the in-process event bus (for SSE/hooks subscribers).
-func (s *Service) Bus() *Bus { return s.bus }
-
-// publish fans out committed events on the bus. Called after every successful
-// store mutation.
-func (s *Service) publish(evs []*Event) {
-	for _, e := range evs {
-		if e == nil {
-			continue
-		}
-		s.bus.Publish(e)
+	now := func() time.Time { return time.Now().UTC() }
+	bus := NewBus()
+	return &Service{
+		ws: ws, types: types, boards: boards, store: st,
+		bus: bus, emitter: newEmitter(st, bus, now), now: now,
 	}
 }
 
-// publishOne is a convenience for single-event commits.
-func (s *Service) publishOne(e *Event) { s.publish([]*Event{e}) }
+// Bus returns the in-process event bus (for SSE/hooks subscribers).
+func (s *Service) Bus() Bus { return s.bus }
+
+// Emitter returns the event emission seam (for registering observers).
+func (s *Service) Emitter() *Emitter { return s.emitter }
+
+// commitCard persists a card mutation and its events atomically, then dispatches
+// the events to the bus + observers. This is the only path for durable
+// card-mutation events: stamp (before) -> store.UpdateCard (atomic persist +
+// id backfill) -> dispatchCommitted (after commit). Publish never precedes
+// durable commit.
+func (s *Service) commitCard(ctx context.Context, next *Card, evs []*Event) error {
+	s.emitter.stamp(ctx, evs)
+	if err := s.store.UpdateCard(ctx, next, evs); err != nil {
+		return err
+	}
+	s.emitter.dispatchCommitted(evs)
+	return nil
+}
 
 // Workspace returns the introspection snapshot (GET /v1/workspace).
 func (s *Service) Workspace(ctx context.Context) (*WorkspaceSnapshot, error) {
@@ -215,14 +222,13 @@ func (s *Service) CreateCard(ctx context.Context, req CreateCardRequest) (*Card,
 	if req.DryRun {
 		return c, nil
 	}
-	ev := &Event{
-		CardID: c.ID, Type: EventCardCreated, Actor: actor, At: now,
-		Diff: map[string]any{"card": map[string]any{"id": c.ID, "type_id": c.TypeID, "title": c.Title, "status": c.Status}},
-	}
+	ctx = WithActor(ctx, actor)
+	ev := CardCreated(c)
+	s.emitter.stamp(ctx, []*Event{ev})
 	if err := s.store.InsertCard(ctx, c, ev); err != nil {
 		return nil, err
 	}
-	s.publishOne(ev)
+	s.emitter.dispatchCommitted([]*Event{ev})
 	return c, nil
 }
 
@@ -243,6 +249,7 @@ func (s *Service) PatchCard(ctx context.Context, id string, req PatchCardRequest
 	if actor == "" {
 		return nil, ActorRequired()
 	}
+	ctx = WithActor(ctx, actor)
 
 	var events []*Event
 	now := s.now()
@@ -255,8 +262,7 @@ func (s *Service) PatchCard(ctx context.Context, id string, req PatchCardRequest
 			return nil, NewValidationError("title", "title cannot be empty")
 		}
 		if newTitle != current.Title {
-			events = append(events, &Event{CardID: id, Type: EventFieldUpdated, Actor: actor, At: now,
-				Diff: map[string]any{"field": "title", "before": current.Title, "after": newTitle}})
+			events = append(events, FieldChanged(id, "title", current.Title, newTitle))
 			next.Title = newTitle
 		}
 	}
@@ -273,8 +279,7 @@ func (s *Service) PatchCard(ctx context.Context, id string, req PatchCardRequest
 				return nil, newTransitionIllegal(current.Status, allowed)
 			}
 		}
-		events = append(events, &Event{CardID: id, Type: EventStatusChanged, Actor: actor, At: now,
-			Diff: map[string]any{"before": current.Status, "after": newStatus}})
+		events = append(events, StatusChanged(id, current.Status, newStatus))
 		next.Status = newStatus
 	}
 
@@ -287,8 +292,7 @@ func (s *Service) PatchCard(ctx context.Context, id string, req PatchCardRequest
 			}
 		}
 		if newOwner != current.Owner {
-			events = append(events, &Event{CardID: id, Type: EventOwnerChanged, Actor: actor, At: now,
-				Diff: map[string]any{"before": strOrEmpty(current.Owner), "after": newOwner}})
+			events = append(events, OwnerChanged(id, strOrEmpty(current.Owner), newOwner))
 			next.Owner = newOwner
 		}
 	}
@@ -300,8 +304,7 @@ func (s *Service) PatchCard(ctx context.Context, id string, req PatchCardRequest
 		}
 		added, removed := diffTags(current.Tags, *req.Tags)
 		if len(added) > 0 || len(removed) > 0 {
-			events = append(events, &Event{CardID: id, Type: EventTagsChanged, Actor: actor, At: now,
-				Diff: map[string]any{"added": added, "removed": removed}})
+			events = append(events, TagsChanged(id, added, removed))
 			next.Tags = *req.Tags
 		}
 	}
@@ -316,20 +319,21 @@ func (s *Service) PatchCard(ctx context.Context, id string, req PatchCardRequest
 		for k, v := range base {
 			merged[k] = v
 		}
-		changed := []map[string]any{}
+		type fieldChange struct{ field string; before, after any }
+		changed := []fieldChange{}
 		for k, v := range req.Fields {
 			before := base[k]
 			if err := s.validateOneField(ctx, ct, k, v); err != nil {
 				return nil, err
 			}
 			merged[k] = v
-			changed = append(changed, map[string]any{"field": k, "before": before, "after": v})
+			changed = append(changed, fieldChange{field: k, before: before, after: v})
 		}
 		if _, err := s.validateFields(ctx, ct, merged, false); err != nil {
 			return nil, err
 		}
 		for _, cf := range changed {
-			events = append(events, &Event{CardID: id, Type: EventFieldUpdated, Actor: actor, At: now, Diff: cf})
+			events = append(events, FieldChanged(id, cf.field, cf.before, cf.after))
 		}
 		next.Fields = merged
 	}
@@ -346,10 +350,9 @@ func (s *Service) PatchCard(ctx context.Context, id string, req PatchCardRequest
 
 	next.Version = current.Version + 1
 	next.UpdatedAt = now
-	if err := s.store.UpdateCard(ctx, &next, events); err != nil {
+	if err := s.commitCard(ctx, &next, events); err != nil {
 		return nil, err
 	}
-	s.publish(events)
 	return &next, nil
 }
 
@@ -442,12 +445,13 @@ func (s *Service) UpgradeSchema(ctx context.Context, id string, req UpgradeSchem
 		return &next, nil
 	}
 
-	ev := &Event{CardID: id, Type: EventSchemaUpgraded, Actor: req.Actor, At: now,
-		Diff: map[string]any{"from": current.SchemaVersion, "to": target, "defaults_applied": applied, "fields_dropped": dropped}}
-	if err := s.store.UpdateCard(ctx, &next, []*Event{ev}); err != nil {
+	if req.Actor != "" {
+		ctx = WithActor(ctx, req.Actor)
+	}
+	ev := SchemaUpgraded(id, current.SchemaVersion, target, applied, dropped)
+	if err := s.commitCard(ctx, &next, []*Event{ev}); err != nil {
 		return nil, err
 	}
-	s.publishOne(ev)
 	return &next, nil
 }
 
@@ -470,7 +474,6 @@ func (s *Service) AppendEntry(ctx context.Context, id, field string, entry map[s
 	if fd.Type != FieldRepeating {
 		return nil, NewValidationError(field, fmt.Sprintf("field %q is not a repeating field", field))
 	}
-	actor := ctxActor(ctx)
 	if entry == nil {
 		entry = map[string]any{}
 	}
@@ -489,12 +492,11 @@ func (s *Service) AppendEntry(ctx context.Context, id, field string, entry map[s
 	next.Fields = setField(current.Fields, field, arr)
 	next.Version = current.Version + 1
 	next.UpdatedAt = s.now()
-	ev := &Event{CardID: id, Type: EventItemAppended, Actor: actor, At: next.UpdatedAt,
-		Diff: map[string]any{"field": field, "entry_id": stored["entry_id"], "entry": entry, "index": len(arr) - 1}}
-	if err := s.store.UpdateCard(ctx, &next, []*Event{ev}); err != nil {
+	entryID, _ := stored["entry_id"].(string)
+	ev := ItemAppended(id, field, entryID, entry, len(arr)-1)
+	if err := s.commitCard(ctx, &next, []*Event{ev}); err != nil {
 		return nil, err
 	}
-	s.publishOne(ev)
 	return &next, nil
 }
 
@@ -533,12 +535,10 @@ func (s *Service) UpdateEntry(ctx context.Context, id, field, entryID string, en
 	next.Fields = setField(current.Fields, field, arr)
 	next.Version = current.Version + 1
 	next.UpdatedAt = s.now()
-	ev := &Event{CardID: id, Type: EventItemUpdated, Actor: ctxActor(ctx), At: next.UpdatedAt,
-		Diff: map[string]any{"field": field, "entry_id": entryID, "before": before, "after": newEntry}}
-	if err := s.store.UpdateCard(ctx, &next, []*Event{ev}); err != nil {
+	ev := ItemUpdated(id, field, entryID, before, newEntry)
+	if err := s.commitCard(ctx, &next, []*Event{ev}); err != nil {
 		return nil, err
 	}
-	s.publishOne(ev)
 	return &next, nil
 }
 
@@ -566,12 +566,10 @@ func (s *Service) RemoveEntry(ctx context.Context, id, field, entryID string, ve
 	next.Fields = setField(current.Fields, field, arr)
 	next.Version = current.Version + 1
 	next.UpdatedAt = s.now()
-	ev := &Event{CardID: id, Type: EventItemRemoved, Actor: ctxActor(ctx), At: next.UpdatedAt,
-		Diff: map[string]any{"field": field, "entry_id": entryID, "entry": entry}}
-	if err := s.store.UpdateCard(ctx, &next, []*Event{ev}); err != nil {
+	ev := ItemRemoved(id, field, entryID, entry)
+	if err := s.commitCard(ctx, &next, []*Event{ev}); err != nil {
 		return nil, err
 	}
-	s.publishOne(ev)
 	return &next, nil
 }
 
@@ -612,17 +610,16 @@ func (s *Service) AddLink(ctx context.Context, id string, in LinkInput) (*Card, 
 			return current, nil // idempotent: already linked
 		}
 	}
+	ctx = WithActor(ctx, actor)
 	l := Link{TypeID: in.TypeID, Target: in.Target, Note: in.Note, CreatedBy: actor, CreatedAt: s.now()}
 	next := *current
 	next.Version = current.Version + 1
 	next.UpdatedAt = l.CreatedAt
 	next.Links = append(append([]Link{}, current.Links...), l)
-	ev := &Event{CardID: id, Type: EventLinkAdded, Actor: actor, At: l.CreatedAt,
-		Diff: map[string]any{"type_id": in.TypeID, "target": in.Target, "note": in.Note}}
-	if err := s.store.UpdateCard(ctx, &next, []*Event{ev}); err != nil {
+	ev := LinkAdded(id, in.TypeID, in.Target, in.Note)
+	if err := s.commitCard(ctx, &next, []*Event{ev}); err != nil {
 		return nil, err
 	}
-	s.publishOne(ev)
 	// Persist the link row for graph queries.
 	_ = s.store.InsertLink(ctx, id, l)
 	return &next, nil
@@ -634,7 +631,6 @@ func (s *Service) RemoveLink(ctx context.Context, id, typeID, target string) (*C
 	if err != nil {
 		return nil, err
 	}
-	actor := ctxActor(ctx)
 	found := false
 	links := []Link{}
 	for _, l := range current.Links {
@@ -651,12 +647,10 @@ func (s *Service) RemoveLink(ctx context.Context, id, typeID, target string) (*C
 	next.Version = current.Version + 1
 	next.UpdatedAt = s.now()
 	next.Links = links
-	ev := &Event{CardID: id, Type: EventLinkRemoved, Actor: actor, At: next.UpdatedAt,
-		Diff: map[string]any{"type_id": typeID, "target": target}}
-	if err := s.store.UpdateCard(ctx, &next, []*Event{ev}); err != nil {
+	ev := LinkRemoved(id, typeID, target)
+	if err := s.commitCard(ctx, &next, []*Event{ev}); err != nil {
 		return nil, err
 	}
-	s.publishOne(ev)
 	if _, err := s.store.DeleteLink(ctx, id, typeID, target); err != nil {
 		// non-fatal: the card row is already updated; graph table may be stale.
 		_ = err
@@ -682,12 +676,10 @@ func (s *Service) AddComment(ctx context.Context, id string, body string) (*Card
 	next.Version = current.Version + 1
 	next.UpdatedAt = c.CreatedAt
 	next.Comments = append(append([]Comment{}, current.Comments...), c)
-	ev := &Event{CardID: id, Type: EventCommentAdded, Actor: actor, At: c.CreatedAt,
-		Diff: map[string]any{"comment_id": c.ID}}
-	if err := s.store.UpdateCard(ctx, &next, []*Event{ev}); err != nil {
+	ev := CommentAdded(id, c.ID)
+	if err := s.commitCard(ctx, &next, []*Event{ev}); err != nil {
 		return nil, err
 	}
-	s.publishOne(ev)
 	_ = s.store.InsertComment(ctx, id, c)
 	return &next, nil
 }
@@ -698,7 +690,6 @@ func (s *Service) EditComment(ctx context.Context, id, commentID, body string) (
 	if err != nil {
 		return nil, err
 	}
-	actor := ctxActor(ctx)
 	if strings.TrimSpace(body) == "" {
 		return nil, NewValidationError("body", "comment body is required")
 	}
@@ -721,12 +712,10 @@ func (s *Service) EditComment(ctx context.Context, id, commentID, body string) (
 	next.Version = current.Version + 1
 	next.UpdatedAt = s.now()
 	next.Comments = comments
-	ev := &Event{CardID: id, Type: EventCommentEdited, Actor: actor, At: next.UpdatedAt,
-		Diff: map[string]any{"comment_id": commentID, "before": before, "after": body}}
-	if err := s.store.UpdateCard(ctx, &next, []*Event{ev}); err != nil {
+	ev := CommentEdited(id, commentID, before, body)
+	if err := s.commitCard(ctx, &next, []*Event{ev}); err != nil {
 		return nil, err
 	}
-	s.publishOne(ev)
 	_ = s.store.UpdateComment(ctx, id, commentID, body, next.UpdatedAt)
 	return &next, nil
 }
@@ -830,7 +819,7 @@ func (s *Service) TakeNext(ctx context.Context, req TakeNextRequest) (*Card, err
 	if err != nil {
 		return nil, err
 	}
-	s.publish(evs)
+	s.emitter.dispatchCommitted(evs)
 	return c, nil // nil card → caller renders {card:null}
 }
 
@@ -839,7 +828,7 @@ func (s *Service) ListEvents(ctx context.Context, q EventQuery) ([]Event, error)
 	if q.Limit <= 0 || q.Limit > 500 {
 		q.Limit = 50
 	}
-	return s.store.ListEvents(ctx, q)
+	return s.store.List(ctx, q)
 }
 
 // ListEventsPage is the cursor-paged catch-up feed (GET /v1/events): the
@@ -847,7 +836,7 @@ func (s *Service) ListEvents(ctx context.Context, q EventQuery) ([]Event, error)
 // then resume the live SSE stream. Ordered by id ASC; NextCursor is the last
 // event id. See docs/INTEGRATION.md.
 func (s *Service) ListEventsPage(ctx context.Context, q EventQuery) (*Page[Event], error) {
-	return s.store.ListEventsPage(ctx, q)
+	return s.store.Page(ctx, q)
 }
 
 // History renders a resumption-ready timeline for a card. SPEC §8.
@@ -855,7 +844,7 @@ func (s *Service) History(ctx context.Context, id string) ([]HistoryEntry, error
 	if _, err := s.getCard(ctx, id); err != nil {
 		return nil, err
 	}
-	evs, err := s.store.ListEvents(ctx, EventQuery{CardID: id, Limit: 500})
+	evs, err := s.store.List(ctx, EventQuery{CardID: id, Limit: 500})
 	if err != nil {
 		return nil, err
 	}
