@@ -69,24 +69,11 @@ field id.
 
 ### How workspace, board, and type rules merge
 
-Validation is layered; later layers add restrictions:
-
-1. **Workspace**: columns, users, tags, link types, defaults.
-2. **Card type**: field schema, `allowed_columns`, optional type `transitions`.
-3. **Board** (when `board_id` is used): board columns subset, default filter,
-   optional board `transitions`, board enforcement settings.
-4. **Card instance**: pinned `schema_version`, current values, optimistic
-   `version`.
-
-Resolution rules:
-
-- Column must exist in workspace, then pass type `allowed_columns`, then pass
-  board `columns` if board-scoped.
-- If transition enforcement is on, board `transitions` are used when present;
-  otherwise type `transitions`.
-- Link `type_id` must exist in workspace `link_types`; `card_link` fields may
-  add tighter `target_type`; link types may constrain `source_types`/
-  `target_types`.
+Validation is layered (workspace → card type → board → card instance), with
+later layers only adding restrictions. For the normative merge/precedence
+rules and resolution order, see
+[`SPEC.md` §4 “Definition merge and precedence”](SPEC.md#definition-merge-and-precedence).
+This section adds only the authoring-relevant consequences below.
 
 ---
 
@@ -133,7 +120,10 @@ valid set echoed.
 = one workspace). Use export/import to move (new card id, optional
 source-reference link).
 
-Reload: `POST /v1/workspace/reload` or `cards workspace reload`.
+Reload **[proposed, not yet implemented]**: a `POST /v1/workspace/reload`
+endpoint and `cards workspace reload` CLI verb are designed but not built;
+today, reloading definitions means restarting the server. See
+[`INTEGRATOR-REFERENCE.md`](INTEGRATOR-REFERENCE.md) for the drift note.
 
 ### JSON vs YAML authoring
 
@@ -183,6 +173,9 @@ Type-specific options:
 | `card_link` | optional `target_type`, `link_type` |
 | `repeating` | `item_fields`: FieldDef[] (no nested `repeating` in v1); entries get stable server-generated `entry_id` |
 | `artifact` | optional `artifact_policy`: `"local" \| "uri"` |
+
+For the full field-type catalog including validation rules, see
+[`SPEC.md` §6 “Field types”](SPEC.md#6-field-types).
 
 `text` is rendered as markdown. `string` is single-line.
 
@@ -255,21 +248,14 @@ Each legal status change emits `status_changed` with `diff: { before, after }`.
 ## 5. Relations and links
 
 ### Link types (workspace)
-Declared in `workspace.json` (`link_types`). Each has `id`, `name`, `type`
-(`directional` | `bidirectional`), and optional `source_types`/`target_types`
-(card type ids).
-
-| id | Typical use | Stored on |
-|---|---|---|
-| `depends-on` | Ordering: source waits for target | the waiting card |
-| `blocked-by` | Hard block: source blocked by target | the blocked card |
-| `related` | Loose association | either (bidirectional) |
-| `sent-to` | Job dispatched to asset card (printer, server) | the job card |
-
-> **Direction note.** `depends-on` and `blocked-by` are both stored on the
-> *waiting/blocked* card, so a card's outgoing edges answer "what am I waiting
-> on?" The old `blocks` type (source blocks target) was removed because agents
-> consistently wired it backwards — see [`NOTES.md`](NOTES.md) D3.
+Link types are declared in `workspace.json` (`link_types`); each has `id`,
+`name`, `type` (`directional` | `bidirectional`), and optional
+`source_types`/`target_types`. For the default link vocabulary
+(`depends-on`, `blocked-by`, `related`, `sent-to`) and the direction/storage
+convention (both stored on the waiting/blocked card), see
+[`SPEC.md` §4 “Default link vocabulary”](SPEC.md#default-link-vocabulary).
+The old `blocks` type was removed because agents consistently wired it
+backwards — see [`NOTES.md`](NOTES.md) D3.
 
 ### Two ways to relate cards
 1. **`card_link` field** — part of the schema (e.g. `assigned_printer`).
@@ -331,15 +317,10 @@ of old pins.
 
 ### Change rules
 
-| Change | Handling |
-|---|---|
-| Add optional field | New version; old cards unchanged until upgrade |
-| Add required field | New version; upgrade applies `field_defaults` |
-| Remove field | Absent from the new snapshot; old-version cards keep it |
-| Enum: add value | New version |
-| Enum: remove value | Old cards may retain value until edited |
-| Repeating item shape | New appends use the pinned version's `item_fields` |
-
+Schema versioning is pure versioned snapshots; each `schema_version` is an
+immutable field list a card pins and validates against. For the normative
+change rules (add/remove/enum/repeating handling) and the migrations JSON
+shape, see [`SPEC.md` §5 “Schema versioning”](SPEC.md#5-schema-versioning).
 A field may be flagged `deprecated: true` **within the current version** for
 advance warning; this is informational, not how removal works.
 
@@ -393,6 +374,10 @@ queries.
 
 ### View
 File: `definitions/views/<view_id>.json`
+
+**[proposed, not yet implemented]** the `View` type is declared in the core
+but has no CLI verb, HTTP route, or service wiring yet; the JSON shape below
+is the intended contract.
 
 ```json
 {
@@ -512,7 +497,7 @@ cards events stream --board engineering
 cards history CARD_ID
 
 cards users register --id coder-agent --kind agent
-cards views query order-parts --param order_id=34
+# cards views query <id> --param k=v   # [proposed, not yet implemented]
 
 # Local, no server needed — full-snapshot backup/restore (reads SQLite directly):
 cards export --workspace ./demo-workspace --out backup.jsonl
@@ -527,7 +512,8 @@ Environment:
 | `CARDS_WORKSPACE` | Workspace directory for serverless/embedded mode |
 | `CARDS_USER` | Default actor (`me` / `--as`) |
 
-Concurrency: pass `--version` on every PATCH/claim (or `If-Match`); stale
+Concurrency: pass `--version` on every PATCH/claim (there is no `If-Match`
+header alias — `version` in the body/query is the only mechanism); stale
 versions return `409 version_conflict` with the current card.
 
 ### Output modes
@@ -536,14 +522,6 @@ versions return `409 version_conflict` with the current card.
 - `--quiet` — ids only (for `xargs`).
 - Errors go to **stderr** as structured JSON, e.g.
   `{"error":"unknown_enum","field":"status","valid_options":[...]}`.
-
-### RPC mode
-```bash
-cards rpc --workspace ./.work-cards
-```
-Reads newline-delimited JSON-RPC on stdin, writes responses on stdout. Method
-names mirror HTTP (`cards.list`, `cards.create`, `events.stream`). Same service
-layer as HTTP and MCP.
 
 ---
 
@@ -567,6 +545,8 @@ layer as HTTP and MCP.
 | Doc | Contents |
 |---|---|
 | [`PHILOSOPHY.md`](PHILOSOPHY.md) | Why the system stays small |
+| [`CONCEPTS.md`](CONCEPTS.md) | Vocabulary, mental model, and use-case setups |
+| [`INTEGRATOR-REFERENCE.md`](INTEGRATOR-REFERENCE.md) | Code-verified drift audit of SPEC claims |
 | [`EXTENSIONS.md`](EXTENSIONS.md) | Hooks, services, runs |
 | [`ARCHITECTURE.md`](ARCHITECTURE.md) | Go core, packaging, Python/Node integration |
 | [`SPEC.md`](SPEC.md) | API, storage, filter DSL, events |

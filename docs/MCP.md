@@ -29,7 +29,8 @@ cards mcp --workspace ./.work-cards
 
 stdio MCP. The same binary can run alongside a local HTTP server if a harness
 wants both; mutations delegate to the same service layer as HTTP/CLI, so
-validation, idempotency, and events are identical.
+validation and events are identical. Idempotency differs by surface — see
+the "Concurrency, idempotency, errors" section below.
 
 ## Tool surface
 
@@ -38,10 +39,13 @@ validation, idempotency, and events are identical.
 | Tool | Input | Returns |
 |---|---|---|
 | `workspace` | — | workspace: columns, card types (with `schema_version` + field schemas), boards, views, `tag_set`, `link_types`, users, settings |
-| `card_type` | `type_id`, `version?` | one card type schema |
 
 `workspace` is the one call an agent makes before doing anything else. The
 returned schemas drive the typed create/update tools below.
+
+> A `card_type` tool (returning one card-type schema by `type_id`/`version`)
+> is planned but **not yet implemented**. Use `workspace` to introspect
+> card-type schemas in the meantime.
 
 ### Card lifecycle (per card type, generated)
 
@@ -73,32 +77,45 @@ These are the same for every board:
 | `search_cards` | `q`, plus optional filters | page of cards (FTS) |
 | `claim` | `card_id`, `status?`, `version` | updated card |
 | `take_next` | `filter`, `assign_to`, `status?` | a claimed card, or `card: null` |
-| `append_entry` | `card_id`, `field`, `entry` (typed from `item_fields`), `version` | updated card + `entry_id` |
-| `update_entry` | `card_id`, `field`, `entry_id`, `entry`, `version` | updated card |
+| `append_entry` | `card_id`, `field`, `entry` (typed from `item_fields`), `version` | updated card (the `entry_id` is inside the appended item in the returned card, not a separate top-level field) |
 | `add_link` | `card_id`, `type_id`, `target`, `note?` | updated card |
 | `add_comment` | `card_id`, `body` | updated card |
-| `upgrade_schema` | `card_id`, `target_version?` | updated card |
 | `history` | `card_id` | resumption-ready timeline |
 
-`append_entry`/`update_entry` inputs are typed from the field's `item_fields`
-in the *pinned* `schema_version`, so an agent can't append a malformed
-telemetry entry either.
+`append_entry` inputs are typed from the field's `item_fields` in the *pinned*
+`schema_version`, so an agent can't append a malformed telemetry entry
+either.
+
+> `update_entry` (`svc.UpdateEntry`) and `upgrade_schema` (`svc.UpgradeSchema`)
+> are available over the HTTP and CLI surfaces but **not yet exposed as MCP
+> tools**. Use `PATCH /v1/cards/{id}/fields/{field}/{entryID}` and
+> `POST /v1/cards/{id}/upgrade-schema` over HTTP, or `cards patch-entry` /
+> `cards upgrade-schema` on the CLI, in the meantime.
 
 ### Events
 
-| Tool | Input | Returns |
-|---|---|---|
-| `card_events` | `card_id`, `types?`, `limit` | recent events (normative `diff` per `SPEC.md` §8) |
-| `subscribe` | `board_id?`, `card_id?`, `types?` | SSE-like stream; supports `Last-Event-ID` for resumption |
+> `card_events` and `subscribe` are designed but **not yet exposed as MCP
+> tools**. Use `GET /v1/cards/{id}/events` (recent events for a card) and
+> `GET /v1/events/stream` (live SSE feed with `Last-Event-ID` resumption)
+> over HTTP in the meantime.
+
+| Tool | Input | Returns | Status |
+|---|---|---|---|
+| `card_events` | `card_id`, `types?`, `limit` | recent events (normative `diff` per `SPEC.md` §8) | `[proposed]` |
+| `subscribe` | `board_id?`, `card_id?`, `types?` | SSE-like stream; supports `Last-Event-ID` for resumption | `[proposed]` |
 
 ## Concurrency, idempotency, errors
 
 - **Concurrency:** mutation tools take `version`; a stale version returns
   `version_conflict` (`409`) with the current card. The agent re-reads and
   retries.
-- **Idempotency:** every mutation tool accepts an `idempotency_key`. Retries
-  with the same key return the original result. `take_next` with the same key
-  returns the *same* card (not a new pick).
+- **Idempotency:** the HTTP and CLI surfaces support an `Idempotency-Key`/
+  `idempotency_key` for safe retries (the HTTP middleware reads the
+  `Idempotency-Key` header and deduplicates via the store). The MCP tool
+  surface does **not** currently forward or honor an idempotency key — no MCP
+  tool accepts an `idempotency_key` parameter, and retries of `create_<T>`,
+  `append_entry`, `take_next`, etc. are not deduplicated. Callers needing
+  idempotent retries should use the HTTP API with `Idempotency-Key` instead.
 - **Errors:** structured per the [`SPEC.md`](SPEC.md) §10 catalog. MCP exposes
   them as tool errors carrying the same JSON (including `valid_options`), so
   the agent self-corrects: read `valid_options`, retry.
@@ -117,8 +134,9 @@ binds it. See `SPEC.md` §12.
 - **Type-per-card-type** makes category errors impossible at the tool boundary.
 - **`take_next` + `claim` + `append_entry`** map 1:1 to "take a task, work,
   log evidence" — the loop is three calls.
-- **`history` + `subscribe`** make preemption recoverable: resume from the
-  timeline, or react to a peer's event.
+- **`history`** makes preemption recoverable: resume from the timeline.
+  (`subscribe` is planned for live event reaction — not yet implemented; use
+  the HTTP SSE feed in the meantime.)
 - **Structured errors with `valid_options`** turn mistakes into a single
   retry, not a dead end.
 

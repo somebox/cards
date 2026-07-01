@@ -1,11 +1,14 @@
 # Work Cards — Design Specification
 
-**Status:** v0.4 — implemented (beta). The v0.4 pass trimmed the field
-catalog, locked single-workspace-per-instance, fixed link direction and
-concurrency contracts, and made the event/error contracts normative. See
+**Status:** v0.4 — beta, in-progress (not yet stable). The v0.4 pass trimmed
+the field catalog, locked single-workspace-per-instance, fixed link direction
+and concurrency contracts, and made the event/error contracts normative. See
 [`NOTES.md`](NOTES.md) for the full change log and rationale. The core
-kernel, HTTP API, CLI, MCP server, web UI, and hook supervisor are built and
-dogfooded; the API is stable for the current scope.
+kernel, HTTP API, CLI, MCP server, web UI, and hook supervisor are largely
+built and dogfooded; the API is not yet declared stable — some surfaces
+described below are design-only or not yet wired (see per-section status
+notes). Treat this document as the target contract, not a certification of a
+finished build.
 
 Work Cards is a small substrate for typed-card coordination. It stores cards,
 events, links, and comments; validates writes against versioned schemas;
@@ -33,7 +36,9 @@ For the principles behind these choices, see [`PHILOSOPHY.md`](PHILOSOPHY.md).
 4. **History is automatic and append-only.** Current state is a materialized
    projection; the event log is the coordination record (see §8).
 5. **Fail loudly, guide recovery.** Rejections echo valid options and hints.
-6. **Idempotent by default.** Mutations accept idempotency keys.
+6. **Idempotent by default.** Mutations accept idempotency keys (all
+   POST/PATCH writes; DELETEs are idempotent by HTTP semantics and are not
+   separately keyed; `POST /users` registration is currently unkeyed — see §11).
 7. **Lightweight unless opted in.** Unconstrained status moves by default;
    transitions, strict field mode, and link-type constraints are opt-in.
 8. **Coordination, not archive.** Keep blobs and canonical records in the
@@ -112,8 +117,9 @@ this is trivial and is the supported multi-tenancy path for v1.
     sessions/            # optional; agent session logs
 ```
 
-Definitions are JSON or YAML. The loader normalizes both; `serve` mode reloads
-on file change.
+Definitions are JSON or YAML. The loader normalizes both. (`serve` mode
+does not currently watch/reload on file change — restart the process to
+pick up definition edits; an explicit reload endpoint is planned — see §11.)
 
 ### Storage model (default)
 
@@ -128,8 +134,9 @@ coordination scale (typically <100k active cards).
 
 ### Portable export/import
 
-SQLite is authoritative. Two file-based escape hatches make the state portable;
-both are **implemented**:
+SQLite is authoritative. Two file-based escape hatches make the state
+portable: a full-snapshot JSONL export/import (**implemented**) and a
+markdown mirror for human review (**planned, not yet implemented**).
 
 **Full-snapshot JSONL (backup / migration / disaster recovery).**
 `cards export --workspace <dir>` dumps the whole workspace — a header line, then
@@ -142,12 +149,13 @@ duplicate card id is a hard error — never a silent overwrite. Both run locally
 against SQLite with no server. Commit the JSONL alongside `definitions/` to make
 the full workspace state git-portable.
 
-**Markdown mirror (git/PR-style human review).** For per-card review the core
-can maintain a markdown mirror (`cards export --mirror`, `cards import
---mirror`). Unlike the snapshot restore, mirror import is a per-file **PATCH**
-and is **version-gated**: each file's frontmatter declares the `version` it was
-edited from; a stale import is `409 version_conflict`, never a silent overwrite.
-An optional `mirror.autoexport: true` setting keeps the mirror in sync on every
+**Markdown mirror (planned, not yet implemented).** For per-card review the
+design calls for a markdown mirror (`cards export --mirror`, `cards import
+--mirror`, neither of which exist yet). Unlike the snapshot restore, mirror
+import would be a per-file **PATCH** and **version-gated**: each file's
+frontmatter declares the `version` it was edited from; a stale import would
+be `409 version_conflict`, never a silent overwrite. An optional
+`mirror.autoexport: true` setting would keep the mirror in sync on every
 write. (Snapshot export/import shipped first; the markdown mirror is planned.)
 
 ### Deployment modes
@@ -160,18 +168,27 @@ write. (Snapshot export/import shipped first; the markdown mirror is planned.)
 
 ### Event delivery
 
-- **SSE (v1):** `GET /v1/events/stream?card_id=&board_id=&types=&actor=&owner=`.
+> **Beta / in-progress — not yet stable.** The routes and payloads below
+> are the target contract implemented in `internal/httpapi`/`internal/core`;
+> the event-log seam is under active refactor (see
+> [`EVENTS.md`](EVENTS.md)). Treat this subsection as the design contract,
+> not a certification of a finished build.
+
+- **SSE (v1 design):** `GET /v1/events/stream?card_id=&board_id=&types=&actor=&owner=`.
   Supports `Last-Event-ID` (or `since=`) for resumable replay — a dropped
   connection replays events after the last acknowledged id. Filters: `card_id`,
   `board_id`, `types` (CSV), `actor` (events a user caused), `owner` (events on a
-  user's cards). Event payload: `type`, `id`, `card_id`, `actor`, `at`, `diff`,
-  optional `board_ids`/`view_ids`. The live stream is **best-effort**: a slow
+  user's cards). Event payload: `type`, `id`, `card_id`, `actor`, `at`, `diff`.
+  (`board_ids`/`view_ids` are a proposed future enrichment — see EVENTS.md
+  §11.3/Step 2 — not present in the current `Event` struct or wire format.)
+  The live stream is **best-effort**: a slow
   consumer whose buffer fills is dropped (a `: dropped, reconnect` comment is
   sent); durable catch-up is the feed below, not the stream.
-- **Catch-up feed (v1):** `GET /v1/events?actor=&owner=&type=&types=&board_id=&since=&cursor=&limit=`
+- **Catch-up feed (v1 design):** `GET /v1/events?actor=&owner=&type=&types=&board_id=&since=&cursor=&limit=`
   → `{ "items": [...], "next_cursor": "<id>" }`. A cursor-paged query over the
-  append-only events table; the log of **facts** (mutation events, plus monitors
-  marked `persist: true`). Ordered by event id ascending. `since=` and `cursor=`
+  append-only events table; the log of **facts** (mutation events only;
+  condition/monitor signals with `persist: true` are a proposed future
+  extension of the feed — see EVENTS.md Step 3 — not present in v1). Ordered by event id ascending. `since=` and `cursor=`
   are both event-id floors (`id >` value); `cursor=` is the pagination
   continuation and overrides `since=`. `next_cursor` is the last item's id, or
   empty when the feed is exhausted. `limit` defaults to 100, max 500.
@@ -213,7 +230,7 @@ WorkspaceSettings {
   enforce_transitions   bool (default false)
   strict_fields         bool (default true)
   tag_policy            enum { open, propose, locked }  // default propose
-  event_retention_days  int (optional)  // trim old events; card snapshot kept
+  event_retention_days  int (optional)  // schema field exists; automatic trimming is not yet implemented (no background job reads it)
   default_user          string (optional)  // CLI/API alias "me"
 }
 ```
@@ -241,7 +258,10 @@ Board {
 
 ### View
 
-A named filter plus optional URL binding — same cards as `/cards`.
+A named filter plus optional URL binding — same cards as `/cards`. **Type
+defined, not yet wired to a route** — `GET /views/:id/cards` described in
+§11 is aspirational; there is no `/v1/views` route in the current router
+(`internal/httpapi`). Treat View as a forthcoming feature.
 
 ```
 View {
@@ -371,6 +391,10 @@ Card {
 `schema_version`, `title`, `status`, `owner`, `tags`, `links`, `comments`,
 `version`, timestamps, `created_by`. Custom data lives in `fields` only.
 
+> **Note:** `GET /cards` (list) responses omit `links`/`comments` for
+> performance (not loaded on the list path); `GET /cards/:id` includes them.
+> Do not assume `links`/`comments` are present on list-page items.
+
 ### Definition merge and precedence
 
 Validation layers add restrictions; higher layers do not replace lower.
@@ -395,7 +419,9 @@ Pure **versioned snapshots**. Each `schema_version` is an immutable field list;
 a card pins one and validates against it.
 
 1. Monotonic `schema_version` per `type_id`. Introspection returns
-   `current_schema_version` and, when available, old-version schemas.
+   `current_schema_version` per type. (Serving old-version schemas alongside
+   current — e.g. via `GET /workspace/card-types/:type_id?version=` — is
+   described in §11 but not yet implemented; see that section's status note.)
 2. Each card pins `schema_version` (default: current at create).
 3. Validation uses the pinned version on PATCH/append.
 4. **Additive (minor):** new optional fields in N+1. Cards on N stay valid;
@@ -443,10 +469,10 @@ Core v1 catalog (see [`NOTES.md`](NOTES.md) D2 for what was trimmed and why):
 | `date` | ISO date/datetime | Parseable; optional `min`/`max` |
 | `enum` | Single-select | Must be in `options`; else rejected with options |
 | `tags` | Multi-select | Each must be in workspace `tag_set` |
-| `user` | User reference | Must exist; else rejected with registration hint |
+| `user` | User reference | Must exist; else rejected with registration hint. **Exception:** `owner` is existence-checked; other `user`-typed fields (e.g. a repeating entry's `author`) are currently type-checked only, not existence-checked — see §12. |
 | `card_link` | Card reference | Target exists; optional `target_type`, `link_type` |
 | `repeating` | Array of typed entries | Each entry validated against `item_fields` (no nested `repeating` in v1); entries have stable server-generated `entry_id` |
-| `artifact` | Pointer to blob in workspace or external URI | `{ uri, mime?, size?, sha256? }`; local `uri` must resolve under workspace artifacts root when `artifact_policy: local` |
+| `artifact` | Pointer to blob in workspace or external URI | `{ uri, mime?, size?, sha256? }`; local `uri` must resolve under workspace artifacts root when `artifact_policy: local`. **Not yet implemented**: the `internal/artifacts` manager is a stub with no upload handler, no path-confinement enforcement, and no `POST /cards/:id/artifacts` route exists in the router. Treat this field type and its validation rules as design-only until built. |
 
 ```
 FieldDef {
@@ -554,13 +580,18 @@ schemas) is extension territory; the card holds the `artifact` pointer and a
 
 ## 8. History, events, and retention
 
+> See §3 Event delivery status note — this section's `history`/feed endpoints
+> share the same beta/in-progress caveat.
+
 - Append-only **events** table; materialized **cards** row updated in the same
   transaction.
 - Query: per card, per workspace feed, by actor/type/time.
 - **Not an archive:** the **materialized card (including repeating fields) is
   the durable work product.** The **event log is the audit/coordination
   layer** and may be trimmed via `event_retention_days` (the card snapshot and
-  artifacts are always kept). Export to git or the host app for long-term
+  artifacts are always kept). Note: `event_retention_days` is a declared
+  schema field but automatic trimming is **not yet implemented** (no
+  background job reads it today). Export to git or the host app for long-term
   records.
 
 ### Normative `diff` per event type
@@ -580,8 +611,8 @@ schemas) is extension territory; the card holds the `artifact` pointer and a
 | `comment_added` | `{ comment_id }` |
 | `comment_edited` | `{ comment_id, before, after }` |
 | `schema_upgraded` | `{ from, to }` |
-| `artifact_added` | `{ field, uri, sha256 }` |
-| `definition_reloaded` | `{ kind: "workspace"|"board"|"card_type", id }` |
+| `artifact_added` | `{ field, uri, sha256 }` *(reserved for when the artifacts subsystem — §6 — is implemented; not currently emitted)* |
+| `definition_reloaded` | `{ kind: "workspace"|"board"|"card_type", id }` *(reserved for when definition reload lands; not currently emitted)* |
 
 ### History as agent-resumption context
 
@@ -604,8 +635,6 @@ agent state (which is ephemeral).
 | `owner` | User id; alias `me` → `default_user` |
 | `tag` | Tag(s) |
 | `q` | Full-text search (FTS5) |
-| `updated_before`, `updated_after` | ISO timestamps |
-| `created_before`, `created_after` | ISO timestamps |
 | `has_link` | Link type id present |
 | `link_target` | Card id linked |
 | `blocked` | Shorthand: outgoing `blocked-by`/`depends-on` to a non-`done` card |
@@ -613,6 +642,11 @@ agent state (which is ephemeral).
 
 Pagination: `limit` (default 50, max 200), `cursor` (opaque; sort
 `updated_at`, `id`).
+
+> **Note:** `updated_before`/`updated_after`/`created_before`/`created_after`
+> are **not implemented as separate query params** on `GET /cards`. For
+> time-range filters use `filter=` JSON with `updated_at`/`created_at`
+> operators (see below).
 
 ### Filter JSON (`filter=`)
 
@@ -633,9 +667,14 @@ keys for `status`, `owner`, `type_id`, `tag`, `updated_at`. CLI:
 `cards list --filter-file q.json`. Power users: `cards export --format jsonl`
 and local jq out of band.
 
+> **`$contains` semantics:** on a string-valued path it is a
+> case-insensitive substring match (SQLite `LIKE`); on an array-valued path
+> (e.g. `tags`) it is an exact membership test (case-sensitive `=`). `$eq`/
+> `$in` string comparisons are case-sensitive (`=`).
+
 ### Recipes
 - **Open assigned to me:** `owner=me&status=todo,in_progress`.
-- **Blocked stale:** `blocked=true&updated_before=<now-1h>`.
+- **Blocked stale:** `blocked=true` + `filter={"updated_at":{"$lt":"<now-1h>"}}`.
 
 ---
 
@@ -643,7 +682,7 @@ and local jq out of band.
 
 Rules:
 
-1. **Unknown enum value** → `unknown_enum`, echo `options`.
+1. **Unknown enum value** → `unknown_enum`, echo `valid_options`.
 2. **Unknown tag** → `unknown_tag`, echo `tag_set` (+ `propose_tag` hint).
 3. **Unknown user** → `unknown_user`, include registration call.
 4. **Unknown field** (strict mode) → `unknown_field`, echo field list.
@@ -663,7 +702,9 @@ Rules:
 12. **No actor on a write** → `actor_required` (`403`).
 
 `dry_run: true` validates fully and returns the would-be card + warnings,
-writing nothing. Errors are structured JSON:
+writing nothing. A successful `dry_run` response returns the would-be card
+(or would-be result) with a `Dry-Run: true` response **header**; the response
+body is not otherwise marked as a dry run. Errors are structured JSON:
 
 ```json
 {
@@ -692,24 +733,35 @@ writing nothing. Errors are structured JSON:
 | `version_conflict` | 409 | current `card` |
 | `actor_required` | 403 | hint |
 | `not_found` | 404 | `resource` |
-| `idempotency_replay` | 200 | original response (on retry) |
+
+A replayed mutation (same `Idempotency-Key`) returns the original response
+body and status with an added `Idempotent-Replay: true` response header —
+not a distinct error code.
 
 ---
 
 ## 11. API surface (v1)
 
-Base path: `/v1`. JSON in/out. Mutations accept `Idempotency-Key` header or
-`idempotency_key` body field.
+Base path: `/v1`. JSON in/out. Mutations accept an `Idempotency-Key`
+header. (There is no `idempotency_key` body-field alias in the current
+implementation — header only.)
 
 ### Workspace and definitions
-- `GET /workspace` → workspace + current card types (all versions summary) +
-  boards, views, settings.
-- `GET /workspace/card-types/:type_id?version=` → schema.
-- `POST /workspace/reload` → reload definitions from disk.
+- `GET /workspace` → workspace + current card types (current version per
+  type only) + boards + settings. **Does not currently include `views`.**
+- `GET /workspace/card-types/:type_id?version=` → **not yet implemented**;
+  card-type schemas are only available via the `card_types` map in
+  `GET /workspace` (current version only).
+- `POST /workspace/reload` → **not yet implemented** as an HTTP route (the
+  `definition_reloaded` event type exists for when reload lands, but there is
+  no trigger endpoint yet).
 
 ### Boards and views
-- `GET /boards`, `GET /boards/:id`.
-- `GET /views/:id/cards` → paginated cards (filter + bind).
+**Not yet implemented as dedicated `/v1` routes.** Boards are currently
+only reachable via the `boards` map embedded in `GET /workspace`; there is no
+standalone `GET /boards`, `GET /boards/:id`, or `GET /views/:id/cards` route
+in the router today (only an HTML `GET /ui/boards/{id}` exists, outside the
+JSON API). Treat this subsection as a planned addition.
 
 ### Users
 - `POST /users` → register (workspace-scoped).
@@ -719,15 +771,19 @@ Base path: `/v1`. JSON in/out. Mutations accept `Idempotency-Key` header or
 - `POST /cards` → create (`type_id`, `title`, `fields`, `status?`, `tags?`,
   `schema_version?`). `dry_run` supported.
 - `GET /cards/:id` → full card + `version`.
-- `PATCH /cards/:id` → fields/status/owner/tags; requires `version` (body) or
-  `If-Match` (alias). `dry_run`.
+- `PATCH /cards/:id` → fields/status/owner/tags; requires `version` in
+  the request body (optimistic concurrency). (There is no `If-Match` header
+  alias in the current implementation.) `dry_run` supported (body field;
+  signaled back via a `Dry-Run: true` response header, not a body field).
 - `POST /cards/:id/upgrade-schema` → bump pinned version.
 
 ### Coordination atomics
 These ship in core because they need atomicity hard to replicate from outside.
 - `POST /cards/:id/claim` → set `owner` (+ optional `status`) via
   compare-and-set on `version`; `409` if already owned by another actor.
-- `POST /cards/take-next` → body `{ filter, assign_to, status? }`. Picks the
+- `POST /cards/take-next` → body `{ filter?, assign_to, status?,
+  type_id?, board_id? }`. `type_id`/`board_id` narrow the candidate pool in
+  addition to `filter`. Picks the
   oldest matching unowned card (`updated_at ASC, id ASC`), atomically claims
   it, returns it. `200 { card: null }` when nothing matches. Same
   `Idempotency-Key` returns the same card.
@@ -748,21 +804,33 @@ These ship in core because they need atomicity hard to replicate from outside.
 - `PATCH /cards/:id/fields/:field/:entry_id` → update entry.
 - `DELETE /cards/:id/fields/:field/:entry_id` → remove entry.
 
+(`version` travels in the JSON body for `append`/`PATCH`; for `DELETE` —
+which has no body per HTTP convention — it is a `?version=` query parameter
+instead.)
+
 ### Links, comments, artifacts
 - `POST /cards/:id/links` / `DELETE /cards/:id/links/:type_id/:target`.
 - `POST /cards/:id/comments` / `PATCH /cards/:id/comments/:comment_id`.
 - `POST /cards/:id/artifacts` → store file, set/update an `artifact` field.
+  **[not yet implemented — no route registered; see §6]**
 
-### Batch
-- `POST /cards/batch` → array of mutations; shared idempotency scope;
-  `mode: all_or_nothing | partial`.
+### Batch (proposed, not implemented)
+A future `POST /cards/batch` may accept an array of mutations with shared
+idempotency scope and `mode: all_or_nothing | partial`. **No such route
+exists in the current router.**
 
 ### History and streams
 - `GET /cards/:id/events?…`
 - `GET /cards/:id/history` → resumption-ready timeline projection.
-- `GET /events?actor=&owner=&type=&board_id=&since=&cursor=&limit=` → cursor-paged
+- `GET /events?actor=&owner=&type=&types=&board_id=&since=&cursor=&limit=` → cursor-paged
   catch-up feed (append-only, gap-free; see §3 Event delivery).
 - `GET /events/stream?…` → SSE with `Last-Event-ID` replay.
+
+Both `/cards/:id/events` and `/cards/:id/history` return `{"items":[...]}`
+with a default/max `limit` but **no `next_cursor`** — there is currently no
+way to page past the first page of a single card's event/history list.
+(Contrast with the workspace-wide catch-up feed `GET /events`, which is
+properly cursor-paginated.)
 
 Write responses include the updated card (or batch results) to avoid extra
 GETs.
@@ -772,8 +840,12 @@ GETs.
 ## 12. Actors and authorization
 
 - Every write supplies an actor via the **`X-Work-Cards-Actor`** header (or
-  `actor` body field alias). Resolution: header → `CARDS_USER` env → workspace
-  `default_user` → `403 actor_required`.
+  `CARDS_USER` env / workspace `default_user` fallback — see resolution order
+  below). **Note:** request bodies also declare an `actor` JSON field on most
+  write types for forward-compat, but it is currently **ignored/overwritten**
+  by the server on every endpoint — the header/env/default chain is
+  authoritative and the body field has no effect. Do not rely on the body field.
+  Resolution: header → `CARDS_USER` env → workspace `default_user` → `403 actor_required`.
 - The server sets `created_by` and event `actor` from the resolved identity.
   In the trusted-local model, the configured identity is trusted; stronger
   identity binding (signed tokens, per-user keys) is an extension/host concern.
@@ -810,15 +882,18 @@ lifecycle examples ([`LIFECYCLE-EXAMPLES.md`](LIFECYCLE-EXAMPLES.md)).
 | Interface | Notes |
 |-----------|-------|
 | **REST** | Source of truth; filters and SSE for reactive agents |
-| **CLI** | 1:1 with REST |
-| **MCP** | Typed tools from workspace introspection (one create tool per card type) |
+| **CLI** | Mirrors REST paths/flags for most operations; a few REST routes (e.g. `release`) currently have no CLI command, and `--dry-run` coverage is inconsistent across write commands — see DEVELOPER-REFERENCE.md for the current gap list. |
+| **MCP** | Typed tools from workspace introspection (one create tool per card type). MCP tool coverage is currently a **strict subset** of REST/CLI: no MCP tools exist yet for `release`, `remove-entry`, `remove-link`, `edit-comment`, `upgrade-schema`, `update-entry` (patch a repeating entry), per-card event history, the event feed, event streaming, or user registration. See MCP.md gap list before assuming full parity. |
 | **Skills** | `take-and-work`, `append-commit-and-PR`, `upgrade-schema`, `resume-from-history` |
 | **Web UI** | Renders from `BoardPresentation` + field types; read-mostly |
 
-Ergonomics guarantees: idempotency keys on all mutations; structured errors
-with `valid_options`; dry-run before commit; full card in responses; stable
-string ids; `version` for optimistic concurrency; SSE replay via
-`Last-Event-ID`.
+Ergonomics guarantees (HTTP/CLI): idempotency keys on POST/PATCH mutations
+(not DELETE; see §11); structured errors with `valid_options`; dry-run before
+commit on create/patch/upgrade-schema; full card in responses; stable string
+ids; `version` for optimistic concurrency; SSE replay via `Last-Event-ID`.
+**MCP tools currently support none of idempotency-key, dry-run** — see MCP.md
+gap list — agents using MCP get none of these two guarantees and must be
+written defensively (e.g. check before retry).
 
 ---
 
@@ -831,7 +906,9 @@ string ids; `version` for optimistic concurrency; SSE replay via
 4. **Human-only columns.** Opt-in board rule: only `kind: human` users may
    move to listed columns.
 5. **Nested repeating fields.** Still deferred for v1.
-6. **View write routes.** v1 views are read-only.
+6. **View write routes.** Views are read-only by design once implemented
+   (writes go to `/cards/:id`) — note views themselves (`GET /views/:id/cards`)
+   are not yet implemented; see §11 status note.
 7. **Definition-of-Done gating.** Candidate extension: a `repeating` checklist
    + opt-in `enforce_dod` rule blocking `done` until all items checked.
 
@@ -847,10 +924,12 @@ process talking to the API belongs in an **extension**.
 - Cards, fields, links, comments, columns, users.
 - Schema validation and versioning.
 - Transition rules (opt-in).
-- Append-only events and SSE streaming (with replay).
-- Storage (SQLite + FTS5) and the optional version-gated mirror.
+- Append-only events and SSE streaming (with replay) — **design complete,
+  beta/in-progress; see Status line and §3.**
+- Storage (SQLite + FTS5) and the optional version-gated mirror **(mirror:
+  planned, not yet implemented — see §3)**.
 - Idempotency, optimistic concurrency, dry-run.
-- HTTP, CLI, MCP, and RPC surfaces sharing one service layer.
+- HTTP, CLI, and MCP surfaces sharing one service layer.
 - Coordination atomics (`claim`, `take-next`).
 - Extension discovery and optional supervision.
 

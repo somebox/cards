@@ -1,4 +1,14 @@
-# Design Notes — v0.4
+# Design Decisions Log
+
+A record of design decisions and why they were made. This is a **historical
+rationale log**, not a status report — for current implementation status see
+[`SPEC.md`](SPEC.md) and [`EVENTS.md`](EVENTS.md). Other docs cite the
+D-numbered entries below (D1–D18) for rationale not restated elsewhere; those
+anchors are stable and must not be renumbered.
+
+---
+
+## v0.4 design pass
 
 What changed in the v0.4 design pass and why. These decisions are now
 **implemented** — the core kernel, HTTP API, CLI, MCP server, web UI, and
@@ -81,11 +91,17 @@ is an extension/host concern; see `EXTENSIONS.md`.)
 ### D5 — Concurrency: `version` canonical, `If-Match` alias
 
 Optimistic concurrency uses `version` in the request body / `--version` CLI
-flag as canonical. `If-Match: <version>` header is accepted as an alias. One
+flag as canonical. `If-Match: <version>` header was proposed as an alias. One
 mechanism, two spellings; pick the body form in examples.
 
+> **Status drift.** The `If-Match` header alias was **never implemented** —
+> `version` in the request body is the only concurrency mechanism in the HTTP
+> layer. The "(or `If-Match`)" parenthetical has been struck from
+> `LIFECYCLE-EXAMPLES.md`; `SPEC.md` and `DEVELOPER-REFERENCE.md` still
+> mention it and should be updated in their own editing passes.
+
 - **Affected:** `SPEC.md` §11, `LIFECYCLE-EXAMPLES.md` (examples use
-  `--version`, note the alias).
+  `--version`).
 
 ### D6 — Repeating entries have stable ids
 

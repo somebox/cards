@@ -3,7 +3,10 @@
 This document defines the vocabulary of Cards and shows how the pieces fit
 together in different use cases. For the API and field reference, see
 [`SPEC.md`](SPEC.md); for workspace authoring, see
-[`DEVELOPER-REFERENCE.md`](DEVELOPER-REFERENCE.md).
+[`DEVELOPER-REFERENCE.md`](DEVELOPER-REFERENCE.md); for design principles, see
+[`PHILOSOPHY.md`](PHILOSOPHY.md); for a code-verified drift audit of which
+features are built vs. proposed, see
+[`INTEGRATOR-REFERENCE.md`](INTEGRATOR-REFERENCE.md).
 
 Sections marked **Planned** describe the intended model that is not yet
 implemented. Everything else describes current behavior.

@@ -292,16 +292,21 @@ is `{ before, after }` for scalar changes (e.g. `status_changed`), with richer
 shapes per type (`field_updated`: `{field, before, after}`; `item_updated`:
 `{field, entry_id, before, after}`; `comment_*`: `{comment_id, ...}`;
 `card_created`: `{card: {...}}`; `schema_upgraded`:
-`{from, to, defaults_applied, fields_dropped}`). **It is `diff.after`, never
-`diff.to`.**
+`{from, to, defaults_applied, fields_dropped}`; `link_added`:
+`{type_id, target, note}`; `link_removed`: `{type_id, target}`). **It is
+`diff.after`, never `diff.to`.**
 
 ### Mutation events [built] — `internal/core/types.go:209`
 
-Canonical enumeration (15): `card_created`, `field_updated`, `status_changed`,
-`owner_changed`, `tags_changed`, `item_appended`, `item_updated`,
-`item_removed`, `link_added`, `link_removed`, `comment_added`, `comment_edited`,
-`schema_upgraded`, `artifact_added`, `definition_reloaded`. These are **facts**:
-synchronous on a write, card-scoped, persisted, replayable.
+Canonical enumeration (15 declared, 13 emitted today): `card_created`,
+`field_updated`, `status_changed`, `owner_changed`, `tags_changed`,
+`item_appended`, `item_updated`, `item_removed`, `link_added`, `link_removed`,
+`comment_added`, `comment_edited`, `schema_upgraded` — these 13 are **facts**:
+synchronous on a write, card-scoped, persisted, replayable. The remaining two
+are **[drift]**: `artifact_added` (constant declared; no artifact-upload route
+or emit site exists yet — see `INTEGRATION.md` Act/Build-order #8) and
+`definition_reloaded` (constant declared; no reload handler or file watching —
+see §6 below). Both are [proposed], not built.
 
 ### Condition events [proposed] — `INTEGRATION.md`
 

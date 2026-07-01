@@ -9,6 +9,9 @@ Extensions are **not plugins**. The core does not load extension code.
 Extensions can be written in any language and crash without affecting the
 kernel.
 
+**Status legend:** **[built]** available today · **[proposed]** planned but
+not yet implemented. Individual sections are tagged below.
+
 ## Why this model
 
 - **Language-agnostic.** Use Python for ML and data, Node for browser and
@@ -124,7 +127,15 @@ logged, but does not roll back the originating event.
 
 ## Worked examples
 
-### Example 1 — CI dispatcher (Python hook)
+> **[proposed]** Examples 1, 2, 3, and 4 below use a planned `work_cards`
+> (Python) / `@work-cards/client` (Node) convenience client that is **not yet
+> implemented** (see [`ARCHITECTURE.md`](ARCHITECTURE.md)'s planned
+> integrations). Until it ships, substitute raw HTTP calls to the `/v1/*`
+> API using `requests`/`httpx` (Python) or `fetch` (Node), as shown in
+> [`INTEGRATION.md`](INTEGRATION.md). **Example 5** uses only the CLI and is
+> runnable today **[built]**.
+
+### Example 1 — CI dispatcher (Python hook) `[proposed]`
 
 `definitions/extensions.yaml`:
 
@@ -164,7 +175,7 @@ cards.append(card["id"], "ci_log", {
 })
 ```
 
-### Example 2 — File dropbox (Node service)
+### Example 2 — File dropbox (Node service) `[proposed]`
 
 `definitions/extensions.yaml`:
 
@@ -198,7 +209,7 @@ A second extension — a `hook` on `card_created` filtered to `type_id=intake`
 — can then dispatch a per-type processor without the dropbox knowing anything
 about the downstream work.
 
-### Example 3 — Agent session dispatcher (Python hook)
+### Example 3 — Agent session dispatcher (Python hook) `[proposed]`
 
 Spawning an agent session when a card reaches `ready` is a single hook.
 
@@ -239,7 +250,7 @@ cards.add_comment(card["id"], body="Agent session started.")
 The same pattern works for any harness: `claude`, `codex`, an `opencode`
 binary, or your own.
 
-### Example 4 — Research report builder (Python command)
+### Example 4 — Research report builder (Python command) `[proposed]`
 
 `definitions/extensions.yaml`:
 
@@ -283,7 +294,7 @@ for s in sources["items"]:
     print(f"- [{s['title']}]({s['fields']['url']})")
 ```
 
-### Example 5 — Bash one-liner hook
+### Example 5 — Bash one-liner hook `[built]`
 
 Not every extension needs a runtime. A status-change hook that pings Slack can
 be a one-file script:
