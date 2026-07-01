@@ -1,5 +1,20 @@
 # Slice 3 Dogfooding Reflection
 
+> **Historical — superseded.** This is a point-in-time dogfooding journal
+> from the Slice 3 (CLI + MCP) development cycle. Most issues it reports have
+> since been fixed in code (see inline markers below). It is retained only
+> because two items (F4, F7) are not yet tracked elsewhere. For current
+> design and status, see [`SPEC.md`](SPEC.md), [`EVENTS.md`](EVENTS.md), and
+> [`INTEGRATION.md`](INTEGRATION.md).
+>
+> **Resolution summary:** B1 ✅ fixed (regression test added); F2 ✅ shipped
+> (`release` endpoint); F3 ✅ shipped (`force` flag); F5 ✅ fixed
+> (`unknown_enum` echoes type's `allowed_columns`); F6 ✅ fixed
+> (`backlog` added to `programming-task`); F1 ❓ still open (superseded by
+> `INTEGRATION.md`'s fuller `card_ready`/`card_unblocked` design); F4 ❓ still
+> open; F7 ❓ partially addressed (`:memory:` in Go tests, no CLI-level
+> dry-run yet).
+
 Used the Work Cards system itself to track Slice 3 (CLI + MCP) work: 7
 `programming-task` cards created, linked with `depends-on`, claimed,
 worked (with `work_log` appends + comments), and walked through the
@@ -9,7 +24,7 @@ performed by a human, against the HTTP API and then the freshly-built CLI.
 
 ## Bugs found
 
-### B1 — `X-Work-Cards-Actor` header was silently ignored (shipped, fixed)
+### B1 — `X-Work-Cards-Actor` header was silently ignored ✅ fixed
 The most serious finding. Every API write was attributed to
 `workspace.settings.default_user` regardless of the `X-Work-Cards-Actor`
 header. Root cause: `withActor` middleware stored the resolved actor via
@@ -29,7 +44,7 @@ unless you assert the actor on the response.**
 
 ## Friction points (UX)
 
-### F1 — `take-next` ignores dependency readiness
+### F1 — `take-next` ignores dependency readiness ❓ still open (superseded by INTEGRATION.md)
 `take-next` picks the oldest unowned matching card by `updated_at`. With
 seeded cards present, it grabbed a seeded "Add OpenAPI spec" card instead
 of my `cli-framework` root — even though the framework had no blockers and
@@ -38,7 +53,7 @@ of my `cli-framework` root — even though the framework had no blockers and
 dependencies are all `done`." For a dependency-aware work queue this is the
 single biggest gap.
 
-### F2 — No "release/unclaim" primitive
+### F2 — No "release/unclaim" primitive ✅ shipped
 After accidentally claiming a seeded card, I couldn't put it back: the
 enforced board allows `in_progress → review` only, so `in_progress → todo`
 is `transition_illegal`. Clearing `owner` + reverting status requires
@@ -46,7 +61,7 @@ walking an illegal edge. A `release` operation (clear owner, return to a
 prior status, exempt from transitions) would make claim/take-next safe to
 retry.
 
-### F3 — Enforced transitions force linear walking; no skip
+### F3 — Enforced transitions force linear walking; no skip ✅ shipped (`force` flag)
 To mark a small task done I had to walk `todo → in_progress → review →
 done` one PATCH at a time, each needing a fresh `--version`. For a solo
 dev knocking out trivial tasks this is ceremony. A `--to <status>` that
@@ -54,7 +69,7 @@ auto-walks the transition graph (or a board setting for "fast-forward
 through review") would help humans without weakening the contract for
 agents.
 
-### F4 — `--version` churn from link/comment mutations
+### F4 — `--version` churn from link/comment mutations ❓ still open
 Adding a `depends-on` link or a comment bumps the card `version`, so a
 `--version` captured from an earlier `get` goes stale and the next patch
 returns `409 version_conflict`. Correct behavior, but the CLI ergonomics
@@ -62,7 +77,7 @@ hurt: there's no "fetch current version then patch in one call." A
 `--if-match latest` or a `cards patch --fetch-version` mode would smooth
 this.
 
-### F5 — `unknown_enum` for status is slightly misleading
+### F5 — `unknown_enum` for status is slightly misleading ✅ fixed
 Creating a card with `status: backlog` returns `unknown_enum` with
 `valid_options` = the **workspace** columns (`backlog, todo, ...`) — but
 the real reason is the **type's** `allowed_columns` excludes `backlog`.
@@ -70,7 +85,7 @@ The valid_options echoed are the workspace set, not the type's subset, so
 the error lists `backlog` as "valid" right after rejecting it. Should echo
 the type's `allowed_columns` when that's the failing layer.
 
-### F6 — Workspace authoring trap: board has a column the type forbids
+### F6 — Workspace authoring trap: board has a column the type forbids ✅ fixed
 The `engineering` board defines a `backlog` column, but the
 `programming-task` type's `allowed_columns` is `[todo, in_progress,
 review, done]`. So `backlog` is unreachable for programming tasks. I hit
@@ -78,7 +93,7 @@ this immediately trying to create my work cards in `backlog`. Either the
 type should allow `backlog`, or the board/type column sets should be
 validated for consistency at config-load time.
 
-### F7 — No test isolation; MCP/CLI smoke tests mutated the real workspace
+### F7 — No test isolation; MCP/CLI smoke tests mutated the real workspace ❓ partially addressed
 Running `cards mcp` against the live workspace to smoke-test `take_next`
 claimed one of my actual work cards (`mcp-tools`), changing its owner and
 status. There's no "scratch workspace" or transactional test mode. A

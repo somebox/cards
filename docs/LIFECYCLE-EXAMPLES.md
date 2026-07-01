@@ -13,8 +13,12 @@ Assumptions:
   (`--as` sets it). See `SPEC.md` §12.
 
 CLI global flags: `--url`, `--workspace`, `--as <user_id>`, `--json` for raw
-output. Concurrency: PATCH/claim/take-next pass `--version` (or `If-Match`).
-Pinned to [`SPEC.md`](SPEC.md) v0.4.
+output. Concurrency: PATCH/claim/take-next pass `--version`. Pinned to
+[`SPEC.md`](SPEC.md) v0.4.
+
+> **Status markers.** Examples that exercise surface that is **not yet
+> built** are tagged `**[proposed]**`. Examples where the HTTP endpoint exists
+> but the CLI subcommand does not are tagged `**[HTTP only, no CLI]**`.
 
 ---
 
@@ -244,9 +248,13 @@ X-Work-Cards-Actor: coder-agent
 ```bash
 cards append card_auth_api work_log \
   --entry-json '{"commit_hash":"a1b2c3d","notes":"Refresh handler + tests","author":"coder-agent","timestamp":"2026-06-25T14:30:00Z"}'
-cards patch card_auth_api --status review --version 2 \
-  --field pull_request_url=https://github.com/org/repo/pull/42
+cards patch card_auth_api --status review --version 2
 ```
+
+> A real deployment might add a `pull_request_url` field (type `string`) to
+> its `programming-task` definition and pass `--field pull_request_url=…`
+> here; the bundled demo workspace does not include it, so the example omits
+> it to stay runnable as-is.
 
 ### A6 — Complete API; unblocks dependency chain
 
@@ -321,7 +329,7 @@ GET /v1/events/stream?board_id=engineering&types=status_changed,item_appended
 ```bash
 cards events card_auth_api --limit 20
 cards history card_auth_api
-cards events stream --board engineering --types status_changed,item_appended
+cards events stream --board engineering --types status_changed,item_appended  # [HTTP only, no CLI]
 ```
 
 `history` returns a resumption-ready timeline an agent ingests to continue
@@ -360,6 +368,11 @@ X-Work-Cards-Actor: shop-monitor
 ```
 → `card_spec_42`. Attach the g-code `artifact`:
 
+> **[proposed]** The `POST /v1/cards/{id}/artifacts` route and the
+> `cards artifact upload` CLI subcommand are not yet implemented. Until they
+> ship, store artifact references as a `string` or `card_link` field via
+> `PATCH`.
+
 ```http
 POST /v1/cards/card_spec_42/artifacts
 Content-Type: multipart/form-data
@@ -382,7 +395,7 @@ POST /v1/cards
 ```bash
 cards create --type part-spec --title "Bracket rev C" --status done \
   --field part_number=BRK-42C --field material=PETG --as shop-monitor
-cards artifact upload card_spec_42 gcode_ref --file ./programs/brk-42c.gcode
+cards artifact upload card_spec_42 gcode_ref --file ./programs/brk-42c.gcode  # [proposed]
 cards create --type printer --title "X1 Carbon #2" --status done \
   --field serial=X1-002 --field location=bay-3
 ```
@@ -447,6 +460,12 @@ cards comment add card_job_9001 \
 
 ### B3 — View: jobs for this printer (domain URL)
 
+> **[proposed]** The `GET /v1/views/…` route and the `cards views query`
+> CLI subcommand are not yet implemented. The view-definition format shown
+> below is the intended contract; until the serving path ships, use
+> `GET /v1/cards?board_id=…&type_id=…` with query filters to achieve the
+> same result.
+
 View definition (in `definitions/views/printer-jobs.json`):
 
 ```json
@@ -496,7 +515,7 @@ Subscribe before the long run (with `Last-Event-ID` so a dropped connection
 replays):
 
 ```bash
-cards events stream --board fabrication --types=status_changed,item_appended &
+cards events stream --board fabrication --types=status_changed,item_appended &  # [HTTP only, no CLI]
 ```
 ```http
 GET /v1/events/stream?board_id=fabrication&types=status_changed,item_appended
@@ -596,9 +615,9 @@ failure/requeue path → `qa` → `done`.
 Dry-run before a risky transition:
 
 ```http
-PATCH /v1/cards/card_auth_cli?dry_run=true
+PATCH /v1/cards/card_auth_cli
 X-Work-Cards-Actor: coder-agent
-{ "status": "in_progress", "version": 1 }
+{ "status": "in_progress", "version": 1, "dry_run": true }
 ```
 ```bash
 cards patch card_auth_cli --status in_progress --version 1 --dry-run

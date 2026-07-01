@@ -6,10 +6,14 @@ model where behavior is added by independent processes in any language.
 Python and Node client packages are planned but not yet built; for now the
 binary, CLI, HTTP API, and MCP server are the integration surfaces.
 
-Normative product behavior lives in [`SPEC.md`](SPEC.md). The principles
-behind these choices live in [`PHILOSOPHY.md`](PHILOSOPHY.md). The extension
-contract lives in [`EXTENSIONS.md`](EXTENSIONS.md). Schema authoring lives in
-[`DEVELOPER-REFERENCE.md`](DEVELOPER-REFERENCE.md).
+Normative product behavior lives in [`SPEC.md`](SPEC.md); the principles
+behind these choices live in [`PHILOSOPHY.md`](PHILOSOPHY.md); the extension
+contract lives in [`EXTENSIONS.md`](EXTENSIONS.md); schema authoring lives in
+[`DEVELOPER-REFERENCE.md`](DEVELOPER-REFERENCE.md); the vocabulary and mental
+model live in [`CONCEPTS.md`](CONCEPTS.md). For a code-verified drift audit of
+the claims in this document (which features are built vs. proposed), see
+[`INTEGRATOR-REFERENCE.md`](INTEGRATOR-REFERENCE.md); for the events subsystem
+design, see [`EVENTS.md`](EVENTS.md).
 
 ---
 
@@ -85,8 +89,11 @@ internal/sqlite/    SQLite implementation (FTS5, migrations)
 internal/httpapi/   REST, SSE, and htmx web UI handlers
 internal/mcp/       MCP adapter over core services
 internal/hooks/     hook supervisor (spawns subprocesses on events)
-internal/cli/       CLI client (talks to the HTTP API)
+internal/cli/       CLI client (serverless by default — runs the /v1 router
+                    in-process; talks to a server only when CARDS_URL is set;
+                    see DEVELOPER-REFERENCE.md §9)
 internal/seed/      demo workspace seed data
+internal/starter/   starter workspace scaffolding (cards init, zero-config seed)
 internal/artifacts/ workspace file/artifact helpers
 ```
 
@@ -229,9 +236,11 @@ Responsibilities:
 - For `kind: hook` extensions whose `filter` matches a fired event, spawn the
   declared `run` command with the event JSON on stdin and standard
   environment variables (`CARDS_URL`, `CARDS_WORKSPACE`, etc.).
-- For `kind: service` extensions with `autostart: true`, start the process
-  when the supervisor starts. Restart on crash if `restart: on-failure` is
-  set.
+- For `kind: service` extensions with `autostart: true` — **[proposed, not
+  yet implemented]** start the process when the supervisor starts and restart
+  on crash if `restart: on-failure` is set. (Only `hook` and `run` extensions
+  are wired today; see [`INTEGRATOR-REFERENCE.md`](INTEGRATOR-REFERENCE.md) §7
+  for the drift note.)
 - For `kind: run` extensions, invoke on `cards do <id>`.
 - Capture stdout/stderr to per-extension logs in `.cards/logs/`.
 
@@ -364,7 +373,7 @@ Important boundaries:
   internal tool.
 - Mirror import is version-gated: each markdown file declares the `version` it
   was edited from; stale imports are `409 version_conflict`, never a silent
-  overwrite (see `SPEC.md` §3).
+  overwrite (see `SPEC.md` §3). **[planned, not yet implemented]**
 
 ---
 

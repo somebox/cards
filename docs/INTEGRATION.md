@@ -8,6 +8,14 @@ Status legend: **[built]** exists today · **[proposed]** designed here, not yet
 implemented. See [`SPEC.md`](SPEC.md) for the normative contract of built
 features and [`ARCHITECTURE.md`](ARCHITECTURE.md) for the runtime.
 
+> **No client library exists yet in any language** — every snippet below is raw
+> HTTP against the REST API. All writes require an actor: set the
+> `X-Work-Cards-Actor` header on every `POST`/`PATCH` (or set the `CARDS_USER`
+> env var). For retried writes, set `Idempotency-Key` to a unique value so a
+> duplicate is safely replayed. See [`INTEGRATOR-REFERENCE.md`](INTEGRATOR-REFERENCE.md)
+> §2/§5 for exact request/response shapes and the full actor model — this doc
+> does not repeat wire-level detail.
+
 ## Quickstart (Node) **[built]**
 
 Cards emits an **event** on every state change, on a single stream, so your app
@@ -18,7 +26,7 @@ startup to replay what you missed.
 
 ```js
 const res = await fetch(`http://127.0.0.1:8787/v1/events?board_id=engineering&since=${lastSeen}`);
-const { events } = await res.json();        // each: { id, type, actor, at, card_id, diff }
+const { items: events } = await res.json();  // items: [{ id, type, actor, at, card_id, diff }, …]
 ```
 
 **2. React live — the SSE stream.** A long-lived connection, filtered by card,
@@ -44,19 +52,44 @@ back on reconnect, so a dropped connection replays the gap rather than losing it
 write results back:
 
 ```js
+const API = "http://127.0.0.1:8787";
+const headers = { "Content-Type": "application/json", "X-Work-Cards-Actor": "alice" };
+
 es.addEventListener("message", async (e) => {
   if (JSON.parse(e.data).type !== "card_created") return;
-  const card = await claimNext("programming-task", "in_progress"); // POST /v1/cards/take-next
+
+  // Claim the oldest unowned matching card (POST /v1/cards/take-next)
+  const claimRes = await fetch(`${API}/v1/cards/take-next`, {
+    method: "POST",
+    headers: { ...headers, "Idempotency-Key": crypto.randomUUID() },
+    body: JSON.stringify({ type_id: "programming-task", status: "in_progress" }),
+  });
+  const { card } = await claimRes.json();   // response: { card: Card | null }
   if (!card) return;
+
   await doWork(card);
-  await comment(card.id, "done ✓");                                 // POST /v1/cards/{id}/comments
-  await patch(card.id, { status: "review", version: card.version }); // PATCH /v1/cards/{id}
+
+  // Attach a comment (POST /v1/cards/{id}/comments)
+  await fetch(`${API}/v1/cards/${card.id}/comments`, {
+    method: "POST",
+    headers: { ...headers, "Idempotency-Key": crypto.randomUUID() },
+    body: JSON.stringify({ body: "done ✓" }),
+  });
+
+  // Advance status (PATCH /v1/cards/{id})
+  await fetch(`${API}/v1/cards/${card.id}`, {
+    method: "PATCH",
+    headers: { ...headers, "Idempotency-Key": crypto.randomUUID() },
+    body: JSON.stringify({ version: card.version, status: "review" }),
+  });
 });
 ```
 
 Mutation events (above) exist today; **condition events** (`status_timeout`,
 `wip_exceeded`, …) arrive on the *same* stream once implemented, so this consumer
-code does not change. The rest of this document is the full contract.
+code does not change. The rest of this document is the design contract; for
+exact request/response wire shapes of every `[built]` endpoint, see
+[`INTEGRATOR-REFERENCE.md`](INTEGRATOR-REFERENCE.md) §2/§4.
 
 ## Three planes
 
@@ -95,9 +128,9 @@ A direct, synchronous consequence of an API call. Always card-scoped.
 | `item_appended` / `item_updated` / `item_removed` | a repeating-field entry changes |
 | `link_added` / `link_removed` | a link changes |
 | `comment_added` / `comment_edited` | a comment changes |
-| `artifact_added` | a file/artifact is attached |
+| `artifact_added` **[proposed]** | a file/artifact is attached (constant declared; no upload route or emit site yet) |
 | `schema_upgraded` | a card is re-pinned to a new schema version |
-| `definition_reloaded` | workspace definitions reload (workspace-scoped) |
+| `definition_reloaded` **[proposed]** | workspace definitions reload (constant declared; no reload trigger implemented — restart to reload) |
 
 ### Condition events — emitted when a declared threshold crosses **[proposed]**
 
@@ -242,11 +275,13 @@ miss while disconnected". The feed is a log of **facts** — mutation events onl
 
 **Retention / replay guarantee.** The events table is append-only and never
 trimmed, so the feed is a *complete* durable log — replay is gap-free from any
-id, however long the consumer was gone. (The in-memory SSE buffer is bounded and
-may drop under backpressure; that is why durable recovery goes through the feed,
-then resumes the live stream.) Recovery is therefore: read the feed from your
-last id, paging on `cursor`, until `next_cursor` is empty → open the stream with
-`Last-Event-ID` set to that id. No event is lost between the two.
+id, however long the consumer was gone. (`event_retention_days` exists in
+workspace settings as a future knob but is not enforced today — retention is
+currently unbounded.) (The in-memory SSE buffer is bounded and may drop under
+backpressure; that is why durable recovery goes through the feed, then resumes
+the live stream.) Recovery is therefore: read the feed from your last id, paging
+on `cursor`, until `next_cursor` is empty → open the stream with `Last-Event-ID`
+set to that id. No event is lost between the two.
 
 ### Current breaches (catch-up for conditions) **[proposed]**
 ```
@@ -269,6 +304,11 @@ first-class webhook adds delivery guarantees.)
 `GET /v1/cards/{id}/events` and `/history` for replay/poll of one card.
 
 ## Act
+
+> Every write below requires the `X-Work-Cards-Actor` header (or `CARDS_USER`
+> env). Set `Idempotency-Key` to a unique value on any write you might retry —
+> the server replays the original response instead of creating a duplicate. See
+> [`INTEGRATOR-REFERENCE.md`](INTEGRATOR-REFERENCE.md) §2/§5 for exact shapes.
 
 - **Claim work** — `POST /v1/cards/take-next` (oldest unowned matching),
   `claim`, `release`. **[built]**

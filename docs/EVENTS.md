@@ -15,6 +15,25 @@ Related: [`INTEGRATION.md`](INTEGRATION.md), [`SPEC.md`](SPEC.md),
 
 ---
 
+> **Current status (2026-07):** **Step 1 (seam hardening) is implemented.** The
+> `EventLog` interface, `Emitter` (`Emit`/`Signal`/`stamp`/`dispatchCommitted`),
+> `Bus` interface + `InProcBus`, typed event constructors, and `commitCard`
+> are all landed. All mutation paths in `internal/core/service.go` now route
+> through typed constructors + `commitCard` (or `dispatchCommitted` for the
+> already-atomic `TakeNext` path), and `go build ./...` + `go test ./...` are
+> green. The §4 "no raw `Event{...}` literals outside constructors/tests"
+> rule is now satisfied across the service layer.
+>
+> **Not yet done:** the Step 1 test seams in §10 (in-memory `EventLog` fake,
+> recording `Bus` fake, observer recorder, injected clock, golden JSON
+> fixtures) are designed but **not yet built** — `internal/core/events_test.go`
+> does not exist. These remain Step 1 acceptance criteria.
+>
+> **Steps 2–4 are forward-looking design** (board scope, condition events,
+> outbox evolution) and are not yet started.
+
+---
+
 ## 1) Design goals and non-goals
 
 ### Goals
@@ -149,7 +168,7 @@ cannot be recovered.
 | `Emitter` | public seam for standalone facts/signals; owns internal stamp/dispatch | struct |
 | `EventObserver` | in-process instrumentation hook | func |
 
-### 6.1 EventLog `[refactor]`
+### 6.1 EventLog `[built]`
 
 ```go
 type EventLog interface {
@@ -165,7 +184,7 @@ Notes:
   atomicity.
 - Standalone durable events use `Append` directly.
 
-### 6.2 Bus `[built, interface refactor]`
+### 6.2 Bus `[built]`
 
 ```go
 type Bus interface {
@@ -180,7 +199,7 @@ Required behavior:
 - Slow subscriber policy is explicit (drop subscriber + metric/log marker).
 - `EventFilter` must honor `scope`, `card_id`, and `board_id` consistently.
 
-### 6.3 Emitter `[refactor]`
+### 6.3 Emitter `[built]`
 
 ```go
 type Emitter struct {
@@ -292,6 +311,10 @@ Consumer correctness model:
 
 ## 10) Testability model (first-class)
 
+> None of the fakes/fixtures below exist yet; they are Step 1 acceptance
+> criteria, not already-satisfied requirements (`internal/core/events_test.go`
+> does not exist as of this writing).
+
 Required test seams:
 
 1. **In-memory `EventLog` fake** for append/page/replay tests.
@@ -338,8 +361,8 @@ Shift-left checks:
 - `comment_added`
 - `comment_edited`
 - `schema_upgraded`
-- `artifact_added`
-- `definition_reloaded`
+- `artifact_added` **[proposed — constant declared; no upload route or emit site yet]**
+- `definition_reloaded` **[proposed — constant declared; no reload trigger implemented yet]**
 
 (Per-type `diff` shapes remain as currently documented and wire-compatible.)
 
@@ -360,13 +383,16 @@ backward compatible for existing card-event consumers.
 
 ## 12) Staged implementation plan
 
-### Step 1 — seam hardening (no wire/schema change)
+### Step 1 — seam hardening (no wire/schema change) `[built]`
 
-- Extract `EventLog` interface from store.
-- Introduce `Emitter` (`Emit`, `Signal`, internal `stamp`/`dispatchCommitted`).
-- Route all mutation paths through `commitCard`.
-- Add constructor usage (`CardEvent(...)` initially; event-specific constructors for common mutations).
-- Add test fakes + seam acceptance tests.
+- Extract `EventLog` interface from store. ✓
+- Introduce `Emitter` (`Emit`, `Signal`, internal `stamp`/`dispatchCommitted`). ✓
+- Route all mutation paths through `commitCard`. ✓
+- Add constructor usage (`CardEvent(...)` initially; event-specific constructors
+  for common mutations). ✓
+- Add test fakes + seam acceptance tests. *(not yet done — see §10)*
+- `TakeNext` uses `ClaimAtomic` (already persists) — dispatch via
+  `emitter.dispatchCommitted`, not `Emit`, to avoid double-persisting. ✓
 
 ### Step 2 — board scope support
 

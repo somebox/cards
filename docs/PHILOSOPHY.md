@@ -17,8 +17,9 @@ extension territory.
 
 ### 2. Files where they help
 
-Definitions are git-backed JSON or YAML. An optional markdown mirror keeps
-cards human-reviewable. Anything authored, reviewed, or versioned by humans
+Definitions are git-backed JSON or YAML. An optional markdown mirror
+keeps cards human-reviewable (**planned, not yet implemented** — see
+SPEC.md §3). Anything authored, reviewed, or versioned by humans
 belongs in a file. Anything operational and queried belongs in SQLite.
 
 ### 3. Schemas, not magic
@@ -93,8 +94,12 @@ the contracts described in this repository.
 
 | Doc | Contents |
 |-----|----------|
+| [`CONCEPTS.md`](CONCEPTS.md) | Vocabulary, mental model, and use-case setups |
 | [`NOTES.md`](NOTES.md) | Design notes (v0.4 changes and rationale) |
 | [`SPEC.md`](SPEC.md) | Normative product behavior and API |
+| [`INTEGRATOR-REFERENCE.md`](INTEGRATOR-REFERENCE.md) | Code-verified drift audit of SPEC claims |
+| [`EVENTS.md`](EVENTS.md) | Event subsystem design (Emitter seam, conditions) |
+| [`INTEGRATION.md`](INTEGRATION.md) | Integration and consumption patterns |
 | [`MCP.md`](MCP.md) | MCP tool surface |
 | [`EXTENSIONS.md`](EXTENSIONS.md) | Extension model (hooks, services, runs) |
 | [`ARCHITECTURE.md`](ARCHITECTURE.md) | Go core, packaging, Python/Node integration |
