@@ -377,7 +377,9 @@ type EventQuery struct {
 	Types      []string
 	Actor      string   // events caused by this actor
 	Owner      string   // events on cards currently owned by this user
-	CardTypeIn []string // events on cards of these types (board scope)
+	CardTypeIn []string // events on cards of these types (card-type board membership)
+	BoardID    string   // board-scoped events carrying this board_id (seam 2c) — distinct from CardTypeIn
+	Scope      string   // "card" | "board" (seam 2c)
 	Limit      int
 	AfterID    int64 // replay/cursor floor: events with id > this (SSE Last-Event-ID / since= / cursor=)
 }

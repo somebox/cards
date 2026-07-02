@@ -98,3 +98,34 @@ func TestEventScope_BoardEventRoundTrip(t *testing.T) {
 		t.Errorf("card event should keep scope empty (off the wire): %+v", c)
 	}
 }
+
+// The feed can filter by board_id and scope, distinct from card_id / card-type
+// membership; existing card filters are unaffected. (Events seam 2c)
+func TestEventFeed_FilterByBoardAndScope(t *testing.T) {
+	st, _ := testStore(t)
+	ctx := context.Background()
+	now := time.Now().UTC()
+	if err := st.Append(ctx,
+		&core.Event{CardID: "c1", Version: 1, Type: core.EventStatusChanged, Actor: "u", At: now, Diff: map[string]any{}},
+		&core.Event{BoardID: "b1", Scope: "board", Version: 1, Type: "wip_exceeded", Actor: "u", At: now, Diff: map[string]any{}},
+		&core.Event{BoardID: "b2", Scope: "board", Version: 1, Type: "wip_exceeded", Actor: "u", At: now, Diff: map[string]any{}},
+	); err != nil {
+		t.Fatalf("append: %v", err)
+	}
+	if got, _ := st.List(ctx, core.EventQuery{BoardID: "b1", Limit: 10}); len(got) != 1 || got[0].BoardID != "b1" {
+		t.Errorf("board_id=b1 feed = %+v, want 1 event for b1", got)
+	}
+	boards, _ := st.List(ctx, core.EventQuery{Scope: "board", Limit: 10})
+	if len(boards) != 2 || boards[0].ID > boards[1].ID {
+		t.Errorf("scope=board feed = %+v, want 2 events ordered by id", boards)
+	}
+	if got, _ := st.List(ctx, core.EventQuery{Scope: "card", Limit: 10}); len(got) != 1 || got[0].CardID != "c1" {
+		t.Errorf("scope=card feed = %+v, want the single card event", got)
+	}
+	if got, _ := st.List(ctx, core.EventQuery{CardID: "c1", Limit: 10}); len(got) != 1 {
+		t.Errorf("existing card_id filter = %d, want 1 (unaffected)", len(got))
+	}
+	if got, _ := st.List(ctx, core.EventQuery{Limit: 10}); len(got) != 3 {
+		t.Errorf("unfiltered feed = %d events, want 3 (card + both board)", len(got))
+	}
+}

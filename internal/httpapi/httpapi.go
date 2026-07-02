@@ -669,7 +669,9 @@ func (s *Server) apiEventStream(w http.ResponseWriter, r *http.Request) {
 				flusher.Flush()
 				return
 			}
-			if boardID != "" && !s.cardInBoard(e.CardID, boardID) {
+			// A board's feed = board-scoped facts for that board (board_id match)
+			// OR card events whose card is in the board (type membership). (2c)
+			if boardID != "" && e.BoardID != boardID && !s.cardInBoard(e.CardID, boardID) {
 				continue
 			}
 			if owner != "" && !s.cardOwnedBy(e.CardID, owner) {
@@ -683,9 +685,14 @@ func (s *Server) apiEventStream(w http.ResponseWriter, r *http.Request) {
 
 // writeSSEEvent writes one event in SSE wire format.
 func writeSSEEvent(w io.Writer, e *core.Event) {
-	payload, _ := json.Marshal(map[string]any{
+	m := map[string]any{
 		"id": e.ID, "type": e.Type, "card_id": e.CardID, "actor": e.Actor, "at": e.At, "diff": e.Diff,
-	})
+	}
+	if e.BoardID != "" { // board-scoped facts (seam 2c); omitted for card events
+		m["board_id"] = e.BoardID
+		m["scope"] = "board"
+	}
+	payload, _ := json.Marshal(m)
 	fmt.Fprintf(w, "id: %d\nevent: %s\ndata: %s\n\n", e.ID, e.Type, payload)
 }
 
@@ -697,7 +704,7 @@ func filterBoardEvents(s *Server, evs []core.Event, boardID string) []core.Event
 	}
 	out := make([]core.Event, 0, len(evs))
 	for _, e := range evs {
-		if s.cardInBoard(e.CardID, boardID) {
+		if e.BoardID == boardID || s.cardInBoard(e.CardID, boardID) {
 			out = append(out, e)
 		}
 	}

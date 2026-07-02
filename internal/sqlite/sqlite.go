@@ -496,6 +496,14 @@ func buildEventFromWhere(q core.EventQuery) (string, []any) {
 		sb.WriteString(" AND c.type_id IN (" + placeholders(len(q.CardTypeIn)) + ")")
 		args = append(args, toAny(q.CardTypeIn)...)
 	}
+	if q.BoardID != "" { // board-scoped events for this board (seam 2c)
+		sb.WriteString(" AND e.board_id = ?")
+		args = append(args, q.BoardID)
+	}
+	if q.Scope != "" {
+		sb.WriteString(" AND e.scope = ?")
+		args = append(args, q.Scope)
+	}
 	return sb.String(), args
 }
 
