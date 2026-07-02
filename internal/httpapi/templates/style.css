@@ -353,13 +353,13 @@ main { padding: var(--s-5); max-width: 100%; }
    black border stays the "printing". Minimal by design — no text label; the
    type name is exposed via the .vh label + the card's title attribute. */
 .card__type-mark {
-  position: absolute; top: 0; left: 0;
+  position: absolute; top: 0; right: 0;
   width: 1.4rem; height: 1.4rem;
   display: grid; place-items: center; pointer-events: none;
   background: var(--card-stock-bg, var(--c-surface-2));
-  border-right: 1px solid var(--card-stock, var(--c-ink));
+  border-left: 1px solid var(--card-stock, var(--c-ink));
   border-bottom: 1px solid var(--card-stock, var(--c-ink));
-  border-top-left-radius: var(--r-md);
+  border-top-right-radius: var(--r-md);
   color: var(--card-stock, var(--c-ink));
 }
 .card__type-mark::before {
@@ -414,9 +414,9 @@ main { padding: var(--s-5); max-width: 100%; }
 .card.is-dragging { opacity: .4; }
 
 .card__title { font-weight: 700; font-size: var(--t-base); line-height: 1.2; margin-bottom: var(--s-2);
-  /* Indent the first line to clear the top-left corner type mark; wrapped
-     lines fall below the mark and flow from the left edge. */
-  text-indent: 1.7rem; }
+  /* Title flows from a clean left margin; reserve room on the right so the
+     first line clears the top-right corner type mark. */
+  padding-right: 1.3rem; }
 .card__title a { color: var(--c-text); }
 .card__title a:hover { color: var(--c-accent); text-decoration: none; }
 .card__meta { font-size: var(--t-xs); color: var(--c-muted); display: flex; flex-wrap: wrap; gap: var(--s-1); align-items: center; margin-top: var(--s-1); }
