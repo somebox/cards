@@ -18,7 +18,7 @@ linters-settings:
     # Allow unhandled errors on these idiomatic "best effort" calls.
     exclude-functions:
       - (*database/sql.Tx).Rollback
-      - (*github.com/foz/work-cards/internal/sqlite.Store).Close
+      - (*github.com/somebox/cards/internal/sqlite.Store).Close
     # Ignore Write/WriteByte on stdout/stderr/ResponseWriter (best-effort I/O).
     check-blank: false
     check-type-assertions: false
