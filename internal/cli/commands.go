@@ -169,7 +169,9 @@ func cmdPatch(c *Client, args []string) error {
 		}
 		body["fields"] = fm
 	}
-	if tags != nil {
+	// Mirror cmdCreate: an unset --tag must not send "tags" at all (StringArr
+	// always returns a non-nil pointer, so a nil-check alone always passes).
+	if len(*tags) > 0 {
 		body["tags"] = *tags
 	}
 	if *dryRun {
@@ -527,13 +529,12 @@ func cmdBoards(c *Client, args []string) error {
 		c.Print(data, false, "")
 		return nil
 	}
-	// Single board: introspection doesn't have a per-board endpoint in POC,
-	// so show the workspace and let the user find it.
-	data, _, err := c.get("/workspace", nil)
+	// Single board via GET /v1/boards/{id}.
+	data, _, err := c.get("/boards/"+fs.Args()[1], nil)
 	if err != nil {
 		return err
 	}
-	c.Print(data, false, "")
+	c.Print(data, false, "id")
 	return nil
 }
 

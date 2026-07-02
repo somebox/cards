@@ -93,6 +93,11 @@ func paths(types map[string]*core.CardType) map[string]any {
 				"200": map[string]any{"description": "Workspace"},
 			}, nil),
 		},
+		"/boards/{id}": map[string]any{
+			"get": op("Get one board definition", map[string]any{
+				"200": map[string]any{"description": "Board"},
+			}, idParam),
+		},
 		"/events/stream": map[string]any{
 			"get": op("Server-sent event stream (text/event-stream); supports Last-Event-ID replay", map[string]any{
 				"200": map[string]any{"description": "Event stream"},

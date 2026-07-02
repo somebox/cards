@@ -128,6 +128,7 @@ func (s *Server) Router() http.Handler {
 	// --- API ---
 	r.Get("/v1/health", s.apiHealth)
 	r.Get("/v1/workspace", s.apiWorkspace)
+	r.Get("/v1/boards/{id}", s.apiGetBoard)
 	r.Get("/v1/cards", s.apiListCards)
 	r.Post("/v1/cards", s.withActor(s.idempotent(s.apiCreateCard)))
 	r.Get("/v1/cards/{id}", s.apiGetCard)

@@ -65,7 +65,8 @@ func run(args []string) error {
 }
 
 // peelGlobals extracts --url/--as/--json/--jsonl/--quiet (and their env
-// fallbacks) from the front of args, returning the merged config + the
+// fallbacks) from anywhere in args — `cards list --json` and
+// `cards --json list` are equivalent — returning the merged config + the
 // remaining args (subcommand + its flags).
 func peelGlobals(args []string) (cli.Config, []string) {
 	cfg := cli.DefaultConfig()
@@ -122,9 +123,10 @@ func runCLI(cfg cli.Config, rest []string) error {
 	}
 	name := rest[0]
 	var cmd *cli.Command
-	for i := range cli.Commands() {
-		if c := cli.Commands()[i]; c.Name == name {
-			cmd = &c
+	cmds := cli.Commands()
+	for i := range cmds {
+		if cmds[i].Name == name {
+			cmd = &cmds[i]
 			break
 		}
 	}

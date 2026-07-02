@@ -32,6 +32,18 @@ func (s *Server) apiWorkspace(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, snap)
 }
 
+// apiGetBoard returns one board's definition (SPEC §4) — the honest answer to
+// `cards boards show <id>`, which previously had to return the whole workspace.
+func (s *Server) apiGetBoard(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	b, ok := s.boards[id]
+	if !ok {
+		writeAPIError(w, core.NotFound("board "+id))
+		return
+	}
+	writeJSON(w, 200, b)
+}
+
 func (s *Server) apiListCards(w http.ResponseWriter, r *http.Request) {
 	q := core.CardQuery{
 		BoardID:    r.URL.Query().Get("board_id"),

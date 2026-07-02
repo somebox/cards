@@ -220,12 +220,21 @@ func (c *Client) Print(data []byte, isCollection bool, idPath string) {
 	}
 }
 
-// idOf extracts an id from a map, preferring "id".
+// idOf extracts an id from a map. path may be dotted (e.g. "card.id") to
+// descend nested envelopes like take-next's {"card": {...}}.
 func idOf(m map[string]any, path string) string {
 	if path == "" {
 		path = "id"
 	}
-	if v, ok := m[path].(string); ok {
+	cur := any(m)
+	for _, p := range strings.Split(path, ".") {
+		mm, ok := cur.(map[string]any)
+		if !ok {
+			return ""
+		}
+		cur = mm[p]
+	}
+	if v, ok := cur.(string); ok {
 		return v
 	}
 	return ""
