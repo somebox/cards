@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"strconv"
@@ -37,7 +38,7 @@ type Server struct {
 	types   map[string]*core.CardType
 	ws      *core.Workspace
 	store   core.Store
-	base    *template.Template // layout + FuncMap, cloned per render
+	base    *template.Template            // layout + FuncMap, cloned per render
 	pages   map[string]*template.Template // pre-parsed page sets (layout+page+partials)
 	envUser string
 }
@@ -197,10 +198,6 @@ func (s *Server) withActor(h http.HandlerFunc) http.HandlerFunc {
 		h(w, r)
 	}
 }
-
-type actorKey struct{}
-
-var _ = actorKey{} // retained for reference; actor now flows via core.WithActor.
 
 func (s *Server) actorFromCtx(r *http.Request) string {
 	if a := core.ActorFromCtx(r.Context()); a != "" {
@@ -644,7 +641,14 @@ func (s *Server) apiEventStream(w http.ResponseWriter, r *http.Request) {
 
 	// Replay: events after Last-Event-ID (or since=) matching the filter.
 	if afterID > 0 {
-		evs, _ := s.svc.ListEvents(r.Context(), core.EventQuery{CardID: cardID, Types: types, Actor: actor, Owner: owner, AfterID: afterID, Limit: 500})
+		evs, err := s.svc.ListEvents(r.Context(), core.EventQuery{CardID: cardID, Types: types, Actor: actor, Owner: owner, AfterID: afterID, Limit: 500})
+		if err != nil {
+			// Headers are already written (200); surface the gap as an SSE
+			// comment so the client knows replay is incomplete and can
+			// reconnect with Last-Event-ID rather than silently missing events.
+			log.Printf("ERROR: SSE replay after id %d failed: %v", afterID, err)
+			fmt.Fprint(w, ": replay failed, reconnect to retry\n\n")
+		}
 		for _, e := range filterBoardEvents(s, evs, boardID) {
 			writeSSEEvent(w, &e)
 		}
@@ -664,7 +668,7 @@ func (s *Server) apiEventStream(w http.ResponseWriter, r *http.Request) {
 		case e, ok := <-sub.Ch:
 			if !ok {
 				// Dropped (slow consumer). Send a comment and resubscribe so the
-			// client can decide to reconnect with Last-Event-ID.
+				// client can decide to reconnect with Last-Event-ID.
 				w.Write([]byte(": dropped, reconnect\n\n"))
 				flusher.Flush()
 				return
@@ -692,7 +696,14 @@ func writeSSEEvent(w io.Writer, e *core.Event) {
 		m["board_id"] = e.BoardID
 		m["scope"] = "board"
 	}
-	payload, _ := json.Marshal(m)
+	payload, err := json.Marshal(m)
+	if err != nil {
+		// The value set is closed (ids, strings, times, JSON-decoded diffs), so
+		// this is unreachable in practice; if it ever fires, drop the event
+		// loudly rather than emit a malformed SSE frame.
+		log.Printf("ERROR: SSE marshal event %d (%s): %v", e.ID, e.Type, err)
+		return
+	}
 	fmt.Fprintf(w, "id: %d\nevent: %s\ndata: %s\n\n", e.ID, e.Type, payload)
 }
 
@@ -795,12 +806,16 @@ func (s *Server) idempotent(h http.HandlerFunc) http.HandlerFunc {
 			w.Write(rec.Body)
 			return
 		}
-		// Record the response.
+		// Record the response. The handler already ran (mutation durable), so a
+		// failed write here cannot fail the request — but it means a client
+		// retry with this key will re-execute instead of replaying. Log it.
 		rw := &recordingWriter{header: http.Header{}, status: 200, buf: new(bytes.Buffer)}
 		h(rw, r)
-		_ = s.store.PutIdempotency(r.Context(), core.IdempotencyRecord{
+		if err := s.store.PutIdempotency(r.Context(), core.IdempotencyRecord{
 			Key: key, Actor: actor, Status: rw.status, Body: rw.buf.Bytes(),
-		})
+		}); err != nil {
+			log.Printf("ERROR: idempotency record for key %q (actor %s) not persisted; a retry will re-execute: %v", key, actor, err)
+		}
 		// Forward to the real response writer.
 		for k, vs := range rw.header {
 			for _, v := range vs {
@@ -825,32 +840,63 @@ func (rw *recordingWriter) Header() http.Header {
 	}
 	return rw.header
 }
-func (rw *recordingWriter) WriteHeader(code int) { rw.status = code }
+func (rw *recordingWriter) WriteHeader(code int)        { rw.status = code }
 func (rw *recordingWriter) Write(b []byte) (int, error) { return rw.buf.Write(b) }
-
 
 // --- UI handlers ---
 
-func (s *Server) uiIndex(w http.ResponseWriter, r *http.Request) {
-	// Home page: board list + recent activity.
-	page, _ := s.svc.ListCards(r.Context(), core.CardQuery{Limit: 10})
-	recent := []RecentCard{}
-	if page != nil {
-		for _, c := range page.Items {
-			label := c.TypeID
-			if ct := s.types[c.TypeID]; ct != nil {
-				label = ct.Name
-			}
-			recent = append(recent, RecentCard{
-				ID: c.ID, Title: c.Title, TypeID: c.TypeID, TypeLabel: label,
-				Status: c.Status, UpdatedAt: c.UpdatedAt.Format(time.RFC3339Nano),
-			})
+// loadCardUI fetches a card for a UI handler, distinguishing an unknown id
+// (404) from a store failure (500). It writes the response itself; a nil
+// return means the handler should stop.
+func (s *Server) loadCardUI(w http.ResponseWriter, r *http.Request, id string) *core.Card {
+	c, err := s.svc.GetCard(r.Context(), id)
+	if err != nil {
+		if ce := core.AsError(err); ce != nil && ce.Code == "not_found" {
+			http.NotFound(w, r)
+		} else {
+			http.Error(w, "failed to load card", http.StatusInternalServerError)
 		}
+		return nil
+	}
+	return c
+}
+
+// listUsersBestEffort returns workspace users for name display and owner
+// dropdowns. User names are decoration on every UI surface — on store failure
+// the page degrades to raw ids rather than failing, but the failure is logged.
+func (s *Server) listUsersBestEffort(r *http.Request) []core.User {
+	users, err := s.store.ListUsers(r.Context())
+	if err != nil {
+		log.Printf("WARN: list users for UI render: %v", err)
+	}
+	return users
+}
+
+func (s *Server) uiIndex(w http.ResponseWriter, r *http.Request) {
+	// Home page: board list + recent activity — the page's primary content, so
+	// a failing store is a 500, not an empty page.
+	page, err := s.svc.ListCards(r.Context(), core.CardQuery{Limit: 10})
+	if err != nil {
+		http.Error(w, "failed to load cards", http.StatusInternalServerError)
+		return
+	}
+	recent := []RecentCard{}
+	for _, c := range page.Items {
+		label := c.TypeID
+		if ct := s.types[c.TypeID]; ct != nil {
+			label = ct.Name
+		}
+		recent = append(recent, RecentCard{
+			ID: c.ID, Title: c.Title, TypeID: c.TypeID, TypeLabel: label,
+			Status: c.Status, UpdatedAt: c.UpdatedAt.Format(time.RFC3339Nano),
+		})
 	}
 	totalCount := 0
-	if all, _ := s.svc.ListCards(r.Context(), core.CardQuery{Limit: 200}); all != nil {
+	if all, err := s.svc.ListCards(r.Context(), core.CardQuery{Limit: 200}); err == nil {
 		totalCount = len(all.Items)
 	}
+	// totalCount is a decorative stat; the first query above already proved the
+	// store is reachable, so a miss here just shows 0.
 	data := s.baseData(s.ws.Name)
 	data.Workspace = s.ws
 	data.CardCount = totalCount
@@ -864,13 +910,17 @@ func (s *Server) uiIndex(w http.ResponseWriter, r *http.Request) {
 // shareable/bookmarkable. Results link to /ui/cards/{short}.
 func (s *Server) uiSearch(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query().Get("q")
+	// Search results are the page's primary content: a store failure must not
+	// render as "no results".
 	page, err := s.svc.ListCards(r.Context(), core.CardQuery{Q: q, IDLike: q, Limit: 50})
+	if err != nil {
+		http.Error(w, "search failed", http.StatusInternalServerError)
+		return
+	}
 	views := []CardView{}
-	if err == nil && page != nil {
-		users, _ := s.store.ListUsers(r.Context())
-		for i := range page.Items {
-			views = append(views, s.cardView(&page.Items[i], nil, users))
-		}
+	users := s.listUsersBestEffort(r)
+	for i := range page.Items {
+		views = append(views, s.cardView(&page.Items[i], nil, users))
 	}
 	data := s.baseData("Search")
 	data.Query = q
@@ -903,13 +953,19 @@ func (s *Server) uiBoard(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	s.renderPage(w, r, "board.html", s.boardData(r, b))
+	data, err := s.boardData(r, b)
+	if err != nil {
+		http.Error(w, "failed to load board", http.StatusInternalServerError)
+		return
+	}
+	s.renderPage(w, r, "board.html", data)
 }
 
 // boardData builds the ViewData for a board page (cards grouped by column).
 // Reused by uiBoard and the htmx move handler so a move re-renders the whole
-// board with the card in its new column.
-func (s *Server) boardData(r *http.Request, b *core.Board) ViewData {
+// board with the card in its new column. Errors on the card queries — the
+// board's primary content — so a failing store never renders as empty columns.
+func (s *Server) boardData(r *http.Request, b *core.Board) (ViewData, error) {
 	q := r.URL.Query().Get("q")
 	all := []core.Card{}
 	for _, t := range b.CardTypeIDs {
@@ -920,7 +976,7 @@ func (s *Server) boardData(r *http.Request, b *core.Board) ViewData {
 		}
 		page, err := s.svc.ListCards(r.Context(), cq)
 		if err != nil {
-			continue
+			return ViewData{}, fmt.Errorf("board %s: list %s cards: %w", b.ID, t, err)
 		}
 		all = append(all, page.Items...)
 	}
@@ -930,7 +986,7 @@ func (s *Server) boardData(r *http.Request, b *core.Board) ViewData {
 		colSet[c] = true
 		byCol[c] = []CardView{}
 	}
-	users, _ := s.store.ListUsers(r.Context())
+	users := s.listUsersBestEffort(r)
 	outCount, inCount, commentCount := s.linkGraphCounts(r.Context())
 	for i := range all {
 		c := &all[i]
@@ -958,7 +1014,18 @@ func (s *Server) boardData(r *http.Request, b *core.Board) ViewData {
 	data.CardsByColumn = byCol
 	data.TypeThemes = s.buildTypeThemes()
 	data.Query = q
-	return data
+	return data, nil
+}
+
+// renderBoardPartial re-renders the whole board partial (htmx swap target),
+// falling back to a 500 when the board's cards can't be loaded.
+func (s *Server) renderBoardPartial(w http.ResponseWriter, r *http.Request, b *core.Board) {
+	data, err := s.boardData(r, b)
+	if err != nil {
+		http.Error(w, "failed to load board", http.StatusInternalServerError)
+		return
+	}
+	s.renderPartial(w, "board.html", data)
 }
 
 func (s *Server) uiNewCardForm(w http.ResponseWriter, r *http.Request) {
@@ -978,14 +1045,14 @@ func (s *Server) uiNewCardForm(w http.ResponseWriter, r *http.Request) {
 	boardID := r.URL.Query().Get("board")
 	if boardID == "" {
 		for id := range s.boards {
-			if containsBoard(s.boards[id].CardTypeIDs, typeID) {
+			if containsStr(s.boards[id].CardTypeIDs, typeID) {
 				boardID = id
 				break
 			}
 		}
 	}
 	b := s.boards[boardID]
-	users, _ := s.store.ListUsers(r.Context())
+	users := s.listUsersBestEffort(r)
 	data := s.baseData("New " + ct.Name)
 	data.CardType = ct
 	data.Board = b
@@ -1015,27 +1082,27 @@ func (s *Server) uiCreateCard(w http.ResponseWriter, r *http.Request) {
 	fields := map[string]any{}
 	for k := range r.Form {
 		if strings.HasPrefix(k, "field:") {
-		 fid := strings.TrimPrefix(k, "field:")
-		 val := r.FormValue(k)
-		 if val == "" {
-			continue
-		 }
-		 if ct != nil {
-			for _, f := range ct.Fields {
-				if f.ID == fid {
-					if f.Type == core.FieldNumber {
-						if n, err := strconv.ParseFloat(val, 64); err == nil {
-							fields[fid] = n
-						}
-					} else {
-						fields[fid] = val
-					}
-					break
-				}
+			fid := strings.TrimPrefix(k, "field:")
+			val := r.FormValue(k)
+			if val == "" {
+				continue
 			}
-		 } else {
-			fields[fid] = val
-		 }
+			if ct != nil {
+				for _, f := range ct.Fields {
+					if f.ID == fid {
+						if f.Type == core.FieldNumber {
+							if n, err := strconv.ParseFloat(val, 64); err == nil {
+								fields[fid] = n
+							}
+						} else {
+							fields[fid] = val
+						}
+						break
+					}
+				}
+			} else {
+				fields[fid] = val
+			}
 		}
 	}
 	tags := parseTags(r.FormValue("tags"))
@@ -1050,14 +1117,14 @@ func (s *Server) uiCreateCard(w http.ResponseWriter, r *http.Request) {
 	_, err := s.svc.CreateCard(r.Context(), req)
 	if err != nil {
 		// Re-render form with error.
-		users, _ := s.store.ListUsers(r.Context())
+		users := s.listUsersBestEffort(r)
 		data := s.baseData("New " + ct.Name)
 		data.CardType = ct
 		data.Board = b
 		data.Fields = fieldViews(ct, fields, users)
 		data.StatusOptions = s.statusOptions(ct, b, req.Status)
 		data.Users = users
-	data.TagSet = s.ws.TagSet
+		data.TagSet = s.ws.TagSet
 		data.FormTitle = req.Title
 		data.FormTags = r.FormValue("tags")
 		data.Error = core.AsError(err)
@@ -1096,9 +1163,8 @@ func (s *Server) uiMoveCard(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "bad form", http.StatusBadRequest)
 		return
 	}
-	c, _ := s.svc.GetCard(r.Context(), id)
+	c := s.loadCardUI(w, r, id)
 	if c == nil {
-		http.NotFound(w, r)
 		return
 	}
 	b := s.boardForCard(c)
@@ -1115,7 +1181,7 @@ func (s *Server) uiMoveCard(w http.ResponseWriter, r *http.Request) {
 		if r.FormValue("from") == "detail" {
 			s.renderCardDetail(w, r, c, core.AsError(err))
 		} else if b != nil {
-			s.renderPartial(w, "board.html", s.boardData(r, b))
+			s.renderBoardPartial(w, r, b)
 		} else {
 			s.renderCardDetail(w, r, c, core.AsError(err))
 		}
@@ -1124,13 +1190,16 @@ func (s *Server) uiMoveCard(w http.ResponseWriter, r *http.Request) {
 	// Success: detail move → re-render detail partial; board move → re-render
 	// the whole board so the card appears in its new column.
 	if r.FormValue("from") == "detail" && wantsPartial(r) {
-		updated, _ := s.svc.GetCard(r.Context(), id)
+		updated := s.loadCardUI(w, r, id)
+		if updated == nil {
+			return
+		}
 		s.renderCardDetail(w, r, updated, nil)
 		return
 	}
 	if b != nil {
 		if wantsPartial(r) {
-			s.renderPartial(w, "board.html", s.boardData(r, b))
+			s.renderBoardPartial(w, r, b)
 			return
 		}
 		http.Redirect(w, r, "/ui/boards/"+b.ID, http.StatusSeeOther)
@@ -1145,9 +1214,8 @@ func (s *Server) uiEditField(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "bad form", http.StatusBadRequest)
 		return
 	}
-	c, _ := s.svc.GetCard(r.Context(), id)
+	c := s.loadCardUI(w, r, id)
 	if c == nil {
-		http.NotFound(w, r)
 		return
 	}
 	req := core.PatchCardRequest{
@@ -1195,9 +1263,8 @@ func (s *Server) uiSaveCard(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "bad form", http.StatusBadRequest)
 		return
 	}
-	c, _ := s.svc.GetCard(r.Context(), id)
+	c := s.loadCardUI(w, r, id)
 	if c == nil {
-		http.NotFound(w, r)
 		return
 	}
 	version := c.Version
@@ -1276,7 +1343,7 @@ func (s *Server) uiSaveCard(w http.ResponseWriter, r *http.Request) {
 func (s *Server) renderCardModalErr(w http.ResponseWriter, r *http.Request, c *core.Card, err *core.Error) {
 	ct := s.types[c.TypeID]
 	b := s.boardForCard(c)
-	users, _ := s.store.ListUsers(r.Context())
+	users := s.listUsersBestEffort(r)
 	data := s.baseData(c.Title)
 	data.Card = c
 	data.CardType = ct
@@ -1288,7 +1355,11 @@ func (s *Server) renderCardModalErr(w http.ResponseWriter, r *http.Request, c *c
 	data.Error = err
 	data.TypeThemes = s.buildTypeThemes()
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_ = s.pages["card_modal.html"].ExecuteTemplate(w, "card_modal", data)
+	// The response is already streaming; a mid-render template error can only
+	// be logged, not turned into a different status.
+	if terr := s.pages["card_modal.html"].ExecuteTemplate(w, "card_modal", data); terr != nil {
+		log.Printf("ERROR: render card_modal for %s: %v", c.ID, terr)
+	}
 }
 
 // --- view building ---
@@ -1299,13 +1370,13 @@ type CardView struct {
 	CardType      *core.CardType
 	PreviewFields []PreviewField
 	MoveOptions   []Option
-	TypeIcon   string // 1a — precomputed badge glyph
-	TypeAccent string // 1a — precomputed accent (overrides [data-type])
-	TypeMuted  string // 1a — precomputed muted shade
-	TypeLabel  string // 1a — precomputed type display name (== CardType.Name)
-	CommentCount int  // board card: number of comments
-	OutCount     int  // board card: number of outbound links
-	InCount      int  // board card: number of inbound links (others → this)
+	TypeIcon      string // 1a — precomputed badge glyph
+	TypeAccent    string // 1a — precomputed accent (overrides [data-type])
+	TypeMuted     string // 1a — precomputed muted shade
+	TypeLabel     string // 1a — precomputed type display name (== CardType.Name)
+	CommentCount  int    // board card: number of comments
+	OutCount      int    // board card: number of outbound links
+	InCount       int    // board card: number of inbound links (others → this)
 }
 
 // LinkView is a resolved relationship to another card, shown with the target's
@@ -1342,49 +1413,49 @@ type RecentCard struct {
 
 // FieldView is a rendered field in card_detail / card_form.
 type FieldView struct {
-	Def     *core.FieldDef
-	Value   any
-	ValueStr string
-	Entries [][]PreviewField
-	Users   []core.User
+	Def           *core.FieldDef
+	Value         any
+	ValueStr      string
+	Entries       [][]PreviewField
+	Users         []core.User
 	ValueRendered string
-	Display string // UI hint from FieldDef.Display (feed|badge|hidden|link|monospace)
+	Display       string // UI hint from FieldDef.Display (feed|badge|hidden|link|monospace)
 }
 
 // ViewData is the template payload.
 type ViewData struct {
-	Title          string
-	Theme          string // active UI theme name for html[data-theme] (empty = default)
-	Boards         map[string]*core.Board
-	Board          *core.Board
-	Columns        []core.Column
-	CardsByColumn  map[string][]CardView
-	Card           *core.Card
-	CardType       *core.CardType
-	Fields         []FieldView
-	MoveOptions    []Option
-	PreviewFields  []PreviewField
-	Error          *core.Error
-	FormTitle      string
-	FormTags       string
-	StatusOptions  []Option
-	Users          []core.User
-	TagSet         []string
+	Title         string
+	Theme         string // active UI theme name for html[data-theme] (empty = default)
+	Boards        map[string]*core.Board
+	Board         *core.Board
+	Columns       []core.Column
+	CardsByColumn map[string][]CardView
+	Card          *core.Card
+	CardType      *core.CardType
+	Fields        []FieldView
+	MoveOptions   []Option
+	PreviewFields []PreviewField
+	Error         *core.Error
+	FormTitle     string
+	FormTags      string
+	StatusOptions []Option
+	Users         []core.User
+	TagSet        []string
 	// TypeThemes is the id→TypeTheme map for non-loop call-sites (modal,
 	// detail, home) that read via the typeTheme template func. (1a)
-	TypeThemes     map[string]core.TypeTheme `json:"-"`
+	TypeThemes map[string]core.TypeTheme `json:"-"`
 	// Candidates is the disambiguation list shown by card_ambiguous.html when a
 	// short id matches >1 card. (1e)
-	Candidates     []core.CardCandidate
+	Candidates []core.CardCandidate
 	// Query is the current ?q= search string, repopulating the search box (1d).
-	Query          string
+	Query string
 	// Home page
-	Workspace      *core.Workspace
-	CardCount      int
-	RecentCards    []RecentCard
+	Workspace   *core.Workspace
+	CardCount   int
+	RecentCards []RecentCard
 	// Card detail/modal relationships (resolved titles, in/outbound).
-	OutLinks       []LinkView
-	InLinks        []LinkView
+	OutLinks []LinkView
+	InLinks  []LinkView
 }
 
 func (s *Server) baseData(title string) ViewData {
@@ -1451,7 +1522,11 @@ func boardStyle(b *core.Board) template.CSS {
 // (not N+1) and returns per-card outbound/inbound/comment counts for the board.
 func (s *Server) linkGraphCounts(ctx context.Context) (out, in, comments map[string]int) {
 	out, in, comments = map[string]int{}, map[string]int{}, map[string]int{}
-	edges, _ := s.store.AllLinks(ctx)
+	// Counts are card-badge decoration; on store failure they render as 0.
+	edges, err := s.store.AllLinks(ctx)
+	if err != nil {
+		log.Printf("WARN: link counts for UI render: %v", err)
+	}
 	for _, e := range edges {
 		out[e.Source]++
 		in[e.Target]++
@@ -1483,7 +1558,12 @@ func (s *Server) cardRelations(ctx context.Context, c *core.Card) (outs, ins []L
 	for _, l := range c.Links {
 		outs = append(outs, LinkView{TypeID: l.TypeID, CardID: l.Target, Title: s.cardTitle(ctx, cache, l.Target), Dir: "out"})
 	}
-	edges, _ := s.store.AllLinks(ctx)
+	// Inbound links are supplementary detail; on store failure the section is
+	// empty (outbound links still render from the card itself).
+	edges, err := s.store.AllLinks(ctx)
+	if err != nil {
+		log.Printf("WARN: inbound links for card %s: %v", c.ID, err)
+	}
 	for _, e := range edges {
 		if e.Target == c.ID {
 			ins = append(ins, LinkView{TypeID: e.TypeID, CardID: e.Source, Title: s.cardTitle(ctx, cache, e.Source), Dir: "in"})
@@ -1495,7 +1575,7 @@ func (s *Server) cardRelations(ctx context.Context, c *core.Card) (outs, ins []L
 func (s *Server) renderCardDetail(w http.ResponseWriter, r *http.Request, c *core.Card, err *core.Error) {
 	ct := s.types[c.TypeID]
 	b := s.boardForCard(c)
-	users, _ := s.store.ListUsers(r.Context())
+	users := s.listUsersBestEffort(r)
 	data := s.baseData(c.Title)
 	data.Card = c
 	data.CardType = ct
@@ -1524,7 +1604,7 @@ func (s *Server) uiCardModal(w http.ResponseWriter, r *http.Request) {
 	}
 	ct := s.types[c.TypeID]
 	b := s.boardForCard(c)
-	users, _ := s.store.ListUsers(r.Context())
+	users := s.listUsersBestEffort(r)
 	data := s.baseData(c.Title)
 	data.Card = c
 	data.CardType = ct
@@ -1585,14 +1665,14 @@ func (s *Server) cardView(c *core.Card, b *core.Board, users []core.User) CardVi
 		label = ct.Name
 	}
 	return CardView{
-		Card:           c,
-		CardType:       ct,
-		PreviewFields:  previews,
-		MoveOptions:    s.moveOptions(b, c.Status),
-		TypeIcon:       th.Icon,
-		TypeAccent:     th.Accent,
-		TypeMuted:      th.Muted,
-		TypeLabel:      label,
+		Card:          c,
+		CardType:      ct,
+		PreviewFields: previews,
+		MoveOptions:   s.moveOptions(b, c.Status),
+		TypeIcon:      th.Icon,
+		TypeAccent:    th.Accent,
+		TypeMuted:     th.Muted,
+		TypeLabel:     label,
 	}
 }
 
@@ -1658,7 +1738,7 @@ func (s *Server) statusOptions(ct *core.CardType, b *core.Board, selected string
 
 func (s *Server) boardForCard(c *core.Card) *core.Board {
 	for _, b := range s.boards {
-		if containsBoard(b.CardTypeIDs, c.TypeID) {
+		if containsStr(b.CardTypeIDs, c.TypeID) {
 			return b
 		}
 	}
@@ -1861,5 +1941,3 @@ func containsStr(s []string, v string) bool {
 	}
 	return false
 }
-
-func containsBoard(s []string, v string) bool { return containsStr(s, v) }

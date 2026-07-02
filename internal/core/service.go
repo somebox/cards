@@ -10,6 +10,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"strings"
 	"sync"
 	"time"
@@ -209,8 +210,12 @@ func (s *Service) ResolveCard(ctx context.Context, id string) (*Card, error) {
 		return nil, NotFound("card " + id)
 	case 1:
 		c := cands[0]
-		c.Links, _ = s.store.ListLinks(ctx, c.ID)
-		c.Comments, _ = s.store.ListComments(ctx, c.ID)
+		if c.Links, err = s.store.ListLinks(ctx, c.ID); err != nil {
+			return nil, Internal("failed to load links: " + err.Error())
+		}
+		if c.Comments, err = s.store.ListComments(ctx, c.ID); err != nil {
+			return nil, Internal("failed to load comments: " + err.Error())
+		}
 		return &c, nil
 	default:
 		cs := make([]CardCandidate, len(cands))
@@ -698,8 +703,13 @@ func (s *Service) AddLink(ctx context.Context, id string, in LinkInput) (*Card, 
 	if err := s.commitCard(ctx, &next, []*Event{ev}); err != nil {
 		return nil, err
 	}
-	// Persist the link row for graph queries.
-	_ = s.store.InsertLink(ctx, id, l)
+	// Persist the link row for graph queries. The mutation is already durable
+	// (card JSON + event committed above), so a failure here means graph-table
+	// drift, not a failed request — log it loudly instead of failing a commit
+	// the caller would then wrongly retry.
+	if err := s.store.InsertLink(ctx, id, l); err != nil {
+		log.Printf("ERROR: links table drift: insert %s -> %s (%s) on card %s: %v", id, in.Target, in.TypeID, id, err)
+	}
 	return &next, nil
 }
 
@@ -729,9 +739,9 @@ func (s *Service) RemoveLink(ctx context.Context, id, typeID, target string) (*C
 	if err := s.commitCard(ctx, &next, []*Event{ev}); err != nil {
 		return nil, err
 	}
+	// See AddLink: post-commit graph-table write — log drift, don't fail.
 	if _, err := s.store.DeleteLink(ctx, id, typeID, target); err != nil {
-		// non-fatal: the card row is already updated; graph table may be stale.
-		_ = err
+		log.Printf("ERROR: links table drift: delete %s/%s on card %s: %v", typeID, target, id, err)
 	}
 	return &next, nil
 }
@@ -758,7 +768,10 @@ func (s *Service) AddComment(ctx context.Context, id string, body string) (*Card
 	if err := s.commitCard(ctx, &next, []*Event{ev}); err != nil {
 		return nil, err
 	}
-	_ = s.store.InsertComment(ctx, id, c)
+	// See AddLink: post-commit denormalized write — log drift, don't fail.
+	if err := s.store.InsertComment(ctx, id, c); err != nil {
+		log.Printf("ERROR: comments table drift: insert %s on card %s: %v", c.ID, id, err)
+	}
 	return &next, nil
 }
 
@@ -794,7 +807,10 @@ func (s *Service) EditComment(ctx context.Context, id, commentID, body string) (
 	if err := s.commitCard(ctx, &next, []*Event{ev}); err != nil {
 		return nil, err
 	}
-	_ = s.store.UpdateComment(ctx, id, commentID, body, next.UpdatedAt)
+	// See AddLink: post-commit denormalized write — log drift, don't fail.
+	if err := s.store.UpdateComment(ctx, id, commentID, body, next.UpdatedAt); err != nil {
+		log.Printf("ERROR: comments table drift: update %s on card %s: %v", commentID, id, err)
+	}
 	return &next, nil
 }
 

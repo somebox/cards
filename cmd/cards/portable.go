@@ -59,7 +59,8 @@ func exportJSONL(ctx context.Context, st *sqlite.Store, w io.Writer, ws *core.Wo
 	for _, c := range page.Items {
 		full, err := st.GetCard(ctx, c.ID)
 		if err != nil {
-			continue
+			// A backup that silently drops cards is worse than one that fails.
+			return stats, fmt.Errorf("export card %s: %w", c.ID, err)
 		}
 		stats.Comments += len(full.Comments)
 		stats.Links += len(full.Links)

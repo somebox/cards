@@ -231,7 +231,11 @@ func (s *Service) checkColumn(status string, ct *CardType) *Error {
 }
 
 func (s *Service) checkUserExists(ctx context.Context, userID string) error {
-	users, _ := s.store.ListUsers(ctx)
+	users, err := s.store.ListUsers(ctx)
+	if err != nil {
+		// A store failure must not masquerade as "unknown user".
+		return Internal("failed to list users: " + err.Error())
+	}
 	for _, u := range users {
 		if u.ID == userID {
 			return nil
