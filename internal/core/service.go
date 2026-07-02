@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -28,6 +29,11 @@ type Service struct {
 	bus     Bus
 	emitter *Emitter
 	now     func() time.Time
+
+	// wipExceeded tracks the last-known WIP-exceeded state per board+column so
+	// wip signals fire only on a crossing, not on every mutation. (seam 3a)
+	wipMu       sync.Mutex
+	wipExceeded map[string]bool
 }
 
 // NewService binds loaded config + a Store implementation.
@@ -37,6 +43,39 @@ func NewService(ws *Workspace, types map[string]*CardType, boards map[string]*Bo
 	return &Service{
 		ws: ws, types: types, boards: boards, store: st,
 		bus: bus, emitter: newEmitter(st, bus, now), now: now,
+		wipExceeded: map[string]bool{},
+	}
+}
+
+// evaluateWIP fires wip_exceeded/wip_cleared as ephemeral board signals when a
+// board column crosses its configured WIP limit. Best-effort — it's a signal,
+// not a fact: a failed count never affects the mutation. Idempotent: fires only
+// on a state crossing (seam 3a).
+func (s *Service) evaluateWIP(ctx context.Context, b *Board, column string) {
+	if b == nil {
+		return
+	}
+	limit, ok := b.WIPLimits[column]
+	if !ok || limit <= 0 {
+		return
+	}
+	page, err := s.store.ListCards(ctx, CardQuery{Status: column, TypeIDIn: b.CardTypeIDs, Limit: 500})
+	if err != nil {
+		return
+	}
+	exceeded := len(page.Items) > limit
+	key := b.ID + "\x00" + column
+	s.wipMu.Lock()
+	if s.wipExceeded[key] == exceeded {
+		s.wipMu.Unlock()
+		return // no crossing — stay quiet
+	}
+	s.wipExceeded[key] = exceeded
+	s.wipMu.Unlock()
+	if exceeded {
+		s.emitter.Signal(ctx, WIPExceeded(b.ID, column, len(page.Items), limit))
+	} else {
+		s.emitter.Signal(ctx, WIPCleared(b.ID, column, len(page.Items), limit))
 	}
 }
 
@@ -386,6 +425,13 @@ func (s *Service) PatchCard(ctx context.Context, id string, req PatchCardRequest
 	next.UpdatedAt = now
 	if err := s.commitCard(ctx, &next, events); err != nil {
 		return nil, err
+	}
+	// After the status change commits, re-check WIP on both columns: the
+	// destination may now exceed its limit, the source may have cleared. (3a)
+	if next.Status != current.Status {
+		b := s.boardForCard(&next)
+		s.evaluateWIP(ctx, b, next.Status)
+		s.evaluateWIP(ctx, b, current.Status)
 	}
 	return &next, nil
 }

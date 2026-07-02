@@ -49,6 +49,7 @@ func newTestService(t *testing.T) (*core.Service, *sqlite.Store) {
 			ID: "eng", Name: "Engineering",
 			Columns:     []string{"todo", "in_progress", "review", "done"},
 			CardTypeIDs: []string{"task"},
+			WIPLimits:   map[string]int{"in_progress": 1},
 			Transitions: map[string][]string{
 				"todo":        {"in_progress"},
 				"in_progress": {"review"},
