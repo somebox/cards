@@ -255,6 +255,10 @@ const (
 type Event struct {
 	ID      int64     `json:"id"`
 	CardID  string    `json:"card_id"`
+	// BoardID scopes board-level events (Events seam 1b). Inert until seam 2a
+	// adds the board_id column + populates it; the filter path is correct today
+	// and exercised by synthetic events in tests.
+	BoardID string    `json:"board_id,omitempty"`
 	Type    EventType `json:"type"`
 	Actor   string    `json:"actor"`
 	At      time.Time `json:"at"`

@@ -48,6 +48,31 @@ func TestEventBus_DropsSlowSubscriber(t *testing.T) {
 	}
 }
 
+// Board-scoped filtering (Events seam 1b): a BoardID filter accepts only
+// events carrying that board_id. Synthetic events (no schema change) — board
+// events are populated from seam 2a; the filter path is correct today.
+func TestEventBus_FilterByBoardID(t *testing.T) {
+	bus := core.NewBus()
+	subBoardX := bus.Subscribe(core.EventFilter{BoardID: "board-x"}, 4)
+	subAll := bus.Subscribe(core.EventFilter{}, 4)
+
+	bus.Publish(&core.Event{BoardID: "board-x", Type: core.EventStatusChanged})
+	bus.Publish(&core.Event{BoardID: "board-y", Type: core.EventStatusChanged})
+	bus.Publish(&core.Event{CardID: "A", Type: core.EventCardCreated}) // no board_id
+
+	if got := drain(subBoardX.Ch); len(got) != 1 || got[0].BoardID != "board-x" {
+		t.Errorf("board-x subscriber got %d events (want 1 for board-x)", len(got))
+	}
+	if got := drain(subAll.Ch); len(got) != 3 {
+		t.Errorf("unfiltered subscriber got %d events, want 3", len(got))
+	}
+
+	// A BoardID filter must reject an event with no board_id (Matches unit).
+	if (core.EventFilter{BoardID: "board-x"}).Matches(&core.Event{CardID: "A"}) {
+		t.Error("BoardID filter should reject an event with empty board_id")
+	}
+}
+
 func drain(ch <-chan *core.Event) []*core.Event {
 	out := []*core.Event{}
 	for {
