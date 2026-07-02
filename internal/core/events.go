@@ -140,7 +140,7 @@ func notifyObserver(o EventObserver, ev *Event) {
 // CardEvent is the base constructor: a card-scoped event with a typed diff.
 // Actor and At are left unset for the seam to stamp.
 func CardEvent(cardID string, t EventType, diff any) *Event {
-	return &Event{CardID: cardID, Type: t, Diff: diff}
+	return &Event{CardID: cardID, Version: 1, Type: t, Diff: diff}
 }
 
 // CardCreatedDiff is the payload of card_created.
