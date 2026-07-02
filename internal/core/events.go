@@ -143,6 +143,13 @@ func CardEvent(cardID string, t EventType, diff any) *Event {
 	return &Event{CardID: cardID, Version: 1, Type: t, Diff: diff}
 }
 
+// BoardEvent is the base constructor for a board-scoped fact: no card_id, a
+// board_id, scope=board. Emit it via Emitter.Emit (durable) — board conditions
+// (Step 3) build on this path. Actor/At are left for the seam to stamp. (2b)
+func BoardEvent(boardID string, t EventType, diff any) *Event {
+	return &Event{BoardID: boardID, Scope: "board", Version: 1, Type: t, Diff: diff}
+}
+
 // CardCreatedDiff is the payload of card_created.
 type CardCreatedDiff struct {
 	Card CardRef `json:"card"`
