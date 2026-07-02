@@ -139,6 +139,10 @@ type WorkspaceSettings struct {
 	EventRetentionDays  int    `json:"event_retention_days,omitempty"`
 	DefaultUser         string `json:"default_user,omitempty"`
 	Theme               string `json:"theme,omitempty"` // default UI theme (html[data-theme]); see docs/DESIGN.md
+	// PersistConditions escalates the named condition event types (e.g.
+	// "wip_exceeded") from ephemeral signals to durable, replayable facts. See
+	// docs/EVENTS.md §11.2 and seam 3b.
+	PersistConditions []string `json:"persist_conditions,omitempty"`
 }
 
 // Workspace is the top-level scope. All cards belong to one workspace.
