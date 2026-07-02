@@ -263,6 +263,10 @@ type Event struct {
 	// omitempty keeps it off the wire for pre-versioned/replayed events. Bump it
 	// (with a new diff shape) instead of renaming a diff field. (Events seam 1g)
 	Version int       `json:"version,omitempty"`
+	// Scope is "" for card events (the default; omitted on the wire so existing
+	// consumers are unaffected) or "board" for board-scoped facts. Persisted as
+	// the events.scope column, defaulting to 'card'. (Events seam 2a)
+	Scope   string    `json:"scope,omitempty"`
 	Type    EventType `json:"type"`
 	Actor   string    `json:"actor"`
 	At      time.Time `json:"at"`
