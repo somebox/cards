@@ -681,3 +681,129 @@ main { padding: var(--s-5); max-width: 100%; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+
+/* ==========================================================================
+   THEME: "journal"  ·  html[data-theme="journal"]
+   ---------------------------------------------------------------------------
+   A worked example of the theme contract (docs/DESIGN.md §Theming): a token
+   remap PLUS scoped component rules — no markup changes. Subject: hand-kept
+   meeting notes. The board is a desk of pastel sticky-notes scattered at a
+   slight angle; the modal is a page from a lined notebook. Handwritten type,
+   rubber-stamp chips, taped-on repeating notes. Activate with ?theme=journal.
+   ========================================================================== */
+html[data-theme="journal"] {
+  --c-flat:      #efe7d6;  --c-flat-dot: #e4dbc6;   /* warm paper desk */
+  --c-surface:   #fffdf6;                            /* note paper */
+  --c-surface-2: #f4eede;  --c-surface-3: #ece4d0;
+  --c-ink:       #39332b;  --c-text: #39332b;  --c-text-2: #574f42;
+  --c-muted:     #6b6353;  --c-faint: #8a806c;
+  --c-border:    #d8cdb4;  --c-border-2: #39332b;
+  --c-label-bg:  #39332b;  --c-label-fg: #fffdf6;
+  --c-nav-bg:    #2f2a22;  --c-nav-fg: #f1e9d6;      /* leather cover */
+  --c-accent:    #3b6ea5;  --c-accent-2: #2c527c;  --c-accent-soft: #d8e4f1;
+  --c-danger:    #b0483b;  --c-danger-soft: #f3ddd7;
+  /* pastel note stocks per type */
+  --type-feature: #5f7cae; --type-feature-bg: #dbe7f5;
+  --type-bug:     #b06a6a; --type-bug-bg:     #f6dede;
+  --type-task:    #6f9463; --type-task-bg:    #e3efdb;
+  --type-experiment: #8a76ad; --type-experiment-bg: #eae1f4;
+  --type-research-goal: #4f9a8f; --type-research-goal-bg: #d8efe8;
+  --type-programming-task: #b09a52; --type-programming-task-bg: #f6eecb;
+  --rel-out: #3b6ea5; --rel-in: #b0483b;
+  /* handwritten type — Caveat for prose, Kalam for the "key:" labels */
+  --font-sans: "Caveat", "Bradley Hand", "Segoe Print", "Comic Sans MS", cursive;
+  --font-mono: "Kalam", "Caveat", "Comic Sans MS", cursive;
+  /* larger, looser — handwriting has a small x-height and wants air */
+  --t-xs: .9rem; --t-sm: 1rem; --t-base: 1.15rem; --t-md: 1.3rem; --t-lg: 1.6rem; --t-xl: 2.2rem;
+  --s-3: .9rem; --s-4: 1.25rem; --s-5: 1.6rem;
+  --r-sm: 3px; --r-md: 5px; --r-lg: 8px;
+}
+/* Plain warm desk — drop the registration dot-grid. */
+html[data-theme="journal"] body { background-image: none; }
+html[data-theme="journal"] .page-title { letter-spacing: 0; }
+html[data-theme="journal"] .app-nav .brand { font-family: var(--font-mono); }
+
+/* Lane heads: handwritten section titles, underlined — no ink bar. */
+html[data-theme="journal"] .lane__head {
+  background: transparent; color: var(--c-ink); border-radius: 0;
+  text-transform: none; letter-spacing: 0; font-family: var(--font-sans);
+  font-size: var(--t-lg); font-weight: 700; padding: 0 0 var(--s-1);
+  border-bottom: 2.5px solid var(--c-ink);
+}
+html[data-theme="journal"] .lane__count { background: transparent; color: var(--c-muted); font-weight: 700; min-width: 0; }
+
+/* Cards: pastel note stock, soft pencil edge, scattered rotation + depth. */
+html[data-theme="journal"] .card {
+  background: var(--card-stock-bg, var(--c-surface));
+  border: 1px solid rgba(57,51,43,.28); border-radius: 7px;
+  padding: var(--s-4); box-shadow: 0 3px 7px rgba(57,51,43,.16);
+  transform: rotate(-.6deg);
+  transition: transform var(--t-med), box-shadow var(--t-med);
+}
+html[data-theme="journal"] .lane__body .card:nth-child(2n) { transform: rotate(.8deg); box-shadow: 0 6px 13px rgba(57,51,43,.2); }
+html[data-theme="journal"] .lane__body .card:nth-child(3n) { transform: rotate(-1.3deg); }
+html[data-theme="journal"] .lane__body .card:nth-child(4n) { transform: rotate(.4deg); box-shadow: 0 2px 5px rgba(57,51,43,.14); }
+html[data-theme="journal"] .lane__body .card:nth-child(5n) { transform: rotate(1.1deg); box-shadow: 0 8px 18px rgba(57,51,43,.22); }
+html[data-theme="journal"] .card:hover { transform: rotate(0deg) translateY(-3px) scale(1.02); box-shadow: 0 12px 24px rgba(57,51,43,.26); }
+/* Fewer details on the note — the pastel is the type; hide the corner mark,
+   preview line, and stats row. */
+html[data-theme="journal"] .card__type-mark,
+html[data-theme="journal"] .card__preview,
+html[data-theme="journal"] .card__stats { display: none; }
+html[data-theme="journal"] .card__title { padding-right: 0; font-size: var(--t-lg); line-height: 1.05; font-weight: 700; }
+html[data-theme="journal"] .card__title a { color: var(--c-ink); }
+
+/* Chips read like rubber stamps: rotated red ink outline, no fill. */
+html[data-theme="journal"] .chip, html[data-theme="journal"] .chip--tag,
+html[data-theme="journal"] .chip--owner {
+  background: transparent; color: var(--c-danger);
+  border: 1.5px solid var(--c-danger); border-radius: 3px;
+  font-family: var(--font-mono); text-transform: uppercase; letter-spacing: .04em;
+  font-weight: 700; opacity: .88; transform: rotate(-2.5deg);
+}
+html[data-theme="journal"] .chip--tag::before { color: var(--c-danger); opacity: .7; }
+html[data-theme="journal"] .card__type-badge {
+  background: transparent; color: var(--c-danger); border: 1.5px solid var(--c-danger); transform: rotate(-2deg);
+}
+
+/* Buttons + controls in the same hand. */
+html[data-theme="journal"] .btn { font-family: var(--font-mono); border-radius: 4px; letter-spacing: .02em; }
+html[data-theme="journal"] .input, html[data-theme="journal"] .select,
+html[data-theme="journal"] .textarea { font-family: var(--font-sans); border-radius: 4px; }
+
+/* Modal = a page from a lined notebook: cream stock, faint rules, a red margin
+   line, taller than the crisp 3:2 print card. */
+html[data-theme="journal"] .modal {
+  aspect-ratio: auto; width: min(660px, 94vw); height: min(84vh, 820px);
+  background-color: #fffdf6; border: 1px solid rgba(57,51,43,.35); border-radius: 4px;
+  box-shadow: 0 26px 60px rgba(57,51,43,.4);
+  background-image:
+    linear-gradient(90deg, transparent 2.4rem, rgba(176,72,59,.35) 2.4rem, rgba(176,72,59,.35) calc(2.4rem + 1.5px), transparent calc(2.4rem + 1.5px)),
+    repeating-linear-gradient(transparent, transparent calc(var(--t-base) * 1.6 - 1px), #d7e6f0 calc(var(--t-base) * 1.6 - 1px), #d7e6f0 calc(var(--t-base) * 1.6));
+}
+html[data-theme="journal"] .modal__head { border-bottom: 2px solid var(--c-ink); padding-left: 3rem; }
+html[data-theme="journal"] .modal__body { padding-left: 3rem; }
+html[data-theme="journal"] .modal__footer { border-top: 1px dashed var(--c-border-2); }
+html[data-theme="journal"] .card-title__view { font-size: var(--t-xl); font-weight: 700; }
+/* "key: value" written lines for the meta + field labels. */
+html[data-theme="journal"] .modal__meta { font-family: var(--font-sans); font-size: var(--t-base); }
+html[data-theme="journal"] .modal__meta-key { text-transform: capitalize; letter-spacing: 0; color: var(--c-muted); }
+html[data-theme="journal"] .modal__meta-key::after { content: ":"; }
+html[data-theme="journal"] .field__label {
+  font-family: var(--font-mono); text-transform: none; letter-spacing: 0;
+  font-size: var(--t-base); font-weight: 700; color: var(--c-accent-2);
+}
+html[data-theme="journal"] .field__label::after { content: ":"; }
+
+/* Repeating entries look taped onto the page. */
+html[data-theme="journal"] .entry {
+  position: relative; background: #fdf7e6; border: 1px solid rgba(57,51,43,.22);
+  border-radius: 2px; padding: var(--s-4); margin: var(--s-4) var(--s-2);
+  transform: rotate(-.8deg); box-shadow: 0 3px 7px rgba(57,51,43,.16);
+}
+html[data-theme="journal"] .feed .entry:nth-child(2n) { transform: rotate(.7deg); }
+html[data-theme="journal"] .entry::before {
+  content: ""; position: absolute; top: -9px; left: 50%;
+  width: 66px; height: 20px; transform: translateX(-50%) rotate(-3deg);
+  background: rgba(208,196,150,.55); box-shadow: 0 1px 2px rgba(57,51,43,.15);
+}

@@ -134,7 +134,7 @@ Themes hook onto four **stable** attach points; component class names and
 | Hook | Scope | Set by |
 |---|---|---|
 | `:root` token remap | whole app | a theme stylesheet / the dark block |
-| `html[data-theme="<name>"]` | named theme | *(planned — theme-contract card)* |
+| `html[data-theme="<name>"]` | named theme | `settings.theme` (workspace default), overridable per-visitor via `?theme=<name>` (sticky cookie; `?theme=default` clears). Resolved in `httpapi.resolveTheme`. |
 | `[data-board="<id>"]` wrapper | one board | `Board.theme` → `httpapi.boardStyle` (whitelisted inline tokens) |
 | `.card[data-type="<id>"]` | one card type | CSS defaults; `CardType.type_theme` (`icon`/`accent`/`muted`) overrides inline as `--card-stock(-bg)` / `--badge-ink(-wash)` |
 
@@ -154,6 +154,25 @@ Rules:
   `prefers-color-scheme`); the whitelist deliberately avoids that.
 - A theme that needs a hook that doesn't exist is a design-system change first
   (add the hook + document it here), a theme second.
+
+### Named themes (`html[data-theme]`)
+
+A named theme is one self-contained block at the end of `style.css`:
+`html[data-theme="<name>"] { … }` — a token remap plus, unlike a board theme,
+**scoped component rules** (fonts, shapes, decoration) that reskin structure
+without touching markup. It may override any token, including neutrals, because
+it's a full stylesheet scope (not inline props), so it owns its own light/dark
+story. Select it with `?theme=<name>` (sticky) or a workspace `settings.theme`
+default; the conditional web-font `<link>` for a theme lives in `layout.html`
+keyed on `.Theme`.
+
+The worked reference is **`journal`** (`?theme=journal`): a hand-kept
+meeting-notes look — warm paper desk, pastel sticky-note cards scattered at a
+slight rotation with varied shadow depth, handwritten type (Caveat/Kalam),
+rubber-stamp chips, and a lined-notebook modal with a red margin rule and
+taped-on repeating entries. It demonstrates how far a theme can go on the same
+tokens + components: **the default `:root` theme stays the reference for clean,
+information-dense UI; `journal` is the proof the contract is expressive.**
 
 ## Substrate & upgrade path
 
