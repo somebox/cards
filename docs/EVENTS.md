@@ -285,6 +285,23 @@ stamp/store/dispatch sequences.
    preserved because the event is in the log, but live subscribers/observers may
    miss that event in the synchronous dispatch model. Consumers that need
    correctness recover through the feed.
+6. **Escalated conditions are at-least-once across restarts.** The crossing
+   dedup that suppresses repeat condition emissions (e.g. the WIP
+   exceeded/cleared state map) is in-memory. After a restart a condition that is
+   still true re-fires on the next triggering mutation, appending a *duplicate*
+   durable fact. Consumers must therefore treat escalated condition facts as
+   **idempotent assertions of a state** — keyed by their identity (board +
+   column + type), deduped by the consumer — not as counted occurrences.
+   Temporal conditions (§12, Step 3d) avoid the duplicate entirely with a
+   fired-marker reconstructible from denormalized state; instant conditions
+   either adopt the same discipline or accept at-least-once by contract.
+7. **Escalated-condition append failure.** `Condition` routes escalated types
+   through `Emit`; if that append fails, the durable audit trail — the whole
+   reason `persist:true` was set — silently gains a hole. Best-effort callers
+   (e.g. `evaluateWIP`) must not fail the triggering mutation on it, but the
+   seam must **surface** the append error (log / observer / metric), never
+   swallow it. (A signalled condition dropping is by definition for nobody; an
+   escalated one dropping is data loss.)
 
 This keeps data integrity deterministic while making live delivery best-effort.
 If post-commit live/observer delivery must itself become reliable, evolve to the
@@ -403,9 +420,62 @@ backward compatible for existing card-event consumers.
 
 ### Step 3 — condition event rollout
 
-- Start with ephemeral signals.
-- Promote specific condition events to durable facts only when required by
-  concrete recovery/audit needs.
+Rolled out seam by seam, each its own reviewable slice. **Instant** conditions
+(synchronously evaluable, inline after the triggering mutation) land first;
+**temporal** conditions (scheduler-backed) land last, after the instant
+machinery has validated the Signal / Emit / `persist:true` paths.
+
+- **3a — WIP signal `[built]`.** `wip_exceeded` / `wip_cleared` fire when a board
+  column crosses its configured limit; ephemeral `Signal`; crossing-deduped so
+  they fire only on a state change, not every mutation.
+- **3b — persist:true escalation `[in review, PR #15]`.** One `Emitter.Condition`
+  seam routes each condition by policy: types in workspace
+  `settings.persist_conditions` go through `Emit` (durable, replayable), the rest
+  through `Signal`. Bus/observer delivery is identical either way. See §11.2.
+- **3c — remaining instant conditions.** `lane_drained` / `lane_refilled`,
+  `card_blocked` / `card_unblocked`. **Unify with 3a rather than repeat it:** WIP
+  *and* lane-drained/refilled both derive from a single **column census** (one
+  `ListCards` per affected column per mutation) and one shared crossing-state
+  map — do not build a second parallel counting path. `card_blocked` /
+  `card_unblocked` reuse the existing `CardQuery.blocked` definition (triggered
+  by link mutations, and by a target card's status change), *not* a second notion
+  of "blocked". Table-driven test per condition type; verify no condition handler
+  mutates card state (§2, principle 4 — the core records, it does not act).
+- **3d — deadline scheduler.** Min-heap keyed by earliest deadline; no fixed
+  tick; sleeps until the next deadline; empty heap = zero wakeups. Deadlines are
+  reconstructible from a denormalized `status_since` column + a fired-marker
+  keyed by (card, status, status_since) — nothing is persisted for scheduling
+  itself. Lazy / refcounted: a monitor is armed only while it has a live consumer
+  (SSE filter, hook/webhook, or `persist:true`) and dropped when the last
+  consumer disconnects. The scheduler emits through `Condition` (3b), so it holds
+  no opinion on durability — validating that 3b lands before 3d. Note: a
+  `persist:true` temporal type is effectively a *permanent* consumer, so its
+  deadline never refcounts to zero ("lazy" does not apply to it — say so).
+  Injected clock; no real sleeps in tests.
+- **3e — wire temporal conditions.** Attach `status_timeout` / `card_idle` to the
+  3d scheduler. Integration test with an injected clock and a *real* SSE
+  subscriber: the deadline arms on status entry, fires exactly once on clock
+  advance, and does not fire if the card leaves the status first;
+  reconnect/disconnect refcounting exercised end to end.
+
+**Cross-cutting hardening — fold into 3c's PR, not separate slices:**
+
+- **Board-membership caveat.** Condition census counts by *type* membership
+  (`TypeIDIn`); a board defined by a `DefaultFilter` (e.g. `hipri`) is not counted
+  correctly, and the census caps at 500 cards. Document the limitation now; fix
+  only if/when filter-defined boards gain WIP or lane limits.
+- **Config validation.** Validate each `persist_conditions` entry against the
+  known condition-type catalog at load; warn on unknown types — today a typo
+  (`"wip_exceded"`) silently no-ops.
+- **Append-error surfacing.** `Condition`'s escalated path must log/observe a
+  failed durable append rather than swallow it (see §8, point 7).
+- **Rename (cosmetic).** `dispatchCommitted` now serves both the durable and the
+  ephemeral path; rename to `dispatch` so the name stops implying commit.
+
+**Dogfood.** Once 3b (PR #15) merges, set `persist_conditions: ["wip_exceeded"]`
+on the demo workspace so we exercise the escalation path the same way integrators
+(picraft) will — otherwise signals are invisible after the fact and can't be
+dogfooded ("did WIP fire yesterday?" is unanswerable for an un-escalated signal).
 
 ### Step 4 — optional outbox/tailer evolution `[future]`
 
