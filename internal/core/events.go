@@ -52,6 +52,7 @@ type Emitter struct {
 
 	mu        sync.RWMutex
 	observers []EventObserver
+	persist   map[EventType]bool // condition types promoted to the durable path (3b)
 }
 
 func newEmitter(log EventLog, bus Bus, now func() time.Time) *Emitter {
@@ -83,6 +84,56 @@ func (e *Emitter) Emit(ctx context.Context, evs ...*Event) error {
 func (e *Emitter) Signal(ctx context.Context, evs ...*Event) {
 	e.stamp(ctx, evs)
 	e.dispatchCommitted(evs)
+}
+
+// PersistConditions promotes the named condition event types to the durable
+// fact path: Condition then routes those types through Emit (append + dispatch)
+// instead of Signal (dispatch only). Everything else stays ephemeral. Configure
+// once at startup, before emission. (3b — persist:true escalation.)
+func (e *Emitter) PersistConditions(types ...EventType) {
+	e.mu.Lock()
+	if e.persist == nil {
+		e.persist = map[EventType]bool{}
+	}
+	for _, t := range types {
+		e.persist[t] = true
+	}
+	e.mu.Unlock()
+}
+
+// shouldPersist reports whether a condition type has been escalated to durable.
+func (e *Emitter) shouldPersist(t EventType) bool {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+	return e.persist[t]
+}
+
+// Condition is the single emission seam for condition events. Each event routes
+// by policy: types escalated via PersistConditions go through Emit (durable
+// fact, replayable from the feed); the rest go through Signal (ephemeral). Bus
+// and observer delivery are identical either way — persistence is the only
+// difference, so consumers cannot tell an escalated event from a signalled one
+// on the live path. Returns the durable append error, if any (the signalled
+// portion is always best-effort). (3b)
+func (e *Emitter) Condition(ctx context.Context, evs ...*Event) error {
+	var durable, ephemeral []*Event
+	for _, ev := range evs {
+		if ev == nil {
+			continue
+		}
+		if e.shouldPersist(ev.Type) {
+			durable = append(durable, ev)
+		} else {
+			ephemeral = append(ephemeral, ev)
+		}
+	}
+	if len(ephemeral) > 0 {
+		e.Signal(ctx, ephemeral...)
+	}
+	if len(durable) > 0 {
+		return e.Emit(ctx, durable...)
+	}
+	return nil
 }
 
 // stamp fills Actor (from ctx) and At (from the clock) on any event that has not

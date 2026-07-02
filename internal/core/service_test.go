@@ -12,10 +12,10 @@ import (
 	"github.com/somebox/cards/internal/sqlite"
 )
 
-// newTestService builds an in-memory store + service with an engineering-like
-// board that enforces transitions: todo -> in_progress -> review -> done.
-func newTestService(t *testing.T) (*core.Service, *sqlite.Store) {
-	t.Helper()
+// testConfig builds the shared engineering-like workspace/type/board config used
+// by the service tests: a board that enforces transitions (todo -> in_progress
+// -> review -> done) with WIPLimits{in_progress: 1}.
+func testConfig() (*core.Workspace, map[string]*core.CardType, map[string]*core.Board) {
 	ws := &core.Workspace{
 		ID:       "t",
 		Name:     "T",
@@ -65,7 +65,27 @@ func newTestService(t *testing.T) (*core.Service, *sqlite.Store) {
 		},
 	}
 	boards["eng"].Settings.EnforceTransitions = true
+	return ws, types, boards
+}
 
+// newTestService builds an in-memory store + service from the default testConfig.
+func newTestService(t *testing.T) (*core.Service, *sqlite.Store) {
+	t.Helper()
+	ws, types, boards := testConfig()
+	return newTestServiceWith(t, ws, types, boards)
+}
+
+// newTestServiceWithSettings is newTestService with the workspace settings
+// replaced (e.g. to opt condition types into persistence — seam 3b).
+func newTestServiceWithSettings(t *testing.T, s core.WorkspaceSettings) (*core.Service, *sqlite.Store) {
+	t.Helper()
+	ws, types, boards := testConfig()
+	ws.Settings = s
+	return newTestServiceWith(t, ws, types, boards)
+}
+
+func newTestServiceWith(t *testing.T, ws *core.Workspace, types map[string]*core.CardType, boards map[string]*core.Board) (*core.Service, *sqlite.Store) {
+	t.Helper()
 	st, err := sqlite.Open(":memory:", ws)
 	if err != nil {
 		t.Fatalf("open store: %v", err)
@@ -75,8 +95,7 @@ func newTestService(t *testing.T) (*core.Service, *sqlite.Store) {
 	_ = st.InsertUser(context.Background(), core.User{ID: "u", Kind: "human", CreatedAt: time.Now().UTC()})
 	_ = st.InsertUser(context.Background(), core.User{ID: "alice", Kind: "human", CreatedAt: time.Now().UTC()})
 
-	svc := core.NewService(ws, types, boards, st)
-	return svc, st
+	return core.NewService(ws, types, boards, st), st
 }
 
 func ptrFloat(f float64) *float64 { return &f }
