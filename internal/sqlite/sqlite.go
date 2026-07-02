@@ -75,16 +75,21 @@ func (s *Store) Init(ctx context.Context) error {
 		`CREATE INDEX IF NOT EXISTS idx_cards_type ON cards(type_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_cards_owner ON cards(owner)`,
 		`CREATE INDEX IF NOT EXISTS idx_cards_updated ON cards(updated_at)`,
+		// card_id is nullable (board-scoped events have none); scope defaults to
+		// 'card'. Old DBs are migrated by migrateEventsScope below. (seam 2a)
 		`CREATE TABLE IF NOT EXISTS events (
-			id      INTEGER PRIMARY KEY AUTOINCREMENT,
-			card_id TEXT NOT NULL,
-			type    TEXT NOT NULL,
-			actor   TEXT NOT NULL,
-			at      TEXT NOT NULL,
-			diff    TEXT
+			id       INTEGER PRIMARY KEY AUTOINCREMENT,
+			card_id  TEXT,
+			board_id TEXT,
+			scope    TEXT NOT NULL DEFAULT 'card',
+			type     TEXT NOT NULL,
+			actor    TEXT NOT NULL,
+			at       TEXT NOT NULL,
+			diff     TEXT
 		)`,
 		`CREATE INDEX IF NOT EXISTS idx_events_card ON events(card_id, id)`,
 		`CREATE INDEX IF NOT EXISTS idx_events_at ON events(at)`,
+		`CREATE INDEX IF NOT EXISTS idx_events_scope ON events(scope, board_id, id)`,
 		`CREATE TABLE IF NOT EXISTS users (
 			id           TEXT PRIMARY KEY,
 			display_name TEXT,
@@ -128,7 +133,68 @@ func (s *Store) Init(ctx context.Context) error {
 			return fmt.Errorf("init schema: %w (stmt: %s)", err, q)
 		}
 	}
-	return nil
+	return s.migrateEventsScope(ctx)
+}
+
+// migrateEventsScope upgrades a pre-scope events table (card_id NOT NULL, no
+// board_id/scope) to the seam-2a shape: card_id nullable, board_id + scope
+// columns, existing rows backfilled to scope='card'. Gated on the presence of
+// the scope column, so it's a no-op for fresh DBs (Init already made the new
+// table) and idempotent on re-run. (Events seam 2a)
+func (s *Store) migrateEventsScope(ctx context.Context) error {
+	rows, err := s.db.QueryContext(ctx, `PRAGMA table_info(events)`)
+	if err != nil {
+		return err
+	}
+	hasScope := false
+	for rows.Next() {
+		var cid, notnull, pk int
+		var name, ctype string
+		var dflt sql.NullString
+		if err := rows.Scan(&cid, &name, &ctype, &notnull, &dflt, &pk); err != nil {
+			rows.Close()
+			return err
+		}
+		if name == "scope" {
+			hasScope = true
+		}
+	}
+	rows.Close()
+	if hasScope {
+		return nil // fresh new-schema table, or already migrated
+	}
+	// Rebuild: SQLite can't relax card_id's NOT NULL in place. Copy through a new
+	// table, backfilling scope='card', then swap and rebuild indexes.
+	migration := []string{
+		`ALTER TABLE events RENAME TO events_pre_scope`,
+		`CREATE TABLE events (
+			id       INTEGER PRIMARY KEY AUTOINCREMENT,
+			card_id  TEXT,
+			board_id TEXT,
+			scope    TEXT NOT NULL DEFAULT 'card',
+			type     TEXT NOT NULL,
+			actor    TEXT NOT NULL,
+			at       TEXT NOT NULL,
+			diff     TEXT
+		)`,
+		`INSERT INTO events (id, card_id, scope, type, actor, at, diff)
+			SELECT id, card_id, 'card', type, actor, at, diff FROM events_pre_scope`,
+		`DROP TABLE events_pre_scope`,
+		`CREATE INDEX IF NOT EXISTS idx_events_card ON events(card_id, id)`,
+		`CREATE INDEX IF NOT EXISTS idx_events_at ON events(at)`,
+		`CREATE INDEX IF NOT EXISTS idx_events_scope ON events(scope, board_id, id)`,
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	for _, q := range migration {
+		if _, err := tx.ExecContext(ctx, q); err != nil {
+			return fmt.Errorf("migrate events scope: %w", err)
+		}
+	}
+	return tx.Commit()
 }
 
 // Close releases the DB handle.
@@ -392,7 +458,7 @@ func (s *Store) ClaimAtomic(ctx context.Context, q core.CardQuery, owner, status
 
 // --- Events ---
 
-const eventCols = "e.id, e.card_id, e.type, e.actor, e.at, e.diff"
+const eventCols = "e.id, e.card_id, e.board_id, e.scope, e.type, e.actor, e.at, e.diff"
 
 // buildEventFromWhere assembles the FROM/JOIN/WHERE for an EventQuery. A JOIN
 // to cards is added only when an owner or card-type filter is present, so the
@@ -437,9 +503,14 @@ func scanEvents(rows *sql.Rows) ([]core.Event, error) {
 	out := []core.Event{}
 	for rows.Next() {
 		var e core.Event
-		var at, diff sql.NullString
-		if err := rows.Scan(&e.ID, &e.CardID, &e.Type, &e.Actor, &at, &diff); err != nil {
+		var cardID, boardID, scope, at, diff sql.NullString
+		if err := rows.Scan(&e.ID, &cardID, &boardID, &scope, &e.Type, &e.Actor, &at, &diff); err != nil {
 			return nil, err
+		}
+		e.CardID = cardID.String
+		e.BoardID = boardID.String
+		if scope.String != "" && scope.String != "card" {
+			e.Scope = scope.String // 'card' is the default; keep it off the wire
 		}
 		e.At, _ = time.Parse(time.RFC3339Nano, at.String)
 		if diff.Valid && diff.String != "" {
@@ -537,14 +608,18 @@ func (s *Store) Page(ctx context.Context, q core.EventQuery) (*core.Page[core.Ev
 	return &core.Page[core.Event]{Items: evs, NextCursor: next}, nil
 }
 
-// InsertEventRaw appends a single event verbatim (preserving card_id, type,
-// actor, at, and diff). The events table assigns a fresh autoincrement id, so
-// import preserves chronological order without forcing original ids. Used by
-// the import command to restore the audit log from a JSONL export.
+// InsertEventRaw appends a single event verbatim (preserving card_id, board_id,
+// scope, type, actor, at, and diff). The events table assigns a fresh
+// autoincrement id, so import preserves chronological order without forcing
+// original ids. Used by the import command to restore the audit log.
 func (s *Store) InsertEventRaw(ctx context.Context, ev *core.Event) error {
 	diffB, _ := json.Marshal(ev.Diff)
-	_, err := s.db.ExecContext(ctx, `INSERT INTO events(card_id, type, actor, at, diff) VALUES(?,?,?,?,?)`,
-		ev.CardID, string(ev.Type), ev.Actor, ev.At.Format(time.RFC3339Nano), string(diffB))
+	scope := ev.Scope
+	if scope == "" {
+		scope = "card"
+	}
+	_, err := s.db.ExecContext(ctx, `INSERT INTO events(card_id, board_id, scope, type, actor, at, diff) VALUES(?,?,?,?,?,?,?)`,
+		nullableString(ev.CardID), nullableString(ev.BoardID), scope, string(ev.Type), ev.Actor, ev.At.Format(time.RFC3339Nano), string(diffB))
 	return err
 }
 
@@ -749,8 +824,12 @@ func execCardInsert(tx *sql.Tx, c *core.Card) error {
 
 func execEventInsert(tx *sql.Tx, ev *core.Event) error {
 	diffB, _ := json.Marshal(ev.Diff)
-	res, err := tx.Exec(`INSERT INTO events(card_id, type, actor, at, diff) VALUES(?,?,?,?,?)`,
-		ev.CardID, string(ev.Type), ev.Actor, ev.At.Format(time.RFC3339Nano), string(diffB))
+	scope := ev.Scope
+	if scope == "" {
+		scope = "card"
+	}
+	res, err := tx.Exec(`INSERT INTO events(card_id, board_id, scope, type, actor, at, diff) VALUES(?,?,?,?,?,?,?)`,
+		nullableString(ev.CardID), nullableString(ev.BoardID), scope, string(ev.Type), ev.Actor, ev.At.Format(time.RFC3339Nano), string(diffB))
 	if err != nil {
 		return err
 	}
