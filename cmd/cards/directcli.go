@@ -14,10 +14,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/somebox/cards/internal/config"
-	"github.com/somebox/cards/internal/core"
 	"github.com/somebox/cards/internal/httpapi"
-	"github.com/somebox/cards/internal/sqlite"
 )
 
 // directBackend is a cli.Transport that dispatches to an in-process router.
@@ -72,15 +69,10 @@ func newDirectBackend() (directBackend, error) {
 		dir = abs
 	}
 
-	result, err := config.New(dir).Load()
+	st, svc, result, err := openWorkspace(dir)
 	if err != nil {
-		return directBackend{}, fmt.Errorf("load workspace %s: %w", dir, err)
+		return directBackend{}, fmt.Errorf("workspace %s: %w", dir, err)
 	}
-	st, err := sqlite.Open(filepath.Join(dir, "work-cards.db"), result.Workspace)
-	if err != nil {
-		return directBackend{}, fmt.Errorf("open store: %w", err)
-	}
-	svc := core.NewService(result.Workspace, result.CardTypes, result.Boards, st)
 	srv, err := httpapi.New(svc, result.Workspace, result.CardTypes, result.Boards, st)
 	if err != nil {
 		st.Close()

@@ -20,6 +20,10 @@ func main() {
 	}
 }
 
+// Output convention (all subcommands): a command's product — listings, JSON,
+// JSONL exports — goes to stdout; operational/progress messages go to stderr
+// via log.Printf (serve, run-extensions) or fmt.Fprintf(os.Stderr, ...)
+// (import/export summaries), so stdout stays pipeable.
 func run(args []string) error {
 	// Peel leading global flags (e.g. --url=... --as=... list ...).
 	globals, rest := peelGlobals(args)

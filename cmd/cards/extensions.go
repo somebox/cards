@@ -13,17 +13,10 @@ import (
 	"path/filepath"
 	"syscall"
 
+	"github.com/somebox/cards/internal/cli"
 	"github.com/somebox/cards/internal/config"
-	"github.com/somebox/cards/internal/core"
 	"github.com/somebox/cards/internal/hooks"
-	"github.com/somebox/cards/internal/sqlite"
 )
-
-// stringSlice is a flag.Value for repeatable string flags (--param k=v).
-type stringSlice []string
-
-func (s *stringSlice) String() string     { return fmt.Sprint(*s) }
-func (s *stringSlice) Set(v string) error { *s = append(*s, v); return nil }
 
 // runExtensionsCmd runs the hook supervisor against a workspace. It opens the
 // store (read/write, so hooks can post back via the API) and subscribes to the
@@ -42,24 +35,13 @@ func runExtensionsCmd(args []string) error {
 	if err != nil {
 		return err
 	}
-	result, err := config.New(abs).Load()
+	st, svc, result, err := openWorkspace(abs)
 	if err != nil {
-		return fmt.Errorf("load workspace: %w", err)
-	}
-	dbPath := filepath.Join(abs, "work-cards.db")
-	st, err := sqlite.Open(dbPath, result.Workspace)
-	if err != nil {
-		return fmt.Errorf("open store: %w", err)
+		return err
 	}
 	defer st.Close()
-	svc := core.NewService(result.Workspace, result.CardTypes, result.Boards, st)
 
-	hookCount := 0
-	for _, e := range result.Extensions {
-		if e.Kind == "hook" {
-			hookCount++
-		}
-	}
+	hookCount := countHooks(result.Extensions)
 	if hookCount == 0 {
 		log.Printf("no hooks declared in workspace %s", abs)
 	} else {
@@ -78,12 +60,13 @@ func runExtensionsCmd(args []string) error {
 	return sup.Run(ctx)
 }
 
-// doCmd invokes a `run` extension by id with --param k=v flags.
+// doCmd invokes a `run` extension by id with --param k=v flags. It parses with
+// cli.FlagSet so --param may follow the extension id (stdlib flag stops at the
+// first positional, which made the documented usage silently drop params).
 func doCmd(args []string) error {
-	fs := flag.NewFlagSet("do", flag.ContinueOnError)
-	workspace := fs.String("workspace", "", "workspace directory")
-	var params stringSlice
-	fs.Var(&params, "param", "k=v parameter (repeatable)")
+	fs := cli.NewFlagSet()
+	workspace := fs.String("workspace", "")
+	params := fs.StringArr("param", nil)
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -111,7 +94,7 @@ func doCmd(args []string) error {
 	}
 	// Pass --param flags through to the command.
 	cmdArgs := []string{}
-	for _, p := range params {
+	for _, p := range *params {
 		cmdArgs = append(cmdArgs, "--param", p)
 	}
 	cmd := exec.Command(ext.Run[0], append(ext.Run[1:], cmdArgs...)...)

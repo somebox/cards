@@ -4,21 +4,19 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/somebox/cards/internal/config"
-	"github.com/somebox/cards/internal/core"
 	"github.com/somebox/cards/internal/hooks"
 	"github.com/somebox/cards/internal/httpapi"
 	"github.com/somebox/cards/internal/mcp"
 	"github.com/somebox/cards/internal/seed"
-	"github.com/somebox/cards/internal/sqlite"
 )
 
 func serveCmd(args []string) error {
@@ -47,27 +45,15 @@ func serveCmd(args []string) error {
 		}
 	}
 
-	// 1. Load definitions.
-	loader := config.New(abs)
-	result, err := loader.Load()
+	st, svc, result, err := openWorkspace(abs)
 	if err != nil {
-		return fmt.Errorf("load workspace: %w", err)
+		return err
 	}
+	defer st.Close()
 	log.Printf("loaded workspace %q: %d types, %d boards, %d columns",
 		result.Workspace.ID, len(result.CardTypes), len(result.Boards), len(result.Workspace.Columns))
 
-	// 2. Open SQLite (creates work-cards.db in the workspace dir).
-	dbPath := filepath.Join(abs, "work-cards.db")
-	st, err := sqlite.Open(dbPath, result.Workspace)
-	if err != nil {
-		return fmt.Errorf("open store: %w", err)
-	}
-	defer st.Close()
-
-	// 3. Service.
-	svc := core.NewService(result.Workspace, result.CardTypes, result.Boards, st)
-
-	// 4. Seed if requested.
+	// Seed if requested.
 	if *seedFlag {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		if err := seed.IfEmpty(ctx, st, svc, result.Workspace); err != nil {
@@ -90,10 +76,15 @@ func serveCmd(args []string) error {
 	log.Printf("  UI:  http://%s/ui/boards/", addr)
 	log.Printf("  API: http://%s/v1/workspace", addr)
 	if *runExt {
+		// Tie the supervisor's lifetime to the HTTP server's: when
+		// ListenAndServe returns (including an immediate bind failure), the
+		// context is cancelled and the supervisor goroutine exits with it.
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
 		cardsURL := fmt.Sprintf("http://%s/v1", addr)
 		sup := hooks.New(svc, result.Workspace, result.Extensions, abs, cardsURL)
 		go func() {
-			if err := sup.Run(context.Background()); err != nil {
+			if err := sup.Run(ctx); err != nil && !errors.Is(err, context.Canceled) {
 				log.Printf("hook supervisor stopped: %v", err)
 			}
 		}()
@@ -129,17 +120,11 @@ func mcpCmd(args []string) error {
 			return fmt.Errorf("initialize workspace: %w", ierr)
 		}
 	}
-	result, err := config.New(abs).Load()
+	st, svc, result, err := openWorkspace(abs)
 	if err != nil {
-		return fmt.Errorf("load workspace: %w", err)
-	}
-	dbPath := filepath.Join(abs, "work-cards.db")
-	st, err := sqlite.Open(dbPath, result.Workspace)
-	if err != nil {
-		return fmt.Errorf("open store: %w", err)
+		return err
 	}
 	defer st.Close()
-	svc := core.NewService(result.Workspace, result.CardTypes, result.Boards, st)
 	actor := os.Getenv("CARDS_USER")
 	if actor == "" {
 		actor = result.Workspace.Settings.DefaultUser

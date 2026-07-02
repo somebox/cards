@@ -12,6 +12,7 @@ import (
 func initCmd(args []string) error {
 	fs := flag.NewFlagSet("init", flag.ContinueOnError)
 	global := fs.Bool("global", false, "initialize the personal workspace (~/.cards or $CARDS_HOME)")
+	quiet := fs.Bool("quiet", false, "suppress post-init instructions (like import/export summaries)")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -38,6 +39,9 @@ func initCmd(args []string) error {
 	created, err := initWorkspace(dir)
 	if err != nil {
 		return fmt.Errorf("initialize workspace: %w", err)
+	}
+	if *quiet {
+		return nil
 	}
 	if !created {
 		fmt.Printf("workspace already initialized at %s\n", dir)

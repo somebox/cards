@@ -6,9 +6,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-
-	"github.com/somebox/cards/internal/config"
-	"github.com/somebox/cards/internal/sqlite"
 )
 
 // exportCmd dumps all card data (cards, events, comments, links, users) as
@@ -34,20 +31,13 @@ func exportCmd(args []string) error {
 		return err
 	}
 
-	// Load definitions (needed for the store to know the workspace schema).
-	loader := config.New(abs)
-	result, err := loader.Load()
-	if err != nil {
-		return fmt.Errorf("load workspace: %w", err)
-	}
-
-	dbPath := filepath.Join(abs, "work-cards.db")
-	if _, err := os.Stat(dbPath); err != nil {
+	// Pre-flight: export reads an existing DB; opening would create an empty one.
+	if _, err := os.Stat(dbPath(abs)); err != nil {
 		return fmt.Errorf("no work-cards.db in workspace (run 'cards serve' first): %w", err)
 	}
-	st, err := sqlite.Open(dbPath, result.Workspace)
+	st, _, result, err := openWorkspace(abs)
 	if err != nil {
-		return fmt.Errorf("open db: %w", err)
+		return err
 	}
 	defer st.Close()
 

@@ -7,9 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/somebox/cards/internal/config"
 	"github.com/somebox/cards/internal/core"
-	"github.com/somebox/cards/internal/sqlite"
 )
 
 // importCmd is the inverse of exportCmd: it reads a JSONL export (from stdin or
@@ -41,17 +39,9 @@ func importCmd(args []string) error {
 		return err
 	}
 
-	// Load definitions so the store knows the workspace schema.
-	loader := config.New(abs)
-	result, err := loader.Load()
+	st, _, _, err := openWorkspace(abs)
 	if err != nil {
-		return fmt.Errorf("load workspace: %w", err)
-	}
-
-	dbPath := filepath.Join(abs, "work-cards.db")
-	st, err := sqlite.Open(dbPath, result.Workspace)
-	if err != nil {
-		return fmt.Errorf("open db: %w", err)
+		return err
 	}
 	defer st.Close()
 
@@ -62,7 +52,7 @@ func importCmd(args []string) error {
 	if existing, err := st.ListCards(ctx, core.CardQuery{Limit: 1}); err != nil {
 		return fmt.Errorf("check workspace: %w", err)
 	} else if len(existing.Items) > 0 {
-		return fmt.Errorf("workspace already contains cards; import restores into a fresh DB. Remove %s (and -wal/-shm) to re-import", dbPath)
+		return fmt.Errorf("workspace already contains cards; import restores into a fresh DB. Remove %s (and -wal/-shm) to re-import", dbPath(abs))
 	}
 
 	// Read from stdin or file.

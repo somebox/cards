@@ -9,9 +9,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/somebox/cards/internal/config"
-	"github.com/somebox/cards/internal/core"
-	"github.com/somebox/cards/internal/sqlite"
 	"github.com/somebox/cards/internal/starter"
 )
 
@@ -76,16 +73,11 @@ func initWorkspace(dir string) (bool, error) {
 	if !created {
 		return false, nil
 	}
-	result, err := config.New(dir).Load()
-	if err != nil {
-		return false, err
-	}
-	st, err := sqlite.Open(filepath.Join(dir, "work-cards.db"), result.Workspace)
+	st, svc, result, err := openWorkspace(dir)
 	if err != nil {
 		return false, err
 	}
 	defer st.Close()
-	svc := core.NewService(result.Workspace, result.CardTypes, result.Boards, st)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := starter.SeedWelcome(ctx, st, svc, result.Workspace); err != nil {
