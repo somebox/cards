@@ -138,6 +138,7 @@ type WorkspaceSettings struct {
 	TagPolicy           string `json:"tag_policy"`
 	EventRetentionDays  int    `json:"event_retention_days,omitempty"`
 	DefaultUser         string `json:"default_user,omitempty"`
+	Theme               string `json:"theme,omitempty"` // default UI theme (html[data-theme]); see docs/DESIGN.md
 }
 
 // Workspace is the top-level scope. All cards belong to one workspace.

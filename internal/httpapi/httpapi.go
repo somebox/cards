@@ -850,7 +850,7 @@ func (s *Server) uiIndex(w http.ResponseWriter, r *http.Request) {
 	data.RecentCards = recent
 	data.TypeThemes = s.buildTypeThemes()
 	data.Query = r.URL.Query().Get("q")
-	s.renderPage(w, "home.html", data)
+	s.renderPage(w, r, "home.html", data)
 }
 
 // uiSearch renders global search results for GET /ui/search?q= (1d). q is
@@ -874,7 +874,7 @@ func (s *Server) uiSearch(w http.ResponseWriter, r *http.Request) {
 		s.renderPartial(w, "search_results.html", data)
 		return
 	}
-	s.renderPage(w, "search_results.html", data)
+	s.renderPage(w, r, "search_results.html", data)
 }
 
 // uiStylesheet serves the embedded design-system CSS.
@@ -896,7 +896,7 @@ func (s *Server) uiBoard(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	s.renderPage(w, "board.html", s.boardData(r, b))
+	s.renderPage(w, r, "board.html", s.boardData(r, b))
 }
 
 // boardData builds the ViewData for a board page (cards grouped by column).
@@ -988,7 +988,7 @@ func (s *Server) uiNewCardForm(w http.ResponseWriter, r *http.Request) {
 	data.TagSet = s.ws.TagSet
 	data.FormTitle = ""
 	data.FormTags = ""
-	s.renderPage(w, "card_form.html", data)
+	s.renderPage(w, r, "card_form.html", data)
 }
 
 func (s *Server) uiCreateCard(w http.ResponseWriter, r *http.Request) {
@@ -1054,7 +1054,7 @@ func (s *Server) uiCreateCard(w http.ResponseWriter, r *http.Request) {
 		data.FormTitle = req.Title
 		data.FormTags = r.FormValue("tags")
 		data.Error = core.AsError(err)
-		s.renderPage(w, "card_form.html", data)
+		s.renderPage(w, r, "card_form.html", data)
 		return
 	}
 	http.Redirect(w, r, "/ui/boards/"+boardID, http.StatusSeeOther)
@@ -1080,7 +1080,7 @@ func (s *Server) renderCardAmbiguous(w http.ResponseWriter, r *http.Request, amb
 	data := s.baseData("Ambiguous id: " + amb.Short)
 	data.Error = &core.Error{Code: "ambiguous", Message: amb.Short, HTTPStatus: 409}
 	data.Candidates = amb.Candidates
-	s.renderPage(w, "card_ambiguous.html", data)
+	s.renderPage(w, r, "card_ambiguous.html", data)
 }
 
 func (s *Server) uiMoveCard(w http.ResponseWriter, r *http.Request) {
@@ -1347,6 +1347,7 @@ type FieldView struct {
 // ViewData is the template payload.
 type ViewData struct {
 	Title          string
+	Theme          string // active UI theme name for html[data-theme] (empty = default)
 	Boards         map[string]*core.Board
 	Board          *core.Board
 	Columns        []core.Column
@@ -1502,7 +1503,7 @@ func (s *Server) renderCardDetail(w http.ResponseWriter, r *http.Request, c *cor
 	if wantsPartial(r) {
 		s.renderPartial(w, "card_detail.html", data)
 	} else {
-		s.renderPage(w, "card_detail.html", data)
+		s.renderPage(w, r, "card_detail.html", data)
 	}
 }
 
@@ -1760,11 +1761,30 @@ func renderValue(v any) string {
 
 // --- render helpers ---
 
-func (s *Server) renderPage(w http.ResponseWriter, name string, data ViewData) {
+func (s *Server) renderPage(w http.ResponseWriter, r *http.Request, name string, data ViewData) {
+	data.Theme = s.resolveTheme(w, r)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := s.pages[name].ExecuteTemplate(w, "layout", data); err != nil {
 		http.Error(w, "template error: "+err.Error(), http.StatusInternalServerError)
 	}
+}
+
+// resolveTheme picks the active UI theme for html[data-theme]. Precedence:
+// an explicit ?theme= (persisted in a cookie so it sticks across navigation;
+// ?theme=default clears it), else the cookie, else the workspace default.
+// Empty string = the built-in default theme.
+func (s *Server) resolveTheme(w http.ResponseWriter, r *http.Request) string {
+	if t := r.URL.Query().Get("theme"); t != "" {
+		if t == "default" {
+			t = ""
+		}
+		http.SetCookie(w, &http.Cookie{Name: "wc_theme", Value: t, Path: "/", MaxAge: 31536000})
+		return t
+	}
+	if c, err := r.Cookie("wc_theme"); err == nil && c.Value != "" {
+		return c.Value
+	}
+	return s.ws.Settings.Theme
 }
 
 func (s *Server) renderPartial(w http.ResponseWriter, name string, data ViewData) {
