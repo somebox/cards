@@ -293,7 +293,7 @@ main { padding: var(--s-5); max-width: 100%; }
 .chip::before { line-height: 1; }
 /* Monochromatic mask icons — one color (currentColor), consistent size. */
 .chip--owner::before,
-.card__type-badge:not(:has(.card__type-badge__icon))::before {
+.card__type-badge::before {
   content: ""; width: .95em; height: .95em; flex: none;
   background-color: currentColor;
   -webkit-mask: var(--ico) center / contain no-repeat;
@@ -312,14 +312,16 @@ main { padding: var(--s-5); max-width: 100%; }
 }
 .chip--owner:hover { background: var(--c-danger-soft); color: var(--c-danger); border-color: var(--c-danger); }
 
-/* Type badge — the consistent white-on-black registration stamp. Config can
-   override a single type's ink via inline --badge-ink/--badge-wash. */
+/* Type badge — the consistent registration stamp. Default is white-on-black;
+   a config-themed type paints it soft via inline props: --badge-wash is the
+   stock (background), --badge-ink the printing (text + outline). The type icon
+   is the monochrome [data-type] mask, so no literal glyph text is rendered. */
 .card__type-badge {
   display: inline-flex; align-items: center; gap: .3em; line-height: 1;
   font-family: var(--font-mono); font-weight: 600; font-size: .66rem;
   text-transform: uppercase; letter-spacing: .01em;
   padding: .3em .45em; border-radius: var(--r-pill);
-  background: var(--badge-ink, var(--c-label-bg)); color: var(--c-label-fg);
+  background: var(--badge-wash, var(--c-label-bg)); color: var(--badge-ink, var(--c-label-fg));
   border: 1px solid var(--badge-ink, var(--c-label-bg)); white-space: nowrap;
 }
 /* Default glyph shared by the board card's corner mark (.card) and the type
@@ -327,7 +329,6 @@ main { padding: var(--s-5); max-width: 100%; }
 .card, .card__type-badge {
   --ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2'%3E%3Crect x='4' y='4' width='16' height='16' rx='1'/%3E%3C/svg%3E");
 }
-.card__type-badge__icon { font-size: .95em; line-height: 1; }
 /* Per-type monochromatic icon, shared by the board card corner mark (.card)
    and the modal/detail/home type badge (.card__type-badge). */
 .card[data-type="feature"], .card__type-badge[data-type="feature"]          { --ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Cpath d='M12 2l2.4 7.6L22 12l-7.6 2.4L12 22l-2.4-7.6L2 12l7.6-2.4z'/%3E%3C/svg%3E"); }
