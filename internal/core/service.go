@@ -40,11 +40,20 @@ type Service struct {
 func NewService(ws *Workspace, types map[string]*CardType, boards map[string]*Board, st Store) *Service {
 	now := func() time.Time { return time.Now().UTC() }
 	bus := NewBus()
-	return &Service{
+	svc := &Service{
 		ws: ws, types: types, boards: boards, store: st,
 		bus: bus, emitter: newEmitter(st, bus, now), now: now,
 		wipExceeded: map[string]bool{},
 	}
+	// Escalate any condition types the workspace opted into persisting (3b).
+	if len(ws.Settings.PersistConditions) > 0 {
+		esc := make([]EventType, 0, len(ws.Settings.PersistConditions))
+		for _, t := range ws.Settings.PersistConditions {
+			esc = append(esc, EventType(t))
+		}
+		svc.emitter.PersistConditions(esc...)
+	}
+	return svc
 }
 
 // evaluateWIP fires wip_exceeded/wip_cleared as ephemeral board signals when a
@@ -72,10 +81,13 @@ func (s *Service) evaluateWIP(ctx context.Context, b *Board, column string) {
 	}
 	s.wipExceeded[key] = exceeded
 	s.wipMu.Unlock()
+	// Condition routes by persist policy (3b): escalated types become durable
+	// facts, the rest stay ephemeral signals. Best-effort either way — a failed
+	// durable append never affects the mutation that triggered evaluation.
 	if exceeded {
-		s.emitter.Signal(ctx, WIPExceeded(b.ID, column, len(page.Items), limit))
+		_ = s.emitter.Condition(ctx, WIPExceeded(b.ID, column, len(page.Items), limit))
 	} else {
-		s.emitter.Signal(ctx, WIPCleared(b.ID, column, len(page.Items), limit))
+		_ = s.emitter.Condition(ctx, WIPCleared(b.ID, column, len(page.Items), limit))
 	}
 }
 
