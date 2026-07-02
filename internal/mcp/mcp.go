@@ -84,7 +84,11 @@ func (s *Server) Serve() error {
 			b, _ := json.Marshal(resp)
 			out.Write(b)
 			out.WriteByte('\n')
-			out.Flush()
+			// bufio errors are sticky; Flush reports them. stdout is the
+			// protocol channel, so failures can only go to stderr.
+			if err := out.Flush(); err != nil {
+				log.Printf("ERROR: mcp: write response: %v", err)
+			}
 		}
 	}
 	if err := scanner.Err(); err != nil && err != io.EOF {
@@ -118,7 +122,9 @@ func (s *Server) writeErr(out *bufio.Writer, id json.RawMessage, code int, msg s
 	b, _ := json.Marshal(resp)
 	out.Write(b)
 	out.WriteByte('\n')
-	out.Flush()
+	if err := out.Flush(); err != nil {
+		log.Printf("ERROR: mcp: write error response: %v", err)
+	}
 }
 
 func (s *Server) handle(req jsonRPCRequest) *jsonRPCResponse {
@@ -462,6 +468,3 @@ func sliceAny(v any) []string {
 	}
 	return out
 }
-
-// silence unused import warnings if log is not otherwise used.
-var _ = log.Print

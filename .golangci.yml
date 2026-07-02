@@ -15,11 +15,18 @@ linters:
 
 linters-settings:
   errcheck:
-    # Allow unhandled errors on these idiomatic "best effort" calls.
+    # Allow unhandled errors on these idiomatic "best effort" calls only.
+    # No path-level excludes: every other dropped error needs an explicit
+    # handler or a documented best-effort helper (see DEBT-01..11 sweep).
     exclude-functions:
       - (*database/sql.Tx).Rollback
       - (*github.com/somebox/cards/internal/sqlite.Store).Close
-    # Ignore Write/WriteByte on stdout/stderr/ResponseWriter (best-effort I/O).
+      # HTTP response writes are best-effort: the client may be gone, and
+      # there is no useful recovery mid-response.
+      - (net/http.ResponseWriter).Write
+      # bufio errors are sticky and reported by Flush, which IS checked.
+      - (*bufio.Writer).Write
+      - (*bufio.Writer).WriteByte
     check-blank: false
     check-type-assertions: false
 
@@ -29,13 +36,5 @@ issues:
     - path: _test\.go
       linters:
         - errcheck
-    - path: internal/mcp/mcp\.go
-      linters:
-        - errcheck
-      # MCP stdout writes are best-effort (stdio JSON-RPC).
-    - path: internal/httpapi/httpapi\.go
-      linters:
-        - errcheck
-      # ResponseWriter.Write in SSE/idempotency is best-effort.
   max-issues-per-linter: 0
   max-same-issues: 0
