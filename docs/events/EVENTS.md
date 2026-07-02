@@ -15,25 +15,33 @@ Related: [`INTEGRATION.md`](../events/INTEGRATION.md), [`SPEC.md`](../spec/SPEC.
 
 ---
 
-> **Current status (2026-07):** **Step 1 (seam hardening) is implemented.** The
-> `EventLog` interface, `Emitter` (`Emit`/`Signal`/`stamp`/`dispatchCommitted`),
-> `Bus` interface + `InProcBus`, typed event constructors, and `commitCard`
-> are all landed. All mutation paths in `internal/core/service.go` now route
-> through typed constructors + `commitCard` (or `dispatchCommitted` for the
-> already-atomic `TakeNext` path), and `go build ./...` + `go test ./...` are
-> green. The §4 "no raw `Event{...}` literals outside constructors/tests"
-> rule is now satisfied across the service layer.
+> **Current status (2026-07):** **Steps 1–2 are implemented and merged; Step 3
+> is in progress.** `go build ./...` + `go test ./...` are green.
 >
-> **Done:** the Step 1 test seams in §10 are built — `internal/core/events_test.go`
-> holds `TestEventContracts_GoldenFixtures` (golden JSON fixtures under
-> `internal/core/testdata/events/`) and `TestNoRawEventLiterals`;
-> `internal/core/eventlogtest` provides the in-memory `EventLog` fake and the
-> shared `Conformance` suite run against both the fake and the SQLite store
-> (`eventlog_conformance_test.go` in both packages).
+> **Step 1 (seam hardening) — done.** The `EventLog` interface, `Emitter`
+> (`Emit`/`Signal`/`stamp`/`dispatchCommitted`), `Bus` + `InProcBus`, typed
+> constructors, and `commitCard` are landed; all mutation paths route through
+> typed constructors + `commitCard` (or `dispatchCommitted` for the atomic
+> `TakeNext` path). The §4 "no raw `Event{...}` literals" rule is enforced by a
+> test guard. The §10 test seams are built: in-memory `EventLog` fake +
+> conformance suite (`internal/core/eventlogtest`) run against both the fake and
+> the SQLite store, an observer `Recorder`, an injected clock, and golden JSON
+> fixtures (`internal/core/testdata/events`, driven from
+> `internal/core/events_test.go`).
 >
-> **Steps 2–3 are built** (board scope on `Event` via `Scope`/`BoardID`; the
-> first condition signals `wip_exceeded`/`wip_cleared` — see `wip_test.go`);
-> outbox evolution (Step 4) is not started.
+> **Step 2 (board scope) — done.** `scope`/`board_id` on the envelope, the
+> `BoardEvent` constructor, the nullable-`card_id` schema migration + backfill
+> (verified against the real demo DB), and feed/SSE filtering by `board_id`/
+> `scope`.
+>
+> **Step 3 (condition events) — in progress.** 3a (WIP signal) and 3b
+> (`persist:true` escalation) merged; 3c–3e planned — see §12, Step 3.
+>
+> **Step 4 (outbox/tailer) — future**, unstarted by design.
+>
+> *(Some per-section `[proposed]` tags below still predate Steps 1–2 landing and
+> are being swept separately to avoid churn against in-flight PRs; the status
+> here and §12 are the authoritative state.)*
 
 ---
 
@@ -443,7 +451,7 @@ machinery has validated the Signal / Emit / `persist:true` paths.
 - **3a — WIP signal `[built]`.** `wip_exceeded` / `wip_cleared` fire when a board
   column crosses its configured limit; ephemeral `Signal`; crossing-deduped so
   they fire only on a state change, not every mutation.
-- **3b — persist:true escalation `[in review, PR #15]`.** One `Emitter.Condition`
+- **3b — persist:true escalation `[built]`.** One `Emitter.Condition`
   seam routes each condition by policy: types in workspace
   `settings.persist_conditions` go through `Emit` (durable, replayable), the rest
   through `Signal`. Bus/observer delivery is identical either way. See §11.2.
@@ -487,7 +495,7 @@ machinery has validated the Signal / Emit / `persist:true` paths.
 - **Rename (cosmetic).** `dispatchCommitted` now serves both the durable and the
   ephemeral path; rename to `dispatch` so the name stops implying commit.
 
-**Dogfood.** Once 3b (PR #15) merges, set `persist_conditions: ["wip_exceeded"]`
+**Dogfood.** 3b is merged — set `persist_conditions: ["wip_exceeded"]`
 on the demo workspace so we exercise the escalation path the same way integrators
 (picraft) will — otherwise signals are invisible after the fact and can't be
 dogfooded ("did WIP fire yesterday?" is unanswerable for an un-escalated signal).
