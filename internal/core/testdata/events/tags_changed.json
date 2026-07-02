@@ -1,0 +1,16 @@
+{
+  "id": 0,
+  "card_id": "c1",
+  "version": 1,
+  "type": "tags_changed",
+  "actor": "",
+  "at": "0001-01-01T00:00:00Z",
+  "diff": {
+    "added": [
+      "bug"
+    ],
+    "removed": [
+      "wip"
+    ]
+  }
+}

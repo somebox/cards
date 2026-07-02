@@ -1,0 +1,16 @@
+{
+  "id": 0,
+  "card_id": "c1",
+  "version": 1,
+  "type": "card_created",
+  "actor": "",
+  "at": "0001-01-01T00:00:00Z",
+  "diff": {
+    "card": {
+      "id": "c1",
+      "type_id": "task",
+      "title": "Do thing",
+      "status": "todo"
+    }
+  }
+}

@@ -259,6 +259,10 @@ type Event struct {
 	// adds the board_id column + populates it; the filter path is correct today
 	// and exercised by synthetic events in tests.
 	BoardID string    `json:"board_id,omitempty"`
+	// Version is the event-contract version (default 1), set by the constructors.
+	// omitempty keeps it off the wire for pre-versioned/replayed events. Bump it
+	// (with a new diff shape) instead of renaming a diff field. (Events seam 1g)
+	Version int       `json:"version,omitempty"`
 	Type    EventType `json:"type"`
 	Actor   string    `json:"actor"`
 	At      time.Time `json:"at"`

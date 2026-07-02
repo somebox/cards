@@ -1,0 +1,13 @@
+{
+  "id": 0,
+  "card_id": "c1",
+  "version": 1,
+  "type": "comment_edited",
+  "actor": "",
+  "at": "0001-01-01T00:00:00Z",
+  "diff": {
+    "comment_id": "cm1",
+    "before": "before",
+    "after": "after"
+  }
+}
