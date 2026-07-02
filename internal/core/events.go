@@ -150,6 +150,22 @@ func BoardEvent(boardID string, t EventType, diff any) *Event {
 	return &Event{BoardID: boardID, Scope: "board", Version: 1, Type: t, Diff: diff}
 }
 
+// WIPDiff is the payload of wip_exceeded / wip_cleared (a board column crossing
+// its WIP limit). These are ephemeral signals — emit via Emitter.Signal. (3a)
+type WIPDiff struct {
+	Column string `json:"column"`
+	Count  int    `json:"count"`
+	Limit  int    `json:"limit"`
+}
+
+func WIPExceeded(boardID, column string, count, limit int) *Event {
+	return BoardEvent(boardID, EventWIPExceeded, WIPDiff{Column: column, Count: count, Limit: limit})
+}
+
+func WIPCleared(boardID, column string, count, limit int) *Event {
+	return BoardEvent(boardID, EventWIPCleared, WIPDiff{Column: column, Count: count, Limit: limit})
+}
+
 // CardCreatedDiff is the payload of card_created.
 type CardCreatedDiff struct {
 	Card CardRef `json:"card"`

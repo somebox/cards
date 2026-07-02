@@ -188,6 +188,9 @@ type Board struct {
 	CardTypeIDs  []string            `json:"card_type_ids,omitempty"`
 	DefaultFilter map[string]any     `json:"default_filter,omitempty"`
 	Transitions  map[string][]string `json:"transitions,omitempty"`
+	// WIPLimits caps cards per column (column id -> max). Crossing a limit fires
+	// an ephemeral wip_exceeded/wip_cleared board signal. (Events seam 3a)
+	WIPLimits    map[string]int      `json:"wip_limits,omitempty"`
 	Presentation *BoardPresentation  `json:"presentation,omitempty"`
 	// Theme is a board-scoped override of design-system hue tokens (e.g.
 	// {"--c-accent":"#a8503c","--c-flat":"#e7e0d6"}). Applied as inline custom
@@ -249,6 +252,9 @@ const (
 	EventSchemaUpgraded   EventType = "schema_upgraded"
 	EventArtifactAdded    EventType = "artifact_added"
 	EventDefinitionReload EventType = "definition_reloaded"
+	// Condition signals (ephemeral; not persisted). Events seam 3a.
+	EventWIPExceeded EventType = "wip_exceeded"
+	EventWIPCleared  EventType = "wip_cleared"
 )
 
 // Event is an append-only mutation record with a normative diff (SPEC §8).
