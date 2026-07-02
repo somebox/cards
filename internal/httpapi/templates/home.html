@@ -33,7 +33,6 @@
         <span class="card__type-badge" data-type="{{.TypeID}}"
               {{- if $th.Accent}} style="--badge-ink:{{$th.Accent}}{{- if $th.Muted}};--badge-wash:{{$th.Muted}}{{end}}"{{end -}}
               title="{{.TypeID}}">
-          {{if $th.Icon}}<span class="card__type-badge__icon">{{$th.Icon}}</span>{{end}}
           {{.TypeLabel}}
         </span>
         <a href="/ui/cards/{{.ID}}">{{.Title}}</a>

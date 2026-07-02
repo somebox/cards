@@ -136,7 +136,7 @@ Themes hook onto four **stable** attach points; component class names and
 | `:root` token remap | whole app | a theme stylesheet / the dark block |
 | `html[data-theme="<name>"]` | named theme | `settings.theme` (workspace default), overridable per-visitor via `?theme=<name>` (sticky cookie; `?theme=default` clears). Resolved in `httpapi.resolveTheme`. |
 | `[data-board="<id>"]` wrapper | one board | `Board.theme` → `httpapi.boardStyle` (whitelisted inline tokens) |
-| `.card[data-type="<id>"]` | one card type | CSS defaults; `CardType.type_theme` (`icon`/`accent`/`muted`) overrides inline as `--card-stock(-bg)` / `--badge-ink(-wash)` |
+| `.card[data-type="<id>"]` | one card type | CSS defaults; `CardType.type_theme` `accent`/`muted` override inline — board corner mark as `--card-stock`/`--card-stock-bg`, modal/home badge as `--badge-ink` (printing: text + outline) / `--badge-wash` (stock: background). The type icon is the monochrome `[data-type]` mask glyph (derived from the type id, not literal text). |
 
 Rules:
 
