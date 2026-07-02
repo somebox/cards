@@ -100,17 +100,20 @@ func (s *Service) commitCard(ctx context.Context, next *Card, evs []*Event) erro
 }
 
 // Workspace returns the introspection snapshot (GET /v1/workspace).
+// The snapshot carries a copy of the workspace so concurrent requests never
+// share (or race on) the Service's live *Workspace; config-loaded fields are
+// immutable after startup, only Users is refreshed per call.
 func (s *Service) Workspace(ctx context.Context) (*WorkspaceSnapshot, error) {
-	users, _ := s.store.ListUsers(ctx)
-	if len(users) > 0 {
-		s.ws.Users = users
+	ws := *s.ws
+	if users, err := s.store.ListUsers(ctx); err == nil && len(users) > 0 {
+		ws.Users = users
 	}
 	curVersions := map[string]int{}
 	for id, ct := range s.types {
 		curVersions[id] = ct.SchemaVersion
 	}
 	return &WorkspaceSnapshot{
-		Workspace:       s.ws,
+		Workspace:       &ws,
 		CardTypes:       s.types,
 		Boards:          s.boards,
 		CurrentVersions: curVersions,
@@ -365,7 +368,7 @@ func (s *Service) PatchCard(ctx context.Context, id string, req PatchCardRequest
 			}
 		}
 		if newOwner != current.Owner {
-			events = append(events, OwnerChanged(id, strOrEmpty(current.Owner), newOwner))
+			events = append(events, OwnerChanged(id, current.Owner, newOwner))
 			next.Owner = newOwner
 		}
 	}
@@ -1491,8 +1494,6 @@ func columnIDs(ws *Workspace) []string {
 	}
 	return out
 }
-
-func strOrEmpty(s string) string { return s }
 
 func toFloat(v any) (float64, bool) {
 	switch n := v.(type) {

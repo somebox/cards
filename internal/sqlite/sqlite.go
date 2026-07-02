@@ -8,6 +8,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -407,8 +408,11 @@ func (s *Store) ClaimAtomic(ctx context.Context, q core.CardQuery, owner, status
 	selectSQL := "SELECT " + cardCols + " FROM cards c" + where + " ORDER BY c.updated_at ASC, c.id ASC LIMIT 1"
 	row := tx.QueryRowContext(ctx, selectSQL, args...)
 	c, err := scanCard(row)
-	if err != nil {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil, nil // nothing matched
+	}
+	if err != nil {
+		return nil, nil, err
 	}
 
 	// CAS the claim: only succeeds if still unowned.
@@ -434,26 +438,35 @@ func (s *Store) ClaimAtomic(ctx context.Context, q core.CardQuery, owner, status
 		return nil, nil, nil
 	}
 
-	// Reload the claimed card.
+	// Reload the claimed card. The row must exist (we just updated it), so any
+	// error here — including ErrNoRows — is a real failure.
 	row2 := tx.QueryRowContext(ctx, "SELECT "+cardCols+" FROM cards c WHERE c.id = ?", c.ID)
 	claimed, err := scanCard(row2)
 	if err != nil {
-		return nil, nil, nil
+		return nil, nil, err
 	}
 
-	// Events: owner_changed (+ status_changed if moved).
+	// Events: owner_changed (+ status_changed if moved). Use the shared
+	// constructors so Version/Diff match every other mutation path.
 	evs := []*core.Event{}
-	evs = append(evs, &core.Event{CardID: c.ID, Type: core.EventOwnerChanged, Actor: actor, At: now,
-		Diff: map[string]any{"before": strOrEmpty(c.Owner), "after": owner}})
+	oc := core.OwnerChanged(c.ID, c.Owner, owner)
+	oc.Actor, oc.At = actor, now
+	evs = append(evs, oc)
 	if setStatus != "" {
-		evs = append(evs, &core.Event{CardID: c.ID, Type: core.EventStatusChanged, Actor: actor, At: now,
-			Diff: map[string]any{"before": c.Status, "after": setStatus}})
+		sc := core.StatusChanged(c.ID, c.Status, setStatus)
+		sc.Actor, sc.At = actor, now
+		evs = append(evs, sc)
 	}
+	// The audit row and FTS upsert are part of the claim: fail the whole
+	// transaction rather than commit a mutation with missing side effects.
 	for _, ev := range evs {
-		_ = execEventInsert(tx, ev)
+		if err := execEventInsert(tx, ev); err != nil {
+			return nil, nil, err
+		}
 	}
-	// Update FTS (title unchanged, but cheap).
-	_ = upsertFTS(tx, claimed)
+	if err := upsertFTS(tx, claimed); err != nil {
+		return nil, nil, err
+	}
 
 	if err := tx.Commit(); err != nil {
 		return nil, nil, err
@@ -919,7 +932,6 @@ func nullableString(s string) any {
 	return s
 }
 
-func strOrEmpty(s string) string { return s }
 
 func placeholders(n int) string {
 	if n <= 0 {

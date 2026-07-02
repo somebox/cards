@@ -106,8 +106,11 @@ func (m *Mem) Page(_ context.Context, q core.EventQuery) (*core.Page[core.Event]
 // Replay streams events with id > fromID ascending into fn, stopping on the
 // first error fn returns.
 func (m *Mem) Replay(_ context.Context, fromID int64, fn func(*core.Event) error) error {
-	for _, e := range m.filtered(core.EventQuery{AfterID: fromID}) {
-		if err := fn(&e); err != nil {
+	out := m.filtered(core.EventQuery{AfterID: fromID})
+	// Index, not range-value: callbacks that retain the pointer must each get
+	// a distinct event, not aliases of one loop variable.
+	for i := range out {
+		if err := fn(&out[i]); err != nil {
 			return err
 		}
 	}
@@ -214,6 +217,27 @@ func Conformance(t *testing.T, newLog func() core.EventLog) {
 		count := 0
 		if err := log.Replay(ctx, 0, func(e *core.Event) error { count++; return errStop }); !errors.Is(err, errStop) || count != 1 {
 			t.Errorf("replay stop-on-error: count=%d err=%v", count, err)
+		}
+	})
+
+	t.Run("replay callbacks receive distinct events, not one aliased pointer", func(t *testing.T) {
+		log := newLog()
+		a := &core.Event{CardID: "A", Type: core.EventStatusChanged}
+		b := &core.Event{CardID: "B", Type: core.EventStatusChanged}
+		if err := log.Append(ctx, a, b); err != nil {
+			t.Fatal(err)
+		}
+		// Retain the pointers across callbacks; an implementation that hands
+		// out the address of a shared loop variable fails here.
+		var kept []*core.Event
+		if err := log.Replay(ctx, 0, func(e *core.Event) error { kept = append(kept, e); return nil }); err != nil {
+			t.Fatalf("replay: %v", err)
+		}
+		if len(kept) != 2 {
+			t.Fatalf("replayed %d events, want 2", len(kept))
+		}
+		if kept[0].CardID != "A" || kept[1].CardID != "B" || kept[0].ID == kept[1].ID {
+			t.Errorf("retained events aliased: [0]=%+v [1]=%+v", kept[0], kept[1])
 		}
 	})
 }
