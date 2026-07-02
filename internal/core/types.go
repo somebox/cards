@@ -297,10 +297,9 @@ type CardQuery struct {
 	Unowned    bool
 	Limit      int
 	Cursor     string
-	// Filter is the jq-like filter DSL (§9). Compiled by compileFilterInto.
-	Filter     map[string]any
-	FilterSQL  string
-	FilterArgs []any
+	// Filter is the jq-like filter DSL (§9), passed through raw; the store
+	// compiles it (invalid DSL comes back as a validation error).
+	Filter map[string]any
 }
 
 // Page is a paginated result.

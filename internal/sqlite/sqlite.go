@@ -88,8 +88,8 @@ func (s *Store) Init(ctx context.Context) error {
 			at       TEXT NOT NULL,
 			diff     TEXT
 		)`,
-		`CREATE INDEX IF NOT EXISTS idx_events_card ON events(card_id, id)`,
-		`CREATE INDEX IF NOT EXISTS idx_events_at ON events(at)`,
+		// events indexes are created after migrateEventsScope below — the
+		// migration rebuilds the table, which would drop them.
 		`CREATE TABLE IF NOT EXISTS users (
 			id           TEXT PRIMARY KEY,
 			display_name TEXT,
@@ -133,13 +133,21 @@ func (s *Store) Init(ctx context.Context) error {
 			return fmt.Errorf("init schema: %w (stmt: %s)", err, q)
 		}
 	}
-	// Migrate old DBs BEFORE indexing scope: an old events table has no scope
-	// column until the rebuild runs, so idx_events_scope must come after.
+	// Migrate old DBs BEFORE indexing events: an old events table is rebuilt
+	// (rename → copy → drop), which discards its indexes, and it has no scope
+	// column until then. Init owns all events indexes; the migration owns none.
 	if err := s.migrateEventsScope(ctx); err != nil {
 		return err
 	}
-	if _, err := s.db.ExecContext(ctx, `CREATE INDEX IF NOT EXISTS idx_events_scope ON events(scope, board_id, id)`); err != nil {
-		return fmt.Errorf("init schema (scope index): %w", err)
+	eventIdx := []string{
+		`CREATE INDEX IF NOT EXISTS idx_events_card ON events(card_id, id)`,
+		`CREATE INDEX IF NOT EXISTS idx_events_at ON events(at)`,
+		`CREATE INDEX IF NOT EXISTS idx_events_scope ON events(scope, board_id, id)`,
+	}
+	for _, q := range eventIdx {
+		if _, err := s.db.ExecContext(ctx, q); err != nil {
+			return fmt.Errorf("init schema (events index): %w", err)
+		}
 	}
 	return nil
 }
@@ -188,9 +196,8 @@ func (s *Store) migrateEventsScope(ctx context.Context) error {
 		`INSERT INTO events (id, card_id, scope, type, actor, at, diff)
 			SELECT id, card_id, 'card', type, actor, at, diff FROM events_pre_scope`,
 		`DROP TABLE events_pre_scope`,
-		`CREATE INDEX IF NOT EXISTS idx_events_card ON events(card_id, id)`,
-		`CREATE INDEX IF NOT EXISTS idx_events_at ON events(at)`,
-		`CREATE INDEX IF NOT EXISTS idx_events_scope ON events(scope, board_id, id)`,
+		// No index statements here: Init recreates all events indexes after
+		// this migration runs (DEBT-32 — single ownership).
 	}
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -210,9 +217,10 @@ func (s *Store) Close() error { return s.db.Close() }
 
 // --- Cards ---
 
-// buildCardWhere constructs the WHERE clause + args from a CardQuery. Used by
-// both ListCards and ClaimAtomic.
-func buildCardWhere(q core.CardQuery) (string, []any) {
+// buildCardWhere constructs the WHERE clause + args from a CardQuery,
+// compiling q.Filter (the §9 DSL) along the way. Used by both ListCards and
+// ClaimAtomic. Returns a validation error on malformed filter DSL.
+func buildCardWhere(q core.CardQuery) (string, []any, error) {
 	var b strings.Builder
 	b.WriteString(" WHERE 1=1")
 	args := []any{}
@@ -265,9 +273,15 @@ func buildCardWhere(q core.CardQuery) (string, []any) {
 		b.WriteString(` AND EXISTS (SELECT 1 FROM links l JOIN cards t ON l.target = t.id
 			WHERE l.source_id = c.id AND l.type_id IN ('blocked-by','depends-on') AND t.status != 'done')`)
 	}
-	if q.FilterSQL != "" {
-		b.WriteString(" AND (" + q.FilterSQL + ")")
-		args = append(args, q.FilterArgs...)
+	if len(q.Filter) > 0 {
+		frag, fargs, err := compileFilter(q.Filter)
+		if err != nil {
+			return "", nil, err
+		}
+		if frag != "" {
+			b.WriteString(" AND (" + frag + ")")
+			args = append(args, fargs...)
+		}
 	}
 	if q.Cursor != "" {
 		updatedAt, id, err := core.DecodeCursor(q.Cursor)
@@ -277,13 +291,16 @@ func buildCardWhere(q core.CardQuery) (string, []any) {
 		}
 		// Bad cursors are rejected by the service layer before reaching the store.
 	}
-	return b.String(), args
+	return b.String(), args, nil
 }
 
 const cardCols = "id, workspace_id, type_id, schema_version, title, status, owner, tags, fields, version, created_at, updated_at, created_by"
 
 func (s *Store) ListCards(ctx context.Context, q core.CardQuery) (*core.Page[core.Card], error) {
-	where, args := buildCardWhere(q)
+	where, args, err := buildCardWhere(q)
+	if err != nil {
+		return nil, err
+	}
 	if q.Limit <= 0 || q.Limit > 200 {
 		q.Limit = 50
 	}
@@ -403,7 +420,10 @@ func (s *Store) ClaimAtomic(ctx context.Context, q core.CardQuery, owner, status
 	}
 	defer tx.Rollback()
 
-	where, args := buildCardWhere(q)
+	where, args, err := buildCardWhere(q)
+	if err != nil {
+		return nil, nil, err
+	}
 	// Pick oldest matching unowned card.
 	selectSQL := "SELECT " + cardCols + " FROM cards c" + where + " ORDER BY c.updated_at ASC, c.id ASC LIMIT 1"
 	row := tx.QueryRowContext(ctx, selectSQL, args...)
