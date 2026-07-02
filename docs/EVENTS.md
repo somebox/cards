@@ -15,22 +15,33 @@ Related: [`INTEGRATION.md`](INTEGRATION.md), [`SPEC.md`](SPEC.md),
 
 ---
 
-> **Current status (2026-07):** **Step 1 (seam hardening) is implemented.** The
-> `EventLog` interface, `Emitter` (`Emit`/`Signal`/`stamp`/`dispatchCommitted`),
-> `Bus` interface + `InProcBus`, typed event constructors, and `commitCard`
-> are all landed. All mutation paths in `internal/core/service.go` now route
-> through typed constructors + `commitCard` (or `dispatchCommitted` for the
-> already-atomic `TakeNext` path), and `go build ./...` + `go test ./...` are
-> green. The §4 "no raw `Event{...}` literals outside constructors/tests"
-> rule is now satisfied across the service layer.
+> **Current status (2026-07):** **Steps 1–2 are implemented and merged; Step 3
+> is in progress.** `go build ./...` + `go test ./...` are green.
 >
-> **Not yet done:** the Step 1 test seams in §10 (in-memory `EventLog` fake,
-> recording `Bus` fake, observer recorder, injected clock, golden JSON
-> fixtures) are designed but **not yet built** — `internal/core/events_test.go`
-> does not exist. These remain Step 1 acceptance criteria.
+> **Step 1 (seam hardening) — done.** The `EventLog` interface, `Emitter`
+> (`Emit`/`Signal`/`stamp`/`dispatchCommitted`), `Bus` + `InProcBus`, typed
+> constructors, and `commitCard` are landed; all mutation paths route through
+> typed constructors + `commitCard` (or `dispatchCommitted` for the atomic
+> `TakeNext` path). The §4 "no raw `Event{...}` literals" rule is enforced by a
+> test guard. The §10 test seams are built: in-memory `EventLog` fake +
+> conformance suite (`internal/core/eventlogtest`), an observer `Recorder`, an
+> injected clock, and golden JSON fixtures (`internal/core/testdata/events`,
+> driven from `internal/core/events_test.go`).
 >
-> **Steps 2–4 are forward-looking design** (board scope, condition events,
-> outbox evolution) and are not yet started.
+> **Step 2 (board scope) — done.** `scope`/`board_id` on the envelope, the
+> `BoardEvent` constructor, the nullable-`card_id` schema migration + backfill
+> (verified against the real demo DB), and feed/SSE filtering by `board_id`/
+> `scope`.
+>
+> **Step 3 (condition events) — in progress.** 3a (WIP signal) merged; 3b
+> (`persist:true` escalation) in review (PR #15); 3c–3e planned — see §12,
+> Step 3.
+>
+> **Step 4 (outbox/tailer) — future**, unstarted by design.
+>
+> *(Some per-section `[proposed]` tags below still predate Steps 1–2 landing and
+> are being swept separately to avoid churn against in-flight PRs; the status
+> here and §12 are the authoritative state.)*
 
 ---
 
