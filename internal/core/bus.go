@@ -26,6 +26,9 @@ func (f EventFilter) Matches(e *Event) bool {
 	if f.CardID != "" && e.CardID != f.CardID {
 		return false
 	}
+	if f.BoardID != "" && e.BoardID != f.BoardID {
+		return false
+	}
 	if f.Actor != "" && e.Actor != f.Actor {
 		return false
 	}
