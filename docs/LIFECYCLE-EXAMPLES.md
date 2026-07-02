@@ -580,14 +580,14 @@ cards patch-entry card_job_9001 status_updates ent_01HXYZ \
 
 ### B6 — Query stale blocked queue (ops)
 
-Jobs still `queued` not updated in 1 hour:
+Jobs still `queued` not updated in 1 hour — **illustrative only**:
+`updated_before`/`created_before` time filters are **not implemented** in the
+list handler or the CLI (SPEC §9). Today, list `--status queued` and filter on
+each card's `updated_at` client-side:
 
-```http
-GET /v1/cards?board_id=fabrication&status=queued&updated_before=2026-06-25T21:00:00Z
-```
 ```bash
-cards list --board fabrication --status queued \
-  --updated-before 2026-06-25T21:00:00Z
+cards list --board fabrication --status queued --jsonl \
+  | jq -r 'select(.updated_at < "2026-06-25T21:00:00Z") | .id'
 ```
 
 **Lifecycle summary (B):** spec + artifact → printer asset → job with
@@ -608,7 +608,7 @@ failure/requeue path → `qa` → `done`.
 | Collaboration | comments for handoff notes | comments for runbook notes |
 | Concurrency | `version` / `--version` on every PATCH | Same |
 | Repeating entries | stable `entry_id`; update by id | same |
-| Discovery | `blocked`, `owner=me` | view + `updated_before` |
+| Discovery | `blocked`, `owner=me` | view + client-side `updated_at` filter |
 | Reactivity | SSE on engineering board (replayable) | SSE on fabrication board |
 | Idempotency | `Idempotency-Key: claim-auth-api-1` on claim | Same on append during retry |
 

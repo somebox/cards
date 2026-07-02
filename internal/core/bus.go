@@ -6,7 +6,6 @@
 package core
 
 import (
-	"context"
 	"sync"
 )
 
@@ -139,6 +138,3 @@ func (b *InProcBus) SubscriberCount() int {
 	defer b.mu.RUnlock()
 	return len(b.subscribers)
 }
-
-// _ keeps context imported for future request-scoped subscriptions.
-var _ = context.Background

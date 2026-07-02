@@ -60,7 +60,6 @@ Recommended dependencies (all in use):
 - HTTP router: `net/http` plus `chi`.
 - SQLite: `modernc.org/sqlite` (pure-Go, no CGO, FTS5 supported).
 - UUID: `github.com/google/uuid`.
-- YAML: `gopkg.in/yaml.v3`.
 
 Keep dependency choices boring. The project should be easy to build and reason
 about without a framework.
@@ -231,7 +230,7 @@ that already exists for SSE.
 
 Responsibilities:
 
-- Read `definitions/extensions.yaml` (or `extensions:` in `workspace.yaml`).
+- Read `definitions/extensions.{yaml,yml,json}`.
 - Subscribe to the internal event bus.
 - For `kind: hook` extensions whose `filter` matches a fired event, spawn the
   declared `run` command with the event JSON on stdin and standard

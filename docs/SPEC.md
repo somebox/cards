@@ -117,7 +117,8 @@ this is trivial and is the supported multi-tenancy path for v1.
     sessions/            # optional; agent session logs
 ```
 
-Definitions are JSON or YAML. The loader normalizes both. (`serve` mode
+Definitions are JSON (`workspace.json`, `card-types/*.json`, `boards/*.json`).
+Only `definitions/extensions.{yaml,json}` also accepts YAML. (`serve` mode
 does not currently watch/reload on file change — restart the process to
 pick up definition edits; an explicit reload endpoint is planned — see §11.)
 
@@ -750,6 +751,8 @@ implementation — header only.)
 ### Workspace and definitions
 - `GET /workspace` → workspace + current card types (current version per
   type only) + boards + settings. **Does not currently include `views`.**
+- `GET /boards/:board_id` → one board's definition (columns, card types,
+  default filter, WIP limits); 404 for unknown ids.
 - `GET /workspace/card-types/:type_id?version=` → **not yet implemented**;
   card-type schemas are only available via the `card_types` map in
   `GET /workspace` (current version only).

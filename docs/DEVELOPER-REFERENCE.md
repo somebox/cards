@@ -79,7 +79,7 @@ This section adds only the authoring-relevant consequences below.
 
 ## 2. Workspace definition
 
-File: `definitions/workspace.json` (or `.yaml`)
+File: `definitions/workspace.json` (JSON only; of the definition files, only `extensions.{yaml,json}` accepts YAML)
 
 ```json
 {
@@ -476,7 +476,7 @@ process's event bus, so its SSE stream and hooks would not observe the change.
 cards serve --workspace ./demo-workspace --port 8787
 
 cards workspace show
-cards boards show engineering
+cards boards show engineering   # GET /v1/boards/engineering
 
 cards list --board engineering --owner me --status todo,in_progress
 cards create --type programming-task --title "..." --status todo \
@@ -485,6 +485,8 @@ cards get CARD_ID
 cards patch CARD_ID --status review --version 3 \
   --field branch=feat/oauth
 cards claim CARD_ID --as coder-agent --status in_progress
+# --filter-file points at any JSON file holding a §9 filter object
+# (illustrative path; not shipped in examples/demo-workspace)
 cards take-next --board engineering --filter-file ./filters/todo.json \
   --as coder-agent --status in_progress
 cards append CARD_ID work_log \

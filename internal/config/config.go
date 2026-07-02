@@ -1,5 +1,6 @@
-// Package config loads, merges, and validates workspace definitions from
-// JSON/YAML files in definitions/. Reload-on-change is handled in serve mode.
+// Package config loads and validates workspace definitions from JSON files
+// in definitions/ (only definitions/extensions.{yaml,json} accepts YAML).
+// There is no reload-on-change: restart the process to pick up edits.
 //
 // See docs/ARCHITECTURE.md (Config Contexts) and docs/DEVELOPER-REFERENCE.md.
 package config

@@ -33,7 +33,6 @@ func IfEmpty(ctx context.Context, st core.Store, svc *core.Service, ws *core.Wor
 	}
 
 	// Demo cards across types and columns.
-	now := time.Now().UTC().Format(time.RFC3339)
 	demos := []core.CreateCardRequest{
 		{
 			TypeID: "programming-task", Title: "Add OpenAPI spec for /v1/cards", Status: "todo",
@@ -72,7 +71,6 @@ func IfEmpty(ctx context.Context, st core.Store, svc *core.Service, ws *core.Wor
 			Tags: []string{"feature"},
 		},
 	}
-	_ = now
 	for _, d := range demos {
 		d.Actor = ws.Settings.DefaultUser
 		if _, err := svc.CreateCard(ctx, d); err != nil {

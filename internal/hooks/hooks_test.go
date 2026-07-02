@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -18,9 +19,9 @@ func newSvc(t *testing.T) (*core.Service, *core.Workspace, string) {
 	t.Helper()
 	dir := t.TempDir()
 	ws := &core.Workspace{
-		ID:      "t",
-		Name:    "T",
-		Columns: []core.Column{{ID: "todo", Name: "Todo"}, {ID: "review", Name: "Review"}, {ID: "done", Name: "Done"}},
+		ID:       "t",
+		Name:     "T",
+		Columns:  []core.Column{{ID: "todo", Name: "Todo"}, {ID: "review", Name: "Review"}, {ID: "done", Name: "Done"}},
 		Settings: core.WorkspaceSettings{DefaultUser: "u", StrictFields: true},
 	}
 	types := map[string]*core.CardType{
@@ -53,7 +54,7 @@ func TestHookFiresOnMatchingEvent(t *testing.T) {
 	hook := config.Extension{
 		ID: "fire", Kind: "hook", On: "status_changed",
 		Filter: config.HookFilter{BoardID: "eng", ToStatus: "review"},
-		Run: []string{"bash", "-c", `echo "$(cat)" >> ` + logFile},
+		Run:    []string{"bash", "-c", `echo "$(cat)" >> ` + logFile},
 	}
 	sup := hooks.New(svc, ws, []config.Extension{hook}, dir, "http://127.0.0.1:8787/v1")
 
@@ -86,7 +87,7 @@ func TestHookFiresOnMatchingEvent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("hook did not write log: %v", err)
 	}
-	if !contains(string(data), c.ID) {
+	if !strings.Contains(string(data), c.ID) {
 		t.Errorf("hook log does not mention card id %s: %s", c.ID, data)
 	}
 }
@@ -98,7 +99,7 @@ func TestHookDoesNotFireOnNonMatching(t *testing.T) {
 	hook := config.Extension{
 		ID: "fire2", Kind: "hook", On: "status_changed",
 		Filter: config.HookFilter{ToStatus: "review"},
-		Run: []string{"bash", "-c", `echo hit >> ` + logFile},
+		Run:    []string{"bash", "-c", `echo hit >> ` + logFile},
 	}
 	sup := hooks.New(svc, ws, []config.Extension{hook}, dir, "http://127.0.0.1:8787/v1")
 	ctx, cancel := context.WithCancel(context.Background())
@@ -117,16 +118,6 @@ func TestHookDoesNotFireOnNonMatching(t *testing.T) {
 	}
 }
 
-func contains(s, sub string) bool { return len(s) >= len(sub) && (s == sub || len(sub) == 0 || indexOf(s, sub) >= 0) }
-func indexOf(s, sub string) int {
-	for i := 0; i+len(sub) <= len(s); i++ {
-		if s[i:i+len(sub)] == sub {
-			return i
-		}
-	}
-	return -1
-}
-
 // TestHookFilterTypeID verifies the type_id filter only fires for matching
 // card types (was previously parsed but never applied in MatchesEvent).
 func TestHookFilterTypeID(t *testing.T) {
@@ -136,7 +127,7 @@ func TestHookFilterTypeID(t *testing.T) {
 	hook := config.Extension{
 		ID: "bug-only", Kind: "hook", On: "status_changed",
 		Filter: config.HookFilter{TypeID: "bug", ToStatus: "review"},
-		Run: []string{"bash", "-c", `echo hit >> ` + logFile},
+		Run:    []string{"bash", "-c", `echo hit >> ` + logFile},
 	}
 	sup := hooks.New(svc, ws, []config.Extension{hook}, dir, "http://127.0.0.1:8787/v1")
 	ctx, cancel := context.WithCancel(context.Background())

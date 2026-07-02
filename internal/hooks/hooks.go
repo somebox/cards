@@ -10,7 +10,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -24,13 +23,13 @@ import (
 
 // Supervisor subscribes to the event bus and spawns hook subprocesses.
 type Supervisor struct {
-	svc         *core.Service
-	ws          *core.Workspace
-	extensions  []config.Extension
+	svc          *core.Service
+	ws           *core.Workspace
+	extensions   []config.Extension
 	workspaceDir string
-	cardsURL    string
-	mu          sync.Mutex
-	logs        map[string][]string // per-extension recent log lines
+	cardsURL     string
+	mu           sync.Mutex
+	logs         map[string][]string // per-extension recent log lines
 }
 
 // New constructs a Supervisor bound to a service + workspace + declarations.
@@ -211,6 +210,3 @@ func (s *Supervisor) persistLog(extID, stdout, stderr string) {
 	defer f.Close()
 	fmt.Fprintf(f, "--- %s ---\nstdout: %s\nstderr: %s\n", time.Now().UTC().Format(time.RFC3339), stdout, stderr)
 }
-
-// strings import lives here to avoid a separate import block churn.
-var _ = io.EOF // keep io imported for future stream logs

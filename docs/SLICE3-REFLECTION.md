@@ -11,7 +11,7 @@
 > (`release` endpoint); F3 ✅ shipped (`force` flag); F5 ✅ fixed
 > (`unknown_enum` echoes type's `allowed_columns`); F6 ✅ fixed
 > (`backlog` added to `programming-task`); F1 ❓ still open (superseded by
-> `INTEGRATION.md`'s fuller `card_ready`/`card_unblocked` design); F4 ❓ still
+> `INTEGRATION.md`'s fuller `card_unblocked` design); F4 ❓ still
 > open; F7 ❓ partially addressed (`:memory:` in Go tests, no CLI-level
 > dry-run yet).
 

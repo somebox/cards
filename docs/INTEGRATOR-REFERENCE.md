@@ -147,6 +147,7 @@ Base path `/v1`. Server binds `127.0.0.1` by default; **no built-in auth**
 |---|---|---|
 | GET | `/v1/health` | `{version, workspace_id}` |
 | GET | `/v1/workspace` | introspection snapshot (types, boards, columns, versions) |
+| GET | `/v1/boards/{id}` | one board's definition (404 for unknown ids) |
 | GET | `/v1/cards` | list / filter (cursor-paged) |
 | POST | `/v1/cards` | create |
 | GET | `/v1/cards/{id}` | fetch one (with links + comments) |
@@ -298,21 +299,25 @@ shapes per type (`field_updated`: `{field, before, after}`; `item_updated`:
 
 ### Mutation events [built] — `internal/core/types.go:209`
 
-Canonical enumeration (15 declared, 13 emitted today): `card_created`,
+Canonical enumeration (17 declared: 13 durable facts + 2 ephemeral board
+signals + 2 declared-only): `card_created`,
 `field_updated`, `status_changed`, `owner_changed`, `tags_changed`,
 `item_appended`, `item_updated`, `item_removed`, `link_added`, `link_removed`,
 `comment_added`, `comment_edited`, `schema_upgraded` — these 13 are **facts**:
-synchronous on a write, card-scoped, persisted, replayable. The remaining two
-are **[drift]**: `artifact_added` (constant declared; no artifact-upload route
-or emit site exists yet — see `INTEGRATION.md` Act/Build-order #8) and
-`definition_reloaded` (constant declared; no reload handler or file watching —
-see §6 below). Both are [proposed], not built.
+synchronous on a write, card-scoped, persisted, replayable.
+`wip_exceeded`/`wip_cleared` are **[built]** ephemeral board-scoped signals
+(`Scope: "board"`, `BoardID` set, not persisted — see `internal/core/wip_test.go`).
+The remaining two are **[drift]**: `artifact_added` (constant declared; no
+artifact-upload route or emit site exists yet — see `INTEGRATION.md`
+Act/Build-order #8) and `definition_reloaded` (constant declared; no reload
+handler or file watching — see §6 below). Both are [proposed], not built.
 
 ### Condition events [proposed] — `INTEGRATION.md`
 
-`status_timeout`, `card_idle`, `wip_exceeded`/`wip_cleared`,
-`lane_drained`/`lane_refilled`, `card_blocked`/`card_unblocked`,
-`transition_rejected`. Declared as board **monitors** (data, not code), emitted
+`status_timeout`, `card_idle`, `lane_drained`/`lane_refilled`,
+`card_blocked`/`card_unblocked`, `transition_rejected`
+(`wip_exceeded`/`wip_cleared` are already built as ephemeral signals — see §4).
+Declared as board **monitors** (data, not code), emitted
 by the core onto the **same bus** as mutation events. **Not yet in the code** —
 none of these constants exist today; monitors and the deadline evaluator are
 designed in `INTEGRATION.md`, not built. `persist: true` (record a monitor's
@@ -348,7 +353,9 @@ catch-up path for the (ephemeral) condition events. Designed, not built.
 > not enforced today — retention is currently unbounded.)*
 
 `actor`/`owner` filters on both feed and stream are **[built]**. Board-scoped
-events (`scope: card|board`) are **[proposed]** (today every event is card-scoped).
+events are **[built]**: `Event` carries `Scope` (`card|board`) and `BoardID`,
+and the feed/stream filter by `board_id`; today the board-scoped emitters are
+the ephemeral `wip_exceeded`/`wip_cleared` signals.
 
 ---
 

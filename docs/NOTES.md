@@ -94,11 +94,9 @@ Optimistic concurrency uses `version` in the request body / `--version` CLI
 flag as canonical. `If-Match: <version>` header was proposed as an alias. One
 mechanism, two spellings; pick the body form in examples.
 
-> **Status drift.** The `If-Match` header alias was **never implemented** —
+> **Status.** The `If-Match` header alias was **never implemented** —
 > `version` in the request body is the only concurrency mechanism in the HTTP
-> layer. The "(or `If-Match`)" parenthetical has been struck from
-> `LIFECYCLE-EXAMPLES.md`; `SPEC.md` and `DEVELOPER-REFERENCE.md` still
-> mention it and should be updated in their own editing passes.
+> layer. `SPEC.md` and `DEVELOPER-REFERENCE.md` state this correctly.
 
 - **Affected:** `SPEC.md` §11, `LIFECYCLE-EXAMPLES.md` (examples use
   `--version`).
@@ -215,3 +213,15 @@ Mismatched links are rejected with the valid set echoed. Stops an agent from
 - Outbound signed webhooks (SSE covers v1).
 - Nested repeating fields.
 - Strong identity/ACL model.
+
+## Backlog notes (from the 2026-07 debt pass)
+
+- **`fieldSchema` duplication (mcp/openapi).** Both `internal/mcp` and
+  `internal/openapi` map `core.FieldDef` → JSON Schema with genuinely different
+  signatures (mcp handles `required`/`x-required`). Conceptual duplication, not
+  copy-paste; consolidate only as part of a deliberate shared schema-builder
+  package decision.
+- **Filter-DSL AST package.** The §9 filter compiler lives in
+  `internal/sqlite/filter.go` (the store owns SQL). Extracting a
+  backend-neutral `internal/filter` AST becomes the right move if and only if
+  a second Store backend is actually scheduled — don't pre-build it.

@@ -37,8 +37,7 @@ see `NOTES.md` D2/D18.)
 
 ## Declaration
 
-Workspaces declare extensions in `definitions/extensions.yaml` (or under an
-`extensions:` key in `workspace.yaml`):
+Workspaces declare extensions in `definitions/extensions.{yaml,yml,json}`:
 
 ```yaml
 extensions:
@@ -94,13 +93,12 @@ Event JSON shape:
 
 ```json
 {
-  "id": "evt_01HXYZ",
+  "id": 4217,
   "type": "status_changed",
   "card_id": "card_auth_api",
   "actor": "coder-agent",
   "at": "2026-06-25T14:30:00Z",
   "workspace_id": "demo",
-  "board_ids": ["engineering"],
   "diff": { "before": "in_progress", "after": "review" }
 }
 ```
@@ -311,8 +309,9 @@ curl -sf "$SLACK_WEBHOOK" -d "{\"text\":\"$title moved to review\"}"
 
 - `cards extensions list` — list declared extensions and their kinds.
 - `cards extensions show <id>` — show a single declaration.
-- `cards run-extensions` — supervise hooks and start `autostart: true`
-  services declared in the workspace.
+- `cards run-extensions` — supervise `kind: hook` extensions. `service`
+  declarations are parsed but **not started** — service supervision (incl.
+  `autostart`) is [proposed]; see INTEGRATOR-REFERENCE.md §7.
 - `cards do <id> [--param k=v ...]` — invoke a `run` extension.
 
 ## Distribution patterns

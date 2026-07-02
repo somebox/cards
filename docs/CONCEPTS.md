@@ -168,8 +168,9 @@ the intended sync and backup mechanism for shared workspaces.
 ## Setups by use case
 
 **Personal / projects.** One workspace in the user's home, many boards inside it
-— one per project or area. Data persists outside any repo. *(See the Planned
-section for the zero-config launch path.)*
+— one per project or area. Data persists outside any repo. *(The zero-config
+launch path below is implemented: `cards` with no arguments serves the nearest
+`.cards/` or the personal workspace.)*
 
 **Developing Cards (dogfooding).** The workspace is `examples/demo-workspace`,
 committed in the repo, with an `engineering` board holding the real build

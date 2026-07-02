@@ -24,13 +24,16 @@ Related: [`INTEGRATION.md`](INTEGRATION.md), [`SPEC.md`](SPEC.md),
 > green. The §4 "no raw `Event{...}` literals outside constructors/tests"
 > rule is now satisfied across the service layer.
 >
-> **Not yet done:** the Step 1 test seams in §10 (in-memory `EventLog` fake,
-> recording `Bus` fake, observer recorder, injected clock, golden JSON
-> fixtures) are designed but **not yet built** — `internal/core/events_test.go`
-> does not exist. These remain Step 1 acceptance criteria.
+> **Done:** the Step 1 test seams in §10 are built — `internal/core/events_test.go`
+> holds `TestEventContracts_GoldenFixtures` (golden JSON fixtures under
+> `internal/core/testdata/events/`) and `TestNoRawEventLiterals`;
+> `internal/core/eventlogtest` provides the in-memory `EventLog` fake and the
+> shared `Conformance` suite run against both the fake and the SQLite store
+> (`eventlog_conformance_test.go` in both packages).
 >
-> **Steps 2–4 are forward-looking design** (board scope, condition events,
-> outbox evolution) and are not yet started.
+> **Steps 2–3 are built** (board scope on `Event` via `Scope`/`BoardID`; the
+> first condition signals `wip_exceeded`/`wip_cleared` — see `wip_test.go`);
+> outbox evolution (Step 4) is not started.
 
 ---
 
@@ -311,9 +314,10 @@ Consumer correctness model:
 
 ## 10) Testability model (first-class)
 
-> None of the fakes/fixtures below exist yet; they are Step 1 acceptance
-> criteria, not already-satisfied requirements (`internal/core/events_test.go`
-> does not exist as of this writing).
+> All of the fakes/fixtures below exist: `internal/core/eventlogtest` (fake +
+> `Conformance` suite), `internal/core/events_test.go` (golden fixtures +
+> raw-literal guard), and the store-side conformance run in
+> `internal/sqlite/eventlog_conformance_test.go`.
 
 Required test seams:
 
@@ -390,7 +394,7 @@ backward compatible for existing card-event consumers.
 - Route all mutation paths through `commitCard`. ✓
 - Add constructor usage (`CardEvent(...)` initially; event-specific constructors
   for common mutations). ✓
-- Add test fakes + seam acceptance tests. *(not yet done — see §10)*
+- Add test fakes + seam acceptance tests. ✓ (see §10)
 - `TakeNext` uses `ClaimAtomic` (already persists) — dispatch via
   `emitter.dispatchCommitted`, not `Emit`, to avoid double-persisting. ✓
 
