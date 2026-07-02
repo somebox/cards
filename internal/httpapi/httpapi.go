@@ -11,6 +11,7 @@ import (
 	"context"
 	"embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html/template"
 	"io"
@@ -45,6 +46,51 @@ type Server struct {
 func New(svc *core.Service, ws *core.Workspace, types map[string]*core.CardType, boards map[string]*core.Board, st core.Store) (*Server, error) {
 	funcMap := template.FuncMap{
 		"join": strings.Join,
+		// shortID returns the last-8-hex suffix of a card id for compact display;
+		// the full id is kept canonical in store/API JSON and in title="". (1e)
+		"shortID": shortID,
+		// iso formats a time.Time as RFC3339 for the client-side `data-ago`
+		// relative-time helper — never emit time.Time.String() (non-standard,
+		// Safari/Firefox parse it as Invalid Date → "NaN ago").
+		"iso": func(t time.Time) string { return t.Format(time.RFC3339) },
+		// columnName resolves a status/column id to its display name, so the
+		// modal/detail header shows the same label the status <select> does
+		// (WYSIWYG: the view must not change voice when it becomes editable).
+		"columnName": func(id string) string {
+			for _, c := range ws.Columns {
+				if c.ID == id {
+					return c.Name
+				}
+			}
+			return id
+		},
+		// boardStyle renders a board's Theme as a safe inline custom-property
+		// string for the board wrapper. Only whitelisted hue tokens with simple
+		// color values are emitted (prevents CSS injection / breaking dark mode).
+		"boardStyle": boardStyle,
+		// dict turns key/value pairs into a map for partials that need a small
+		// argument struct (e.g. {{template "x" (dict "Action" ... "Query" ...)}}). (1e/1d)
+		"dict": func(kv ...any) map[string]any {
+			m := make(map[string]any, len(kv)/2)
+			for i := 0; i+1 < len(kv); i += 2 {
+				key, ok := kv[i].(string)
+				if !ok {
+					continue
+				}
+				m[key] = kv[i+1]
+			}
+			return m
+		},
+		// typeTheme returns the effective TypeTheme for a type id from the
+		// ViewData.TypeThemes map (built in boardData/uiCardModal/uiCardDetail/
+		// uiIndex). Fallback for non-loop call-sites where CardView fields are
+		// not precomputed. (1a)
+		"typeTheme": func(themes map[string]core.TypeTheme, id string) core.TypeTheme {
+			if t, ok := themes[id]; ok {
+				return t
+			}
+			return core.TypeTheme{Icon: "card"}
+		},
 	}
 	base := template.New("base").Funcs(funcMap)
 	// Parse layout first so clones carry it.
@@ -56,11 +102,13 @@ func New(svc *core.Service, ws *core.Workspace, types map[string]*core.CardType,
 	// page + partials so "content"/"card_partial"/"field_input" never collide
 	// across pages.
 	pageSets := map[string][]string{
-		"board.html":        {"templates/board.html", "templates/card_partial.html"},
-		"card_detail.html":  {"templates/card_detail.html"},
-		"card_form.html":    {"templates/card_form.html"},
-		"card_modal.html":   {"templates/card_modal.html"},
-		"home.html":         {"templates/home.html"},
+		"board.html":          {"templates/board.html", "templates/card_partial.html", "templates/search_form.html"},
+		"card_ambiguous.html": {"templates/card_ambiguous.html"},
+		"card_detail.html":    {"templates/card_detail.html", "templates/card_modal.html"},
+		"card_form.html":      {"templates/card_form.html"},
+		"card_modal.html":     {"templates/card_modal.html"},
+		"home.html":           {"templates/home.html", "templates/search_form.html"},
+		"search_results.html": {"templates/search_results.html", "templates/card_partial.html", "templates/search_form.html"},
 	}
 	pages := map[string]*template.Template{}
 	for name, files := range pageSets {
@@ -111,6 +159,7 @@ func (s *Server) Router() http.Handler {
 
 	// --- UI ---
 	r.Get("/", s.uiIndex)
+	r.Get("/ui/search", s.uiSearch)
 	r.Get("/ui/style.css", s.uiStylesheet)
 	r.Get("/ui/boards/{id}", s.uiBoard)
 	r.Get("/ui/cards/new", s.uiNewCardForm)
@@ -185,6 +234,7 @@ func (s *Server) apiListCards(w http.ResponseWriter, r *http.Request) {
 		Status:     r.URL.Query().Get("status"),
 		Owner:      r.URL.Query().Get("owner"),
 		Q:          r.URL.Query().Get("q"),
+		IDLike:     r.URL.Query().Get("q"), // also match id/short-id when q is set (1d)
 		Blocked:    r.URL.Query().Get("blocked") == "true",
 		HasLink:    r.URL.Query().Get("has_link"),
 		LinkTarget: r.URL.Query().Get("link_target"),
@@ -224,8 +274,17 @@ func (s *Server) apiCreateCard(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) apiGetCard(w http.ResponseWriter, r *http.Request) {
-	c, err := s.svc.GetCard(r.Context(), chi.URLParam(r, "id"))
+	c, err := s.svc.ResolveCard(r.Context(), chi.URLParam(r, "id"))
 	if err != nil {
+		var amb *core.AmbiguousIDError
+		if errors.As(err, &amb) {
+			writeJSON(w, 409, map[string]any{
+				"error":      "ambiguous",
+				"query":      amb.Short,
+				"candidates": amb.Candidates,
+			})
+			return
+		}
 		writeAPIError(w, core.AsError(err))
 		return
 	}
@@ -789,7 +848,33 @@ func (s *Server) uiIndex(w http.ResponseWriter, r *http.Request) {
 	data.Workspace = s.ws
 	data.CardCount = totalCount
 	data.RecentCards = recent
+	data.TypeThemes = s.buildTypeThemes()
+	data.Query = r.URL.Query().Get("q")
 	s.renderPage(w, "home.html", data)
+}
+
+// uiSearch renders global search results for GET /ui/search?q= (1d). q is
+// shareable/bookmarkable. Results link to /ui/cards/{short}.
+func (s *Server) uiSearch(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query().Get("q")
+	page, err := s.svc.ListCards(r.Context(), core.CardQuery{Q: q, IDLike: q, Limit: 50})
+	views := []CardView{}
+	if err == nil && page != nil {
+		users, _ := s.store.ListUsers(r.Context())
+		for i := range page.Items {
+			views = append(views, s.cardView(&page.Items[i], nil, users))
+		}
+	}
+	data := s.baseData("Search")
+	data.Query = q
+	data.FormTitle = q
+	data.CardsByColumn = map[string][]CardView{"results": views}
+	data.TypeThemes = s.buildTypeThemes()
+	if wantsPartial(r) {
+		s.renderPartial(w, "search_results.html", data)
+		return
+	}
+	s.renderPage(w, "search_results.html", data)
 }
 
 // uiStylesheet serves the embedded design-system CSS.
@@ -818,9 +903,15 @@ func (s *Server) uiBoard(w http.ResponseWriter, r *http.Request) {
 // Reused by uiBoard and the htmx move handler so a move re-renders the whole
 // board with the card in its new column.
 func (s *Server) boardData(r *http.Request, b *core.Board) ViewData {
+	q := r.URL.Query().Get("q")
 	all := []core.Card{}
 	for _, t := range b.CardTypeIDs {
-		page, err := s.svc.ListCards(r.Context(), core.CardQuery{TypeID: t, Limit: 200})
+		cq := core.CardQuery{TypeID: t, Limit: 200}
+		if q != "" {
+			cq.Q = q
+			cq.IDLike = q // scoped to this board's types (1d)
+		}
+		page, err := s.svc.ListCards(r.Context(), cq)
 		if err != nil {
 			continue
 		}
@@ -833,12 +924,17 @@ func (s *Server) boardData(r *http.Request, b *core.Board) ViewData {
 		byCol[c] = []CardView{}
 	}
 	users, _ := s.store.ListUsers(r.Context())
+	outCount, inCount, commentCount := s.linkGraphCounts(r.Context())
 	for i := range all {
 		c := &all[i]
 		if !colSet[c.Status] {
 			continue
 		}
-		byCol[c.Status] = append(byCol[c.Status], s.cardView(c, b, users))
+		cv := s.cardView(c, b, users)
+		cv.CommentCount = commentCount[c.ID]
+		cv.OutCount = outCount[c.ID]
+		cv.InCount = inCount[c.ID]
+		byCol[c.Status] = append(byCol[c.Status], cv)
 	}
 	cols := []core.Column{}
 	for _, cid := range b.Columns {
@@ -853,6 +949,8 @@ func (s *Server) boardData(r *http.Request, b *core.Board) ViewData {
 	data.Board = b
 	data.Columns = cols
 	data.CardsByColumn = byCol
+	data.TypeThemes = s.buildTypeThemes()
+	data.Query = q
 	return data
 }
 
@@ -963,12 +1061,26 @@ func (s *Server) uiCreateCard(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) uiCardDetail(w http.ResponseWriter, r *http.Request) {
-	c, err := s.svc.GetCard(r.Context(), chi.URLParam(r, "id"))
+	c, err := s.svc.ResolveCard(r.Context(), chi.URLParam(r, "id"))
 	if err != nil {
+		var amb *core.AmbiguousIDError
+		if errors.As(err, &amb) {
+			s.renderCardAmbiguous(w, r, amb)
+			return
+		}
 		http.NotFound(w, r)
 		return
 	}
 	s.renderCardDetail(w, r, c, nil)
+}
+
+// renderCardAmbiguous renders the "did you mean?" page listing candidate
+// cards linking to /ui/cards/{full_id}. (1e)
+func (s *Server) renderCardAmbiguous(w http.ResponseWriter, r *http.Request, amb *core.AmbiguousIDError) {
+	data := s.baseData("Ambiguous id: " + amb.Short)
+	data.Error = &core.Error{Code: "ambiguous", Message: amb.Short, HTTPStatus: 409}
+	data.Candidates = amb.Candidates
+	s.renderPage(w, "card_ambiguous.html", data)
 }
 
 func (s *Server) uiMoveCard(w http.ResponseWriter, r *http.Request) {
@@ -1067,7 +1179,12 @@ func (s *Server) uiEditField(w http.ResponseWriter, r *http.Request) {
 // version), and returns the refreshed modal so the client swaps it in.
 func (s *Server) uiSaveCard(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	if err := r.ParseForm(); err != nil {
+	// The modal's Save button posts via fetch(FormData), which the browser
+	// always encodes as multipart/form-data — ParseForm alone does not parse
+	// multipart bodies (only application/x-www-form-urlencoded + query args).
+	// ParseMultipartForm calls ParseForm internally and falls back cleanly
+	// (ErrNotMultipart) for the urlencoded case used by curl/tests.
+	if err := r.ParseMultipartForm(10 << 20); err != nil && err != http.ErrNotMultipart {
 		http.Error(w, "bad form", http.StatusBadRequest)
 		return
 	}
@@ -1129,12 +1246,22 @@ func (s *Server) uiSaveCard(w http.ResponseWriter, r *http.Request) {
 	}
 	_, err := s.svc.PatchCard(r.Context(), id, req)
 	if err != nil {
-		// Re-render the modal with the error + the version the client had.
+		// Re-render the originating surface (modal or detail) with the error +
+		// the version the client had.
 		c.Version = version // show the version the user posted with
+		if r.FormValue("from") == "detail" {
+			s.renderCardDetail(w, r, c, core.AsError(err))
+			return
+		}
 		s.renderCardModalErr(w, r, c, core.AsError(err))
 		return
 	}
-	// Return the refreshed modal.
+	// Return the refreshed surface: detail move/save re-renders the detail page,
+	// modal save re-renders the modal.
+	if r.FormValue("from") == "detail" {
+		s.uiCardDetail(w, r)
+		return
+	}
 	s.uiCardModal(w, r)
 }
 
@@ -1152,6 +1279,7 @@ func (s *Server) renderCardModalErr(w http.ResponseWriter, r *http.Request, c *c
 	data.Users = users
 	data.TagSet = s.ws.TagSet
 	data.Error = err
+	data.TypeThemes = s.buildTypeThemes()
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_ = s.pages["card_modal.html"].ExecuteTemplate(w, "card_modal", data)
 }
@@ -1164,20 +1292,27 @@ type CardView struct {
 	CardType      *core.CardType
 	PreviewFields []PreviewField
 	MoveOptions   []Option
-	LinkChips     []Chip
-	RepeatingChips []Chip
+	TypeIcon   string // 1a — precomputed badge glyph
+	TypeAccent string // 1a — precomputed accent (overrides [data-type])
+	TypeMuted  string // 1a — precomputed muted shade
+	TypeLabel  string // 1a — precomputed type display name (== CardType.Name)
+	CommentCount int  // board card: number of comments
+	OutCount     int  // board card: number of outbound links
+	InCount      int  // board card: number of inbound links (others → this)
+}
+
+// LinkView is a resolved relationship to another card, shown with the target's
+// title (not its id) and coloured by link type. Dir is "out" or "in".
+type LinkView struct {
+	TypeID string
+	CardID string
+	Title  string
+	Dir    string
 }
 
 type PreviewField struct {
 	Label string
 	Value string
-}
-
-// Chip is a small count badge on a card overview (links / repeating fields).
-type Chip struct {
-	Label string
-	Count int
-	TypeID string // for link chips (drives data-link-type theming)
 }
 
 // Option is a select option.
@@ -1227,14 +1362,126 @@ type ViewData struct {
 	StatusOptions  []Option
 	Users          []core.User
 	TagSet         []string
+	// TypeThemes is the id→TypeTheme map for non-loop call-sites (modal,
+	// detail, home) that read via the typeTheme template func. (1a)
+	TypeThemes     map[string]core.TypeTheme `json:"-"`
+	// Candidates is the disambiguation list shown by card_ambiguous.html when a
+	// short id matches >1 card. (1e)
+	Candidates     []core.CardCandidate
+	// Query is the current ?q= search string, repopulating the search box (1d).
+	Query          string
 	// Home page
 	Workspace      *core.Workspace
 	CardCount      int
 	RecentCards    []RecentCard
+	// Card detail/modal relationships (resolved titles, in/outbound).
+	OutLinks       []LinkView
+	InLinks        []LinkView
 }
 
 func (s *Server) baseData(title string) ViewData {
 	return ViewData{Title: title, Boards: s.boards}
+}
+
+// shortID = first 8 hex after the "card_" prefix (card_fca1f3d5… -> fca1f3d5).
+func shortID(id string) string {
+	if len(id) >= 13 {
+		return id[5:13]
+	}
+	return id
+}
+
+// boardThemeTokens is the whitelist of design-system tokens a board may
+// override, in a fixed order (deterministic output, no sort import). Only
+// non-inverting HUE tokens are allowed — neutral/ink/surface/flat-neutral
+// tokens stay theme-owned so the dark-mode remap keeps working.
+var boardThemeTokens = []string{
+	"--c-accent", "--c-accent-2", "--c-accent-soft",
+	"--c-flat", "--c-flat-dot", "--c-label-bg", "--c-label-fg",
+	"--type-feature", "--type-bug", "--type-task", "--type-experiment",
+	"--type-research-goal", "--type-programming-task",
+	"--link-depends-on", "--link-blocked-by", "--link-related", "--link-sent-to",
+	"--rel-out", "--rel-in",
+}
+
+// safeCSSColor rejects anything that isn't a plain color/token value, so a
+// board Theme can't inject arbitrary CSS via the inline style attribute.
+func safeCSSColor(v string) bool {
+	if v == "" || len(v) > 32 {
+		return false
+	}
+	for _, r := range v {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9':
+		case r == '#' || r == '(' || r == ')' || r == ',' || r == '.' || r == '%' || r == ' ' || r == '-':
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+// boardStyle emits a board's whitelisted Theme overrides as an inline
+// custom-property string (template.CSS = pre-sanitised for a style attr).
+func boardStyle(b *core.Board) template.CSS {
+	if b == nil || len(b.Theme) == 0 {
+		return ""
+	}
+	var sb strings.Builder
+	for _, k := range boardThemeTokens {
+		if v, ok := b.Theme[k]; ok && safeCSSColor(v) {
+			sb.WriteString(k)
+			sb.WriteByte(':')
+			sb.WriteString(v)
+			sb.WriteByte(';')
+		}
+	}
+	return template.CSS(sb.String())
+}
+
+// linkGraphCounts loads the whole link graph + comment counts in two queries
+// (not N+1) and returns per-card outbound/inbound/comment counts for the board.
+func (s *Server) linkGraphCounts(ctx context.Context) (out, in, comments map[string]int) {
+	out, in, comments = map[string]int{}, map[string]int{}, map[string]int{}
+	edges, _ := s.store.AllLinks(ctx)
+	for _, e := range edges {
+		out[e.Source]++
+		in[e.Target]++
+	}
+	if cc, err := s.store.CommentCounts(ctx); err == nil {
+		comments = cc
+	}
+	return
+}
+
+// cardTitle resolves a card id to its title (cached per request), falling back
+// to a short id when the target can't be loaded (deleted / cross-workspace).
+func (s *Server) cardTitle(ctx context.Context, cache map[string]string, id string) string {
+	if t, ok := cache[id]; ok {
+		return t
+	}
+	t := shortID(id)
+	if c, err := s.store.GetCard(ctx, id); err == nil && c.Title != "" {
+		t = c.Title
+	}
+	cache[id] = t
+	return t
+}
+
+// cardRelations builds the outbound + inbound relationship views for a card's
+// detail/modal, resolving each linked card's title (not its id).
+func (s *Server) cardRelations(ctx context.Context, c *core.Card) (outs, ins []LinkView) {
+	cache := map[string]string{c.ID: c.Title}
+	for _, l := range c.Links {
+		outs = append(outs, LinkView{TypeID: l.TypeID, CardID: l.Target, Title: s.cardTitle(ctx, cache, l.Target), Dir: "out"})
+	}
+	edges, _ := s.store.AllLinks(ctx)
+	for _, e := range edges {
+		if e.Target == c.ID {
+			ins = append(ins, LinkView{TypeID: e.TypeID, CardID: e.Source, Title: s.cardTitle(ctx, cache, e.Source), Dir: "in"})
+		}
+	}
+	return
 }
 
 func (s *Server) renderCardDetail(w http.ResponseWriter, r *http.Request, c *core.Card, err *core.Error) {
@@ -1250,6 +1497,8 @@ func (s *Server) renderCardDetail(w http.ResponseWriter, r *http.Request, c *cor
 	data.Users = users
 	data.TagSet = s.ws.TagSet
 	data.Error = err
+	data.TypeThemes = s.buildTypeThemes()
+	data.OutLinks, data.InLinks = s.cardRelations(r.Context(), c)
 	if wantsPartial(r) {
 		s.renderPartial(w, "card_detail.html", data)
 	} else {
@@ -1276,10 +1525,37 @@ func (s *Server) uiCardModal(w http.ResponseWriter, r *http.Request) {
 	data.MoveOptions = s.moveOptions(b, c.Status)
 	data.Users = users
 	data.TagSet = s.ws.TagSet
+	data.TypeThemes = s.buildTypeThemes()
+	data.OutLinks, data.InLinks = s.cardRelations(r.Context(), c)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if e := s.pages["card_modal.html"].ExecuteTemplate(w, "card_modal", data); e != nil {
 		http.Error(w, "template error: "+e.Error(), http.StatusInternalServerError)
 	}
+}
+
+// typeTheme returns the effective TypeTheme for ct, merging config over CSS
+// [data-type] defaults. Empty Accent/Muted → CSS token defaults still apply.
+// (1a) Callers never read ct.TypeTheme directly.
+func typeTheme(ct *core.CardType) core.TypeTheme {
+	if ct == nil {
+		return core.TypeTheme{}
+	}
+	t := ct.TypeTheme
+	if t.Icon == "" {
+		t.Icon = ct.Icon // back-compat: legacy flat Icon field
+	}
+	// Accent/Muted left empty when unset → CSS [data-type] selectors render.
+	return t
+}
+
+// buildTypeThemes assembles the id→TypeTheme map used by ViewData.TypeThemes
+// for non-loop call-sites (modal, detail, home). (1a)
+func (s *Server) buildTypeThemes() map[string]core.TypeTheme {
+	themes := make(map[string]core.TypeTheme, len(s.types))
+	for id, ct := range s.types {
+		themes[id] = typeTheme(ct)
+	}
+	return themes
 }
 
 func (s *Server) cardView(c *core.Card, b *core.Board, users []core.User) CardView {
@@ -1295,68 +1571,21 @@ func (s *Server) cardView(c *core.Card, b *core.Board, users []core.User) CardVi
 			}
 		}
 	}
+	th := typeTheme(ct)
+	label := ""
+	if ct != nil {
+		label = ct.Name
+	}
 	return CardView{
 		Card:           c,
 		CardType:       ct,
 		PreviewFields:  previews,
 		MoveOptions:    s.moveOptions(b, c.Status),
-		LinkChips:      linkChips(c, s.ws),
-		RepeatingChips: repeatingChips(c, ct),
+		TypeIcon:       th.Icon,
+		TypeAccent:     th.Accent,
+		TypeMuted:      th.Muted,
+		TypeLabel:      label,
 	}
-}
-
-// linkChips groups a card's links by type_id into count chips.
-func linkChips(c *core.Card, ws *core.Workspace) []Chip {
-	if len(c.Links) == 0 {
-		return nil
-	}
-	counts := map[string]int{}
-	order := []string{}
-	for _, l := range c.Links {
-		if _, ok := counts[l.TypeID]; !ok {
-			order = append(order, l.TypeID)
-		}
-		counts[l.TypeID]++
-	}
-	out := []Chip{}
-	for _, id := range order {
-		label := id
-		for _, lt := range ws.LinkTypes {
-			if lt.ID == id {
-				label = lt.Name
-				break
-			}
-		}
-		out = append(out, Chip{Label: label, Count: counts[id], TypeID: id})
-	}
-	return out
-}
-
-// repeatingChips builds chips for repeating fields that have entries.
-func repeatingChips(c *core.Card, ct *core.CardType) []Chip {
-	if ct == nil {
-		return nil
-	}
-	fm, _ := c.Fields.(map[string]any)
-	if fm == nil {
-		return nil
-	}
-	out := []Chip{}
-	for _, f := range ct.Fields {
-		if f.Type != core.FieldRepeating {
-			continue
-		}
-		arr, _ := fm[f.ID].([]any)
-		if len(arr) == 0 {
-			continue
-		}
-		label := f.Label
-		if label == "" {
-			label = humanizeID(f.ID)
-		}
-		out = append(out, Chip{Label: label, Count: len(arr)})
-	}
-	return out
 }
 
 func (s *Server) moveOptions(b *core.Board, current string) []Option {

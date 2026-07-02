@@ -2,6 +2,7 @@ package core_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"testing"
@@ -871,3 +872,82 @@ func TestListCards_InvalidCursor(t *testing.T) {
 		t.Errorf("error field = %q, want cursor", ce.Field)
 	}
 }
+
+func TestResolveCard_FullIDFirst(t *testing.T) {
+	// A full id that also suffixes another card still resolves to itself.
+	svc, st := newTestService(t)
+	ctx := context.Background()
+	// Two cards whose last-8 suffix collides; the older one is the one we'll
+	// resolve by full id.
+	idA := "card_ABCD1234aaaaaaaaaaaaaaaaaaaaaaaa"
+	idB := "card_ABCD1234bbbbbbbbbbbbbbbbbbbbbbbb"
+	now := time.Now().UTC()
+	older := now.Add(-time.Hour)
+	ca := &core.Card{ID: idA, WorkspaceID: "t", TypeID: "task", SchemaVersion: 1, Title: "A-full", Status: "todo", Fields: map[string]any{}, Version: 1, CreatedAt: older, UpdatedAt: older, CreatedBy: "u"}
+	cb := &core.Card{ID: idB, WorkspaceID: "t", TypeID: "task", SchemaVersion: 1, Title: "B-full", Status: "todo", Fields: map[string]any{}, Version: 1, CreatedAt: now, UpdatedAt: now, CreatedBy: "u"}
+	_ = st.InsertCard(ctx, ca, nil)
+	_ = st.InsertCard(ctx, cb, nil)
+	// Resolve the older card by its FULL id (not the short suffix).
+	got, err := svc.ResolveCard(ctx, idA)
+	if err != nil {
+		t.Fatalf("resolve full: %v", err)
+	}
+	if got.ID != idA {
+		t.Errorf("expected %s, got %s", idA, got.ID)
+	}
+}
+
+func TestResolveCard_ShortIDUnique(t *testing.T) {
+	svc, st := newTestService(t)
+	ctx := context.Background()
+	idA := "card_UNIQU599cccccccccccccccccccccccccc"
+	now := time.Now().UTC()
+	ca := &core.Card{ID: idA, WorkspaceID: "t", TypeID: "task", SchemaVersion: 1, Title: "Solo", Status: "todo", Fields: map[string]any{}, Version: 1, CreatedAt: now, UpdatedAt: now, CreatedBy: "u"}
+	_ = st.InsertCard(ctx, ca, nil)
+	got, err := svc.ResolveCard(ctx, "UNIQU599")
+	if err != nil {
+		t.Fatalf("resolve short: %v", err)
+	}
+	if got.ID != idA {
+		t.Errorf("expected %s, got %s", idA, got.ID)
+	}
+}
+
+func TestResolveCard_AmbiguousError(t *testing.T) {
+	svc, st := newTestService(t)
+	ctx := context.Background()
+	idA := "card_AMBIG008dddddddddddddddddddddddddd"
+	idB := "card_AMBIG008eeeeeeeeeeeeeeeeeeeeeeeeee"
+	now := time.Now().UTC()
+	older := now.Add(-time.Hour)
+	_ = st.InsertCard(ctx, &core.Card{ID: idA, WorkspaceID: "t", TypeID: "task", SchemaVersion: 1, Title: "A-amb", Status: "todo", Fields: map[string]any{}, Version: 1, CreatedAt: older, UpdatedAt: older, CreatedBy: "u"}, nil)
+	_ = st.InsertCard(ctx, &core.Card{ID: idB, WorkspaceID: "t", TypeID: "task", SchemaVersion: 1, Title: "B-amb", Status: "todo", Fields: map[string]any{}, Version: 1, CreatedAt: now, UpdatedAt: now, CreatedBy: "u"}, nil)
+	_, err := svc.ResolveCard(ctx, "AMBIG008")
+	var amb *core.AmbiguousIDError
+	if !errors.As(err, &amb) {
+		t.Fatalf("expected *AmbiguousIDError, got %v", err)
+	}
+	if len(amb.Candidates) != 2 {
+		t.Errorf("expected 2 candidates, got %d", len(amb.Candidates))
+	}
+	// Verify both ids and titles are present.
+	got := map[string]string{}
+	for _, c := range amb.Candidates {
+		got[c.ID] = c.Title
+	}
+	if got[idA] != "A-amb" || got[idB] != "B-amb" {
+		t.Errorf("candidates = %v", got)
+	}
+}
+
+func TestResolveCard_NotFound(t *testing.T) {
+	svc, _ := newTestService(t)
+	ctx := context.Background()
+	_, err := svc.ResolveCard(ctx, "NOPE0000")
+	ce := core.AsError(err)
+	if ce == nil || ce.Code != "not_found" {
+		t.Fatalf("expected not_found, got %v", err)
+	}
+}
+
+// errorsAs removed: errors.As is used directly after importing "errors".

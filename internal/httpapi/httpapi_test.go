@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -425,4 +426,127 @@ func TestCommentsHTTP(t *testing.T) {
 	if resp.StatusCode != 200 || len(got["comments"].([]any)) != 1 {
 		t.Fatalf("comments: %d %v", resp.StatusCode, got["comments"])
 	}
+}
+
+// newServerStore is like newServer but also returns the underlying store so
+// tests can insert cards with crafted ids (e.g. colliding short-id suffixes).
+func newServerStore(t *testing.T) (*httptest.Server, *core.Service, *sqlite.Store) {
+	t.Helper()
+	r, err := config.New("../../examples/demo-workspace").Load()
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	st, err := sqlite.Open(":memory:", r.Workspace)
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	t.Cleanup(func() { st.Close() })
+	svc := core.NewService(r.Workspace, r.CardTypes, r.Boards, st)
+	srv, err := httpapi.New(svc, r.Workspace, r.CardTypes, r.Boards, st)
+	if err != nil {
+		t.Fatalf("new http server: %v", err)
+	}
+	ts := httptest.NewServer(srv.Router())
+	t.Cleanup(func() { ts.Close() })
+	return ts, svc, st
+}
+
+func insertCraftedCard(t *testing.T, st *sqlite.Store, id string) {
+	t.Helper()
+	ctx := context.Background()
+	now := time.Now().UTC()
+	c := &core.Card{
+		ID: id, WorkspaceID: "demo", TypeID: "programming-task", SchemaVersion: 1,
+		Title: "Crafted " + id, Status: "todo", Fields: map[string]any{"description": "d", "branch": "b"},
+		Version: 1, CreatedAt: now, UpdatedAt: now, CreatedBy: "local-dev",
+	}
+	if err := st.InsertCard(ctx, c, &core.Event{CardID: id, Type: core.EventCardCreated, Actor: "local-dev", At: now}); err != nil {
+		t.Fatalf("insert crafted %s: %v", id, err)
+	}
+}
+
+func TestAPIGetCard_ShortIDResolves(t *testing.T) {
+	ts, _, _ := newServerStore(t)
+	// Create a card via the API and read its full id.
+	_, created := do(t, ts, "POST", "/v1/cards", core.CreateCardRequest{
+		TypeID: "programming-task", Title: "Short API", Status: "todo",
+		Fields: map[string]any{"description": "d", "branch": "b"}, Actor: "local-dev",
+	}, nil)
+	full := created["id"].(string)
+	short := full[5:13] // first 8 hex after "card_"
+
+	// GET by short id resolves to the same card.
+	resp, out := do(t, ts, "GET", "/v1/cards/"+short, nil, nil)
+	if resp.StatusCode != 200 {
+		t.Fatalf("short GET: %d %v", resp.StatusCode, out)
+	}
+	if out["id"] != full {
+		t.Errorf("short resolved to %v, want %s", out["id"], full)
+	}
+	// GET by full id still works.
+	resp2, out2 := do(t, ts, "GET", "/v1/cards/"+full, nil, nil)
+	if resp2.StatusCode != 200 || out2["id"] != full {
+		t.Fatalf("full GET: %d %v", resp2.StatusCode, out2)
+	}
+}
+
+func TestAPIGetCard_AmbiguousShortID409(t *testing.T) {
+	ts, _, st := newServerStore(t)
+	idA := "card_COLLIDE1aaaaaaaaaaaaaaaaaaaaaaaa"
+	idB := "card_COLLIDE1bbbbbbbbbbbbbbbbbbbbbbbb"
+	insertCraftedCard(t, st, idA)
+	insertCraftedCard(t, st, idB)
+	resp, out := do(t, ts, "GET", "/v1/cards/COLLIDE1", nil, nil)
+	if resp.StatusCode != 409 {
+		t.Fatalf("expected 409, got %d %v", resp.StatusCode, out)
+	}
+	if out["error"] != "ambiguous" || out["query"] != "COLLIDE1" {
+		t.Errorf("body = %v", out)
+	}
+	cands, _ := out["candidates"].([]any)
+	if len(cands) != 2 {
+		t.Errorf("expected 2 candidates, got %d", len(cands))
+	}
+}
+
+func TestUICardDetail_ShortIDAndAmbiguous(t *testing.T) {
+	ts, _, st := newServerStore(t)
+	idA := "card_UIAMBIG1cccccccccccccccccccccccccc"
+	idB := "card_UIAMBIG1dddddddddddddddddddddddddd"
+	insertCraftedCard(t, st, idA)
+	insertCraftedCard(t, st, idB)
+	short := "UIAMBIG1"
+
+	// Short id resolves → detail page (200), contains the full id.
+	resp, body := getHTML(t, ts, "/ui/cards/"+short)
+	if resp.StatusCode != 200 {
+		t.Fatalf("detail short: %d", resp.StatusCode)
+	}
+	if !strings.Contains(body, idA) && !strings.Contains(body, idB) {
+		t.Errorf("detail body missing full id; got:\n%s", body)
+	}
+
+	// Ambiguous short id → ambiguous page listing candidates.
+	resp3, body3 := getHTML(t, ts, "/ui/cards/UIAMBIG1")
+	if resp3.StatusCode != 200 {
+		t.Fatalf("ambiguous page: %d", resp3.StatusCode)
+	}
+	if !strings.Contains(body3, "Ambiguous") {
+		t.Errorf("expected ambiguous heading; got:\n%s", body3)
+	}
+	if !strings.Contains(body3, idA) || !strings.Contains(body3, idB) {
+		t.Errorf("ambiguous page missing candidate links; got:\n%s", body3)
+	}
+}
+
+// getHTML fetches a path and returns the response + body text.
+func getHTML(t *testing.T, ts *httptest.Server, path string) (*http.Response, string) {
+	t.Helper()
+	resp, err := http.Get(ts.URL + path)
+	if err != nil {
+		t.Fatalf("get %s: %v", path, err)
+	}
+	b, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	return resp, string(b)
 }

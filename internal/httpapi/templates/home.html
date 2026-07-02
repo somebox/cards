@@ -3,6 +3,7 @@
   <section class="home__hero">
     <h1>{{.Workspace.Name}}</h1>
     <p class="muted">{{len .Boards}} board{{if gt (len .Boards) 1}}s{{end}} · {{.CardCount}} card{{if ne .CardCount 1}}s{{end}}</p>
+    {{template "search_form" (dict "Action" "/ui/search" "Query" .Query)}}
   </section>
 
   <section class="home__boards">
@@ -28,7 +29,13 @@
     <div class="stack">
       {{range .RecentCards}}
       <div class="home__recent-row">
-        <span class="chip chip--type" data-type="{{.TypeID}}">{{.TypeLabel}}</span>
+        {{$th := typeTheme $.TypeThemes .TypeID}}
+        <span class="card__type-badge" data-type="{{.TypeID}}"
+              {{- if $th.Accent}} style="--badge-ink:{{$th.Accent}}{{- if $th.Muted}};--badge-wash:{{$th.Muted}}{{end}}"{{end -}}
+              title="{{.TypeID}}">
+          {{if $th.Icon}}<span class="card__type-badge__icon">{{$th.Icon}}</span>{{end}}
+          {{.TypeLabel}}
+        </span>
         <a href="/ui/cards/{{.ID}}">{{.Title}}</a>
         <span class="faint">{{.Status}}</span>
         <span class="faint" data-ago="{{.UpdatedAt}}">{{.UpdatedAt}}</span>

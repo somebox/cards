@@ -1,14 +1,44 @@
-{{define "card_modal"}}
-<form class="save-form" action="/ui/cards/{{.Card.ID}}/save" method="POST" data-version="{{.Card.Version}}">
+{{define "card_body"}}
   <div class="modal__head">
-    <div>
-      <h2>{{.Card.Title}}</h2>
+    <div class="modal__head-main">
+      <div class="field field--editable" data-field="title">
+        <span class="field__view card-title__view{{if not .Card.Title}} is-empty{{end}}" tabindex="0" data-view title="{{.Card.Title}}">{{if .Card.Title}}{{.Card.Title}}{{else}}Untitled{{end}}</span>
+        <span class="field__edit card-title__edit" data-edit hidden>
+          <input type="text" class="input" name="title" value="{{.Card.Title}}">
+        </span>
+      </div>
       <div class="modal__meta">
-        <span class="chip chip--type" data-type="{{.Card.TypeID}}">{{.CardType.Name}}</span>
-        <span>Status: <b>{{.Card.Status}}</b></span>
-        <span>Owner: {{if .Card.Owner}}{{.Card.Owner}}{{else}}—{{end}}</span>
-        <span>v{{.Card.Version}}</span>
-        <span class="faint">id: {{.Card.ID}}</span>
+        {{$th := typeTheme .TypeThemes .Card.TypeID}}
+        <span class="card__type-badge" data-type="{{.Card.TypeID}}"
+              {{- if $th.Accent}} style="--badge-ink:{{$th.Accent}}{{- if $th.Muted}};--badge-wash:{{$th.Muted}}{{end}}"{{end -}}
+              title="{{.Card.TypeID}}">
+          {{if $th.Icon}}<span class="card__type-badge__icon">{{$th.Icon}}</span>{{end}}
+          {{.CardType.Name}}
+        </span>
+        <span class="field field--editable modal__meta-field" data-field="status">
+          <span class="modal__meta-key">status</span>
+          <span class="field__view" tabindex="0" data-view>{{columnName .Card.Status}}</span>
+          <span class="field__edit" data-edit hidden>
+            <select class="select" name="status">
+              {{range .MoveOptions}}
+                <option value="{{.Value}}" {{if .Disabled}}disabled{{end}} {{if .Selected}}selected{{end}}>{{.Label}}</option>
+              {{end}}
+            </select>
+          </span>
+        </span>
+        <span class="field field--editable modal__meta-field" data-field="owner">
+          <span class="modal__meta-key">owner</span>
+          <span class="field__view{{if not .Card.Owner}} is-empty{{end}}" tabindex="0" data-view>{{if .Card.Owner}}{{.Card.Owner}}{{else}}unassigned{{end}}</span>
+          <span class="field__edit" data-edit hidden>
+            <input type="text" class="input" name="owner" value="{{.Card.Owner}}"
+                   placeholder="unassigned" size="{{if .Card.Owner}}{{len .Card.Owner}}{{else}}8{{end}}">
+          </span>
+        </span>
+        <span class="modal__meta-tail mono faint">
+          <span title="{{.Card.ID}}">#{{shortID .Card.ID}}</span>
+          <span>v{{.Card.Version}}</span>
+          <span title="Created {{iso .Card.CreatedAt}} · Updated {{iso .Card.UpdatedAt}} · schema v{{.Card.SchemaVersion}}">updated <time data-ago="{{iso .Card.UpdatedAt}}" datetime="{{iso .Card.UpdatedAt}}"></time></span>
+        </span>
       </div>
     </div>
     <button type="button" class="modal__close" onclick="closeModal()" aria-label="close">×</button>
@@ -16,38 +46,25 @@
   <div class="modal__body">
     {{if .Error}}<div class="alert"><span class="alert__code">{{.Error.Code}}:</span> {{.Error.Message}}{{if .Error.ValidOptions}} (valid: {{join .Error.ValidOptions ", "}}){{end}}</div>{{end}}
 
-    <div class="field">
-      <label class="field__label">Title</label>
-      <input type="text" class="input" name="title" value="{{.Card.Title}}">
-    </div>
-
-    <div class="field">
-      <label class="field__label">Status</label>
-      <select class="select" name="status">
-        {{range .MoveOptions}}
-          <option value="{{.Value}}" {{if .Disabled}}disabled{{end}} {{if .Selected}}selected{{end}}>{{.Label}}</option>
-        {{end}}
-      </select>
-    </div>
-
-    <div class="field">
-      <label class="field__label">Owner</label>
-      <input type="text" class="input" name="owner" value="{{.Card.Owner}}">
-    </div>
-
-    <div class="field">
-      <label class="field__label">Tags <span class="muted">(comma-separated)</span></label>
-      <input type="text" class="input" name="tags" value="{{join .Card.Tags ", "}}" list="tag-options">
-      {{if .TagSet}}<datalist id="tag-options">{{range .TagSet}}<option value="{{.}}">{{end}}</datalist>{{end}}
+    <div class="field field--editable" data-field="tags">
+      <label class="field__label">Tags</label>
+      <div class="field__view{{if not .Card.Tags}} is-empty{{end}}" tabindex="0" data-view>{{- if .Card.Tags}}{{range .Card.Tags}}<span class="chip chip--tag">{{.}}</span> {{end}}{{else}}Add tags…{{end -}}
+      </div>
+      <div class="field__edit" data-edit hidden>
+        <input type="text" class="input" name="tags" value="{{join .Card.Tags ", "}}" list="tag-options" placeholder="Add tags…">
+        {{if .TagSet}}<datalist id="tag-options">{{range .TagSet}}<option value="{{.}}">{{end}}</datalist>{{end}}
+      </div>
     </div>
 
     {{range .Fields}}
     {{$field := .}}
     {{if eq .Display "hidden"}}{{else}}
+    {{if eq .Def.Type "repeating"}}
+    {{/* Repeating fields are managed via append/update-entry, not this save-form. Always read-only here. */}}
     <div class="field">
-      <label class="field__label">{{.Def.Label}}{{if .Def.Required}} <span class="req">*</span>{{end}}</label>
-      {{if eq .Def.Type "repeating"}}
-        {{if .Entries}}
+      <label class="field__label">{{.Def.Label}}</label>
+      {{if .Entries}}
+        <div class="modal__scroll">
           <div class="{{if eq .Display "feed"}}feed{{else}}stack{{end}}">
           {{range .Entries}}
           <div class="entry">
@@ -55,56 +72,76 @@
           </div>
           {{end}}
           </div>
-        {{else}}<span class="muted">No entries.</span>{{end}}
-      {{else if eq .Def.Type "artifact"}}
-        {{if .Value}}<div class="field__val">{{.ValueRendered}}</div>{{else}}<span class="muted">—</span>{{end}}
-      {{else if eq .Def.Type "card_link"}}
-        {{if .Value}}
-          {{if eq .Display "link"}}<a href="/ui/cards/{{.Value}}" data-card-link="/ui/cards/{{.Value}}/modal">{{.Value}}</a>
-          {{else}}<div class="field__val">{{.Value}}</div>{{end}}
-        {{else}}<span class="muted">—</span>{{end}}
-      {{else if eq .Def.Type "text"}}
-        <textarea class="textarea{{if eq .Display "monospace"}} mono{{end}}" name="field:{{.Def.ID}}">{{.ValueStr}}</textarea>
-      {{else if eq .Def.Type "enum"}}
-        {{if eq .Display "badge"}}
-          {{if .ValueStr}}<span class="chip chip--tag">{{.ValueStr}}</span>{{else}}<span class="muted">—</span>{{end}}
+        </div>
+      {{else}}<span class="muted">No entries.</span>{{end}}
+    </div>
+    {{else if eq .Def.Type "artifact"}}
+    <div class="field">
+      <label class="field__label">{{.Def.Label}}</label>
+      {{if .Value}}<div class="field__val">{{.ValueRendered}}</div>{{else}}<span class="muted">—</span>{{end}}
+    </div>
+    {{else if eq .Def.Type "card_link"}}
+    <div class="field">
+      <label class="field__label">{{.Def.Label}}</label>
+      {{if .Value}}
+        {{if eq .Display "link"}}<a href="/ui/cards/{{.Value}}" data-card-link="/ui/cards/{{.Value}}/modal">{{.Value}}</a>
+        {{else}}<div class="field__val">{{.Value}}</div>{{end}}
+      {{else}}<span class="muted">—</span>{{end}}
+    </div>
+    {{else}}
+    {{/* Editable scalar fields: click the rendered value to edit in place. */}}
+    <div class="field field--editable" data-field="field:{{.Def.ID}}">
+      <label class="field__label">{{.Def.Label}}{{if .Def.Required}} <span class="req">*</span>{{end}}</label>
+
+      <div class="field__view{{if not .ValueStr}} is-empty{{end}}{{if eq .Display "monospace"}} mono{{end}}" tabindex="0" data-view>{{- if eq .Display "badge" -}}
+          {{- if .ValueStr}}<span class="chip chip--tag">{{.ValueStr}}</span>{{else}}Not set{{end -}}
+        {{- else if .ValueStr}}{{.ValueStr}}{{else}}Not set{{end -}}
+      </div>
+
+      <div class="field__edit" data-edit hidden>
+        {{if eq .Def.Type "text"}}
+          <textarea class="textarea{{if eq .Display "monospace"}} mono{{end}}" name="field:{{.Def.ID}}">{{.ValueStr}}</textarea>
+        {{else if eq .Def.Type "enum"}}
           <select class="select" name="field:{{.Def.ID}}">
             <option value="">—</option>
             {{range .Def.Options}}<option value="{{.}}" {{if eq . $field.ValueStr}}selected{{end}}>{{.}}</option>{{end}}
+          </select>
+        {{else if eq .Def.Type "number"}}
+          <input type="number" class="input" name="field:{{.Def.ID}}" value="{{.ValueStr}}">
+        {{else if eq .Def.Type "date"}}
+          <input type="date" class="input" name="field:{{.Def.ID}}" value="{{.ValueStr}}">
+        {{else if eq .Def.Type "user"}}
+          <select class="select" name="field:{{.Def.ID}}">
+            <option value="">—</option>
+            {{range .Users}}<option value="{{.ID}}" {{if eq .ID $field.ValueStr}}selected{{end}}>{{.ID}}</option>{{end}}
           </select>
         {{else}}
-          <select class="select" name="field:{{.Def.ID}}">
-            <option value="">—</option>
-            {{range .Def.Options}}<option value="{{.}}" {{if eq . $field.ValueStr}}selected{{end}}>{{.}}</option>{{end}}
-          </select>
+          <input type="text" class="input" name="field:{{.Def.ID}}" value="{{.ValueStr}}">
         {{end}}
-      {{else if eq .Def.Type "number"}}
-        <input type="number" class="input" name="field:{{.Def.ID}}" value="{{.ValueStr}}">
-      {{else if eq .Def.Type "date"}}
-        <input type="date" class="input" name="field:{{.Def.ID}}" value="{{.ValueStr}}">
-      {{else if eq .Def.Type "user"}}
-        <select class="select" name="field:{{.Def.ID}}">
-          <option value="">—</option>
-          {{range .Users}}<option value="{{.ID}}" {{if eq .ID $field.ValueStr}}selected{{end}}>{{.ID}}</option>{{end}}
-        </select>
-      {{else}}
-        {{if eq .Display "badge"}}{{if .ValueStr}}<span class="chip chip--tag">{{.ValueStr}}</span>{{end}}{{end}}
-        <input type="text" class="input" name="field:{{.Def.ID}}" value="{{.ValueStr}}">
-      {{end}}
+      </div>
     </div>
     {{end}}
     {{end}}
+    {{end}}
 
-    {{/* --- Links (read-only list) --- */}}
-    {{if .Card.Links}}
+    {{/* --- Relationships: outbound (this → other) + inbound (other → this),
+         shown with the linked card's title and a directional look. --- */}}
+    {{if or .OutLinks .InLinks}}
     <div class="field">
-      <label class="field__label">Links ({{len .Card.Links}})</label>
-      <div class="stack">
-        {{range .Card.Links}}
-        <div class="row">
-          <span class="chip chip--link" data-link-type="{{.TypeID}}">{{.TypeID}}</span>
-          <span>→ <a href="/ui/cards/{{.Target}}" data-card-link="/ui/cards/{{.Target}}/modal">{{.Target}}</a></span>
-          {{if .Note}}<span class="muted">{{.Note}}</span>{{end}}
+      <label class="field__label">Relationships</label>
+      <div class="rels">
+        {{range .OutLinks}}
+        <div class="rel rel--out" data-link-type="{{.TypeID}}">
+          <span class="rel__dir" aria-hidden="true"></span>
+          <span class="rel__type">{{.TypeID}}</span>
+          <a class="rel__card" href="/ui/cards/{{.CardID}}" data-card-link="/ui/cards/{{.CardID}}/modal" title="{{.CardID}}">{{.Title}}</a>
+        </div>
+        {{end}}
+        {{range .InLinks}}
+        <div class="rel rel--in" data-link-type="{{.TypeID}}">
+          <span class="rel__dir" aria-hidden="true"></span>
+          <a class="rel__card" href="/ui/cards/{{.CardID}}" data-card-link="/ui/cards/{{.CardID}}/modal" title="{{.CardID}}">{{.Title}}</a>
+          <span class="rel__type">{{.TypeID}}</span>
         </div>
         {{end}}
       </div>
@@ -115,29 +152,31 @@
     {{if .Card.Comments}}
     <div class="field">
       <label class="field__label">Comments ({{len .Card.Comments}})</label>
-      <div class="stack">
-        {{range .Card.Comments}}
-        <div class="entry">
-          <div class="row between"><b>{{.Author}}</b><span class="faint">{{.CreatedAt}}</span></div>
-          <div>{{.Body}}</div>
-          {{if not .EditedAt.IsZero}}<div class="faint">edited {{.EditedAt}}</div>{{end}}
+      <div class="modal__scroll">
+        <div class="stack">
+          {{range .Card.Comments}}
+          <div class="entry">
+            <div class="row between"><b>{{.Author}}</b><span class="faint"><time data-ago="{{iso .CreatedAt}}" datetime="{{iso .CreatedAt}}"></time></span></div>
+            <div>{{.Body}}</div>
+            {{if not .EditedAt.IsZero}}<div class="faint">edited {{.EditedAt}}</div>{{end}}
+          </div>
+          {{end}}
         </div>
-        {{end}}
       </div>
     </div>
     {{end}}
 
-    {{/* --- Metadata footer --- */}}
+    {{/* Created-by line — the rest of the metadata (id/version/updated) lives in
+       the header; created/schema are on the "updated" hover there. */}}
     <div class="field">
-      <label class="field__label">Metadata</label>
-      <div class="stack">
-        <div class="row"><span class="muted">Created:</span> <span>{{.Card.CreatedAt}} by {{.Card.CreatedBy}}</span></div>
-        <div class="row"><span class="muted">Updated:</span> <span>{{.Card.UpdatedAt}}</span></div>
-        <div class="row"><span class="muted">Schema:</span> <span>v{{.Card.SchemaVersion}}</span> <span class="muted">·</span> <span class="muted">Card v{{.Card.Version}}</span></div>
-        <div class="row"><span class="muted">Workspace:</span> <span>{{.Card.WorkspaceID}}</span></div>
-      </div>
+      <div class="mono faint">created by {{.Card.CreatedBy}} · <time data-ago="{{iso .Card.CreatedAt}}" datetime="{{iso .Card.CreatedAt}}"></time></div>
     </div>
   </div>
+{{end}}
+
+{{define "card_modal"}}
+<form class="save-form" action="/ui/cards/{{.Card.ID}}/save" method="POST" data-version="{{.Card.Version}}">
+  {{template "card_body" .}}
   <div class="modal__footer">
     <button type="button" class="btn btn--ghost" onclick="closeModal()">Cancel</button>
     <button type="button" class="btn btn--primary" disabled>Save</button>

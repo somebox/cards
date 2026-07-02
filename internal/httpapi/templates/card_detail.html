@@ -1,169 +1,20 @@
 {{define "content"}}
-<div class="detail" id="detail-body">
-  <div class="actions">
-    <a href="/ui/boards/{{.Board.ID}}" class="btn btn--ghost btn--sm">← {{.Board.Name}}</a>
-  </div>
-  <h2 class="page-title">{{.Card.Title}}</h2>
-  <div class="modal__meta" style="margin-bottom: var(--s-3);">
-    <span class="chip chip--type" data-type="{{.Card.TypeID}}">{{.CardType.Name}}</span>
-    <span>Status: <b>{{.Card.Status}}</b></span>
-    <span>Owner: {{if .Card.Owner}}{{.Card.Owner}}{{else}}—{{end}}</span>
-    <span>v{{.Card.Version}}</span>
-    <span class="faint">id: {{.Card.ID}}</span>
-  </div>
-
-  {{if .Error}}<div class="alert"><span class="alert__code">{{.Error.Code}}:</span> {{.Error.Message}}{{if .Error.ValidOptions}} (valid: {{join .Error.ValidOptions ", "}}){{end}}</div>{{end}}
-
-  <div class="field">
-    <label class="field__label">Title</label>
-    <form hx-post="/ui/cards/{{.Card.ID}}/field" hx-target="#detail-body" hx-swap="outerHTML">
-      <input type="text" class="input" name="title" value="{{.Card.Title}}">
-      <button type="submit" class="btn btn--primary btn--sm">Save</button>
-    </form>
-  </div>
-
-  <div class="field">
-    <label class="field__label">Status</label>
-    <form hx-post="/ui/cards/{{.Card.ID}}/move" hx-target="#detail-body" hx-swap="outerHTML">
-      <input type="hidden" name="from" value="detail">
-      <select class="select" name="status">
-        {{range .MoveOptions}}
-          <option value="{{.Value}}" {{if .Disabled}}disabled{{end}} {{if .Selected}}selected{{end}}>{{.Label}}</option>
-        {{end}}
-      </select>
-      <button type="submit" class="btn btn--primary btn--sm">Move</button>
-    </form>
-  </div>
-
-  <div class="field">
-    <label class="field__label">Owner</label>
-    <form hx-post="/ui/cards/{{.Card.ID}}/field" hx-target="#detail-body" hx-swap="outerHTML">
-      <input type="text" class="input" name="owner" value="{{.Card.Owner}}">
-      <button type="submit" class="btn btn--primary btn--sm">Save</button>
-    </form>
-  </div>
-
-  <div class="field">
-    <label class="field__label">Tags</label>
-    <form hx-post="/ui/cards/{{.Card.ID}}/field" hx-target="#detail-body" hx-swap="outerHTML">
-      <input type="text" class="input" name="tags" value="{{join .Card.Tags ", "}}" list="tag-options">
-      {{if .TagSet}}<datalist id="tag-options">{{range .TagSet}}<option value="{{.}}">{{end}}</datalist>{{end}}
-      <button type="submit" class="btn btn--primary btn--sm">Save</button>
-    </form>
-  </div>
-
-  {{range .Fields}}
-  {{if eq .Display "hidden"}}{{else}}
-  <div class="field">
-    <label class="field__label">{{.Def.Label}}{{if .Def.Required}} <span class="req">*</span>{{end}}</label>
-    {{if eq .Def.Type "repeating"}}
-      {{if .Entries}}
-        <div class="{{if eq .Display "feed"}}feed{{else}}stack{{end}}">
-        {{range .Entries}}
-        <div class="entry">
-          {{range .}}<div><b>{{.Label}}:</b> {{.Value}}</div>{{end}}
-        </div>
-        {{end}}
-        </div>
-      {{else}}<span class="muted">No entries.</span>{{end}}
-    {{else if eq .Def.Type "artifact"}}
-      {{if .Value}}<div class="field__val">{{.ValueRendered}}</div>{{else}}<span class="muted">—</span>{{end}}
-    {{else if eq .Def.Type "card_link"}}
-      {{if .Value}}
-        {{if eq .Display "link"}}<a href="/ui/cards/{{.Value}}">{{.Value}}</a>
-        {{else}}<div class="field__val">{{.Value}}</div>{{end}}
-      {{else}}<span class="muted">—</span>{{end}}
-    {{else if eq .Def.Type "enum"}}
-      {{if eq .Display "badge"}}
-        {{if .ValueStr}}<span class="chip chip--tag">{{.ValueStr}}</span>{{else}}<span class="muted">—</span>{{end}}
-      {{else}}
-        <form hx-post="/ui/cards/{{$.Card.ID}}/field" hx-target="#detail-body" hx-swap="outerHTML">
-          {{template "field_input" .}}
-          <button type="submit" class="btn btn--primary btn--sm">Save</button>
-        </form>
-      {{end}}
-    {{else if eq .Def.Type "text"}}
-      <form hx-post="/ui/cards/{{$.Card.ID}}/field" hx-target="#detail-body" hx-swap="outerHTML">
-        {{template "field_input" .}}
-        <button type="submit" class="btn btn--primary btn--sm">Save</button>
-      </form>
-    {{else}}
-      <form hx-post="/ui/cards/{{$.Card.ID}}/field" hx-target="#detail-body" hx-swap="outerHTML">
-        {{template "field_input" .}}
-        <button type="submit" class="btn btn--primary btn--sm">Save</button>
-      </form>
-    {{end}}
-  </div>
-  {{end}}
-  {{end}}
-
-  {{/* --- Links (read-only list) --- */}}
-  {{if .Card.Links}}
-  <div class="field">
-    <label class="field__label">Links ({{len .Card.Links}})</label>
-    <div class="stack">
-      {{range .Card.Links}}
-      <div class="row">
-        <span class="chip chip--link" data-link-type="{{.TypeID}}">{{.TypeID}}</span>
-        <span>→ <a href="/ui/cards/{{.Target}}">{{.Target}}</a></span>
-        {{if .Note}}<span class="muted">{{.Note}}</span>{{end}}
-      </div>
-      {{end}}
-    </div>
-  </div>
-  {{end}}
-
-  {{/* --- Comments (read-only feed) --- */}}
-  {{if .Card.Comments}}
-  <div class="field">
-    <label class="field__label">Comments ({{len .Card.Comments}})</label>
-    <div class="stack">
-      {{range .Card.Comments}}
-      <div class="entry">
-        <div class="row between"><b>{{.Author}}</b><span class="faint">{{.CreatedAt}}</span></div>
-        <div>{{.Body}}</div>
-        {{if not .EditedAt.IsZero}}<div class="faint">edited {{.EditedAt}}</div>{{end}}
-      </div>
-      {{end}}
-    </div>
-  </div>
-  {{end}}
-
-  {{/* --- Metadata footer --- */}}
-  <div class="field">
-    <label class="field__label">Metadata</label>
-    <div class="stack">
-      <div class="row"><span class="muted">Created:</span> <span>{{.Card.CreatedAt}} by {{.Card.CreatedBy}}</span></div>
-      <div class="row"><span class="muted">Updated:</span> <span>{{.Card.UpdatedAt}}</span></div>
-      <div class="row"><span class="muted">Schema:</span> <span>v{{.Card.SchemaVersion}}</span> <span class="muted">·</span> <span class="muted">Card v{{.Card.Version}}</span></div>
-      <div class="row"><span class="muted">Workspace:</span> <span>{{.Card.WorkspaceID}}</span></div>
-    </div>
-  </div>
+<div class="actions">
+  {{if .Board}}<a href="/ui/boards/{{.Board.ID}}" class="btn btn--ghost btn--sm">← {{.Board.Name}}</a>{{else}}<a href="/" class="btn btn--ghost btn--sm">← Home</a>{{end}}
 </div>
-{{end}}
-
-{{define "field_input"}}
-  {{if eq .Def.Type "text"}}
-    <textarea class="textarea" name="field:{{.Def.ID}}">{{.ValueStr}}</textarea>
-  {{else if eq .Def.Type "enum"}}
-    <select class="select" name="field:{{.Def.ID}}">
-      <option value="">—</option>
-      {{range .Def.Options}}
-        <option value="{{.}}" {{if eq . $.ValueStr}}selected{{end}}>{{.}}</option>
-      {{end}}
-    </select>
-  {{else if eq .Def.Type "number"}}
-    <input type="number" class="input" name="field:{{.Def.ID}}" value="{{.ValueStr}}">
-  {{else if eq .Def.Type "date"}}
-    <input type="date" class="input" name="field:{{.Def.ID}}" value="{{.ValueStr}}">
-  {{else if eq .Def.Type "user"}}
-    <select class="select" name="field:{{.Def.ID}}">
-      <option value="">—</option>
-      {{range .Users}}
-        <option value="{{.ID}}" {{if eq .ID $.ValueStr}}selected{{end}}>{{.ID}}</option>
-      {{end}}
-    </select>
-  {{else}}
-    <input type="text" class="input" name="field:{{.Def.ID}}" value="{{.ValueStr}}">
-  {{end}}
+<form class="save-form detail" id="detail-form" action="/ui/cards/{{.Card.ID}}/save" method="POST"
+      enctype="multipart/form-data" data-version="{{.Card.Version}}">
+  <input type="hidden" name="from" value="detail">
+  {{/* native submit carries no JS-appended version — send it so uiSaveCard's
+     optimistic-concurrency (CAS) check isn't silently bypassed on this page. */}}
+  <input type="hidden" name="version" value="{{.Card.Version}}">
+  <div id="detail-body">
+    {{template "card_body" .}}
+  </div>
+  <div class="modal__footer detail__footer">
+    {{if .Board}}<a class="btn btn--ghost" href="/ui/boards/{{.Board.ID}}">Cancel</a>{{else}}<a class="btn btn--ghost" href="/">Cancel</a>{{end}}
+    <button type="submit" class="btn btn--primary" disabled>Save</button>
+  </div>
+</form>
+<script>wireDirtySave(document.getElementById("detail-form")); wireClickToEdit(document.getElementById("detail-form"));</script>
 {{end}}

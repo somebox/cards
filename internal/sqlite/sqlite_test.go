@@ -264,3 +264,67 @@ func TestIdempotencyGetPut(t *testing.T) {
 		t.Error("idempotency should be actor-scoped")
 	}
 }
+
+func TestGetCardsByShortID_UniqueResolves(t *testing.T) {
+	st, _ := testStore(t)
+	ctx := context.Background()
+	// Craft a card whose short id (first 8 hex after "card_") is known.
+	fullID := "card_DEADBEEF000000000000000000000000"
+	c := &core.Card{
+		ID: fullID, WorkspaceID: "t", TypeID: "task", SchemaVersion: 1,
+		Title: "Unique", Status: "todo", Fields: map[string]any{},
+		Version: 1, CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC(), CreatedBy: "u",
+	}
+	if err := st.InsertCard(ctx, c, &core.Event{CardID: fullID, Type: core.EventCardCreated, Actor: "u", At: time.Now().UTC()}); err != nil {
+		t.Fatalf("insert: %v", err)
+	}
+	// By short (first-8-after-prefix) id.
+	got, err := st.GetCardsByShortID(ctx, "DEADBEEF")
+	if err != nil {
+		t.Fatalf("short: %v", err)
+	}
+	if len(got) != 1 || got[0].ID != fullID {
+		t.Errorf("short lookup got %v", got)
+	}
+	// By full id also returns exactly it.
+	got2, err := st.GetCardsByShortID(ctx, fullID)
+	if err != nil {
+		t.Fatalf("full: %v", err)
+	}
+	if len(got2) != 1 || got2[0].ID != fullID {
+		t.Errorf("full lookup got %v", got2)
+	}
+}
+
+func TestGetCardsByShortID_AmbiguousReturnsCandidates(t *testing.T) {
+	st, _ := testStore(t)
+	ctx := context.Background()
+	// Two cards whose first-8-hex (after card_) collides.
+	idA := "card_CAFEF00D111111111111111100000000"
+	idB := "card_CAFEF00D222222222222111100000000"
+	now := time.Now().UTC()
+	older := now.Add(-time.Hour)
+	ca := &core.Card{ID: idA, WorkspaceID: "t", TypeID: "task", SchemaVersion: 1, Title: "A", Status: "todo", Fields: map[string]any{}, Version: 1, CreatedAt: older, UpdatedAt: older, CreatedBy: "u"}
+	cb := &core.Card{ID: idB, WorkspaceID: "t", TypeID: "task", SchemaVersion: 1, Title: "B", Status: "todo", Fields: map[string]any{}, Version: 1, CreatedAt: now, UpdatedAt: now, CreatedBy: "u"}
+	_ = st.InsertCard(ctx, ca, nil)
+	_ = st.InsertCard(ctx, cb, nil)
+	got, err := st.GetCardsByShortID(ctx, "CAFEF00D")
+	if err != nil {
+		t.Fatalf("short: %v", err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("expected 2 candidates, got %d (%v)", len(got), got)
+	}
+	// Ordered by updated_at DESC: the newer card (B) first.
+	if got[0].ID != idB || got[1].ID != idA {
+		t.Errorf("order wrong: got %s then %s", got[0].ID, got[1].ID)
+	}
+	// A non-matching short id returns 0 candidates and no error.
+	none, err := st.GetCardsByShortID(ctx, "ZZZZZZZZ")
+	if err != nil {
+		t.Fatalf("none: %v", err)
+	}
+	if len(none) != 0 {
+		t.Errorf("expected 0 candidates, got %d", len(none))
+	}
+}
