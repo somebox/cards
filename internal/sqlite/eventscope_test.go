@@ -34,9 +34,17 @@ func TestMigrateEventsScope_FromPreScopeDB(t *testing.T) {
 		}
 	}
 
+	// Drive the FULL Init path (CREATE IF NOT EXISTS is a no-op on the old table,
+	// then migrate, then index scope) — what a real deployment hits, and it
+	// catches ordering bugs the direct migrate call would miss.
 	st := &Store{db: db}
-	if err := st.migrateEventsScope(ctx); err != nil {
-		t.Fatalf("migrate: %v", err)
+	if err := st.Init(ctx); err != nil {
+		t.Fatalf("init/migrate: %v", err)
+	}
+	var idxCount int
+	_ = db.QueryRowContext(ctx, `SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name='idx_events_scope'`).Scan(&idxCount)
+	if idxCount != 1 {
+		t.Errorf("idx_events_scope should exist after Init, got %d", idxCount)
 	}
 
 	var scoped int

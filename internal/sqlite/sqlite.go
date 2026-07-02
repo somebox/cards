@@ -89,7 +89,6 @@ func (s *Store) Init(ctx context.Context) error {
 		)`,
 		`CREATE INDEX IF NOT EXISTS idx_events_card ON events(card_id, id)`,
 		`CREATE INDEX IF NOT EXISTS idx_events_at ON events(at)`,
-		`CREATE INDEX IF NOT EXISTS idx_events_scope ON events(scope, board_id, id)`,
 		`CREATE TABLE IF NOT EXISTS users (
 			id           TEXT PRIMARY KEY,
 			display_name TEXT,
@@ -133,7 +132,15 @@ func (s *Store) Init(ctx context.Context) error {
 			return fmt.Errorf("init schema: %w (stmt: %s)", err, q)
 		}
 	}
-	return s.migrateEventsScope(ctx)
+	// Migrate old DBs BEFORE indexing scope: an old events table has no scope
+	// column until the rebuild runs, so idx_events_scope must come after.
+	if err := s.migrateEventsScope(ctx); err != nil {
+		return err
+	}
+	if _, err := s.db.ExecContext(ctx, `CREATE INDEX IF NOT EXISTS idx_events_scope ON events(scope, board_id, id)`); err != nil {
+		return fmt.Errorf("init schema (scope index): %w", err)
+	}
+	return nil
 }
 
 // migrateEventsScope upgrades a pre-scope events table (card_id NOT NULL, no
