@@ -165,9 +165,19 @@ func buildCardWhere(q core.CardQuery) (string, []any) {
 	if q.Unowned {
 		b.WriteString(" AND (c.owner IS NULL OR c.owner = '')")
 	}
-	if q.Q != "" {
+	// Q (FTS title/body) and IDLike (id/short-id) are ORed so a card matches
+	// if it hits EITHER path — ANDing them would drop id matches not in FTS.
+	if q.Q != "" && q.IDLike != "" {
+		pat := "%" + likeEscape(q.IDLike) + "%"
+		b.WriteString(" AND (c.id IN (SELECT card_id FROM fts_cards WHERE fts_cards MATCH ?) OR c.id LIKE ? OR substr(c.id, 6, 8) LIKE ?)")
+		args = append(args, ftsQuery(q.Q), pat, pat)
+	} else if q.Q != "" {
 		b.WriteString(" AND c.id IN (SELECT card_id FROM fts_cards WHERE fts_cards MATCH ?)")
 		args = append(args, ftsQuery(q.Q))
+	} else if q.IDLike != "" {
+		pat := "%" + likeEscape(q.IDLike) + "%"
+		b.WriteString(" AND (c.id LIKE ? OR substr(c.id, 6, 8) LIKE ?)")
+		args = append(args, pat, pat)
 	}
 	if q.HasLink != "" {
 		b.WriteString(" AND EXISTS (SELECT 1 FROM links l WHERE l.source_id = c.id AND l.type_id = ?)")
@@ -239,6 +249,28 @@ func (s *Store) GetCard(ctx context.Context, id string) (*core.Card, error) {
 	c.Links, _ = s.ListLinks(ctx, id)
 	c.Comments, _ = s.ListComments(ctx, id)
 	return c, nil
+}
+
+// GetCardsByShortID returns cards whose full id equals short OR whose last-8
+// hex suffix equals short. Ordered by updated_at DESC, id DESC for stable
+// candidates. Used by Service.ResolveCard (1e). (1e)
+func (s *Store) GetCardsByShortID(ctx context.Context, short string) ([]core.Card, error) {
+	rows, err := s.db.QueryContext(ctx,
+		"SELECT "+cardCols+" FROM cards c WHERE c.id = ? OR substr(c.id, 6, 8) = ? "+
+			"ORDER BY c.updated_at DESC, c.id DESC", short, short)
+	if err != nil {
+		return nil, fmt.Errorf("get cards by short id: %w", err)
+	}
+	defer rows.Close()
+	var out []core.Card
+	for rows.Next() {
+		c, err := scanCard(rows)
+		if err != nil {
+			return nil, fmt.Errorf("get cards by short id: %w", err)
+		}
+		out = append(out, *c)
+	}
+	return out, rows.Err()
 }
 
 func (s *Store) InsertCard(ctx context.Context, c *core.Card, ev *core.Event) error {
@@ -551,6 +583,24 @@ func (s *Store) DeleteLink(ctx context.Context, cardID, typeID, target string) (
 	return core.Link{TypeID: typeID, Target: target}, err
 }
 
+// AllLinks returns the whole link graph as source→target edges (one query).
+func (s *Store) AllLinks(ctx context.Context) ([]core.LinkEdge, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT source_id, type_id, target FROM links ORDER BY id`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []core.LinkEdge{}
+	for rows.Next() {
+		var e core.LinkEdge
+		if err := rows.Scan(&e.Source, &e.TypeID, &e.Target); err != nil {
+			return nil, err
+		}
+		out = append(out, e)
+	}
+	return out, rows.Err()
+}
+
 // --- Comments ---
 
 func (s *Store) ListComments(ctx context.Context, cardID string) ([]core.Comment, error) {
@@ -575,6 +625,25 @@ func (s *Store) ListComments(ctx context.Context, cardID string) ([]core.Comment
 		out = append(out, c)
 	}
 	return out, nil
+}
+
+// CommentCounts returns card_id→comment count for every card (one query).
+func (s *Store) CommentCounts(ctx context.Context) (map[string]int, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT card_id, COUNT(*) FROM comments GROUP BY card_id`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]int{}
+	for rows.Next() {
+		var id string
+		var n int
+		if err := rows.Scan(&id, &n); err != nil {
+			return nil, err
+		}
+		out[id] = n
+	}
+	return out, rows.Err()
 }
 
 func (s *Store) InsertComment(ctx context.Context, cardID string, c core.Comment) error {
@@ -719,6 +788,15 @@ func ftsQuery(q string) string {
 		parts[i] = "\"" + strings.ReplaceAll(p, "\"", "") + "\""
 	}
 	return strings.Join(parts, " ")
+}
+
+// likeEscape escapes % and _ so a user-typed id-like pattern can't inject
+// LIKE wildcards. (1e/1d)
+func likeEscape(s string) string {
+	s = strings.ReplaceAll(s, "\\", "\\\\")
+	s = strings.ReplaceAll(s, "%", "\\%")
+	s = strings.ReplaceAll(s, "_", "\\_")
+	return s
 }
 
 func fieldsJSON(v any) string {

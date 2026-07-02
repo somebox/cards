@@ -153,6 +153,40 @@ func (s *Service) GetCard(ctx context.Context, id string) (*Card, error) {
 	return c, nil
 }
 
+// ResolveCard resolves an id that may be a full id or a last-8-hex short id.
+// A full id wins even if it suffixes another card. 0 → ErrNotFound (mapped to
+// NotFound/404), 1 → that card (with links + comments loaded), >1 →
+// *AmbiguousIDError with candidates (never auto-resolves). (1e)
+func (s *Service) ResolveCard(ctx context.Context, id string) (*Card, error) {
+	// Full-id path first: a full id that also suffixes another card still
+	// resolves to itself.
+	if c, err := s.store.GetCard(ctx, id); err == nil {
+		return c, nil
+	} else if !errors.Is(err, ErrNotFound) {
+		return nil, Internal("failed to get card: " + err.Error())
+	}
+	// Fall back to short-id (last-8-hex) matching.
+	cands, err := s.store.GetCardsByShortID(ctx, id)
+	if err != nil {
+		return nil, Internal("failed to resolve short id: " + err.Error())
+	}
+	switch len(cands) {
+	case 0:
+		return nil, NotFound("card " + id)
+	case 1:
+		c := cands[0]
+		c.Links, _ = s.store.ListLinks(ctx, c.ID)
+		c.Comments, _ = s.store.ListComments(ctx, c.ID)
+		return &c, nil
+	default:
+		cs := make([]CardCandidate, len(cands))
+		for i, c := range cands {
+			cs[i] = CardCandidate{ID: c.ID, Title: c.Title}
+		}
+		return nil, &AmbiguousIDError{Short: id, Candidates: cs}
+	}
+}
+
 // getCard is the internal helper used by all mutating methods. It maps
 // store errors correctly: ErrNotFound→404, other→500 (previously all store
 // errors were masked as 404, hiding real failures).

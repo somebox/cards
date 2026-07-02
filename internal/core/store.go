@@ -20,6 +20,9 @@ type Store interface {
 	// Cards
 	ListCards(ctx context.Context, q CardQuery) (*Page[Card], error)
 	GetCard(ctx context.Context, id string) (*Card, error) // loads links + comments
+	// GetCardsByShortID returns cards whose id equals short or whose last-8-hex
+	// suffix equals short. Used by ResolveCard (1e); returns 0, 1, or many.
+	GetCardsByShortID(ctx context.Context, short string) ([]Card, error)
 	InsertCard(ctx context.Context, c *Card, ev *Event) error
 	UpdateCard(ctx context.Context, c *Card, evs []*Event) error
 	// ClaimAtomic picks the oldest unowned card matching q (updated_at ASC,
@@ -34,11 +37,16 @@ type Store interface {
 	ListLinks(ctx context.Context, cardID string) ([]Link, error)
 	InsertLink(ctx context.Context, cardID string, l Link) error
 	DeleteLink(ctx context.Context, cardID, typeID, target string) (Link, error)
+	// AllLinks returns every link edge (source→target) in the workspace, for
+	// building in/outbound relationship views without N+1 queries.
+	AllLinks(ctx context.Context) ([]LinkEdge, error)
 
 	// Comments
 	ListComments(ctx context.Context, cardID string) ([]Comment, error)
 	InsertComment(ctx context.Context, cardID string, c Comment) error
 	UpdateComment(ctx context.Context, cardID, commentID, body string, editedAt time.Time) error
+	// CommentCounts returns card_id→comment count for all cards (one query).
+	CommentCounts(ctx context.Context) (map[string]int, error)
 
 	// Idempotency
 	GetIdempotency(ctx context.Context, key, actor string) (*IdempotencyRecord, error)

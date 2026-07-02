@@ -250,6 +250,7 @@ Board {
   default_filter  Filter (optional)
   transitions     object (optional)  // from status -> [next statuses]
   presentation    BoardPresentation (optional)
+  theme           map[string]string (optional) // design-token overrides, whitelisted (docs/DESIGN.md §Theming)
   settings        { enforce_transitions: bool }
 }
 ```
@@ -885,7 +886,7 @@ lifecycle examples ([`LIFECYCLE-EXAMPLES.md`](LIFECYCLE-EXAMPLES.md)).
 | **CLI** | Mirrors REST paths/flags for most operations; a few REST routes (e.g. `release`) currently have no CLI command, and `--dry-run` coverage is inconsistent across write commands — see DEVELOPER-REFERENCE.md for the current gap list. |
 | **MCP** | Typed tools from workspace introspection (one create tool per card type). MCP tool coverage is currently a **strict subset** of REST/CLI: no MCP tools exist yet for `release`, `remove-entry`, `remove-link`, `edit-comment`, `upgrade-schema`, `update-entry` (patch a repeating entry), per-card event history, the event feed, event streaming, or user registration. See MCP.md gap list before assuming full parity. |
 | **Skills** | `take-and-work`, `append-commit-and-PR`, `upgrade-schema`, `resume-from-history` |
-| **Web UI** | Renders from `BoardPresentation` + field types; read-mostly |
+| **Web UI** | Renders from `BoardPresentation` + field types. Inline click-to-edit on the card modal/detail (title/status/owner/tags/scalar fields) saves via `POST /ui/cards/{id}/save` with optimistic-concurrency `version`; drag-drop moves and unclaim call the `/v1` API. Board-scoped theming via `Board.theme` (design-system token overrides). See `docs/DESIGN.md`. |
 
 Ergonomics guarantees (HTTP/CLI): idempotency keys on POST/PATCH mutations
 (not DELETE; see §11); structured errors with `valid_options`; dry-run before

@@ -1,0 +1,16 @@
+{{template "layout" .}}
+{{define "content"}}
+<section class="search-results">
+  <h2 class="page-title">Search <span class="muted">“{{.Query}}” · {{len (index .CardsByColumn "results")}} match(es)</span></h2>
+  {{template "search_form" (dict "Action" "/ui/search" "Query" .Query)}}
+  <div id="search-results">
+    {{if (index .CardsByColumn "results")}}
+    <div class="lane__body">
+      {{range (index .CardsByColumn "results")}}{{template "card_partial" .}}{{end}}
+    </div>
+    {{else}}
+    <p class="muted">No cards match “{{.Query}}”.</p>
+    {{end}}
+  </div>
+</section>
+{{end}}

@@ -1,104 +1,159 @@
 /* ==========================================================================
-   Work Cards — design system
-   Lean, token-driven, no external dependencies. Familiar kanban feel
-   (Linear/GitHub-ish). Components are flat BEM-ish classes; layout uses a
-   small set of composable utilities. Per-type theming via [data-type].
+   Work Cards — design system  ·  "Pre-press job board"
+   ---------------------------------------------------------------------------
+   The page is a silver-grey press sheet with a registration dot-grid. Each
+   card is a white note card printed on it: a muted color-stock top edge marks
+   its type (endless stock), a black white-on-black label stamps it (the
+   printing stays consistent). The UI that *controls* the cards — nav, filters,
+   modal — is a distinct ink layer floating above the card world.
+
+   Token-driven and themeable: remap :root to reskin everything, or override a
+   single type from config (CardType.TypeTheme → --badge-ink / --badge-wash).
+   Line weights carry meaning (--edge / --stroke / --rule). Dividers are dots,
+   not lines. Labels are mono, uppercase, tracked — type filling a printed card.
+
+   Type → color-stock (edge) → icon:
+     feature          --type-feature          ✦ sparkle
+     bug              --type-bug              bug
+     task             --type-task             check
+     experiment       --type-experiment       flask
+     research-goal    --type-research-goal    target
+     programming-task --type-programming-task  code
    ========================================================================== */
 
 /* --- Design tokens ------------------------------------------------------ */
 :root {
-  /* Neutral palette (slate) */
-  --c-bg:          #f8fafc;
-  --c-surface:     #ffffff;
-  --c-surface-2:   #f1f5f9;
-  --c-border:      #e2e8f0;
-  --c-border-2:    #cbd5e1;
-  --c-text:        #1e293b;
-  --c-text-2:      #475569;
-  --c-muted:       #64748b;
-  --c-faint:       #94a3b8;
+  /* Substrate: silver-grey press flat · white card stock · near-black ink */
+  --c-flat:        #d2d6da;   /* the press sheet (light silver-grey) */
+  --c-flat-dot:    #c3c8cd;   /* registration dots — dense + light */
+  --c-surface:     #ffffff;   /* white card stock / overprint */
+  --c-surface-2:   #edeff1;   /* recessed inset panels */
+  --c-surface-3:   #e2e5e8;   /* skeleton / shimmer track */
+  --c-ink:         #191b1d;   /* ink: edges, labels, text */
+  --c-text:        #191b1d;
+  --c-text-2:      #3d434a;   /* secondary text — readable */
+  --c-muted:       #4d545b;   /* labels — darkened for legibility */
+  --c-faint:       #6b727a;   /* timestamps/meta — darkened */
+  --c-border:      #c3c8cd;   /* hairline rule */
+  --c-border-2:    #191b1d;   /* thick ink edge */
 
-  /* Accent + semantic */
-  --c-accent:      #2563eb;
-  --c-accent-2:    #1d4ed8;
-  --c-accent-soft: #dbeafe;
-  --c-success:     #16a34a;
-  --c-success-soft:#dcfce7;
-  --c-warn:        #d97706;
-  --c-warn-soft:   #fef3c7;
-  --c-danger:      #dc2626;
-  --c-danger-soft: #fee2e2;
+  /* White-on-black label stamp (the consistent "printing") */
+  --c-label-bg:    #191b1d;
+  --c-label-fg:    #f6f7f8;
 
-  /* Per-type accents (driven by [data-type]; the design-language card extends
-     this set). Default = neutral; unknown types fall back gracefully. */
-  --type-feature:    #2563eb;
-  --type-feature-bg: #dbeafe;
-  --type-bug:        #dc2626;
-  --type-bug-bg:     #fee2e2;
-  --type-task:       #475569;
-  --type-task-bg:    #f1f5f9;
-  --type-experiment: #9333ea;
-  --type-experiment-bg: #f3e8ff;
-  --type-research:   #0891b2;
-  --type-research-bg:#cffafe;
+  /* Nav is the control-layer chrome: a stable dark ink bar in BOTH themes
+     (not remapped in the dark block), so it never flips out from under its
+     light text. */
+  --c-nav-bg:      #191b1d;
+  --c-nav-fg:      #f6f7f8;
+
+  /* Accent — used sparingly: focus rings + interactive affordances */
+  --c-accent:      #3f5c9a;
+  --c-accent-2:    #32497b;
+  --c-accent-soft: #d6deee;
+  --c-success:     #2f7e56;
+  --c-danger:      #a8503c;
+  --c-danger-soft: #f0dcd6;
+
+  /* Per-type color stock (muted). Endless stock: add a token pair + a
+     [data-type] edge rule and the system absorbs it. Config can override a
+     single type via inline --badge-ink/--badge-wash on the badge element. */
+  --type-feature:    #3f5c9a;  --type-feature-bg: #dbe2f0;
+  --type-bug:        #a8503c;  --type-bug-bg:     #f0dcd6;
+  --type-task:       #55606b;  --type-task-bg:    #e4e7ea;
+  --type-experiment: #6f5391;  --type-experiment-bg: #e7ddf0;
+  --type-research:   #2f7e80;  --type-research-bg:#d4ebeb;
+  --type-research-goal:    #2f7e80;  --type-research-goal-bg: #d4ebeb;
+  /* programming-task is the workhorse (nearly every card): a calm desaturated
+     graphite-slate, so a wall of them reads as pressboard, not a wall of blue.
+     Brighter stocks (feature/bug/…) still pop against it when present. */
+  --type-programming-task: #5b6675;  --type-programming-task-bg: #e6e8ec;
 
   /* Link-type accents */
-  --link-depends-on: #7c3aed;
-  --link-blocked-by: #dc2626;
-  --link-related:    #0891b2;
-  --link-sent-to:    #16a34a;
+  --link-depends-on: #6f5391;
+  --link-blocked-by: #a8503c;
+  --link-related:    #2f7e80;
+  --link-sent-to:    #2f7e56;
+
+  /* Relationship direction — outbound (this → others) vs inbound (others → this) */
+  --rel-out: #3f5c9a;
+  --rel-in:  #a8503c;
 
   /* Spacing scale (4px base) */
-  --s-1: .25rem;
-  --s-2: .5rem;
-  --s-3: .75rem;
-  --s-4: 1rem;
-  --s-5: 1.25rem;
-  --s-6: 1.5rem;
-  --s-8: 2rem;
+  --s-1: .25rem; --s-2: .5rem; --s-3: .75rem; --s-4: 1rem;
+  --s-5: 1.25rem; --s-6: 1.5rem;
 
   /* Type scale */
-  --t-xs:  .7rem;
-  --t-sm:  .8rem;
-  --t-base:.9rem;
-  --t-md:  1rem;
-  --t-lg:  1.15rem;
-  --t-xl:  1.4rem;
+  --t-xs: .7rem; --t-sm: .8rem; --t-base: .9rem;
+  --t-md: 1rem; --t-lg: 1.15rem; --t-xl: 1.5rem;
 
-  /* Radius scale */
-  --r-sm: 4px;
-  --r-md: 6px;
-  --r-lg: 10px;
-  --r-pill: 999px;
+  /* Fonts — sans for titles/body, mono for labels/meta/IDs/buttons */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: "SF Mono", "Cascadia Code", ui-monospace, "Consolas", "Liberation Mono", monospace;
 
-  /* Shadows */
-  --sh-sm: 0 1px 2px rgba(15,23,42,.06);
-  --sh-md: 0 4px 12px rgba(15,23,42,.10);
-  --sh-lg: 0 12px 40px rgba(15,23,42,.18);
+  /* Line weights — semantic, not decorative */
+  --edge:   4px;   /* card color-stock top edge */
+  --stroke: 2px;   /* crisp card / control outline */
+  --rule:   1px;   /* hairline + dotted dividers */
+
+  /* Radius — crisp print corners */
+  --r-sm: 2px; --r-md: 3px; --r-lg: 5px; --r-pill: 3px;
+
+  /* Shadows — flat offset for cards, hover lift, soft lift for the modal.
+     All remap in the dark block so depth reads on the dark flat too. */
+  --sh-sm:    2px 2px 0 rgba(25,27,29,.10);
+  --sh-hover: 0 4px 10px rgba(25,27,29,.18);
+  --sh-md:    0 4px 14px rgba(25,27,29,.16);
+  --sh-lg:    0 22px 48px -12px rgba(25,27,29,.45);
 
   /* Motion */
   --t-fast: .12s ease;
   --t-med:  .2s ease;
 
+  /* Select chevron — a masked down-caret, recoloured per theme (the native
+     UA arrow is dropped via appearance:none). Token-driven so a theme remaps
+     it, like every other icon. */
+  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234d545b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  --select-chevron-size: .62rem;
+
   color-scheme: light dark;
 }
 
-/* Dark mode: invert the neutral + surface tokens, keep accents. */
+/* Dark theme: the flat goes graphite, ink inverts, stock to charcoal. Muted
+   stocks + structure carry over. Reskin surface: everything else is tokens. */
 @media (prefers-color-scheme: dark) {
   :root {
-    --c-bg:          #0f172a;
-    --c-surface:     #1e293b;
-    --c-surface-2:   #334155;
-    --c-border:      #334155;
-    --c-border-2:    #475569;
-    --c-text:        #f1f5f9;
-    --c-text-2:      #cbd5e1;
-    --c-muted:       #94a3b8;
-    --c-faint:       #64748b;
-    --c-accent-soft: #1e3a5f;
-    --sh-sm: 0 1px 2px rgba(0,0,0,.3);
-    --sh-md: 0 4px 12px rgba(0,0,0,.4);
-    --sh-lg: 0 12px 40px rgba(0,0,0,.5);
+    --c-flat:      #131518;
+    --c-flat-dot:  #24282d;
+    --c-surface:   #202327;
+    --c-surface-2: #2b2f34;
+    --c-surface-3: #333840;
+    --c-ink:       #e9ebed;
+    --c-text:      #e9ebed;
+    --c-text-2:    #c2c8ce;
+    --c-muted:     #9aa1a9;
+    --c-faint:     #868d95;
+    --c-border:    #33383e;
+    --c-border-2:  #e9ebed;
+    --c-label-bg:  #e9ebed;
+    --c-label-fg:  #16181b;
+    --c-accent:      #8aa2d4;
+    --c-accent-soft: #2a3450;
+    --c-danger-soft: #3a2620;   /* keep alert/hover panels dark, not light-pink */
+    --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239aa1a9' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    /* Per-type wash stock for dark cards — darker, low-saturation versions of
+       the light -bg pastels, so the corner type mark reads on a dark surface. */
+    --type-feature-bg:          #2c3a5e;
+    --type-bug-bg:              #4a2a22;
+    --type-task-bg:             #3a4048;
+    --type-experiment-bg:       #3a3350;
+    --type-research-bg:         #1f4042;
+    --type-research-goal-bg:    #1f4042;
+    --type-programming-task-bg: #333b46;
+    --sh-sm:    2px 2px 0 rgba(0,0,0,.4);
+    --sh-hover: 0 4px 10px rgba(0,0,0,.5);
+    --sh-md:    0 4px 14px rgba(0,0,0,.5);
+    --sh-lg:    0 22px 48px -12px rgba(0,0,0,.65);
   }
 }
 
@@ -107,18 +162,22 @@
 html { -webkit-text-size-adjust: 100%; }
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-family: var(--font-sans);
   font-size: var(--t-base);
   line-height: 1.5;
-  background: var(--c-bg);
   color: var(--c-text);
+  background-color: var(--c-flat);
+  /* Registration dot-grid on the press sheet — dense dots, not ruled lines. */
+  background-image: radial-gradient(var(--c-flat-dot) 1px, transparent 1.2px);
+  background-size: 11px 11px;
+  background-position: -5px -5px;
 }
-h1, h2, h3, h4 { margin: 0; line-height: 1.25; font-weight: 600; }
+h1, h2, h3, h4 { margin: 0; line-height: 1.2; font-weight: 700; letter-spacing: -.01em; }
 a { color: var(--c-accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
 
-/* Visible focus for keyboard users only */
-:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 1px; border-radius: var(--r-sm); }
+/* Visible focus for keyboard users */
+:focus-visible { outline: var(--stroke) solid var(--c-accent); outline-offset: 1px; border-radius: var(--r-sm); }
 
 /* --- Layout primitives -------------------------------------------------- */
 .stack   { display: flex; flex-direction: column; gap: var(--s-2); }
@@ -132,128 +191,280 @@ a:hover { text-decoration: underline; }
 .muted   { color: var(--c-muted); font-size: var(--t-sm); }
 .faint   { color: var(--c-faint); }
 .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.hidden  { display: none !important; }
+.hidden, [hidden] { display: none !important; }
+/* Visually hidden but available to assistive tech (e.g. a board card's type
+   name, since the corner mark is decorative). */
+.vh { position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 
-/* --- App shell ---------------------------------------------------------- */
+/* --- App shell: the control layer (ink bar above the card world) -------- */
 .app-nav {
-  background: #1e293b;   /* fixed dark header — does not flip in dark mode */
-  color: #f8fafc;
-  padding: var(--s-3) var(--s-4);
-  display: flex; gap: var(--s-4); align-items: center;
+  background: var(--c-nav-bg);
+  color: var(--c-nav-fg);
+  padding: var(--s-3) var(--s-5);
+  display: flex; gap: var(--s-5); align-items: center;
+  box-shadow: var(--sh-md);
+  position: relative; z-index: 5;
 }
-.app-nav a { color: #cbd5e1; }
-.app-nav a:hover { color: #fff; }
-.app-nav .brand { color: #fff; font-weight: 600; text-decoration: none; font-size: var(--t-lg); }
+.app-nav a { color: rgba(246,247,248,.72); font-family: var(--font-mono); font-size: var(--t-sm); }
+.app-nav a:hover { color: #fff; text-decoration: none; }
+.app-nav .brand {
+  color: #fff; font-weight: 700; text-decoration: none; font-size: var(--t-md);
+  font-family: var(--font-mono); letter-spacing: .01em;
+}
 .app-nav .spacer { flex: 1; }
-main { padding: var(--s-4); max-width: 100%; }
-.page-title { font-size: var(--t-xl); margin-bottom: var(--s-2); }
+/* New-card CTA — white overprint on the ink bar, so the action stands out.
+   Fixed light/ink (lives on the always-dark nav) — not theme-remapped. */
+/* Scoped to .app-nav so it outranks `.app-nav a` (0,1,1) without !important. */
+.app-nav .nav-cta {
+  background: #f6f7f8; color: #191b1d;
+  padding: var(--s-1) var(--s-3); border-radius: var(--r-md); font-weight: 600;
+}
+.app-nav .nav-cta:hover { background: #fff; text-decoration: none; }
 
-/* --- Buttons ------------------------------------------------------------ */
+main { padding: var(--s-5); max-width: 100%; }
+.page-title { font-size: var(--t-xl); margin-bottom: var(--s-4); letter-spacing: -.02em; }
+
+/* --- Buttons — mono labels; primary is the strong white-on-black action -- */
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: var(--s-1);
-  font: inherit; font-size: var(--t-sm); font-weight: 500;
-  padding: var(--s-2) var(--s-4);
-  border: 1px solid transparent; border-radius: var(--r-md);
-  background: var(--c-surface-2); color: var(--c-text);
-  cursor: pointer; transition: background var(--t-fast), border-color var(--t-fast), opacity var(--t-fast);
+  font-family: var(--font-mono); font-size: var(--t-sm); font-weight: 500; line-height: 1;
+  padding: var(--s-2) var(--s-4); min-height: 2.1rem;
+  border: var(--stroke) solid var(--c-border-2); border-radius: var(--r-md);
+  background: var(--c-surface); color: var(--c-text);
+  cursor: pointer; transition: background var(--t-fast), color var(--t-fast), transform var(--t-fast);
   white-space: nowrap;
 }
-.btn:hover { background: var(--c-border); }
-.btn--primary { background: var(--c-accent); color: #fff; }
-.btn--primary:hover { background: var(--c-accent-2); }
-.btn--ghost { background: transparent; border-color: var(--c-border); }
-.btn--ghost:hover { background: var(--c-surface-2); }
-.btn--danger { background: var(--c-danger); color: #fff; }
-.btn--danger:hover { filter: brightness(.92); }
+.btn:hover { background: var(--c-surface-2); }
+.btn:active { transform: translateY(1px); }
+.btn--primary { background: var(--c-ink); color: var(--c-label-fg); border-color: var(--c-ink); }
+.btn--primary:hover { background: #000; color: #fff; }
+.btn--ghost { background: transparent; }
+.btn--ghost:hover { background: var(--c-surface); }
+.btn--danger { background: var(--c-danger); color: #fff; border-color: var(--c-danger); }
+.btn--danger:hover { filter: brightness(.94); }
 .btn--sm { font-size: var(--t-xs); padding: var(--s-1) var(--s-2); }
-.btn:disabled, .btn[disabled] { background: var(--c-border-2); color: var(--c-muted); cursor: not-allowed; opacity: .7; }
-.btn--primary:disabled { background: var(--c-border-2); color: var(--c-muted); }
+.btn:disabled, .btn[disabled] {
+  background: transparent; color: var(--c-faint); border-color: var(--c-border);
+  border-style: dashed; cursor: not-allowed;
+}
+.btn--primary:disabled { background: transparent; color: var(--c-faint); }
 
 /* --- Form controls ------------------------------------------------------ */
+/* Base box model shared by all three; .select adds the masked chevron below.
+   background-color (not the background shorthand) so the chevron image set
+   on .select survives. */
 .input, .select, .textarea {
   width: 100%; font: inherit; font-size: var(--t-base);
   padding: var(--s-2) var(--s-3);
-  background: var(--c-surface); color: var(--c-text);
-  border: 1px solid var(--c-border); border-radius: var(--r-md);
+  background-color: var(--c-surface); color: var(--c-text);
+  border: var(--stroke) solid var(--c-border-2); border-radius: var(--r-md);
   transition: border-color var(--t-fast), box-shadow var(--t-fast);
 }
+.input, .textarea { cursor: text; }
 .input:focus, .select:focus, .textarea:focus {
   border-color: var(--c-accent); box-shadow: 0 0 0 3px var(--c-accent-soft); outline: none;
 }
 .textarea { min-height: 5rem; resize: vertical; }
 .input::placeholder, .textarea::placeholder { color: var(--c-faint); }
 
-/* --- Chips -------------------------------------------------------------- */
-/* A chip is a compact rounded label. Variants carry color semantics. */
+/* Select — restyled to the design language: appearance:none drops the native
+   chrome; a masked chevron (currentColor token) replaces it. One rule for all
+   selects (modal, detail, new-card form, board filters). The chevron is a
+   background-image (a <select> is a replaced element — ::before/::after are
+   not supported, so a mask + background-color trick won't work on it). */
+.select {
+  appearance: none; -webkit-appearance: none; -moz-appearance: none;
+  cursor: pointer;
+  padding-right: var(--s-5); /* clearance for the chevron */
+  background-image: var(--select-chevron);
+  background-repeat: no-repeat;
+  background-position: right var(--s-2) center;
+  background-size: var(--select-chevron-size);
+}
+
+/* --- Chips — rectangular print labels (not pills) ----------------------- */
 .chip {
-  display: inline-flex; align-items: center; gap: var(--s-1);
-  font-size: var(--t-xs); font-weight: 500; line-height: 1.4;
-  padding: .1rem .4rem; border-radius: var(--r-pill);
-  background: var(--c-surface-2); color: var(--c-text-2);
-  white-space: nowrap;
+  display: inline-flex; align-items: center; gap: .3em;
+  font-family: var(--font-mono); font-size: var(--t-xs); font-weight: 500; line-height: 1;
+  padding: .28em .5em; border-radius: var(--r-pill);
+  background: var(--c-surface); color: var(--c-text-2);
+  border: 1px solid var(--c-border); white-space: nowrap;
 }
-.chip--tag     { background: var(--c-warn-soft); color: var(--c-warn); }
-.chip--owner   { background: var(--c-accent-soft); color: var(--c-accent); cursor: pointer; border: none; font: inherit; padding: 0 .5rem; }
-.chip--owner:hover { background: var(--c-danger-soft); color: var(--c-danger); }
-.chip--link    { background: var(--c-accent-soft); color: var(--c-accent-2); }
-.chip--rep     { background: var(--c-success-soft); color: var(--c-success); }
-/* Per-type badge: the type chip picks its color from [data-type] tokens. */
-.chip--type    { font-weight: 600; }
-/* link-type chips colored by [data-link-type] */
-.chip[data-link-type="depends-on"] { background: var(--c-accent-soft); color: var(--link-depends-on); }
-.chip[data-link-type="blocked-by"] { background: var(--c-danger-soft); color: var(--link-blocked-by); }
-.chip[data-link-type="related"]    { background: var(--c-success-soft); color: var(--link-related); }
-.chip[data-link-type="sent-to"]    { background: var(--c-warn-soft); color: var(--link-sent-to); }
-
-/* --- Cards (board) ------------------------------------------------------ */
-.board { display: flex; gap: var(--s-3); overflow-x: auto; padding-bottom: var(--s-2); align-items: flex-start; }
-
-.lane {
-  background: var(--c-surface-2); border: 1px solid var(--c-border);
-  border-radius: var(--r-lg); min-width: 260px; max-width: 300px; flex: 0 0 260px;
-  display: flex; flex-direction: column;
+.chip::before { line-height: 1; }
+/* Monochromatic mask icons — one color (currentColor), consistent size. */
+.chip--owner::before,
+.card__type-badge:not(:has(.card__type-badge__icon))::before {
+  content: ""; width: .95em; height: .95em; flex: none;
+  background-color: currentColor;
+  -webkit-mask: var(--ico) center / contain no-repeat;
+  mask: var(--ico) center / contain no-repeat;
 }
+
+/* Tag chip: white stock, ink hairline, "#" prefix — content, not a stamp. */
+.chip--tag { background: var(--c-surface); color: var(--c-text-2); border-color: var(--c-border-2); font-weight: 600; }
+.chip--tag::before { content: "#"; opacity: .5; margin-right: 1px; }
+
+/* Owner chip: person icon; clicking unclaims (hover → danger). Inherits the
+   .chip base (size/padding/mono); only its icon + interactivity differ. */
+.chip--owner {
+  cursor: pointer; border-color: var(--c-border-2);
+  --ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='8' r='4'/%3E%3Cpath d='M4 21a8 8 0 0 1 16 0'/%3E%3C/svg%3E");
+}
+.chip--owner:hover { background: var(--c-danger-soft); color: var(--c-danger); border-color: var(--c-danger); }
+
+/* Type badge — the consistent white-on-black registration stamp. Config can
+   override a single type's ink via inline --badge-ink/--badge-wash. */
+.card__type-badge {
+  display: inline-flex; align-items: center; gap: .3em; line-height: 1;
+  font-family: var(--font-mono); font-weight: 600; font-size: .66rem;
+  text-transform: uppercase; letter-spacing: .01em;
+  padding: .3em .45em; border-radius: var(--r-pill);
+  background: var(--badge-ink, var(--c-label-bg)); color: var(--c-label-fg);
+  border: 1px solid var(--badge-ink, var(--c-label-bg)); white-space: nowrap;
+}
+/* Default glyph shared by the board card's corner mark (.card) and the type
+   badge (.card__type-badge); overridden per [data-type] below. */
+.card, .card__type-badge {
+  --ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2'%3E%3Crect x='4' y='4' width='16' height='16' rx='1'/%3E%3C/svg%3E");
+}
+.card__type-badge__icon { font-size: .95em; line-height: 1; }
+/* Per-type monochromatic icon, shared by the board card corner mark (.card)
+   and the modal/detail/home type badge (.card__type-badge). */
+.card[data-type="feature"], .card__type-badge[data-type="feature"]          { --ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Cpath d='M12 2l2.4 7.6L22 12l-7.6 2.4L12 22l-2.4-7.6L2 12l7.6-2.4z'/%3E%3C/svg%3E"); }
+.card[data-type="bug"], .card__type-badge[data-type="bug"]                  { --ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 8a5 5 0 0 1 5 5v1a5 5 0 0 1-10 0v-1a5 5 0 0 1 5-5z'/%3E%3Cpath d='M12 3v3'/%3E%3Cpath d='M9 4l1.5 2'/%3E%3Cpath d='M15 4l-1.5 2'/%3E%3Cpath d='M7 12l-3-1'/%3E%3Cpath d='M7 16H4'/%3E%3Cpath d='M17 12l3-1'/%3E%3Cpath d='M17 16h3'/%3E%3C/svg%3E"); }
+.card[data-type="task"], .card__type-badge[data-type="task"]                { --ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E"); }
+.card[data-type="experiment"], .card__type-badge[data-type="experiment"]    { --ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 3v6l-5 9a2 2 0 0 0 1.8 3h12.4a2 2 0 0 0 1.8-3l-5-9V3'/%3E%3Cpath d='M8 3h8'/%3E%3Cpath d='M7 15h10'/%3E%3C/svg%3E"); }
+.card[data-type="research-goal"], .card__type-badge[data-type="research-goal"] { --ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Ccircle cx='12' cy='12' r='4'/%3E%3C/svg%3E"); }
+.card[data-type="programming-task"], .card__type-badge[data-type="programming-task"] { --ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8 6l-6 6 6 6'/%3E%3Cpath d='M16 6l6 6-6 6'/%3E%3C/svg%3E"); }
+
+/* Per-type "colour stock" on a board card — read by the corner mark. A board
+   Theme may override the ink (--type-* via the whitelist); the wash (-bg) is
+   theme-owned and remapped for dark mode below. */
+.card[data-type="feature"]          { --card-stock: var(--type-feature);          --card-stock-bg: var(--type-feature-bg); }
+.card[data-type="bug"]              { --card-stock: var(--type-bug);              --card-stock-bg: var(--type-bug-bg); }
+.card[data-type="task"]             { --card-stock: var(--type-task);             --card-stock-bg: var(--type-task-bg); }
+.card[data-type="experiment"]       { --card-stock: var(--type-experiment);       --card-stock-bg: var(--type-experiment-bg); }
+.card[data-type="research-goal"]    { --card-stock: var(--type-research-goal);    --card-stock-bg: var(--type-research-goal-bg); }
+.card[data-type="programming-task"] { --card-stock: var(--type-programming-task); --card-stock-bg: var(--type-programming-task-bg); }
+
+/* Corner type indicator on a board card — a small "stock" tab at the top-left
+   corner: wash background + ink icon + an ink hairline on its two inner edges.
+   It IS the card's colour stock (per type, themeable per board); the constant
+   black border stays the "printing". Minimal by design — no text label; the
+   type name is exposed via the .vh label + the card's title attribute. */
+.card__type-mark {
+  position: absolute; top: 0; left: 0;
+  width: 1.4rem; height: 1.4rem;
+  display: grid; place-items: center; pointer-events: none;
+  background: var(--card-stock-bg, var(--c-surface-2));
+  border-right: 1px solid var(--card-stock, var(--c-ink));
+  border-bottom: 1px solid var(--card-stock, var(--c-ink));
+  border-top-left-radius: var(--r-md);
+  color: var(--card-stock, var(--c-ink));
+}
+.card__type-mark::before {
+  content: ""; width: .85rem; height: .85rem;
+  background-color: currentColor;
+  -webkit-mask: var(--ico) center / contain no-repeat;
+  mask: var(--ico) center / contain no-repeat;
+}
+
+/* --- Board + lanes: cells on the flat, separated by space not lines ----- */
+/* The board wrapper carries the press-sheet itself (not just <body>), so a
+   board's Theme override of --c-flat/--c-flat-dot actually repaints its sheet —
+   custom props only inherit downward. Negative margin bleeds it past <main>'s
+   padding so the themed sheet fills the whole board area. */
+.board-view {
+  background-color: var(--c-flat);
+  background-image: radial-gradient(var(--c-flat-dot) 1px, transparent 1.2px);
+  background-size: 11px 11px; background-position: -5px -5px;
+  margin: calc(-1 * var(--s-5)); padding: var(--s-5);
+  min-height: calc(100vh - 3.5rem);
+}
+.board { display: flex; gap: var(--s-4); overflow-x: auto; padding-bottom: var(--s-3); align-items: flex-start; }
+
+.lane { min-width: 268px; max-width: 300px; flex: 0 0 272px; display: flex; flex-direction: column; gap: var(--s-3); }
+/* Lane header: a black label bar — white-on-black, the control-layer stamp. */
 .lane__head {
-  padding: var(--s-2) var(--s-3); font-size: var(--t-sm); font-weight: 600;
-  text-transform: uppercase; letter-spacing: .04em; color: var(--c-text-2);
-  border-bottom: 1px solid var(--c-border);
+  background: var(--c-label-bg); color: var(--c-label-fg);
+  padding: var(--s-2) var(--s-3); font-family: var(--font-mono);
+  font-size: var(--t-xs); font-weight: 600; text-transform: uppercase; letter-spacing: .08em;
+  border-radius: var(--r-md);
   display: flex; align-items: center; justify-content: space-between;
 }
-.lane__count { color: var(--c-muted); font-weight: 400; }
-.lane__body { padding: var(--s-2); display: flex; flex-direction: column; gap: var(--s-2); min-height: 80px; }
-.lane__body.is-drag-over { background: var(--c-accent-soft); outline: 2px dashed var(--c-accent); outline-offset: -2px; }
-
-.card {
-  background: var(--c-surface); border: 1px solid var(--c-border);
-  border-radius: var(--r-md); padding: var(--s-3);
-  box-shadow: var(--sh-sm); cursor: grab; transition: box-shadow var(--t-fast), border-color var(--t-fast);
-  border-left: 3px solid var(--c-border-2);
+.lane__count {
+  background: var(--c-label-fg); color: var(--c-label-bg);
+  font-weight: 700; padding: 0 .4rem; border-radius: var(--r-sm); min-width: 1.4em; text-align: center;
 }
-.card:hover { box-shadow: var(--sh-md); }
-.card.is-dragging { opacity: .4; }
-/* Per-type left accent: [data-type] drives the accent color. */
-.card[data-type="feature"]    { border-left-color: var(--type-feature); }
-.card[data-type="bug"]        { border-left-color: var(--type-bug); }
-.card[data-type="task"]       { border-left-color: var(--type-task); }
-.card[data-type="experiment"] { border-left-color: var(--type-experiment); }
-.card[data-type="research-goal"] { border-left-color: var(--type-research); }
-.card[data-type="programming-task"] { border-left-color: var(--type-feature); }
+.lane__body { display: flex; flex-direction: column; gap: var(--s-3); min-height: 60px; border-radius: var(--r-md); }
+.lane__body.is-drag-over { background: var(--c-accent-soft); outline: var(--stroke) dashed var(--c-accent); outline-offset: 2px; }
 
-.card__title { font-weight: 600; font-size: var(--t-base); margin-bottom: var(--s-1); }
+/* --- Cards: white note stock, crisp ink edge, color-stock top ----------- */
+.card {
+  position: relative; overflow: hidden;
+  background: var(--c-surface); color: var(--c-text);
+  /* thin black note-card outline, uniform on all sides — the constant
+     "printing"; the corner type mark carries the per-type "colour stock". */
+  border: 1px solid var(--c-ink); border-radius: var(--r-md);
+  padding: var(--s-3); box-shadow: var(--sh-sm); cursor: pointer;
+  transition: box-shadow var(--t-fast), transform var(--t-fast);
+}
+.card:hover { box-shadow: var(--sh-hover); transform: translateY(-1px); }
+.card:focus-visible { outline: var(--stroke) solid var(--c-accent); outline-offset: 2px; }
+.card.is-dragging { opacity: .4; }
+
+.card__title { font-weight: 700; font-size: var(--t-base); line-height: 1.2; margin-bottom: var(--s-2);
+  /* Indent the first line to clear the top-left corner type mark; wrapped
+     lines fall below the mark and flow from the left edge. */
+  text-indent: 1.7rem; }
 .card__title a { color: var(--c-text); }
 .card__title a:hover { color: var(--c-accent); text-decoration: none; }
-.card__meta { font-size: var(--t-xs); color: var(--c-muted); display: flex; flex-wrap: wrap; gap: var(--s-1) var(--s-2); align-items: center; }
-.card__chips { display: flex; flex-wrap: wrap; gap: var(--s-1); margin-top: var(--s-1); }
-.card__ago { font-size: var(--t-xs); color: var(--c-faint); margin-top: var(--s-1); }
+.card__meta { font-size: var(--t-xs); color: var(--c-muted); display: flex; flex-wrap: wrap; gap: var(--s-1); align-items: center; margin-top: var(--s-1); }
+.card__meta b { font-family: var(--font-mono); font-weight: 600; color: var(--c-text-2); }
+
+/* Board card preview line (e.g. branch) — one truncated mono row. */
+.card__preview { display: flex; flex-wrap: wrap; gap: var(--s-1) var(--s-3); margin-top: var(--s-2); font-family: var(--font-mono); font-size: var(--t-xs); color: var(--c-text-2); }
+.card__preview .truncate { max-width: 100%; }
+.card__preview b { color: var(--c-faint); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; margin-right: .25em; }
+
+/* Board card stats: updated time on the left, count badges (comments / out /
+   in links) on the right — monochrome icons, directional colours. */
+.card__stats { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-1) var(--s-3); margin-top: var(--s-2); font-family: var(--font-mono); font-size: var(--t-xs); color: var(--c-faint); }
+.card__stat { display: inline-flex; align-items: center; gap: .3em; }
+.card__stat--time { margin-right: auto; }
+.card__stat[data-stat]::before {
+  content: ""; width: 1em; height: 1em; flex: none;
+  background-color: currentColor;
+  -webkit-mask: var(--ico) center / contain no-repeat; mask: var(--ico) center / contain no-repeat;
+}
+.card__stat[data-stat="comments"] { --ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z'/%3E%3C/svg%3E"); }
+.card__stat[data-stat="out"] { color: var(--rel-out); --ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7 17 17 7'/%3E%3Cpath d='M8 7h9v9'/%3E%3C/svg%3E"); }
+.card__stat[data-stat="in"] { color: var(--rel-in); --ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M17 7 7 17'/%3E%3Cpath d='M16 17H7V8'/%3E%3C/svg%3E"); }
+
+/* Modal relationships: one row per link, colour + arrow encode direction. */
+.rels { display: flex; flex-direction: column; gap: var(--s-1); }
+.rel {
+  display: flex; align-items: center; gap: var(--s-2); font-size: var(--t-sm);
+  padding: var(--s-1) var(--s-2); border-radius: 0 var(--r-sm) var(--r-sm) 0;
+  background: var(--c-surface-2); border-left: 3px solid var(--c-border-2);
+}
+.rel--out { border-left-color: var(--rel-out); }
+.rel--in  { border-left-color: var(--rel-in); }
+.rel__dir {
+  width: 1.05em; height: 1.05em; flex: none; background-color: currentColor;
+  -webkit-mask: var(--ico) center / contain no-repeat; mask: var(--ico) center / contain no-repeat;
+}
+.rel--out .rel__dir { color: var(--rel-out); --ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7 17 17 7'/%3E%3Cpath d='M8 7h9v9'/%3E%3C/svg%3E"); }
+.rel--in .rel__dir  { color: var(--rel-in);  --ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M17 7 7 17'/%3E%3Cpath d='M16 17H7V8'/%3E%3C/svg%3E"); }
+.rel__type { font-family: var(--font-mono); font-size: var(--t-xs); text-transform: uppercase; letter-spacing: .04em; color: var(--c-muted); flex: none; }
+.rel__card { color: var(--c-text); font-weight: 600; flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rel__card:hover { color: var(--c-accent); }
 
 /* --- Fields (detail / modal / forms) ------------------------------------ */
-.field {
-  border: 1px solid var(--c-border); border-radius: var(--r-md);
-  background: var(--c-surface); padding: var(--s-3) var(--s-4); margin-bottom: var(--s-2);
-}
+.field { padding: var(--s-2) 0; margin-bottom: 0; }
 .field__label {
-  font-size: var(--t-xs); text-transform: uppercase; letter-spacing: .04em;
-  color: var(--c-muted); display: block; margin-bottom: var(--s-1); font-weight: 600;
+  font-family: var(--font-mono); font-size: var(--t-xs); text-transform: uppercase;
+  letter-spacing: .08em; color: var(--c-muted); display: block; margin-bottom: var(--s-1); font-weight: 600;
 }
 .field__val { font-size: var(--t-base); }
 .field .req { color: var(--c-danger); }
@@ -263,69 +474,206 @@ main { padding: var(--s-4); max-width: 100%; }
   border-color: var(--c-accent); box-shadow: 0 0 0 3px var(--c-accent-soft);
 }
 
+/* --- Click-to-edit fields ----------------------------------------------- */
+.field--editable { cursor: default; }
+.field__view {
+  min-height: 1.6em; padding: var(--s-1) var(--s-2); border-radius: var(--r-sm);
+  border: 1px solid transparent; cursor: text;
+  transition: background var(--t-fast), border-color var(--t-fast);
+  white-space: pre-wrap; word-break: break-word;
+}
+.field__view:hover { background: var(--c-surface-2); border-color: var(--c-border); }
+.field__view:focus-visible { outline: none; background: var(--c-surface-2); border-color: var(--c-accent); box-shadow: 0 0 0 3px var(--c-accent-soft); }
+.field__view.is-empty { color: var(--c-faint); font-style: italic; }
+.field__view.mono { font-family: var(--font-mono); font-size: var(--t-sm); background: var(--c-surface-2); }
+.field__edit { padding: 0; }
+
+/* Header inline-editable bits (title/owner/status) — chrome-free in the head. */
+.modal__head .field__view, .card-title__view { display: inline-block; padding: 0 var(--s-1); border-radius: var(--r-sm); }
+.card-title__view {
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  font-size: var(--t-lg); font-weight: 700; letter-spacing: -.01em; line-height: 1.2;
+}
+.card-title__edit .input { font-size: var(--t-lg); font-weight: 700; line-height: 1.2; padding: 0 var(--s-1); }
+
+/* View↔edit parity (Principle 3 — “editing changes chrome, not geometry”):
+   the edit control matches the view's box model — same font-size/line-height/
+   padding — so activating edit only adds a border/focus ring. Border-width is
+   1px both ways: the view reserves 1px transparent; the edit control rests at
+   1px --c-border (== the view's hover) and focuses to --c-accent (== the
+   view's focus). No per-field overrides — extend these rules only. */
+.field__edit .input, .field__edit .textarea {
+  font-size: var(--t-base); line-height: 1.5; min-height: 1.6em;
+  padding: var(--s-1) var(--s-2);
+  border-width: 1px; border-color: var(--c-border);
+}
+.field__edit .select {
+  font-size: var(--t-base); line-height: 1.5; min-height: 1.6em;
+  padding: var(--s-1) var(--s-2); padding-right: var(--s-5);
+  border-width: 1px; border-color: var(--c-border);
+}
+.field__view.mono, .field__edit .textarea.mono, .field__edit .input.mono { font-size: var(--t-sm); line-height: 1.5; }
+
+/* A text field's edit control is a <textarea>; let it grow to its content so
+   short descriptions don't jump to a 5-line box and long ones stay legible.
+   Where field-sizing is unsupported, fall back to a compact 2-line min-height
+   (still closer to the view than the 5rem form default). */
+.field__edit .textarea { min-height: 2.4em; resize: vertical; }
+@supports (field-sizing: content) {
+  .field__edit .textarea { field-sizing: content; min-height: 1.6em; max-height: 22rem; resize: none; }
+}
+
+/* Header inline-edit bits (status/owner) are chrome-free meta: the edit
+   control matches the chrome-free view — transparent background, 1px
+   transparent border, content-sized width, mono-xs stamp voice — so clicking
+   status/owner adds only a focus ring, not a full form box. */
+.modal__head .field__edit .input,
+.modal__head .field__edit .select {
+  font-family: var(--font-mono); font-size: var(--t-xs); font-weight: 600;
+  line-height: 1.3; color: var(--c-text-2);
+  width: auto; min-width: 0;
+  padding: 0 .15em; border: 1px solid transparent;
+  background-color: transparent;
+}
+.modal__head .field__edit .select {
+  padding-right: var(--s-3); /* chevron clearance, tighter than the body */
+  background-image: var(--select-chevron);
+  background-position: right .1em center;
+  background-size: .5rem;
+}
+.modal__head .field__edit .input:focus,
+.modal__head .field__edit .select:focus {
+  border-color: var(--c-accent); box-shadow: 0 0 0 3px var(--c-accent-soft);
+}
+/* Content-size the header controls to their value so width matches the view.
+   field-sizing is the clean path (supported in current Chromium/Firefox); the
+   <select> already sizes to content via width:auto, and the <input> needs this. */
+@supports (field-sizing: content) {
+  .modal__head .field__edit .input { field-sizing: content; min-width: 6em; }
+}
+
 /* --- Actions bar -------------------------------------------------------- */
 .actions { display: flex; gap: var(--s-2); margin-bottom: var(--s-4); flex-wrap: wrap; }
 
 /* --- Repeating entries -------------------------------------------------- */
 .entry {
-  border-left: 3px solid var(--c-border-2); padding: var(--s-1) var(--s-3);
+  border-left: var(--edge) solid var(--c-border); padding: var(--s-1) var(--s-3);
   margin: var(--s-1) 0; font-size: var(--t-sm); background: var(--c-surface-2);
   border-radius: 0 var(--r-sm) var(--r-sm) 0;
 }
-/* feed: reverse-chrono entry list (display:feed hint) */
 .feed { display: flex; flex-direction: column; gap: var(--s-2); }
 .feed .entry { border-left-color: var(--c-accent); }
-/* mono: monospace text (display:monospace hint) */
-.mono { font-family: var(--font-mono, 'SF Mono', 'Cascadia Code', 'Consolas', monospace); font-size: var(--t-xs); }
+/* Dots over lines: inline entries separated by a middot, not an <hr>. */
+.entry + .entry::before { content: "·"; padding: 0 var(--s-2); color: var(--c-faint); }
+.mono { font-family: var(--font-mono); font-size: var(--t-xs); }
 
 /* --- Error / alert ------------------------------------------------------ */
 .alert {
-  background: var(--c-danger-soft); border: 1px solid #fecaca; color: var(--c-danger);
-  padding: var(--s-2) var(--s-3); border-radius: var(--r-md); margin-bottom: var(--s-3);
-  font-size: var(--t-sm);
+  background: var(--c-danger-soft); border: var(--stroke) solid var(--c-danger); color: var(--c-danger);
+  padding: var(--s-2) var(--s-3); border-radius: var(--r-md); margin-bottom: var(--s-3); font-size: var(--t-sm);
 }
-.alert__code { font-weight: 700; }
+.alert__code { font-family: var(--font-mono); font-weight: 700; }
 
 /* --- New-card form ------------------------------------------------------ */
 .form-new { max-width: 580px; }
 .form-new .field__label { font-size: var(--t-sm); }
 
-/* --- Modal -------------------------------------------------------------- */
-.modal { border: 0; border-radius: var(--r-lg); padding: 0; max-width: 720px; width: 92vw; box-shadow: var(--sh-lg); background: var(--c-surface); color: var(--c-text); }
-.modal::backdrop { background: rgba(15,23,42,.5); }
-.modal__head { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--s-3); padding: var(--s-4); border-bottom: 1px solid var(--c-border); }
-.modal__head h2 { font-size: var(--t-lg); }
-.modal__meta { font-size: var(--t-xs); color: var(--c-muted); margin-top: var(--s-1); display: flex; flex-wrap: wrap; gap: var(--s-1) var(--s-3); }
-.modal__close { background: none; border: 0; font-size: 1.4rem; cursor: pointer; color: var(--c-muted); line-height: 1; padding: 0; }
+/* --- Modal: the control layer lifted above the card world --------------- */
+/* The modal is itself "a card": a fixed 3:2 note card with a soft shadow
+   below, floating over a lightly-dimmed board (UI stays visible). Header and
+   footer are fixed zones; only the body scrolls (content length varies). */
+/* Sized to the largest 3:2 card that fits: capped by a desktop max, the
+   viewport width, and — via 135vh (= 90vh × 3/2) — the viewport height, so it
+   grows on big screens without ever breaking the ratio or overflowing. */
+.modal {
+  padding: 0; width: min(1040px, 92vw, 135vh); aspect-ratio: 3 / 2;
+  overflow: hidden;
+  border: 1px solid var(--c-ink); border-radius: var(--r-lg);
+  box-shadow: var(--sh-lg);
+  background: var(--c-surface); color: var(--c-text);
+}
+/* display:flex only while open — otherwise it would override the UA's
+   dialog:not([open]){display:none} and leave the empty card visible on close. */
+.modal[open] { display: flex; }
+.modal::backdrop { background: rgba(25,27,29,.26); }
+.modal .save-form { display: flex; flex-direction: column; width: 100%; height: 100%; min-height: 0; }
+.modal__head {
+  flex: none; display: flex; justify-content: space-between; align-items: flex-start; gap: var(--s-3);
+  padding: var(--s-3) var(--s-4); border-bottom: var(--rule) dashed var(--c-border-2);
+}
+.modal__head-main { min-width: 0; flex: 1 1 auto; }
+.modal__meta {
+  font-family: var(--font-mono); font-size: var(--t-xs); color: var(--c-muted);
+  margin-top: var(--s-2); display: flex; flex-wrap: wrap; gap: var(--s-1) var(--s-3); align-items: center; line-height: 1.3;
+}
+.modal__meta-field { display: inline-flex; align-items: center; gap: .35em; }
+.modal__meta-key { text-transform: uppercase; letter-spacing: .05em; color: var(--c-faint); }
+.modal__meta-field .field__view { padding: 0 .15em; font-weight: 600; color: var(--c-text-2); }
+.modal__meta-tail { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--s-1) var(--s-3); margin-left: auto; }
+.modal__close { background: none; border: 0; font-size: 1.5rem; cursor: pointer; color: var(--c-muted); line-height: 1; padding: 0; flex: none; }
 .modal__close:hover { color: var(--c-text); }
-.modal__body { padding: var(--s-4); max-height: 70vh; overflow-y: auto; }
-.modal__footer { position: sticky; bottom: 0; background: var(--c-surface); padding: var(--s-3) var(--s-4); border-top: 1px solid var(--c-border); display: flex; justify-content: flex-end; gap: var(--s-2); }
+.modal__body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: var(--s-3) var(--s-4); }
+/* Field rows in the modal body are separated by dotted rules (dots, not lines). */
+.modal__body .field + .field { border-top: var(--rule) dashed var(--c-border); }
+.modal__footer {
+  flex: none; background: var(--c-surface); padding: var(--s-3) var(--s-4);
+  border-top: var(--rule) dashed var(--c-border-2); display: flex; justify-content: flex-end; gap: var(--s-2);
+}
+
+/* --- Modal loading + error states --------------------------------------- */
+/* Inner scroll neutralised — the modal body is the single scroll region. */
+.modal__scroll { padding-right: var(--s-1); }
+.modal__loading { display: grid; gap: var(--s-2); padding: var(--s-5); }
+.modal__loading::before, .modal__loading .skel-line {
+  content: ""; height: 1.4rem; border-radius: var(--r-sm);
+  background: linear-gradient(90deg, var(--c-surface-2), var(--c-surface-3), var(--c-surface-2));
+  background-size: 200% 100%; animation: shimmer 1.2s infinite;
+}
+.modal__loading .skel-line { height: .9rem; }
+@keyframes shimmer { to { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) { .modal__loading::before, .modal__loading .skel-line { animation: none; } }
+.modal__error { border: var(--stroke) solid var(--c-danger); padding: var(--s-3); border-radius: var(--r-md); color: var(--c-danger); margin: var(--s-4); }
+
+/* Detail page reuses the modal body + a sticky action bar. */
+.save-form.detail { max-width: 720px; margin: 0 auto; }
+.detail__footer { position: sticky; bottom: 0; }
 
 /* --- Toasts ------------------------------------------------------------- */
 .toasts { position: fixed; bottom: var(--s-4); right: var(--s-4); display: flex; flex-direction: column; gap: var(--s-2); z-index: 1000; max-width: 380px; }
 .toast {
-  background: var(--c-text); color: #f8fafc; padding: var(--s-3) var(--s-4);
-  border-radius: var(--r-md); box-shadow: var(--sh-md); font-size: var(--t-sm);
-  display: flex; justify-content: space-between; gap: var(--s-4); align-items: flex-start;
-  animation: toast-in var(--t-med);
+  background: var(--c-ink); color: var(--c-label-fg); padding: var(--s-3) var(--s-4);
+  border-radius: var(--r-md); box-shadow: var(--sh-md); font-size: var(--t-sm); font-family: var(--font-mono);
+  display: flex; justify-content: space-between; gap: var(--s-4); align-items: flex-start; animation: toast-in var(--t-med);
 }
-.toast--err { background: var(--c-danger); }
+.toast--err { background: var(--c-danger); color: #fff; }
 .toast button { background: none; border: 0; color: inherit; cursor: pointer; font-size: 1.1rem; line-height: 1; }
 @keyframes toast-in { from { transform: translateX(1rem); opacity: 0; } to { transform: none; opacity: 1; } }
 
+/* --- Search form — shared global/board component ------------------------ */
+.search { display: flex; gap: var(--s-2); align-items: stretch; margin: var(--s-3) 0 var(--s-5); }
+.search__input { flex: 1; max-width: 32rem; min-height: 2.1rem; }
+.search .btn { min-height: 2.1rem; }
+
 /* --- Home page ---------------------------------------------------------- */
-.home { max-width: 960px; }
-.home__hero { margin-bottom: var(--s-5); }
-.home__hero h1 { margin: 0 0 var(--s-1); }
-.home__boards { margin-bottom: var(--s-5); }
-.home__boards h2, .home__recent h2 { font-size: var(--t-lg); margin-bottom: var(--s-3); }
+.home { max-width: 980px; }
+.home__hero { margin-bottom: var(--s-6); }
+.home__hero h1 { margin: 0 0 var(--s-2); font-size: var(--t-xl); }
+.home__boards { margin-bottom: var(--s-6); }
+.home__boards h2, .home__recent h2 {
+  font-family: var(--font-mono); font-size: var(--t-sm); text-transform: uppercase; letter-spacing: .08em;
+  color: var(--c-muted); margin-bottom: var(--s-3);
+}
 .home .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--s-4); }
-.home__board-card { display: block; background: var(--c-surface); border: 1px solid var(--c-border); border-radius: var(--r-lg); padding: var(--s-4); box-shadow: var(--sh-sm); text-decoration: none; color: var(--c-text); }
-.home__board-card:hover { box-shadow: var(--sh-md); border-color: var(--c-accent); }
+.home__board-card {
+  display: block; background: var(--c-surface); color: var(--c-text); text-decoration: none;
+  border: 1px solid var(--c-ink); border-radius: var(--r-md); padding: var(--s-4); box-shadow: var(--sh-sm);
+  transition: box-shadow var(--t-fast), transform var(--t-fast);
+}
+.home__board-card:hover { box-shadow: var(--sh-hover); transform: translateY(-1px); }
 .home__board-card h3 { margin: 0 0 var(--s-1); font-size: var(--t-md); }
 .home__board-card .muted { font-size: var(--t-sm); margin: 0 0 var(--s-2); }
-.home__board-meta { font-size: var(--t-sm); color: var(--c-muted); display: flex; gap: var(--s-1); }
-.home__recent-row { display: flex; align-items: center; gap: var(--s-2); padding: var(--s-1) 0; border-bottom: 1px solid var(--c-border); font-size: var(--t-sm); }
+.home__board-meta { font-family: var(--font-mono); font-size: var(--t-sm); color: var(--c-muted); display: flex; gap: var(--s-1); }
+.home__recent-row { display: flex; align-items: center; gap: var(--s-2); padding: var(--s-2) 0; border-bottom: var(--rule) dashed var(--c-border); font-size: var(--t-sm); }
 .home__recent-row a { color: var(--c-text); flex: 1; }
 .home__recent-row a:hover { color: var(--c-accent); }
 

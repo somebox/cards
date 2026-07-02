@@ -1,6 +1,10 @@
 {{define "content"}}
+{{/* Board-scoped theming: custom-property overrides on data-board inherit to
+   every lane/card/chip inside, so a board can carry its own palette. */}}
+<div class="board-view" data-board="{{.Board.ID}}"{{with boardStyle .Board}} style="{{.}}"{{end}}>
 <h1 class="page-title">{{.Board.Name}}</h1>
 {{if .Board.Description}}<p class="muted">{{.Board.Description}}</p>{{end}}
+{{template "search_form" (dict "Action" (printf "/ui/boards/%s" .Board.ID) "Query" .Query)}}
 <div class="board" id="board">
   {{range $col := .Columns}}
   <section class="lane">
@@ -12,6 +16,7 @@
     </div>
   </section>
   {{end}}
+</div>
 </div>
 <script>
 // Live updates: subscribe to the board's event stream. On a mutation event,

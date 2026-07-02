@@ -10,10 +10,10 @@
 </head>
 <body>
   <nav class="app-nav">
-    <a class="brand" href="/">🗂 Work Cards</a>
+    <a class="brand" href="/">▚ WORK&nbsp;CARDS</a>
     {{range .Boards}}<a href="/ui/boards/{{.ID}}">{{.Name}}</a>{{end}}
     <span class="spacer"></span>
-    <a href="/ui/cards/new?type=programming-task">+ New Card</a>
+    <a class="nav-cta" href="/ui/cards/new?type=programming-task">+ New Card</a>
   </nav>
   <main>
     {{block "content" .}}{{end}}
@@ -50,37 +50,57 @@
     modal.innerHTML = html;
     if (!modal.open) modal.showModal();
     wireDirtySave(modal);
+    wireClickToEdit(modal);
+    refreshAgo(); // convert injected <time data-ago> to relative text
   }
   function closeModal() { if (modal.open) modal.close(); modal.innerHTML = ''; }
   modal.addEventListener('click', function(e){ if (e.target === modal) closeModal(); });
-  document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && modal.open) { e.preventDefault(); closeModal(); } });
+  document.addEventListener('keydown', function(e){
+    if (e.key !== 'Escape') return;
+    // Escape while editing a field reverts just that field; otherwise closes the modal.
+    var active = document.activeElement;
+    var openEdit = active && active.closest && active.closest('[data-edit]:not([hidden])');
+    if (openEdit) {
+      e.preventDefault();
+      revertField(openEdit);
+      return;
+    }
+    if (modal.open) { e.preventDefault(); closeModal(); }
+  });
+  // Keyboard: a board card's title <a> is the keyboard affordance (Enter
+  // activates it → the click handler below loads the modal). The card root is
+  // intentionally not a role=button/tabindex so it doesn't nest interactive
+  // descendants (the title link + the owner unclaim button).
   document.body.addEventListener('click', function(e){
     var a = e.target.closest('[data-card-link]');
     if (a) { e.preventDefault(); loadModal(a.getAttribute('data-card-link')); }
   });
   function loadModal(url) {
+    var modal = document.getElementById('card-modal');
+    modal.innerHTML = '<div class="modal__loading"><div class="skel-line"></div><div class="skel-line"></div><div class="skel-line"></div></div>';
+    if (!modal.open) modal.showModal();
     fetch(url, {headers:{'HX-Request':'true','X-Modal':'true'}})
-      .then(function(r){ return r.text(); })
+      .then(function(r){ if (!r.ok) throw new Error(''+r.status); return r.text(); })
       .then(function(html){ openModal(html); })
-      .catch(function(){ toast('Could not load card', 'err'); });
+      .catch(function(){ modal.innerHTML = '<div class="modal__error">Failed to load card.</div>'; });
   }
 
   // ---- Dirty-save: activate the Save button only when a field changes ----
   function wireDirtySave(root) {
-    var bar = root.querySelector('.modal__footer button');
+    var bar = root.querySelector('.modal__footer button.btn--primary');
     if (!bar) return;
     bar.disabled = true;
-    root.querySelectorAll('.field .input, .field .select, .field .textarea').forEach(function(el){
+    root.querySelectorAll('[data-field] .input, [data-field] .select, [data-field] .textarea').forEach(function(el){
       el.addEventListener('input', function(){ el.classList.add('is-dirty'); bar.disabled = false; });
       el.addEventListener('change', function(){ el.classList.add('is-dirty'); bar.disabled = false; });
     });
     bar.onclick = function(){
       var form = root.querySelector('form.save-form');
       if (!form) return;
+      // Every field is a real <input>/<select>/<textarea> in the form
+      // regardless of view/edit mode, so FormData(form) already carries the
+      // current value of every field — dirty or not — with no extra work.
       var fd = new FormData(form);
-      root.querySelectorAll('.field .input.is-dirty, .field .select.is-dirty, .field .textarea.is-dirty').forEach(function(el){
-        fd.append(el.name, el.value);
-      });
       fd.append('version', form.getAttribute('data-version'));
       fetch(form.action, {method:'POST', body:fd, headers:{'HX-Request':'true'}})
         .then(function(r){ if (!r.ok) throw r; return r.text(); })
@@ -90,6 +110,48 @@
           toast(msg, 'err');
         }); });
     };
+  }
+
+  // ---- Click-to-edit: each [data-field] has a read-mode [data-view] and an
+  // edit-mode [data-edit] (hidden by default). Clicking/focusing the view
+  // swaps to the edit control; blurring without a change swaps back; a real
+  // change marks the field dirty (wireDirtySave picks it up) and stays in
+  // edit mode until Save/Cancel so the user can see what they changed. ----
+  function wireClickToEdit(root) {
+    root.querySelectorAll('[data-field]').forEach(function(field){
+      var view = field.querySelector('[data-view]');
+      var edit = field.querySelector('[data-edit]');
+      if (!view || !edit) return; // read-only field (links/comments/metadata/repeating)
+      var ctl = edit.querySelector('.input, .select, .textarea');
+      view.addEventListener('click', function(){ activateEdit(field); });
+      view.addEventListener('keydown', function(e){
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activateEdit(field); }
+      });
+      if (!ctl) return;
+      ctl.addEventListener('blur', function(){
+        // Only revert if the field was never marked dirty — a dirty field
+        // stays open so Save/Cancel remain meaningful and visible.
+        setTimeout(function(){
+          if (!ctl.classList.contains('is-dirty')) revertField(field);
+        }, 0);
+      });
+    });
+  }
+  function activateEdit(field) {
+    var view = field.querySelector('[data-view]');
+    var edit = field.querySelector('[data-edit]');
+    if (!view || !edit) return;
+    view.hidden = true;
+    edit.hidden = false;
+    var ctl = edit.querySelector('.input, .select, .textarea');
+    if (ctl) { ctl.focus(); if (ctl.select) ctl.select(); }
+  }
+  function revertField(field) {
+    var view = field.querySelector('[data-view]');
+    var edit = field.querySelector('[data-edit]');
+    if (!view || !edit) return;
+    edit.hidden = true;
+    view.hidden = false;
   }
 
   // ---- Drag-and-drop status changes ----

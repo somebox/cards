@@ -7,7 +7,10 @@
 // docs/SPEC.md (v0.4) for the normative contract.
 package core
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 // FieldType is the small, composable field-type catalog. See SPEC.md §6.
 type FieldType string
@@ -44,6 +47,15 @@ type FieldDef struct {
 	Deprecated     bool       `json:"deprecated,omitempty"`
 }
 
+// TypeTheme is the visual identity for a card type, merged over the CSS
+// [data-type] defaults by httpapi.typeTheme. All fields optional so existing
+// workspace.json files keep forward-compat. (1a)
+type TypeTheme struct {
+	Icon   string `json:"icon,omitempty"`   // monochromatic glyph name (e.g. "bug")
+	Accent string `json:"accent,omitempty"` // CSS color overriding the [data-type] accent
+	Muted  string `json:"muted,omitempty"`  // muted shade of the accent (lane wash, hover)
+}
+
 // CardType is a versioned schema for a kind of card. Types are defined at
 // the workspace level. See SPEC.md §4.
 type CardType struct {
@@ -53,11 +65,12 @@ type CardType struct {
 	SchemaVersion    int        `json:"schema_version"`
 	Fields           []FieldDef `json:"fields"`
 	AllowedColumns   []string   `json:"allowed_columns,omitempty"`
-	Icon             string     `json:"icon,omitempty"`
+	TypeTheme        TypeTheme  `json:"type_theme,omitempty"` // 1a (config-driven theming)
 	SearchableFields []string   `json:"searchable_fields,omitempty"`
 	// Migrations describes how to reach each schema version, keyed by the
 	// target version as a string (e.g. "2"). Used by UpgradeSchema. SPEC §6.
 	Migrations map[string]Migration `json:"migrations,omitempty"`
+	Icon       string              `json:"icon,omitempty"` // legacy; folded into TypeTheme.Icon by httpapi.typeTheme
 }
 
 // Migration declares how a card reaches a target schema version from a prior
@@ -91,6 +104,14 @@ type Link struct {
 	Note      string    `json:"note,omitempty"`
 	CreatedBy string    `json:"created_by"`
 	CreatedAt time.Time `json:"created_at"`
+}
+
+// LinkEdge is one row of the link graph: Source links to Target via TypeID.
+// Used to build in/outbound relationship views without N+1 queries.
+type LinkEdge struct {
+	Source string
+	TypeID string
+	Target string
 }
 
 // Comment is a universal markdown discussion entry on a card.
@@ -167,6 +188,12 @@ type Board struct {
 	DefaultFilter map[string]any     `json:"default_filter,omitempty"`
 	Transitions  map[string][]string `json:"transitions,omitempty"`
 	Presentation *BoardPresentation  `json:"presentation,omitempty"`
+	// Theme is a board-scoped override of design-system hue tokens (e.g.
+	// {"--c-accent":"#a8503c","--c-flat":"#e7e0d6"}). Applied as inline custom
+	// properties on the board wrapper; only whitelisted keys are honoured
+	// (see httpapi.boardStyle). Neutral/ink/surface tokens stay theme-owned so
+	// dark mode keeps working.
+	Theme map[string]string `json:"theme,omitempty"`
 	Settings     struct {
 		EnforceTransitions bool `json:"enforce_transitions"`
 	} `json:"settings"`
@@ -244,6 +271,7 @@ type CardQuery struct {
 	StatusIn   []string
 	Owner      string
 	Q          string
+	IDLike     string // 1e/1d — LIKE match against full id AND substr(id,-8); distinct from Q (FTS)
 	Blocked    bool
 	HasLink    string // link type id present on the card
 	LinkTarget string // card id linked to
@@ -363,4 +391,21 @@ type WorkspaceSnapshot struct {
 	CardTypes       map[string]*CardType    `json:"card_types"`
 	Boards          map[string]*Board       `json:"boards"`
 	CurrentVersions map[string]int           `json:"current_schema_versions"`
+}
+
+// CardCandidate is a title+id pair returned when a short id is ambiguous (1e).
+type CardCandidate struct {
+	ID    string `json:"id"`
+	Title string `json:"title"`
+}
+
+// AmbiguousIDError is returned by ResolveCard when a short id matches >1 card.
+// Callers (HTTP, CLI, UI) render the candidate list; never auto-resolve. (1e)
+type AmbiguousIDError struct {
+	Short      string
+	Candidates []CardCandidate
+}
+
+func (e *AmbiguousIDError) Error() string {
+	return fmt.Sprintf("ambiguous short id %q: %d match(es)", e.Short, len(e.Candidates))
 }

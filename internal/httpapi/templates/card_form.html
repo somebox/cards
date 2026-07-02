@@ -1,13 +1,13 @@
 {{define "content"}}
 <div class="form-new">
-  <div class="actions"><a href="/ui/boards/{{.Board.ID}}" class="btn btn--ghost btn--sm">← Back to {{.Board.Name}}</a></div>
+  <div class="actions">{{if .Board}}<a href="/ui/boards/{{.Board.ID}}" class="btn btn--ghost btn--sm">← Back to {{.Board.Name}}</a>{{else}}<a href="/" class="btn btn--ghost btn--sm">← Home</a>{{end}}</div>
   <h2 class="page-title">New {{.CardType.Name}}</h2>
 
   {{if .Error}}<div class="alert"><span class="alert__code">{{.Error.Code}}:</span> {{.Error.Message}}{{if .Error.ValidOptions}} (valid: {{join .Error.ValidOptions ", "}}){{end}}</div>{{end}}
 
   <form method="POST" action="/ui/cards">
     <input type="hidden" name="type_id" value="{{.CardType.ID}}">
-    <input type="hidden" name="board_id" value="{{.Board.ID}}">
+    <input type="hidden" name="board_id" value="{{if .Board}}{{.Board.ID}}{{end}}">
 
     <div class="field">
       <label class="field__label">Title <span class="req">*</span></label>

@@ -1,0 +1,10 @@
+{{define "search_form"}}
+{{/* Plain GET navigation: on a board it reloads /ui/boards/{id}?q=… (filtered
+   board); on home it goes to /ui/search?q=… (results page). type=search gives
+   the native clear affordance, so no separate clear button. */}}
+<form class="search" action="{{.Action}}" method="get">
+  <input class="search__input input" type="search" name="q" value="{{.Query}}"
+         placeholder="Search by title or short id…" aria-label="Search">
+  <button class="btn btn--primary" type="submit">Search</button>
+</form>
+{{end}}
