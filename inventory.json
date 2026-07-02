@@ -1,0 +1,691 @@
+{
+  "generated": "2026-07-03",
+  "scope": [
+    "docs/*.md (14 files)",
+    "Top-level *.md (8 files: README, action-plan, debt-ledger, inventory, issues-{core,docs,http-cli,small})"
+  ],
+  "totals": {
+    "files": 22,
+    "lines": 6793,
+    "bytes": 319840,
+    "docs_files": 14,
+    "docs_lines": 5297,
+    "docs_bytes": 220260,
+    "toplevel_files": 8,
+    "toplevel_lines": 1496,
+    "toplevel_bytes": 99580
+  },
+  "category_summary": {
+    "entry-point": ["README.md"],
+    "working-artifact": [
+      "action-plan.md",
+      "debt-ledger.md",
+      "inventory.md",
+      "issues-core.md",
+      "issues-docs.md",
+      "issues-http-cli.md",
+      "issues-small.md"
+    ],
+    "candidate-topic": [
+      "docs/ARCHITECTURE.md",
+      "docs/CONCEPTS.md",
+      "docs/DESIGN.md",
+      "docs/DEVELOPER-REFERENCE.md",
+      "docs/EVENTS.md",
+      "docs/EXTENSIONS.md",
+      "docs/INTEGRATION.md",
+      "docs/INTEGRATOR-REFERENCE.md",
+      "docs/LIFECYCLE-EXAMPLES.md",
+      "docs/MCP.md",
+      "docs/NOTES.md",
+      "docs/PHILOSOPHY.md",
+      "docs/SPEC.md"
+    ],
+    "historical": [
+      "docs/SLICE3-REFLECTION.md"
+    ]
+  },
+  "files": [
+    {
+      "path": "README.md",
+      "lines": 221,
+      "bytes": 7860,
+      "category": "entry-point",
+      "outdated": false,
+      "outdated_notes": [],
+      "duplicated_with": [],
+      "internal_md_links": [
+        "docs/ARCHITECTURE.md",
+        "docs/CONCEPTS.md",
+        "docs/DEVELOPER-REFERENCE.md",
+        "docs/EVENTS.md",
+        "docs/EXTENSIONS.md",
+        "docs/INTEGRATION.md",
+        "docs/INTEGRATOR-REFERENCE.md",
+        "docs/LIFECYCLE-EXAMPLES.md",
+        "docs/MCP.md",
+        "docs/NOTES.md",
+        "docs/PHILOSOPHY.md",
+        "docs/SPEC.md"
+      ],
+      "external_links": [
+        "http://127.0.0.1:8787/ui/boards/engineering",
+        "http://127.0.0.1:8787/ui/boards/welcome",
+        "http://127.0.0.1:8787/v1",
+        "http://127.0.0.1:8787/v1/cards"
+      ],
+      "notes": "Top-level entry point. Links 12 of 14 docs/*.md files. docs/DESIGN.md and docs/SLICE3-REFLECTION.md are NOT linked from the README (DESIGN.md is referenced only by SPEC.md and inventory.md; SLICE3-REFLECTION.md is not referenced by any other file)."
+    },
+    {
+      "path": "action-plan.md",
+      "lines": 363,
+      "bytes": 19621,
+      "category": "working-artifact",
+      "outdated": false,
+      "outdated_notes": [],
+      "duplicated_with": [
+        "debt-ledger.md",
+        "issues-core.md",
+        "issues-docs.md",
+        "issues-http-cli.md",
+        "issues-small.md"
+      ],
+      "internal_md_links": [
+        "DEVELOPER-REFERENCE.md",
+        "EVENTS.md",
+        "EXTENSIONS.md",
+        "INTEGRATOR-REFERENCE.md",
+        "LIFECYCLE-EXAMPLES.md",
+        "SPEC.md",
+        "docs/ARCHITECTURE.md",
+        "docs/CONCEPTS.md",
+        "docs/DEVELOPER-REFERENCE.md",
+        "docs/EVENTS.md",
+        "docs/INTEGRATOR-REFERENCE.md",
+        "docs/LIFECYCLE-EXAMPLES.md",
+        "docs/NOTES.md",
+        "docs/SLICE3-REFLECTION.md",
+        "docs/SPEC.md"
+      ],
+      "external_links": [],
+      "notes": "Debt remediation plan. Self-described as 'Source: debt-ledger.md (57 items). No code was modified to produce this plan.' Substantial overlap with debt-ledger.md (the source)."
+    },
+    {
+      "path": "debt-ledger.md",
+      "lines": 213,
+      "bytes": 24657,
+      "category": "working-artifact",
+      "outdated": false,
+      "outdated_notes": [],
+      "duplicated_with": [
+        "action-plan.md",
+        "inventory.md",
+        "issues-core.md",
+        "issues-docs.md",
+        "issues-http-cli.md",
+        "issues-small.md"
+      ],
+      "internal_md_links": [
+        "ARCHITECTURE.md",
+        "DEVELOPER-REFERENCE.md",
+        "EVENTS.md",
+        "EXTENSIONS.md",
+        "INTEGRATION.md",
+        "INTEGRATOR-REFERENCE.md",
+        "LIFECYCLE-EXAMPLES.md",
+        "NOTES.md",
+        "SPEC.md",
+        "debt-ledger.md",
+        "docs/ARCHITECTURE.md",
+        "docs/CONCEPTS.md",
+        "docs/DEVELOPER-REFERENCE.md",
+        "docs/EVENTS.md",
+        "docs/EXTENSIONS.md",
+        "docs/INTEGRATION.md",
+        "docs/INTEGRATOR-REFERENCE.md",
+        "docs/LIFECYCLE-EXAMPLES.md",
+        "docs/NOTES.md",
+        "docs/SLICE3-REFLECTION.md",
+        "docs/SPEC.md",
+        "inventory.md",
+        "issues-core.md"
+      ],
+      "external_links": [],
+      "notes": "57-item cross-referenced technical-debt ledger. The other issues-*.md / action-plan.md / inventory.md are all derivative review artifacts from the same 2026-07 debt-review pass."
+    },
+    {
+      "path": "inventory.md",
+      "lines": 202,
+      "bytes": 9336,
+      "category": "working-artifact",
+      "outdated": false,
+      "outdated_notes": [],
+      "duplicated_with": [
+        "debt-ledger.md",
+        "action-plan.md"
+      ],
+      "internal_md_links": [
+        "ARCHITECTURE.md",
+        "CONCEPTS.md",
+        "DESIGN.md",
+        "DEVELOPER-REFERENCE.md",
+        "EVENTS.md",
+        "EXTENSIONS.md",
+        "INTEGRATION.md",
+        "INTEGRATOR-REFERENCE.md",
+        "LIFECYCLE-EXAMPLES.md",
+        "MCP.md",
+        "NOTES.md",
+        "PHILOSOPHY.md",
+        "README.md",
+        "SLICE3-REFLECTION.md",
+        "SPEC.md"
+      ],
+      "external_links": [],
+      "notes": "Repo-layout + area-proposal scan from the 2026-07 review pass. Does not duplicate the debt ledger but the two are companion artifacts."
+    },
+    {
+      "path": "issues-core.md",
+      "lines": 223,
+      "bytes": 12332,
+      "category": "working-artifact",
+      "outdated": false,
+      "outdated_notes": [],
+      "duplicated_with": [
+        "debt-ledger.md",
+        "action-plan.md"
+      ],
+      "internal_md_links": [],
+      "external_links": [],
+      "notes": "Review findings scoped to internal/core/ + internal/sqlite/. No .md link targets (paths referenced inline)."
+    },
+    {
+      "path": "issues-docs.md",
+      "lines": 104,
+      "bytes": 9422,
+      "category": "working-artifact",
+      "outdated": true,
+      "outdated_notes": [
+        "Several findings in this review note stale doc content that has since been addressed in commits 9fe8fb9 / 195ef8c: docs/EVENTS.md §10/§12 'test fakes missing' claim was corrected (now says 'All of the fakes/fixtures below exist'); docs/INTEGRATOR-REFERENCE.md §4 '15 declared, 13 emitted' was updated to 17; docs/CONCEPTS.md zero-config launch was changed from 'Planned' to 'implemented'; docs/EXTENSIONS.md hook-payload example no longer shows a 'board_ids' field; docs/LIFECYCLE-EXAMPLES.md B6 already correctly labels the time-filter as 'not implemented'."
+      ],
+      "duplicated_with": [
+        "debt-ledger.md",
+        "action-plan.md",
+        "docs/SLICE3-REFLECTION.md"
+      ],
+      "internal_md_links": [
+        "DEVELOPER-REFERENCE.md",
+        "EVENTS.md",
+        "EXTENSIONS.md",
+        "INTEGRATION.md",
+        "LIFECYCLE-EXAMPLES.md",
+        "README.md",
+        "SPEC.md",
+        "docs/ARCHITECTURE.md",
+        "docs/CONCEPTS.md",
+        "docs/DEVELOPER-REFERENCE.md",
+        "docs/EVENTS.md",
+        "docs/EXTENSIONS.md",
+        "docs/INTEGRATOR-REFERENCE.md",
+        "docs/LIFECYCLE-EXAMPLES.md",
+        "docs/NOTES.md",
+        "docs/SLICE3-REFLECTION.md",
+        "docs/SPEC.md"
+      ],
+      "external_links": [],
+      "notes": "Documentation review. Generated 2026-07-02. Findings were largely resolved in commit 9fe8fb9 'docs,chore: reconcile docs with code'; the doc itself is still useful as a historical snapshot but is no longer authoritative. Some findings (YAML-support overstatement, run-extensions/service-supervision claim) are not fully resolved as of 2026-07-03."
+    },
+    {
+      "path": "issues-http-cli.md",
+      "lines": 90,
+      "bytes": 10635,
+      "category": "working-artifact",
+      "outdated": false,
+      "outdated_notes": [],
+      "duplicated_with": [
+        "debt-ledger.md",
+        "action-plan.md"
+      ],
+      "internal_md_links": [
+        "inventory.md"
+      ],
+      "external_links": [],
+      "notes": "HTTP + CLI surface review (internal/httpapi, internal/cli, cmd/cards). The DEBT-12/15/13 dead-import keep-alive findings were resolved in commit 9fe8fb9."
+    },
+    {
+      "path": "issues-small.md",
+      "lines": 80,
+      "bytes": 5717,
+      "category": "working-artifact",
+      "outdated": false,
+      "outdated_notes": [],
+      "duplicated_with": [
+        "debt-ledger.md",
+        "action-plan.md"
+      ],
+      "internal_md_links": [],
+      "external_links": [],
+      "notes": "Small-package review (artifacts, mcp, config, hooks, openapi, seed, starter). DEBT-12/13/16 dead-import findings resolved in commit 9fe8fb9; DEBT-57 (artifacts TODO) resolved in commit 0578312 'feat(artifacts): implement the local artifact policy with confinement tests'."
+    },
+    {
+      "path": "docs/ARCHITECTURE.md",
+      "lines": 387,
+      "bytes": 13994,
+      "category": "candidate-topic",
+      "outdated": true,
+      "outdated_notes": [
+        "Says 'Definitions are JSON or YAML. The loader normalizes both' but the loader (internal/config/config.go) only reads JSON for workspace.json / card-types/ / boards/; only extensions.{yaml,json} accepts YAML.",
+        "Recommends 'gopkg.in/yaml.v3' as a dependency but it is not in go.mod and is not used by the loader.",
+        "Other content (event-seam references, §d7 work-log claims, etc.) is current per recent commits."
+      ],
+      "duplicated_with": [
+        "docs/SPEC.md",
+        "docs/INTEGRATOR-REFERENCE.md"
+      ],
+      "internal_md_links": [
+        "CONCEPTS.md",
+        "DEVELOPER-REFERENCE.md",
+        "EVENTS.md",
+        "EXTENSIONS.md",
+        "INTEGRATION.md",
+        "INTEGRATOR-REFERENCE.md",
+        "PHILOSOPHY.md",
+        "SPEC.md"
+      ],
+      "external_links": [
+        "http://127.0.0.1:8787/v1"
+      ],
+      "notes": "Implementation-platform doc. Overlaps with SPEC.md §3 and INTEGRATOR-REFERENCE.md (which is the code-verified drift audit of this doc). The two YAML claims remain a known drift item."
+    },
+    {
+      "path": "docs/CONCEPTS.md",
+      "lines": 208,
+      "bytes": 9697,
+      "category": "candidate-topic",
+      "outdated": false,
+      "outdated_notes": [
+        "Zero-config launch path text was updated to '(implemented: ...)' — the previously flagged 'Planned' mislabel has been fixed. No remaining outdated items observed on a 2026-07-03 pass."
+      ],
+      "duplicated_with": [
+        "docs/PHILOSOPHY.md",
+        "docs/SPEC.md"
+      ],
+      "internal_md_links": [
+        "ARCHITECTURE.md",
+        "DEVELOPER-REFERENCE.md",
+        "INTEGRATOR-REFERENCE.md",
+        "PHILOSOPHY.md",
+        "SPEC.md"
+      ],
+      "external_links": [],
+      "notes": "Vocabulary + use-case setups. Anchors SPEC.md and PHILOSOPHY.md. Uses anchor-only link '#import--export-and-portability' (1 occurrence)."
+    },
+    {
+      "path": "docs/DESIGN.md",
+      "lines": 194,
+      "bytes": 10277,
+      "category": "candidate-topic",
+      "outdated": false,
+      "outdated_notes": [],
+      "duplicated_with": [],
+      "internal_md_links": [],
+      "external_links": [],
+      "notes": "Web-UI design system (token-driven CSS, theming, components). NOT linked from README. Referenced by SPEC.md (lines 254, 892) and inventory.md only. Orphaned from the README's documentation index — likely a doc-inventory gap."
+    },
+    {
+      "path": "docs/DEVELOPER-REFERENCE.md",
+      "lines": 557,
+      "bytes": 20540,
+      "category": "candidate-topic",
+      "outdated": true,
+      "outdated_notes": [
+        "§2 says 'JSON vs YAML authoring: Both supported' for workspace/card-types/boards definitions. Not accurate — only JSON is loaded today.",
+        "§9 take-next example references './filters/todo.json' but no such file is checked into examples/demo-workspace/ (the example is illustrative only).",
+        "§5/§11 state 'no If-Match header' — current and correct.",
+        "Most anchor links (SPEC.md#5-schema-versioning, SPEC.md#6-field-types, SPEC.md#default-link-vocabulary, SPEC.md#definition-merge-and-precedence) are real targets in SPEC.md."
+      ],
+      "duplicated_with": [
+        "docs/SPEC.md",
+        "docs/INTEGRATOR-REFERENCE.md"
+      ],
+      "internal_md_links": [
+        "ARCHITECTURE.md",
+        "CONCEPTS.md",
+        "EXTENSIONS.md",
+        "INTEGRATOR-REFERENCE.md",
+        "LIFECYCLE-EXAMPLES.md",
+        "MCP.md",
+        "NOTES.md",
+        "PHILOSOPHY.md",
+        "SPEC.md",
+        "SPEC.md#5-schema-versioning",
+        "SPEC.md#6-field-types",
+        "SPEC.md#default-link-vocabulary",
+        "SPEC.md#definition-merge-and-precedence"
+      ],
+      "external_links": [],
+      "notes": "Largest docs/ file by lines. Schema-authoring + envelope + transitions + link rules. High overlap with SPEC.md (canonical) and INTEGRATOR-REFERENCE.md (drift audit)."
+    },
+    {
+      "path": "docs/EVENTS.md",
+      "lines": 454,
+      "bytes": 15765,
+      "category": "candidate-topic",
+      "outdated": true,
+      "outdated_notes": [
+        "§10/§12 'seam acceptance tests are missing' claim flagged by issues-docs.md was addressed in commit 9fe8fb9: §10 now opens with 'All of the fakes/fixtures below exist' and §12 Step 1 is marked [built] with check marks.",
+        "§11.1 '15 declared, 13 emitted' count flag was addressed (count is now 17 declared).",
+        "Remaining stale-looking item: §3 lists Python/Node client packages as 'planned but not yet built' — accurate, not stale.",
+        "Step 4 (outbox evolution) is correctly marked as not started.",
+        "The dated header 'Current status (2026-07): Step 1 (seam hardening) is implemented' is current and explicit."
+      ],
+      "duplicated_with": [
+        "docs/SPEC.md"
+      ],
+      "internal_md_links": [
+        "ARCHITECTURE.md",
+        "INTEGRATION.md",
+        "PHILOSOPHY.md",
+        "SPEC.md"
+      ],
+      "external_links": [],
+      "notes": "Events subsystem design (Emitter seam, EventLog, Bus, observers). Content is mostly current as of 2026-07-03; previous issues-docs.md drift items have been fixed."
+    },
+    {
+      "path": "docs/EXTENSIONS.md",
+      "lines": 374,
+      "bytes": 12132,
+      "category": "candidate-topic",
+      "outdated": true,
+      "outdated_notes": [
+        "'Event contract for hooks' JSON example no longer includes a 'board_ids' field (the previous drift was addressed).",
+        "Declaration/CLI surface sections still imply `service` extensions with `autostart: true` are supervised by `cards run-extensions`; per issues-docs.md, runExtensionsCmd only wires up `kind: hook`. INTEGRATOR-REFERENCE.md §7 calls this out as a contradiction.",
+        "Examples 1-4 use a planned `work_cards` (Python) / `@work-cards/client` (Node) client and are tagged [proposed] — accurate, not stale.",
+        "Reference to 'the `command` field type' being dropped is correct and is footnoted to NOTES.md D2/D18."
+      ],
+      "duplicated_with": [
+        "docs/SPEC.md",
+        "docs/INTEGRATOR-REFERENCE.md"
+      ],
+      "internal_md_links": [
+        "ARCHITECTURE.md",
+        "DEVELOPER-REFERENCE.md",
+        "INTEGRATION.md",
+        "LIFECYCLE-EXAMPLES.md",
+        "MCP.md",
+        "PHILOSOPHY.md",
+        "SPEC.md"
+      ],
+      "external_links": [],
+      "notes": "Extension model (hook, service, run). Hook-payload example was corrected. Service-supervision claim is the one remaining drift item."
+    },
+    {
+      "path": "docs/INTEGRATION.md",
+      "lines": 378,
+      "bytes": 18592,
+      "category": "candidate-topic",
+      "outdated": false,
+      "outdated_notes": [],
+      "duplicated_with": [
+        "docs/EVENTS.md",
+        "docs/INTEGRATOR-REFERENCE.md"
+      ],
+      "internal_md_links": [
+        "ARCHITECTURE.md",
+        "INTEGRATOR-REFERENCE.md",
+        "PHILOSOPHY.md",
+        "SPEC.md"
+      ],
+      "external_links": [
+        "http://127.0.0.1:8787",
+        "http://127.0.0.1:8787/v1/events?board_id=engineering&since=${lastSeen}",
+        "http://127.0.0.1:8787/v1/events/stream?board_id=engineering&types=status_changed,comment_added"
+      ],
+      "notes": "Integration & events patterns (consume the API, SSE, worker loop). Anchor-only links present: '#condition-events-are-ephemeral' and '#current-breaches-catch-up-for-conditions'."
+    },
+    {
+      "path": "docs/INTEGRATOR-REFERENCE.md",
+      "lines": 514,
+      "bytes": 26800,
+      "category": "candidate-topic",
+      "outdated": true,
+      "outdated_notes": [
+        "§4 event-count statement was updated from '15 declared, 13 emitted' to '17 declared: 13 durable facts + 2 ephemeral board signals + 2 declared-only' — current.",
+        "§4 'Today every event is card-scoped' is now slightly stale: wip_exceeded/wip_cleared are built board-scoped signals.",
+        "§7 'cards run-extensions' service-supervision status: doc explicitly flags it as not implemented (drift marker present).",
+        "Description is 'code-verified' — it is intentionally a single-page audit that overlaps substantially with SPEC.md."
+      ],
+      "duplicated_with": [
+        "docs/SPEC.md",
+        "docs/DEVELOPER-REFERENCE.md"
+      ],
+      "internal_md_links": [
+        "ARCHITECTURE.md",
+        "CONCEPTS.md",
+        "DEVELOPER-REFERENCE.md",
+        "EXTENSIONS.md",
+        "INTEGRATION.md",
+        "MCP.md",
+        "NOTES.md",
+        "PHILOSOPHY.md",
+        "SPEC.md"
+      ],
+      "external_links": [],
+      "notes": "Single-page, code-verified drift audit. Highest byte count in docs/. Conceptually the duplicate of SPEC.md (the normative contract) by design, with each drift item called out inline."
+    },
+    {
+      "path": "docs/LIFECYCLE-EXAMPLES.md",
+      "lines": 627,
+      "bytes": 18511,
+      "category": "candidate-topic",
+      "outdated": false,
+      "outdated_notes": [
+        "B6 'Query stale blocked queue' example correctly labels `updated_before`/`created_before` filters as 'not implemented' and gives a client-side fallback. No remaining drift.",
+        "Examples are pinned to SPEC.md v0.4 (per its own header)."
+      ],
+      "duplicated_with": [
+        "docs/SPEC.md",
+        "docs/INTEGRATOR-REFERENCE.md"
+      ],
+      "internal_md_links": [
+        "NOTES.md",
+        "SPEC.md"
+      ],
+      "external_links": [
+        "http://127.0.0.1:8787/v1",
+        "https://github.com/org/repo/pull/42"
+      ],
+      "notes": "Two end-to-end walkthroughs (programming-task + shop-fabrication). Longest docs/ file by lines. Only contains a real external link (one GitHub PR placeholder in an example)."
+    },
+    {
+      "path": "docs/MCP.md",
+      "lines": 150,
+      "bytes": 6939,
+      "category": "candidate-topic",
+      "outdated": false,
+      "outdated_notes": [],
+      "duplicated_with": [
+        "docs/SPEC.md"
+      ],
+      "internal_md_links": [
+        "DEVELOPER-REFERENCE.md",
+        "EXTENSIONS.md",
+        "LIFECYCLE-EXAMPLES.md",
+        "NOTES.md",
+        "SPEC.md"
+      ],
+      "external_links": [],
+      "notes": "MCP tool surface. Concise, current. States that MCP does not currently forward Idempotency-Key — accurate, not stale."
+    },
+    {
+      "path": "docs/NOTES.md",
+      "lines": 227,
+      "bytes": 11078,
+      "category": "candidate-topic",
+      "outdated": true,
+      "outdated_notes": [
+        "D5 'Concurrency: version canonical, If-Match alias' has a 'Status' note saying 'SPEC.md and DEVELOPER-REFERENCE.md state this correctly'. Verified: both docs already state 'there is no If-Match header' (SPEC.md:779, DEVELOPER-REFERENCE.md:517). The 'Affected: SPEC.md §11' line is now stale and the D5 follow-up can be removed.",
+        "D-anchors D1-D18 are stated as stable and must not be renumbered — useful as a historical-rationale log.",
+        "Backlog notes (fieldSchema duplication, filter-DSL AST) are clearly labeled 'deferred'."
+      ],
+      "duplicated_with": [],
+      "internal_md_links": [
+        "EVENTS.md",
+        "MCP.md",
+        "SPEC.md"
+      ],
+      "external_links": [],
+      "notes": "Design-decisions log. Explicitly says 'historical rationale log, not a status report'. One small stale follow-up (D5)."
+    },
+    {
+      "path": "docs/PHILOSOPHY.md",
+      "lines": 107,
+      "bytes": 4313,
+      "category": "candidate-topic",
+      "outdated": false,
+      "outdated_notes": [],
+      "duplicated_with": [
+        "docs/CONCEPTS.md"
+      ],
+      "internal_md_links": [
+        "ARCHITECTURE.md",
+        "CONCEPTS.md",
+        "DEVELOPER-REFERENCE.md",
+        "EVENTS.md",
+        "EXTENSIONS.md",
+        "INTEGRATION.md",
+        "INTEGRATOR-REFERENCE.md",
+        "LIFECYCLE-EXAMPLES.md",
+        "MCP.md",
+        "NOTES.md",
+        "SPEC.md"
+      ],
+      "external_links": [],
+      "notes": "Shortest docs/ file. Design principles (10 numbered). The 'Related documents' table at the bottom is the most complete cross-link map in the doc set — does not include DESIGN.md or SLICE3-REFLECTION.md (also not in README)."
+    },
+    {
+      "path": "docs/SLICE3-REFLECTION.md",
+      "lines": 153,
+      "bytes": 8476,
+      "category": "historical",
+      "outdated": true,
+      "outdated_notes": [
+        "Header explicitly says 'Historical — superseded. This is a point-in-time dogfooding journal from the Slice 3 (CLI + MCP) development cycle.'",
+        "Resolution summary at the top: B1/F2/F3/F5/F6 are marked fixed; F1/F4/F7 are flagged 'still open' or 'partially addressed'.",
+        "The 'INTEGRATION.md card_ready' reference should be 'card_unblocked' (per issues-docs.md / debt-ledger DEBT-48). Verified: INTEGRATION.md does not mention `card_ready` anywhere; the doc is the one to fix.",
+        "Not referenced by any other file (including README)."
+      ],
+      "duplicated_with": [
+        "issues-docs.md",
+        "debt-ledger.md"
+      ],
+      "internal_md_links": [
+        "EVENTS.md",
+        "INTEGRATION.md",
+        "SPEC.md"
+      ],
+      "external_links": [],
+      "notes": "Point-in-time dogfooding journal from the Slice 3 cycle. Self-described as superseded. The same findings (B1, F1-F7) are tracked in issues-docs.md and debt-ledger.md."
+    },
+    {
+      "path": "docs/SPEC.md",
+      "lines": 967,
+      "bytes": 43146,
+      "category": "candidate-topic",
+      "outdated": true,
+      "outdated_notes": [
+        "§3 says 'Definitions are JSON or YAML' for workspace.json / card-types/ / boards/ — only JSON is loaded by internal/config/config.go. Only extensions.{yaml,json} accepts YAML.",
+        "§8 'Markdown mirror (planned, not yet implemented)' is current (not yet built).",
+        "§6 'artifact: ... Not yet implemented: the internal/artifacts manager is a stub' — this is stale: commit 0578312 implemented the local artifact policy with confinement tests. The §6 narrative should now read as built, not as design-only.",
+        "§3 workspace layout lists a 'mirror/' subdir that is described in §8 as 'planned'. Consistent (both say not yet built).",
+        "§11 'Definitions are JSON or YAML' copy is in the workspace layout prose."
+      ],
+      "duplicated_with": [
+        "docs/INTEGRATOR-REFERENCE.md",
+        "docs/DEVELOPER-REFERENCE.md"
+      ],
+      "internal_md_links": [
+        "ARCHITECTURE.md",
+        "EVENTS.md",
+        "EXTENSIONS.md",
+        "LIFECYCLE-EXAMPLES.md",
+        "MCP.md",
+        "NOTES.md",
+        "PHILOSOPHY.md"
+      ],
+      "external_links": [],
+      "notes": "Largest file in the repo by line and byte count. Normative product spec. Overlaps with INTEGRATOR-REFERENCE.md (drift audit), DEVELOPER-REFERENCE.md (authoring), and EVENTS.md (event contracts)."
+    }
+  ],
+  "findings": {
+    "outdated_files": [
+      "docs/ARCHITECTURE.md",
+      "docs/DEVELOPER-REFERENCE.md",
+      "docs/EVENTS.md",
+      "docs/EXTENSIONS.md",
+      "docs/INTEGRATOR-REFERENCE.md",
+      "docs/NOTES.md",
+      "docs/SPEC.md",
+      "docs/SLICE3-REFLECTION.md",
+      "issues-docs.md"
+    ],
+    "duplicated_clusters": [
+      {
+        "name": "Normative spec vs. code-verified drift audit",
+        "members": [
+          "docs/SPEC.md",
+          "docs/INTEGRATOR-REFERENCE.md",
+          "docs/DEVELOPER-REFERENCE.md"
+        ],
+        "note": "All three cover the data model, envelope, fields, link rules, HTTP endpoints. SPEC.md is the canonical contract; INTEGRATOR-REFERENCE.md is the code-verified audit of those claims; DEVELOPER-REFERENCE.md is the schema-authoring companion. Overlap is by design but should be cross-referenced rather than restated."
+      },
+      {
+        "name": "2026-07 debt-review artifact cluster",
+        "members": [
+          "debt-ledger.md",
+          "action-plan.md",
+          "inventory.md",
+          "issues-core.md",
+          "issues-docs.md",
+          "issues-http-cli.md",
+          "issues-small.md"
+        ],
+        "note": "All seven were produced in the same review pass (committed in 195ef8c 'docs: record the 2026-07 debt-review artifacts'). They cover overlapping ground (e.g. dead-import keep-alives appear in debt-ledger.md, action-plan.md Batch 12, issues-http-cli.md, issues-small.md). Once follow-up work lands, the cluster should be folded into a single ledger or archived together."
+      },
+      {
+        "name": "Slice 3 retrospective duplication",
+        "members": [
+          "docs/SLICE3-REFLECTION.md",
+          "issues-docs.md",
+          "debt-ledger.md"
+        ],
+        "note": "B1, F1-F7 findings are stated in SLICE3-REFLECTION.md, restated in issues-docs.md (note row), and tracked in debt-ledger.md. SLICE3-REFLECTION.md is itself flagged as superseded."
+      },
+      {
+        "name": "Architecture/SPEC cross-coverage",
+        "members": [
+          "docs/ARCHITECTURE.md",
+          "docs/SPEC.md"
+        ],
+        "note": "Both describe workspace layout, single-workspace-per-instance, and storage model; ARCHITECTURE.md is the platform view, SPEC.md is the product view. Linked from each other."
+      }
+    ],
+    "orphaned_docs": [
+      {
+        "path": "docs/DESIGN.md",
+        "reason": "Not linked from README's documentation index. Referenced only by SPEC.md (lines 254, 892) and inventory.md. Likely a doc-inventory gap — README should link to it under the 'web UI' entry, or DESIGN.md should be folded into ARCHITECTURE.md."
+      },
+      {
+        "path": "docs/SLICE3-REFLECTION.md",
+        "reason": "Not linked from README; self-described as 'Historical — superseded'; same findings appear in issues-docs.md and debt-ledger.md. Candidate for archival."
+      }
+    ],
+    "stale_followup_remaining": [
+      "docs/NOTES.md D5 'Affected: SPEC.md §11, LIFECYCLE-EXAMPLES.md' follow-up note: SPEC.md:779 and DEVELOPER-REFERENCE.md:517 already state 'there is no If-Match header' — the D5 follow-up can be removed.",
+      "docs/SLICE3-REFLECTION.md references 'INTEGRATION.md card_ready design'; INTEGRATION.md does not use 'card_ready' (only 'card_unblocked'). Reference is imprecise.",
+      "docs/SPEC.md §6 'artifact ... Not yet implemented: the internal/artifacts manager is a stub' is stale post-commit 0578312 (artifacts policy implemented).",
+      "docs/ARCHITECTURE.md, docs/SPEC.md §3, docs/DEVELOPER-REFERENCE.md §2 overstate YAML support for workspace/card-type/board definitions (only extensions.{yaml,json} accepts YAML).",
+      "docs/EXTENSIONS.md implies `service` extensions with `autostart: true` are supervised by `cards run-extensions`; runExtensionsCmd only supervises `kind: hook` (called out in INTEGRATOR-REFERENCE.md §7)."
+    ]
+  }
+}

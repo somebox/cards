@@ -2,7 +2,7 @@
 
 A record of design decisions and why they were made. This is a **historical
 rationale log**, not a status report — for current implementation status see
-[`SPEC.md`](SPEC.md) and [`EVENTS.md`](EVENTS.md). Other docs cite the
+[`SPEC.md`](spec/SPEC.md) and [`EVENTS.md`](events/EVENTS.md). Other docs cite the
 D-numbered entries below (D1–D18) for rationale not restated elsewhere; those
 anchors are stable and must not be renumbered.
 
@@ -12,7 +12,7 @@ anchors are stable and must not be renumbered.
 
 What changed in the v0.4 design pass and why. These decisions are now
 **implemented** — the core kernel, HTTP API, CLI, MCP server, web UI, and
-hook supervisor are built and dogfooded. Read alongside [`SPEC.md`](SPEC.md)
+hook supervisor are built and dogfooded. Read alongside [`SPEC.md`](spec/SPEC.md)
 v0.4. These notes capture decisions; the normative text lives in the spec.
 
 ## Theme
@@ -184,7 +184,7 @@ Documented in `SPEC.md` §13 and `MCP.md`.
 
 ### D16 — MCP surface defined
 
-New [`MCP.md`](MCP.md): one create tool per card type (typed input from the
+New [`MCP.md`](extensions/MCP.md): one create tool per card type (typed input from the
 schema), plus generic tools (`claim`, `take-next`, `append`, `link`,
 `comment`, `upgrade-schema`, `events`). Tool inputs embed `version` for
 concurrency. Generated from `GET /workspace`.

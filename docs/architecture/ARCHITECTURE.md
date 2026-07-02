@@ -6,14 +6,14 @@ model where behavior is added by independent processes in any language.
 Python and Node client packages are planned but not yet built; for now the
 binary, CLI, HTTP API, and MCP server are the integration surfaces.
 
-Normative product behavior lives in [`SPEC.md`](SPEC.md); the principles
-behind these choices live in [`PHILOSOPHY.md`](PHILOSOPHY.md); the extension
-contract lives in [`EXTENSIONS.md`](EXTENSIONS.md); schema authoring lives in
-[`DEVELOPER-REFERENCE.md`](DEVELOPER-REFERENCE.md); the vocabulary and mental
-model live in [`CONCEPTS.md`](CONCEPTS.md). For a code-verified drift audit of
+Normative product behavior lives in [`SPEC.md`](../spec/SPEC.md); the principles
+behind these choices live in [`PHILOSOPHY.md`](../concepts/PHILOSOPHY.md); the extension
+contract lives in [`EXTENSIONS.md`](../extensions/EXTENSIONS.md); schema authoring lives in
+[`DEVELOPER-REFERENCE.md`](../reference/DEVELOPER-REFERENCE.md); the vocabulary and mental
+model live in [`CONCEPTS.md`](../concepts/CONCEPTS.md). For a code-verified drift audit of
 the claims in this document (which features are built vs. proposed), see
-[`INTEGRATOR-REFERENCE.md`](INTEGRATOR-REFERENCE.md); for the events subsystem
-design, see [`EVENTS.md`](EVENTS.md).
+[`INTEGRATOR-REFERENCE.md`](../reference/INTEGRATOR-REFERENCE.md); for the events subsystem
+design, see [`EVENTS.md`](../events/EVENTS.md).
 
 ---
 
@@ -238,7 +238,7 @@ Responsibilities:
 - For `kind: service` extensions with `autostart: true` — **[proposed, not
   yet implemented]** start the process when the supervisor starts and restart
   on crash if `restart: on-failure` is set. (Only `hook` and `run` extensions
-  are wired today; see [`INTEGRATOR-REFERENCE.md`](INTEGRATOR-REFERENCE.md) §7
+  are wired today; see [`INTEGRATOR-REFERENCE.md`](../reference/INTEGRATOR-REFERENCE.md) §7
   for the drift note.)
 - For `kind: run` extensions, invoke on `cards do <id>`.
 - Capture stdout/stderr to per-extension logs in `.cards/logs/`.
@@ -250,7 +250,7 @@ in a developer workspace gets the whole declared system running.
 The supervisor never loads extension code into the core process. It only
 spawns subprocesses and reads events. Crashes are isolated.
 
-See [`EXTENSIONS.md`](EXTENSIONS.md) for the declaration format and worked
+See [`EXTENSIONS.md`](../extensions/EXTENSIONS.md) for the declaration format and worked
 examples.
 
 ---
@@ -273,7 +273,7 @@ unified stream. Two model changes enable board-level conditions: events gain a
 `scope` (`card` | `board`) with a nullable `card_id` and a recorded `board_id`.
 Critically, the core only **emits** condition signals — it never acts on them;
 reprioritizing, escalating, and reassigning are the integrator's policy. See
-[`INTEGRATION.md`](INTEGRATION.md) for the full contract.
+[`INTEGRATION.md`](../events/INTEGRATION.md) for the full contract.
 
 ---
 

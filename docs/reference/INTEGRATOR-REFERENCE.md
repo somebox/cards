@@ -8,9 +8,9 @@ does *not* do.
 This document is written from the source (`internal/...`) and the real example
 workspace (`examples/demo-workspace/`), not from prose — where the older
 narrative docs drift from the code, the drift is flagged inline. For the
-normative contract see [`SPEC.md`](SPEC.md); for the events/integration design
-see [`INTEGRATION.md`](INTEGRATION.md); for runtime shape see
-[`ARCHITECTURE.md`](ARCHITECTURE.md).
+normative contract see [`SPEC.md`](../spec/SPEC.md); for the events/integration design
+see [`INTEGRATION.md`](../events/INTEGRATION.md); for runtime shape see
+[`ARCHITECTURE.md`](../architecture/ARCHITECTURE.md).
 
 **Status legend:** **[built]** exists in code today · **[proposed]** designed,
 not yet implemented · **[drift]** documented elsewhere but *not* in the code.
@@ -500,14 +500,14 @@ never acts on a condition. Out of scope, by design:
 
 | Topic | Doc |
 |---|---|
-| Normative contract (data model, API, errors, events, atomics) | [`SPEC.md`](SPEC.md) |
-| Vocabulary + use-case setups (workspaces, boards, card types) | [`CONCEPTS.md`](CONCEPTS.md) |
-| Events & integration design (mutation vs condition, monitors, feed, breaches) | [`INTEGRATION.md`](INTEGRATION.md) |
-| Runtime shape, package boundaries, storage | [`ARCHITECTURE.md`](ARCHITECTURE.md) |
-| MCP transport & tools (note the drift in §3 above) | [`MCP.md`](MCP.md) |
-| Extension declaration format & worked examples | [`EXTENSIONS.md`](EXTENSIONS.md) |
-| Workspace authoring (definitions, schema versioning, reload) | [`DEVELOPER-REFERENCE.md`](DEVELOPER-REFERENCE.md) |
-| Design rationale & decisions (D-numbers) | [`PHILOSOPHY.md`](PHILOSOPHY.md), [`NOTES.md`](NOTES.md) |
+| Normative contract (data model, API, errors, events, atomics) | [`SPEC.md`](../spec/SPEC.md) |
+| Vocabulary + use-case setups (workspaces, boards, card types) | [`CONCEPTS.md`](../concepts/CONCEPTS.md) |
+| Events & integration design (mutation vs condition, monitors, feed, breaches) | [`INTEGRATION.md`](../events/INTEGRATION.md) |
+| Runtime shape, package boundaries, storage | [`ARCHITECTURE.md`](../architecture/ARCHITECTURE.md) |
+| MCP transport & tools (note the drift in §3 above) | [`MCP.md`](../extensions/MCP.md) |
+| Extension declaration format & worked examples | [`EXTENSIONS.md`](../extensions/EXTENSIONS.md) |
+| Workspace authoring (definitions, schema versioning, reload) | [`DEVELOPER-REFERENCE.md`](../reference/DEVELOPER-REFERENCE.md) |
+| Design rationale & decisions (D-numbers) | [`PHILOSOPHY.md`](../concepts/PHILOSOPHY.md), [`NOTES.md`](../NOTES.md) |
 
 *Verified against the source at the time of writing. Where this doc and an older
 narrative doc disagree, this doc (read from code) wins — and the discrepancy is a

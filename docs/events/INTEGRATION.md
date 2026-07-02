@@ -5,14 +5,14 @@ dispatch and complete work, coordinate multi-step flows, and react to
 time/threshold conditions. This is the "API first, the UI is one view" contract.
 
 Status legend: **[built]** exists today · **[proposed]** designed here, not yet
-implemented. See [`SPEC.md`](SPEC.md) for the normative contract of built
-features and [`ARCHITECTURE.md`](ARCHITECTURE.md) for the runtime.
+implemented. See [`SPEC.md`](../spec/SPEC.md) for the normative contract of built
+features and [`ARCHITECTURE.md`](../architecture/ARCHITECTURE.md) for the runtime.
 
 > **No client library exists yet in any language** — every snippet below is raw
 > HTTP against the REST API. All writes require an actor: set the
 > `X-Work-Cards-Actor` header on every `POST`/`PATCH` (or set the `CARDS_USER`
 > env var). For retried writes, set `Idempotency-Key` to a unique value so a
-> duplicate is safely replayed. See [`INTEGRATOR-REFERENCE.md`](INTEGRATOR-REFERENCE.md)
+> duplicate is safely replayed. See [`INTEGRATOR-REFERENCE.md`](../reference/INTEGRATOR-REFERENCE.md)
 > §2/§5 for exact request/response shapes and the full actor model — this doc
 > does not repeat wire-level detail.
 
@@ -89,7 +89,7 @@ Mutation events (above) exist today; **condition events** (`status_timeout`,
 `wip_exceeded`, …) arrive on the *same* stream once implemented, so this consumer
 code does not change. The rest of this document is the design contract; for
 exact request/response wire shapes of every `[built]` endpoint, see
-[`INTEGRATOR-REFERENCE.md`](INTEGRATOR-REFERENCE.md) §2/§4.
+[`INTEGRATOR-REFERENCE.md`](../reference/INTEGRATOR-REFERENCE.md) §2/§4.
 
 ## Three planes
 
@@ -101,7 +101,7 @@ exact request/response wire shapes of every `[built]` endpoint, see
   **condition events** (timeouts, WIP, empty lanes) that turn implicit state
   into signals.
 
-A guiding line from [`PHILOSOPHY.md`](PHILOSOPHY.md): **Cards emits signals; the
+A guiding line from [`PHILOSOPHY.md`](../concepts/PHILOSOPHY.md): **Cards emits signals; the
 integrator owns the response.** Cards is not a workflow engine — it never acts
 on a condition. It tells you a card sat in `review` too long; *you* decide to
 escalate. This keeps policy in your domain and mechanism in the core.
@@ -308,7 +308,7 @@ first-class webhook adds delivery guarantees.)
 > Every write below requires the `X-Work-Cards-Actor` header (or `CARDS_USER`
 > env). Set `Idempotency-Key` to a unique value on any write you might retry —
 > the server replays the original response instead of creating a duplicate. See
-> [`INTEGRATOR-REFERENCE.md`](INTEGRATOR-REFERENCE.md) §2/§5 for exact shapes.
+> [`INTEGRATOR-REFERENCE.md`](../reference/INTEGRATOR-REFERENCE.md) §2/§5 for exact shapes.
 
 - **Claim work** — `POST /v1/cards/take-next` (oldest unowned matching),
   `claim`, `release`. **[built]**

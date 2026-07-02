@@ -94,14 +94,14 @@ the contracts described in this repository.
 
 | Doc | Contents |
 |-----|----------|
-| [`CONCEPTS.md`](CONCEPTS.md) | Vocabulary, mental model, and use-case setups |
-| [`NOTES.md`](NOTES.md) | Design notes (v0.4 changes and rationale) |
-| [`SPEC.md`](SPEC.md) | Normative product behavior and API |
-| [`INTEGRATOR-REFERENCE.md`](INTEGRATOR-REFERENCE.md) | Code-verified drift audit of SPEC claims |
-| [`EVENTS.md`](EVENTS.md) | Event subsystem design (Emitter seam, conditions) |
-| [`INTEGRATION.md`](INTEGRATION.md) | Integration and consumption patterns |
-| [`MCP.md`](MCP.md) | MCP tool surface |
-| [`EXTENSIONS.md`](EXTENSIONS.md) | Extension model (hooks, services, runs) |
-| [`ARCHITECTURE.md`](ARCHITECTURE.md) | Go core, packaging, Python/Node integration |
-| [`DEVELOPER-REFERENCE.md`](DEVELOPER-REFERENCE.md) | Schemas, transitions, links, versioning |
-| [`LIFECYCLE-EXAMPLES.md`](LIFECYCLE-EXAMPLES.md) | End-to-end card lifecycles |
+| [`CONCEPTS.md`](../concepts/CONCEPTS.md) | Vocabulary, mental model, and use-case setups |
+| [`NOTES.md`](../NOTES.md) | Design notes (v0.4 changes and rationale) |
+| [`SPEC.md`](../spec/SPEC.md) | Normative product behavior and API |
+| [`INTEGRATOR-REFERENCE.md`](../reference/INTEGRATOR-REFERENCE.md) | Code-verified drift audit of SPEC claims |
+| [`EVENTS.md`](../events/EVENTS.md) | Event subsystem design (Emitter seam, conditions) |
+| [`INTEGRATION.md`](../events/INTEGRATION.md) | Integration and consumption patterns |
+| [`MCP.md`](../extensions/MCP.md) | MCP tool surface |
+| [`EXTENSIONS.md`](../extensions/EXTENSIONS.md) | Extension model (hooks, services, runs) |
+| [`ARCHITECTURE.md`](../architecture/ARCHITECTURE.md) | Go core, packaging, Python/Node integration |
+| [`DEVELOPER-REFERENCE.md`](../reference/DEVELOPER-REFERENCE.md) | Schemas, transitions, links, versioning |
+| [`LIFECYCLE-EXAMPLES.md`](../examples/LIFECYCLE-EXAMPLES.md) | End-to-end card lifecycles |

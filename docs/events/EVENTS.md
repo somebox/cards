@@ -10,8 +10,8 @@ model simpler to reason about.
 **Status legend:** **[built]** in code today · **[proposed]** designed here, not
 yet implemented · **[refactor]** exists but moves/renames under this design.
 
-Related: [`INTEGRATION.md`](INTEGRATION.md), [`SPEC.md`](SPEC.md),
-[`ARCHITECTURE.md`](ARCHITECTURE.md), [`PHILOSOPHY.md`](PHILOSOPHY.md).
+Related: [`INTEGRATION.md`](../events/INTEGRATION.md), [`SPEC.md`](../spec/SPEC.md),
+[`ARCHITECTURE.md`](../architecture/ARCHITECTURE.md), [`PHILOSOPHY.md`](../concepts/PHILOSOPHY.md).
 
 ---
 

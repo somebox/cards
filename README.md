@@ -191,22 +191,22 @@ workspace is under `examples/`, and the longer design references are in `docs/`.
 
 ## Documentation And Development
 
-Start with [`docs/CONCEPTS.md`](docs/CONCEPTS.md) for the vocabulary
+Start with [`docs/concepts/CONCEPTS.md`](docs/concepts/CONCEPTS.md) for the vocabulary
 (workspaces, boards, card types) and how setups differ by use case, then
-[`docs/DEVELOPER-REFERENCE.md`](docs/DEVELOPER-REFERENCE.md) for workspace
-authoring and [`docs/SPEC.md`](docs/SPEC.md) for the API and data
-model. Design background is in [`docs/PHILOSOPHY.md`](docs/PHILOSOPHY.md) and
-[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md); agent and extension details are
-in [`docs/MCP.md`](docs/MCP.md) and [`docs/EXTENSIONS.md`](docs/EXTENSIONS.md).
+[`docs/reference/DEVELOPER-REFERENCE.md`](docs/reference/DEVELOPER-REFERENCE.md) for workspace
+authoring and [`docs/spec/SPEC.md`](docs/spec/SPEC.md) for the API and data
+model. Design background is in [`docs/concepts/PHILOSOPHY.md`](docs/concepts/PHILOSOPHY.md) and
+[`docs/architecture/ARCHITECTURE.md`](docs/architecture/ARCHITECTURE.md); agent and extension details are
+in [`docs/extensions/MCP.md`](docs/extensions/MCP.md) and [`docs/extensions/EXTENSIONS.md`](docs/extensions/EXTENSIONS.md).
 How other apps observe changes, dispatch work, and react to timeouts/WIP/empty
-lanes is in [`docs/INTEGRATION.md`](docs/INTEGRATION.md); the internal event core
+lanes is in [`docs/events/INTEGRATION.md`](docs/events/INTEGRATION.md); the internal event core
 (the emission seam, log, bus, observers) is specified in
-[`docs/EVENTS.md`](docs/EVENTS.md). For a single-page, code-verified reference
+[`docs/events/EVENTS.md`](docs/events/EVENTS.md). For a single-page, code-verified reference
 (what's actually built vs. proposed), see
-[`docs/INTEGRATOR-REFERENCE.md`](docs/INTEGRATOR-REFERENCE.md); for worked
-end-to-end scenarios, see [`docs/LIFECYCLE-EXAMPLES.md`](docs/LIFECYCLE-EXAMPLES.md).
+[`docs/reference/INTEGRATOR-REFERENCE.md`](docs/reference/INTEGRATOR-REFERENCE.md); for worked
+end-to-end scenarios, see [`docs/examples/LIFECYCLE-EXAMPLES.md`](docs/examples/LIFECYCLE-EXAMPLES.md).
 Design rationale for major decisions is recorded in
-[`docs/NOTES.md`](docs/NOTES.md).
+[`docs/NOTES.md`](docs/NOTES.md); styling and web UI components are described in [`docs/architecture/DESIGN.md`](docs/architecture/DESIGN.md).
 
 Work Cards is in beta. The core service, HTTP API, CLI, MCP server, web UI, and
 hook system are implemented, but the API should still be treated as

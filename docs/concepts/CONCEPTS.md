@@ -2,11 +2,11 @@
 
 This document defines the vocabulary of Cards and shows how the pieces fit
 together in different use cases. For the API and field reference, see
-[`SPEC.md`](SPEC.md); for workspace authoring, see
-[`DEVELOPER-REFERENCE.md`](DEVELOPER-REFERENCE.md); for design principles, see
-[`PHILOSOPHY.md`](PHILOSOPHY.md); for a code-verified drift audit of which
+[`SPEC.md`](../spec/SPEC.md); for workspace authoring, see
+[`DEVELOPER-REFERENCE.md`](../reference/DEVELOPER-REFERENCE.md); for design principles, see
+[`PHILOSOPHY.md`](../concepts/PHILOSOPHY.md); for a code-verified drift audit of which
 features are built vs. proposed, see
-[`INTEGRATOR-REFERENCE.md`](INTEGRATOR-REFERENCE.md).
+[`INTEGRATOR-REFERENCE.md`](../reference/INTEGRATOR-REFERENCE.md).
 
 Sections marked **Planned** describe the intended model that is not yet
 implemented. Everything else describes current behavior.
@@ -54,7 +54,7 @@ is what makes a workspace portable as `definitions/` + a JSONL export (see
 A new workspace gets its schema by copying starter definitions in, then editing
 that copy. Customizing a workspace means editing the JSON under its own
 `definitions/` and reloading the server. Reloading definitions does not migrate
-existing cards (see schema versioning in [`SPEC.md`](SPEC.md)).
+existing cards (see schema versioning in [`SPEC.md`](../spec/SPEC.md)).
 
 ## Card types
 
@@ -86,7 +86,7 @@ scopes and presents them. A board defines:
 
 - **`columns`** — which statuses (workspace column ids) appear, and their order.
 - **`card_type_ids`** — which card types appear on the board.
-- **`default_filter`** — an optional [filter DSL](SPEC.md) expression that
+- **`default_filter`** — an optional [filter DSL](../spec/SPEC.md) expression that
   scopes which cards the board shows, beyond type and column.
 - **`transitions`** + **`settings.enforce_transitions`** — an optional status
   graph the board enforces (e.g. `todo -> in_progress -> review -> done`).
@@ -180,7 +180,7 @@ backlog. Run it explicitly with `cards serve --workspace ./examples/demo-workspa
 JSONL export under version control). Each contributor runs a local server
 against the checkout, or one host serves it behind a reverse proxy. There is no
 baked-in auth; isolation is the host's responsibility (see
-[`ARCHITECTURE.md`](ARCHITECTURE.md)).
+[`ARCHITECTURE.md`](../architecture/ARCHITECTURE.md)).
 
 ## Setup and customization
 
