@@ -58,6 +58,38 @@ To serve static documentation from our structured workspace, we will target a Ma
 
 Connecting external interfaces lets Work Cards function as the central "coordination terminal" that agents and human developers share.
 
+### 0. The Primary Use Case: Bidirectional, Lossless Migration & Open Collaboration
+
+> **Captured here as a use case and a future architectural direction — not a TODO to build today.**
+
+The most important reason to build robust import/export adapters for Cards is that project state should be **owned by the team, not by a vendor's hosted database.** Once a team starts tracking work in Cards, that history should remain a portable, git-versioned artifact, with a clear way out if needs change later.
+
+**Why this matters:**
+
+- **Open collaboration:** A Cards workspace is a directory of plain files (JSON, Markdown, SQLite). That means the *entire project state* (issues, epics, comments, history) can live in a public or shared git repository. Anyone — a contributor, an auditor, a future maintainer — can `git clone` and see the full context of how the work evolved, with no proprietary lock-in.
+- **Cards as living documentation:** Because cards are git-tracked, they double as project history. You can read the `boards.json` and `cards.jsonl` diffs to understand *why* a decision was made, not just *what* was decided. The README points to the spec; the spec references the cards; the cards themselves become browsable narrative.
+- **Lossless escape hatch:** A team that started a project as a Cards workspace (e.g. for a hackathon, a class, an internal R&D spike) should be able to move that work to Jira, GitHub Issues, Linear, or Trello on day one of "this became a real product." Conversely, a team moving *off* Jira should be able to export their full history into Cards, drop it in a git repo, and continue working without losing the prior narrative.
+- **Multi-source sync / federation:** Many real workflows span multiple trackers simultaneously — a single project might be tracked in both Jira (for the org's reporting) and GitHub Issues (for the OSS community), or mirrored across two Cards workspaces for a distributed team. A "common portable project format" (e.g. the existing `cards export` / `cards import` JSONL envelope) is the natural pivot point for keeping these aligned.
+
+**What this implies for Cards' architecture (future, not now):**
+
+- The portable export/import format should be treated as a first-class public contract, not just a CLI convenience. Today it is a newline-delimited envelope over the same shape the SQLite store uses; promoting it to a stable, versioned schema (a "Common Portable Project Format") would let adapters for Jira, GitHub Issues, Trello, Linear, Notion, etc. all live outside the core repo.
+- Such adapters would naturally be implemented as Work Cards *extensions* (or thin external daemons) reading the SSE event stream and writing back to the external tracker, rather than baked into the core. That keeps Cards small and lets the community build the adapters they need.
+- The README and the GitHub Pages site should explicitly call out "your data is git-tracked and portable" as a headline value proposition, alongside "small binary" and "typed agent tools."
+
+**Concrete examples to capture in the docs site (when we get to writing the Examples section):**
+
+- "Hackathon $\rightarrow$ Real product": start a Cards workspace for a weekend project, push it to a public git repo, then export the JSONL and import into Jira when the team gets funded.
+- "Jira $\rightarrow$ OSS liberation": a team exports their Jira board to Cards, opens a git repo with the workspace checked in, and migrates the issue tracker to GitHub Issues for community contribution.
+- "Two Cards workspaces, one team": a distributed org has separate Cards workspaces per region; a nightly diff-and-merge job keeps a shared subset of cards in sync, all via the portable format.
+- "Read-only mirror": a Cards workspace mirrors GitHub Issues for low-friction local querying and agent-driven analysis, without ever writing back.
+
+None of this is built today. The point of this section is to keep the *idea* alive in the docs so that when someone asks "could Cards be the migration target?" or "could we run Cards alongside Jira?" the answer is documented and the path is obvious.
+
+---
+
+### 1. Obsidian Markdown Integration (`cards` $\leftrightarrow$ Vault)
+
 ### 1. Obsidian Markdown Integration (`cards` $\leftrightarrow$ Vault)
 **Concept:** Since Work Cards workspace configurations, definitions, and outputs are plain files, and Obsidian is a local folders-of-markdown tool, we can easily sync them.
 
