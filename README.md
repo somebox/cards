@@ -1,7 +1,8 @@
 # Cards
 
 Cards is a local coordination service for defining, reviewing and assigning tasks. A project defines
-its card types, boards, columns, transitions, and extensions in a JSON or YAML schema.
+its card types, boards, columns, transitions, and extensions in a JSON schema
+(extensions may also be declared in YAML).
 The `cards` binary loads those definitions, stores card state and events in
 SQLite, and exposes the same model through HTTP, CLI, MCP, and a small web UI.
 
