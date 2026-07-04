@@ -213,6 +213,70 @@ func TestUIBoardInjectsActor(t *testing.T) {
 	if strings.Contains(body, "foz") {
 		t.Error("board still contains the hardcoded 'foz' actor")
 	}
+	// The live stream must now subscribe to condition events so badges update.
+	for _, ct := range []string{"card_blocked", "card_unblocked", "wip_exceeded"} {
+		if !strings.Contains(body, ct) {
+			t.Errorf("board SSE type list missing condition event %q", ct)
+		}
+	}
+}
+
+func TestUIBoardShowsBlockedBadge(t *testing.T) {
+	ts, _ := newServer(t)
+	H := map[string]string{"X-Work-Cards-Actor": "local-dev", "Content-Type": "application/json"}
+	mk := func(title string) string {
+		_, out := do(t, ts, "POST", "/v1/cards", core.CreateCardRequest{
+			TypeID: "programming-task", Title: title, Status: "todo",
+			Fields: map[string]any{"description": "d", "branch": "b"},
+		}, H)
+		return out["id"].(string)
+	}
+	blocker := mk("Blocker task")
+	blocked := mk("Blocked task")
+	// blocked depends-on blocker (still open) → blocked predicate fires.
+	resp, _ := do(t, ts, "POST", "/v1/cards/"+blocked+"/links",
+		core.LinkInput{TypeID: "depends-on", Target: blocker}, H)
+	if resp.StatusCode != 201 && resp.StatusCode != 200 {
+		t.Fatalf("add link: %d", resp.StatusCode)
+	}
+	_, body := doGet(t, ts, "/ui/boards/engineering")
+	if !strings.Contains(body, `data-stat="blocked"`) {
+		t.Error("board does not render the blocked badge for a blocked card")
+	}
+}
+
+func TestUIBreachesPage(t *testing.T) {
+	ts, _ := newServer(t)
+	// Empty state: seeded demo has no breaching conditions.
+	resp, body := doGet(t, ts, "/ui/breaches")
+	if resp.StatusCode != 200 {
+		t.Fatalf("status %d", resp.StatusCode)
+	}
+	if !strings.Contains(body, "Nothing breaching right now") {
+		t.Error("breaches page missing empty-state copy")
+	}
+	// Create a blocked card; it must then appear as a card_blocked row.
+	H := map[string]string{"X-Work-Cards-Actor": "local-dev", "Content-Type": "application/json"}
+	mk := func(title string) string {
+		_, out := do(t, ts, "POST", "/v1/cards", core.CreateCardRequest{
+			TypeID: "programming-task", Title: title, Status: "todo",
+			Fields: map[string]any{"description": "d", "branch": "b"},
+		}, H)
+		return out["id"].(string)
+	}
+	blocker := mk("Breach blocker")
+	blocked := mk("Breach blocked")
+	do(t, ts, "POST", "/v1/cards/"+blocked+"/links", core.LinkInput{TypeID: "depends-on", Target: blocker}, H)
+	resp2, body2 := doGet(t, ts, "/ui/breaches")
+	if resp2.StatusCode != 200 {
+		t.Fatalf("status %d", resp2.StatusCode)
+	}
+	if !strings.Contains(body2, `data-condition="card_blocked"`) {
+		t.Error("breaches page does not show the blocked card row")
+	}
+	if !strings.Contains(body2, "Breach blocked") || !strings.Contains(body2, "Breach blocker") {
+		t.Error("breaches page did not resolve card/blocker titles")
+	}
 }
 
 func TestUICreateCardValidationReRendersForm(t *testing.T) {

@@ -132,6 +132,47 @@ func (s *Server) uiBoard(w http.ResponseWriter, r *http.Request) {
 	s.renderPage(w, r, "board.html", data)
 }
 
+// uiBreaches renders the workspace-wide current-conditions page: the same
+// report GET /v1/breaches returns, with card/board ids resolved to titles and
+// rows linking back to the card modal / board.
+func (s *Server) uiBreaches(w http.ResponseWriter, r *http.Request) {
+	report, err := s.svc.Breaches(r.Context(), "", nil)
+	if err != nil {
+		http.Error(w, "failed to load breaches", http.StatusInternalServerError)
+		return
+	}
+	cache := map[string]string{}
+	rows := make([]BreachRow, 0, len(report.Items))
+	for _, it := range report.Items {
+		row := BreachRow{
+			Label:   conditionLabel(it.Type),
+			RawType: string(it.Type),
+			Scope:   it.Scope,
+			Column:  it.Column,
+			Count:   it.Count,
+			Limit:   it.Limit,
+			CardID:  it.CardID,
+		}
+		if it.BoardID != "" {
+			row.BoardID = it.BoardID
+			if b, ok := s.boards[it.BoardID]; ok {
+				row.BoardName = b.Name
+			}
+		}
+		if it.CardID != "" {
+			row.CardTitle = s.cardTitle(r.Context(), cache, it.CardID)
+		}
+		for _, bID := range it.Blockers {
+			row.Blockers = append(row.Blockers, LinkView{CardID: bID, Title: s.cardTitle(r.Context(), cache, bID)})
+		}
+		rows = append(rows, row)
+	}
+	data := s.baseData("Breaches")
+	data.Breaches = rows
+	data.BreachAsOf = report.AsOf.Format("2006-01-02 15:04:05 MST")
+	s.renderPage(w, r, "breaches.html", data)
+}
+
 // boardData builds the ViewData for a board page (cards grouped by column).
 // Reused by uiBoard and the htmx move handler so a move re-renders the whole
 // board with the card in its new column. Errors on the card queries — the
@@ -159,6 +200,15 @@ func (s *Server) boardData(r *http.Request, b *core.Board) (ViewData, error) {
 	}
 	users := s.listUsersBestEffort(r)
 	outCount, inCount, commentCount := s.linkGraphCounts(r.Context())
+	// One bulk query for every blocked card on this board's types (the same
+	// predicate card_blocked/Breaches use) → set membership, so the badge is
+	// O(1) per card rather than an N+1 blockers lookup.
+	blocked := map[string]bool{}
+	if bl, err := s.svc.ListCards(r.Context(), core.CardQuery{Blocked: true, TypeIDIn: b.CardTypeIDs, Limit: 500}); err == nil {
+		for _, c := range bl.Items {
+			blocked[c.ID] = true
+		}
+	}
 	for i := range all {
 		c := &all[i]
 		if !colSet[c.Status] {
@@ -168,6 +218,7 @@ func (s *Server) boardData(r *http.Request, b *core.Board) (ViewData, error) {
 		cv.CommentCount = commentCount[c.ID]
 		cv.OutCount = outCount[c.ID]
 		cv.InCount = inCount[c.ID]
+		cv.Blocked = blocked[c.ID]
 		byCol[c.Status] = append(byCol[c.Status], cv)
 	}
 	cols := []core.Column{}
@@ -185,7 +236,29 @@ func (s *Server) boardData(r *http.Request, b *core.Board) (ViewData, error) {
 	data.CardsByColumn = byCol
 	data.TypeThemes = s.buildTypeThemes()
 	data.Query = q
+	data.SSETypes = boardSSETypes()
 	return data, nil
+}
+
+// boardMutationTypes are the durable card/board mutations that change what a
+// board lane shows and so must trigger a live re-fetch.
+var boardMutationTypes = []string{
+	"status_changed", "card_created", "field_updated", "owner_changed",
+	"tags_changed", "item_appended", "item_updated", "item_removed",
+	"link_added", "comment_added",
+}
+
+// boardSSETypes is the comma-joined event-type filter the board's live stream
+// subscribes to: the durable mutations above plus every condition event
+// (core.ConditionTypes) so a blocked/unblocked or WIP crossing re-renders the
+// badges without a manual reload. Single source for both the stream URL and
+// the client-side addEventListener loop.
+func boardSSETypes() string {
+	types := append([]string{}, boardMutationTypes...)
+	for _, t := range core.ConditionTypes() {
+		types = append(types, string(t))
+	}
+	return strings.Join(types, ",")
 }
 
 func (s *Server) uiNewCardForm(w http.ResponseWriter, r *http.Request) {

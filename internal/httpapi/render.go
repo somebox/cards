@@ -30,6 +30,37 @@ type CardView struct {
 	CommentCount  int    // board card: number of comments
 	OutCount      int    // board card: number of outbound links
 	InCount       int    // board card: number of inbound links (others → this)
+	Blocked       bool   // board card: has an unresolved blocked-by link (condition engine)
+}
+
+// BreachRow is one resolved condition for the /ui/breaches page: the raw
+// BreachItem with card/board ids replaced by human titles for display.
+type BreachRow struct {
+	Label     string     // human condition name ("WIP exceeded")
+	RawType   string     // event slug, for [data-condition] styling
+	Scope     string     // "board" | "card"
+	BoardID   string     // links to the board page (board-scoped rows)
+	BoardName string     // board display name
+	Column    string     // column label (WIP/lane rows)
+	Count     int        // current column count (WIP/lane rows)
+	Limit     int        // configured cap (WIP rows)
+	CardID    string     // links to the card modal (card-scoped rows)
+	CardTitle string     // card display title
+	Blockers  []LinkView // resolved blocker titles (card_blocked rows)
+}
+
+// conditionLabel maps a condition event slug to its human page label.
+func conditionLabel(t core.EventType) string {
+	switch t {
+	case core.EventWIPExceeded:
+		return "WIP exceeded"
+	case core.EventLaneDrained:
+		return "Lane empty"
+	case core.EventCardBlocked:
+		return "Card blocked"
+	default:
+		return string(t)
+	}
 }
 
 // LinkView is a resolved relationship to another card, shown with the target's
@@ -103,6 +134,9 @@ type ViewData struct {
 	Candidates []core.CardCandidate
 	// Query is the current ?q= search string, repopulating the search box (1d).
 	Query string
+	// SSETypes is the comma-joined event-type filter the board's live stream
+	// subscribes to (board mutations + condition events).
+	SSETypes string
 	// Home page
 	Workspace   *core.Workspace
 	CardCount   int
@@ -110,6 +144,9 @@ type ViewData struct {
 	// Card detail/modal relationships (resolved titles, in/outbound).
 	OutLinks []LinkView
 	InLinks  []LinkView
+	// Breaches page (/ui/breaches): resolved current conditions + snapshot time.
+	Breaches   []BreachRow
+	BreachAsOf string
 }
 
 func (s *Server) baseData(title string) ViewData {

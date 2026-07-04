@@ -26,11 +26,11 @@
 (function () {
   var board = document.getElementById('board');
   if (!board || typeof EventSource === 'undefined') return;
-  var path = '/v1/events/stream?board_id={{.Board.ID}}&types=status_changed,card_created,field_updated,owner_changed,tags_changed,item_appended,item_updated,item_removed,link_added,comment_added';
-  var es = new EventSource(path);
-  ['status_changed','card_created','field_updated','owner_changed','tags_changed','item_appended','item_updated','item_removed','link_added','comment_added'].forEach(function(t){
-    es.addEventListener(t, handle);
-  });
+  // Server-built type list: board mutations + every condition event, so a
+  // blocked/unblocked or WIP crossing re-renders the badges live.
+  var types = '{{.SSETypes}}';
+  var es = new EventSource('/v1/events/stream?board_id={{.Board.ID}}&types=' + types);
+  types.split(',').forEach(function(t){ es.addEventListener(t, handle); });
   function handle(e) {
     fetch(window.location.href, {headers: {'HX-Request':'true'}})
       .then(function(r){ return r.text(); })

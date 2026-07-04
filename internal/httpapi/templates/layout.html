@@ -13,6 +13,7 @@
   <nav class="app-nav">
     <a class="brand" href="/">▚ WORK&nbsp;CARDS</a>
     {{range .Boards}}<a href="/ui/boards/{{.ID}}">{{.Name}}</a>{{end}}
+    <a href="/ui/breaches">Breaches</a>
     <span class="spacer"></span>
     <a class="nav-cta" href="/ui/cards/new?type=programming-task">+ New Card</a>
   </nav>

@@ -96,6 +96,7 @@ func New(svc *core.Service, ws *core.Workspace, types map[string]*core.CardType,
 	// across pages.
 	pageSets := map[string][]string{
 		"board.html":          {"templates/board.html", "templates/card_partial.html", "templates/search_form.html"},
+		"breaches.html":       {"templates/breaches.html"},
 		"card_ambiguous.html": {"templates/card_ambiguous.html"},
 		"card_detail.html":    {"templates/card_detail.html", "templates/card_modal.html"},
 		"card_form.html":      {"templates/card_form.html"},
@@ -157,6 +158,7 @@ func (s *Server) Router() http.Handler {
 	r.Get("/ui/search", s.uiSearch)
 	r.Get("/ui/style.css", s.uiStylesheet)
 	r.Get("/ui/boards/{id}", s.uiBoard)
+	r.Get("/ui/breaches", s.uiBreaches)
 	r.Get("/ui/cards/new", s.uiNewCardForm)
 	r.Post("/ui/cards", s.uiCreateCard)
 	r.Get("/ui/cards/{id}", s.uiCardDetail)

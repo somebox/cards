@@ -20,6 +20,7 @@
   {{end}}
   <div class="card__stats">
     <span class="card__stat card__stat--time"><time data-ago="{{iso .Card.UpdatedAt}}" datetime="{{iso .Card.UpdatedAt}}" title="last updated"></time></span>
+    {{if .Blocked}}<span class="card__stat" data-stat="blocked" title="blocked by an unresolved dependency">blocked</span>{{end}}
     {{if .CommentCount}}<span class="card__stat" data-stat="comments" title="{{.CommentCount}} comment(s)">{{.CommentCount}}</span>{{end}}
     {{if .OutCount}}<span class="card__stat" data-stat="out" title="links to {{.OutCount}} card(s)">{{.OutCount}}</span>{{end}}
     {{if .InCount}}<span class="card__stat" data-stat="in" title="{{.InCount}} card(s) link here">{{.InCount}}</span>{{end}}

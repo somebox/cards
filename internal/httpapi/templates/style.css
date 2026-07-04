@@ -441,6 +441,19 @@ main { padding: var(--s-5); max-width: 100%; }
 .card__stat[data-stat="comments"] { --ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z'/%3E%3C/svg%3E"); }
 .card__stat[data-stat="out"] { color: var(--rel-out); --ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7 17 17 7'/%3E%3Cpath d='M8 7h9v9'/%3E%3C/svg%3E"); }
 .card__stat[data-stat="in"] { color: var(--rel-in); --ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M17 7 7 17'/%3E%3Cpath d='M16 17H7V8'/%3E%3C/svg%3E"); }
+.card__stat[data-stat="blocked"] { color: var(--link-blocked-by); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; --ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='m5.6 5.6 12.8 12.8'/%3E%3C/svg%3E"); }
+
+/* --- Breaches page --- */
+.breaches__head { margin-bottom: var(--s-4); }
+.breach { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--s-2) var(--s-3); padding: var(--s-3); border: var(--stroke) solid var(--c-border); border-left: 3px solid var(--c-faint); border-radius: var(--r-md); }
+.breach__label { font-family: var(--font-mono); font-size: var(--t-xs); text-transform: uppercase; letter-spacing: .04em; font-weight: 600; color: var(--c-faint); }
+.breach__subject { font-weight: 600; }
+.breach__detail { color: var(--c-muted); font-size: var(--t-sm); }
+.breach[data-condition="card_blocked"] { border-left-color: var(--link-blocked-by); }
+.breach[data-condition="card_blocked"] .breach__label { color: var(--link-blocked-by); }
+.breach[data-condition="wip_exceeded"] { border-left-color: var(--c-warn, #b5851f); }
+.breach[data-condition="wip_exceeded"] .breach__label { color: var(--c-warn, #b5851f); }
+.breaches__empty { padding: var(--s-5) 0; }
 
 /* Modal relationships: one row per link, colour + arrow encode direction. */
 .rels { display: flex; flex-direction: column; gap: var(--s-1); }
