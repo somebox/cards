@@ -82,11 +82,10 @@ func (s *Service) evaluateColumn(ctx context.Context, b *Board, column string) {
 	if (!hasLimit || limit <= 0) && !watchEmpty {
 		return
 	}
-	page, err := s.store.ListCards(ctx, CardQuery{Status: column, TypeIDIn: b.CardTypeIDs, Limit: 500})
+	count, err := s.countColumn(ctx, b, column)
 	if err != nil {
 		return
 	}
-	count := len(page.Items)
 	if hasLimit && limit > 0 {
 		s.evaluateCrossing(ctx, b.ID+"\x00"+column+"\x00wip", count > limit,
 			func() *Event { return WIPExceeded(b.ID, column, count, limit) },
@@ -97,6 +96,18 @@ func (s *Service) evaluateColumn(ctx context.Context, b *Board, column string) {
 			func() *Event { return LaneDrained(b.ID, column, count) },
 			func() *Event { return LaneRefilled(b.ID, column, count) })
 	}
+}
+
+// countColumn is the single column-census query: how many of board b's card
+// types currently sit in column. Shared by evaluateColumn (crossing
+// detection on a mutation) and Breaches (on-demand catch-up) — one counting
+// path, not two (EVENTS.md §12 Step 3c).
+func (s *Service) countColumn(ctx context.Context, b *Board, column string) (int, error) {
+	page, err := s.store.ListCards(ctx, CardQuery{Status: column, TypeIDIn: b.CardTypeIDs, Limit: 500})
+	if err != nil {
+		return 0, err
+	}
+	return len(page.Items), nil
 }
 
 // evaluateCrossing is the shared instant-condition crossing tracker: it fires

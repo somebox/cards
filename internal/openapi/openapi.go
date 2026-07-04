@@ -98,6 +98,14 @@ func paths(types map[string]*core.CardType) map[string]any {
 				"200": map[string]any{"description": "Board"},
 			}, idParam),
 		},
+		"/breaches": map[string]any{
+			"get": op("Current-conditions catch-up: what's breaching right now (wip_exceeded, lane_drained, card_blocked)", map[string]any{
+				"200": map[string]any{"description": "Breach report"},
+			}, []any{
+				map[string]any{"name": "board_id", "in": "query", "schema": map[string]any{"type": "string"}},
+				map[string]any{"name": "type", "in": "query", "description": "comma-separated event types to filter to", "schema": map[string]any{"type": "string"}},
+			}),
+		},
 		"/events/stream": map[string]any{
 			"get": op("Server-sent event stream (text/event-stream); supports Last-Event-ID replay", map[string]any{
 				"200": map[string]any{"description": "Event stream"},

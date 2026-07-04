@@ -44,6 +44,18 @@ func (s *Server) apiGetBoard(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, b)
 }
 
+// apiBreaches is the current-conditions catch-up query (INTEGRATION.md
+// "GET /v1/breaches"): what's breaching right now, for a consumer that
+// wasn't listening when a condition last crossed.
+func (s *Server) apiBreaches(w http.ResponseWriter, r *http.Request) {
+	report, err := s.svc.Breaches(r.Context(), r.URL.Query().Get("board_id"), splitCSV(r.URL.Query().Get("type")))
+	if err != nil {
+		writeAPIError(w, core.AsError(err))
+		return
+	}
+	writeJSON(w, 200, report)
+}
+
 func (s *Server) apiListCards(w http.ResponseWriter, r *http.Request) {
 	q := core.CardQuery{
 		BoardID:    r.URL.Query().Get("board_id"),

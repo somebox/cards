@@ -394,6 +394,95 @@ func TestConditions_TransitionRejectedNeverFromTakeNext(t *testing.T) {
 	}
 }
 
+// Breaches (the on-demand catch-up query) must agree with the live crossing
+// evaluators: both derive from the same countColumn/Blockers helpers, so a
+// column currently over its WIP limit, a watched-empty lane, and a blocked
+// card must all appear as breach items — before any live event ever fired.
+func TestConditions_BreachesAgreesWithLiveEvaluators(t *testing.T) {
+	svc, _ := newLaneWatchedService(t) // eng: WIPLimits{in_progress:1}, alert_when_empty:[todo]
+	ctx := core.WithActor(context.Background(), "u")
+
+	// Cross the WIP limit and drain "todo" without ever subscribing to the
+	// bus — Breaches must still see both from a cold read.
+	mkTask(t, svc, ctx, "A", "in_progress")
+	mkTask(t, svc, ctx, "B", "in_progress") // crosses in_progress's limit of 1
+
+	target := mkTask(t, svc, ctx, "Target", "todo")
+	blocked := mkTask(t, svc, ctx, "Blocked", "todo")
+	blocked, err := svc.AddLink(ctx, blocked.ID, core.LinkInput{TypeID: "blocked-by", Target: target.ID, Actor: "u"})
+	if err != nil {
+		t.Fatalf("add link: %v", err)
+	}
+	// Empty "todo" by moving both cards out of it.
+	toInProgress := "in_progress"
+	if _, err := svc.PatchCard(ctx, target.ID, core.PatchCardRequest{Version: target.Version, Status: &toInProgress, Actor: "u"}); err != nil {
+		t.Fatalf("move target: %v", err)
+	}
+	if _, err := svc.PatchCard(ctx, blocked.ID, core.PatchCardRequest{Version: blocked.Version, Status: &toInProgress, Actor: "u"}); err != nil {
+		t.Fatalf("move blocked: %v", err)
+	}
+
+	report, err := svc.Breaches(ctx, "", nil)
+	if err != nil {
+		t.Fatalf("breaches: %v", err)
+	}
+	var sawWIP, sawLane, sawBlocked bool
+	for _, it := range report.Items {
+		switch it.Type {
+		case core.EventWIPExceeded:
+			if it.BoardID == "eng" && it.Column == "in_progress" {
+				sawWIP = true
+			}
+		case core.EventLaneDrained:
+			if it.BoardID == "eng" && it.Column == "todo" {
+				sawLane = true
+			}
+		case core.EventCardBlocked:
+			if it.CardID == blocked.ID && it.BoardID == "" && len(it.Blockers) == 1 && it.Blockers[0] == target.ID {
+				sawBlocked = true
+			}
+		}
+	}
+	if !sawWIP {
+		t.Errorf("breaches missing wip_exceeded for eng/in_progress: %+v", report.Items)
+	}
+	if !sawLane {
+		t.Errorf("breaches missing lane_drained for eng/todo: %+v", report.Items)
+	}
+	if !sawBlocked {
+		t.Errorf("breaches missing card_blocked for %s: %+v", blocked.ID, report.Items)
+	}
+
+	// testConfig() declares two boards (eng, hipri) sharing the "task" type;
+	// board_id=eng must not double-count the blocked card even though "hipri"
+	// also has type "task" — card_blocked is computed once, not per board.
+	scoped, err := svc.Breaches(ctx, "eng", nil)
+	if err != nil {
+		t.Fatalf("board-scoped breaches: %v", err)
+	}
+	if len(scoped.Items) != len(report.Items) {
+		t.Errorf("board-scoped breaches = %d items, all-boards = %d, want equal (hipri contributes none): %+v vs %+v",
+			len(scoped.Items), len(report.Items), scoped.Items, report.Items)
+	}
+	if _, err := svc.Breaches(ctx, "nope", nil); core.AsError(err) == nil || core.AsError(err).Code != "not_found" {
+		t.Errorf("unknown board_id: err = %v, want not_found", err)
+	}
+
+	// type filter narrows to just the requested type.
+	onlyWIP, err := svc.Breaches(ctx, "", []string{"wip_exceeded"})
+	if err != nil {
+		t.Fatalf("breaches (filtered): %v", err)
+	}
+	for _, it := range onlyWIP.Items {
+		if it.Type != core.EventWIPExceeded {
+			t.Errorf("type filter leaked a %s item: %+v", it.Type, it)
+		}
+	}
+	if len(onlyWIP.Items) == 0 {
+		t.Error("type filter for wip_exceeded returned nothing")
+	}
+}
+
 // failingAppendStore wraps a real Store and fails Append for one event type,
 // simulating a durable-append failure on the escalated path without touching
 // production code.

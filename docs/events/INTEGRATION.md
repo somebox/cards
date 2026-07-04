@@ -370,7 +370,7 @@ by priority — the *policy* (which card, when) lives in the extension, the
 3. `status_since` denormalized column (arming temporal deadlines).
 4. ~~Monitors + instant condition events (WIP, empty lane, blocked) — synchronous.~~ **[done]**
 5. Deadline-heap evaluator + temporal events (time-in-status, idle), lazy/refcounted.
-6. `GET /v1/breaches` (current-conditions catch-up for the ephemeral signals).
+6. ~~`GET /v1/breaches` (current-conditions catch-up for the ephemeral signals).~~ **[done]**
 7. ~~`transition_rejected` (watch friction).~~ **[done]**
 8. Artifact upload (attach files).
 9. `card_ready`/`card_unblocked` (DAG coordination).
