@@ -6,6 +6,7 @@
 package core
 
 import (
+	"slices"
 	"sync"
 )
 
@@ -73,6 +74,7 @@ type InProcBus struct {
 	mu          sync.RWMutex
 	nextID      int64
 	subscribers map[int64]*Subscriber
+	onChange    func() // notified after Subscribe/Unsubscribe/a slow-consumer drop (seam 3d)
 }
 
 // NewBus constructs an in-process event bus.
@@ -87,20 +89,25 @@ func (b *InProcBus) Subscribe(filter EventFilter, buf int) *Subscriber {
 		buf = 16
 	}
 	b.mu.Lock()
-	defer b.mu.Unlock()
 	b.nextID++
 	sub := &Subscriber{ID: b.nextID, Filter: filter, Ch: make(chan *Event, buf)}
 	b.subscribers[sub.ID] = sub
+	b.mu.Unlock()
+	b.notifyChange()
 	return sub
 }
 
 // Unsubscribe removes and closes a subscriber's channel.
 func (b *InProcBus) Unsubscribe(id int64) {
 	b.mu.Lock()
-	defer b.mu.Unlock()
-	if sub, ok := b.subscribers[id]; ok {
+	sub, ok := b.subscribers[id]
+	if ok {
 		delete(b.subscribers, id)
+	}
+	b.mu.Unlock()
+	if ok {
 		close(sub.Ch)
+		b.notifyChange()
 	}
 }
 
@@ -114,6 +121,7 @@ func (b *InProcBus) Publish(e *Event) {
 	}
 	b.mu.RUnlock()
 
+	dropped := false
 	for _, s := range subs {
 		if !s.Filter.Matches(e) {
 			continue
@@ -126,10 +134,52 @@ func (b *InProcBus) Publish(e *Event) {
 			if _, ok := b.subscribers[s.ID]; ok {
 				delete(b.subscribers, s.ID)
 				close(s.Ch)
+				dropped = true
 			}
 			b.mu.Unlock()
 		}
 	}
+	if dropped {
+		// A dropped subscriber can be the last one interested in a seam 3d
+		// monitor type; the scheduler needs to hear about it, not just an
+		// explicit Unsubscribe (a lost consumer never calls Unsubscribe).
+		b.notifyChange()
+	}
+}
+
+// SetOnSubscriptionChange registers a callback invoked after any change to
+// the subscriber set — added, removed, or dropped for being slow. Used by
+// the seam 3d deadline scheduler to re-derive interest (arm/disarm) without
+// polling. Only one callback is kept (last write wins); called outside the
+// bus's lock.
+func (b *InProcBus) SetOnSubscriptionChange(fn func()) {
+	b.mu.Lock()
+	b.onChange = fn
+	b.mu.Unlock()
+}
+
+func (b *InProcBus) notifyChange() {
+	b.mu.RLock()
+	fn := b.onChange
+	b.mu.RUnlock()
+	if fn != nil {
+		fn()
+	}
+}
+
+// HasSubscriberFor reports whether any current subscriber's filter would
+// admit an event of type t (an empty Types filter matches every type — e.g.
+// the hooks supervisor's subscription, which is correctly read as "live
+// consumer of everything").
+func (b *InProcBus) HasSubscriberFor(t EventType) bool {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+	for _, s := range b.subscribers {
+		if len(s.Filter.Types) == 0 || slices.Contains(s.Filter.Types, string(t)) {
+			return true
+		}
+	}
+	return false
 }
 
 // SubscriberCount returns the current number of subscribers (for diagnostics).

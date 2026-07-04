@@ -483,24 +483,30 @@ machinery has validated the Signal / Emit / `persist:true` paths.
   card-state-immutability assertion (§2 principle 4 — the core records, it
   does not act), a `Blockers` ≡ `CardQuery.Blocked` agreement test, and the
   escalated-append-failure-is-logged-not-fatal case (§8 point 7).
-- **3d — deadline scheduler.** Enablers `[built]`: a `Clock` seam
-  (`core.WithClock`, production `wallClock` default, `clocktest.Fake` for
-  tests — waitable, not just readable, so the scheduler can be driven without
-  real sleeps) and the `status_since` column itself (additive migration,
-  backfilled from the latest `status_changed` event or `created_at`;
-  maintained by `CreateCard`/`PatchCard`/`ClaimAtomic` — flips only on a real
-  status change, preserved by every other mutation). The scheduler machinery
-  itself is next. Min-heap keyed by earliest deadline; no fixed
-  tick; sleeps until the next deadline; empty heap = zero wakeups. Deadlines are
-  reconstructible from the `status_since` column + a fired-marker
-  keyed by (card, status, status_since) — nothing is persisted for scheduling
-  itself. Lazy / refcounted: a monitor is armed only while it has a live consumer
-  (SSE filter, hook/webhook, or `persist:true`) and dropped when the last
-  consumer disconnects. The scheduler emits through `Condition` (3b), so it holds
-  no opinion on durability — validating that 3b lands before 3d. Note: a
-  `persist:true` temporal type is effectively a *permanent* consumer, so its
-  deadline never refcounts to zero ("lazy" does not apply to it — say so).
-  Injected clock; no real sleeps in tests.
+- **3d — deadline scheduler `[built]` (machinery only; no condition type
+  registered yet — see 3e).** Enablers: a `Clock` seam (`core.WithClock`,
+  production `wallClock` default, `clocktest.Fake` for tests — waitable, not
+  just readable) and the `status_since` column (additive migration,
+  maintained by `CreateCard`/`PatchCard`/`ClaimAtomic`). `MonitorScheduler`
+  (`internal/core/monitor.go`): a `container/heap` min-heap keyed by earliest
+  deadline; no fixed tick; sleeps until the next deadline (capped at 1h, the
+  INTEGRATION.md safety net); an empty heap parks on its wake channel alone —
+  zero wakeups, proven by a call-counting fake clock. Deadlines are
+  reconstructible from denormalized card state (e.g. `status_since`) via a
+  per-type `rebuild` callback; nothing is persisted for the heap itself — only
+  the fired-marker (`condition_marks` table, `INSERT OR IGNORE` = atomic
+  check-and-set, pruned to the latest key per (card, type) on a fresh fire) is
+  durable, giving exactly-once even across a restart (tested: two scheduler
+  instances over the same store, the second's rebuild skips the already-fired
+  key). Lazy / refcounted: `InProcBus` gained `SetOnSubscriptionChange` (fired
+  on subscribe, unsubscribe, *and* the slow-consumer drop inside `Publish` —
+  a lost consumer never calls `Unsubscribe` itself) and `HasSubscriberFor`; a
+  type arms iff `bus.HasSubscriberFor(t) || emitter.IsPersisted(t)` — a
+  `persist:true` type is a permanent consumer (armed with zero subscribers),
+  exactly as specified. A serverless CLI process (no subscribers, nothing
+  persisted) never arms and the scheduler goroutine never does real work.
+  Live-verified against the real demo workspace with a synthetic condition
+  type and the real wall clock (not just the fake).
 - **3e — wire temporal conditions.** Attach `status_timeout` / `card_idle` to the
   3d scheduler. Integration test with an injected clock and a *real* SSE
   subscriber: the deadline arms on status entry, fires exactly once on clock

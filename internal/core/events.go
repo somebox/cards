@@ -108,6 +108,13 @@ func (e *Emitter) shouldPersist(t EventType) bool {
 	return e.persist[t]
 }
 
+// IsPersisted reports whether t is escalated to the durable path via
+// PersistConditions. Used by the seam 3d scheduler: a persist:true temporal
+// type is treated as a permanent consumer (armed regardless of live
+// subscribers), since its whole purpose is a durable record that outlives
+// any particular SSE/hook connection.
+func (e *Emitter) IsPersisted(t EventType) bool { return e.shouldPersist(t) }
+
 // Condition is the single emission seam for condition events. Each event routes
 // by policy: types escalated via PersistConditions go through Emit (durable
 // fact, replayable from the feed); the rest go through Signal (ephemeral). Bus

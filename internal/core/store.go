@@ -60,6 +60,13 @@ type Store interface {
 	GetIdempotency(ctx context.Context, key, actor string) (*IdempotencyRecord, error)
 	PutIdempotency(ctx context.Context, rec IdempotencyRecord) error
 
+	// Condition marks (seam 3d fired-marker for temporal conditions).
+	// ConditionFired reports whether (cardID, t, key) has already fired.
+	ConditionFired(ctx context.Context, cardID string, t EventType, key string) (bool, error)
+	// MarkConditionFired atomically records a first fire, returning true iff
+	// this call was the one to record it (an atomic check-and-set).
+	MarkConditionFired(ctx context.Context, cardID string, t EventType, key string, firedAt time.Time) (bool, error)
+
 	// Users
 	ListUsers(ctx context.Context) ([]User, error)
 	InsertUser(ctx context.Context, u User) error

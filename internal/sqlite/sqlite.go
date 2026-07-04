@@ -131,6 +131,18 @@ func (s *Store) Init(ctx context.Context) error {
 			PRIMARY KEY (key, actor)
 		)`,
 		`CREATE VIRTUAL TABLE IF NOT EXISTS fts_cards USING fts5(card_id UNINDEXED, title, body)`,
+		// condition_marks is the seam 3d fired-marker: dedupe state for
+		// temporal conditions (status_timeout/card_idle), keyed by identity
+		// so a card re-entering the same status later gets a fresh key. Not
+		// the deadline queue itself — that's reconstructed from status_since,
+		// never persisted.
+		`CREATE TABLE IF NOT EXISTS condition_marks (
+			card_id  TEXT NOT NULL,
+			type     TEXT NOT NULL,
+			key      TEXT NOT NULL,
+			fired_at TEXT NOT NULL,
+			PRIMARY KEY (card_id, type, key)
+		)`,
 	}
 	for _, q := range stmts {
 		if _, err := s.db.ExecContext(ctx, q); err != nil {
@@ -888,6 +900,54 @@ func (s *Store) UpdateComment(ctx context.Context, cardID, commentID, body strin
 	_, err := s.db.ExecContext(ctx, `UPDATE comments SET body=?, edited_at=? WHERE id=? AND card_id=?`,
 		body, editedAt.Format(time.RFC3339Nano), commentID, cardID)
 	return err
+}
+
+// --- Condition marks (seam 3d fired-marker) ---
+
+// ConditionFired reports whether (cardID, t, key) has already fired — used
+// during a monitor's rebuild to skip deadlines that fired before a restart.
+func (s *Store) ConditionFired(ctx context.Context, cardID string, t core.EventType, key string) (bool, error) {
+	var exists int
+	err := s.db.QueryRowContext(ctx,
+		`SELECT EXISTS(SELECT 1 FROM condition_marks WHERE card_id=? AND type=? AND key=?)`,
+		cardID, string(t), key).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("condition fired: %w", err)
+	}
+	return exists == 1, nil
+}
+
+// MarkConditionFired atomically records that (cardID, t, key) has fired,
+// returning true iff this call was the first to do so (INSERT OR IGNORE is
+// SQLite's atomic check-and-set against the primary key) — the exactly-once
+// guarantee a temporal condition needs even under concurrent fire attempts.
+// On a first mark, prunes any other mark for the same (cardID, t): an old
+// key can never fire again once superseded by a fresh one (e.g. a new
+// status_since after the card re-entered the status).
+func (s *Store) MarkConditionFired(ctx context.Context, cardID string, t core.EventType, key string, firedAt time.Time) (bool, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return false, err
+	}
+	defer tx.Rollback()
+	res, err := tx.ExecContext(ctx,
+		`INSERT OR IGNORE INTO condition_marks(card_id, type, key, fired_at) VALUES(?,?,?,?)`,
+		cardID, string(t), key, firedAt.Format(time.RFC3339Nano))
+	if err != nil {
+		return false, fmt.Errorf("mark condition fired: %w", err)
+	}
+	n, _ := res.RowsAffected()
+	first := n > 0
+	if first {
+		if _, err := tx.ExecContext(ctx,
+			`DELETE FROM condition_marks WHERE card_id=? AND type=? AND key<>?`, cardID, string(t), key); err != nil {
+			return false, fmt.Errorf("mark condition fired: prune: %w", err)
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return false, err
+	}
+	return first, nil
 }
 
 // --- Idempotency ---
