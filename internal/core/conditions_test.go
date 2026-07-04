@@ -186,6 +186,134 @@ func TestConditions_EvaluationDoesNotMutateCard(t *testing.T) {
 	}
 }
 
+// card_blocked/card_unblocked share the CardQuery.Blocked SQL definition
+// (store.Blockers) — a "related" link never affects blocked state, a second
+// blocker while already blocked doesn't re-fire, and unblocking requires
+// every blocker to reach "done" (moving one of two blockers to done leaves
+// the card blocked by the other). Reopening a done blocker re-blocks.
+func TestConditions_CardBlockedAndUnblocked(t *testing.T) {
+	svc, _ := newTestService(t)
+	ctx := core.WithActor(context.Background(), "u")
+
+	sub := svc.Bus().Subscribe(core.EventFilter{Types: []string{"card_blocked", "card_unblocked"}}, 16)
+	defer svc.Bus().Unsubscribe(sub.ID)
+
+	a := mkTask(t, svc, ctx, "A", "todo")
+	target := mkTask(t, svc, ctx, "Target", "todo")
+	target2 := mkTask(t, svc, ctx, "Target2", "todo")
+
+	addLink := func(from *core.Card, typeID string, to *core.Card) {
+		t.Helper()
+		if _, err := svc.AddLink(ctx, from.ID, core.LinkInput{TypeID: typeID, Target: to.ID, Actor: "u"}); err != nil {
+			t.Fatalf("add %s link %s->%s: %v", typeID, from.ID, to.ID, err)
+		}
+	}
+	moveForce := func(c *core.Card, to string) *core.Card {
+		t.Helper()
+		got, err := svc.PatchCard(ctx, c.ID, core.PatchCardRequest{Version: c.Version, Status: &to, Actor: "u", Force: true})
+		if err != nil {
+			t.Fatalf("move %s->%s: %v", c.ID, to, err)
+		}
+		return got
+	}
+
+	// A "related" link is not a blocking type — must never fire.
+	addLink(a, "related", target)
+	if got := drain(sub.Ch); len(got) != 0 {
+		t.Fatalf("related link must not affect blocked state, got %+v", got)
+	}
+
+	// blocked-by to a not-done target blocks A.
+	addLink(a, "blocked-by", target)
+	got := drain(sub.Ch)
+	if len(got) != 1 || got[0].Type != core.EventCardBlocked || got[0].CardID != a.ID {
+		t.Fatalf("expected card_blocked, got %+v", got)
+	}
+	if diff, ok := got[0].Diff.(core.BlockedDiff); !ok || len(diff.Blockers) != 1 || diff.Blockers[0] != target.ID {
+		t.Fatalf("card_blocked diff = %+v, want blockers=[%s]", got[0].Diff, target.ID)
+	}
+
+	// A second blocker while already blocked must not re-fire.
+	addLink(a, "depends-on", target2)
+	if got := drain(sub.Ch); len(got) != 0 {
+		t.Fatalf("no duplicate card_blocked expected for a second blocker, got %+v", got)
+	}
+
+	// Move only `target` through to done — `a` is still blocked by target2.
+	target = moveForce(target, "in_progress")
+	target = moveForce(target, "review")
+	moveForce(target, "done")
+	if got := drain(sub.Ch); len(got) != 0 {
+		t.Fatalf("still blocked by target2 — no unblock expected yet, got %+v", got)
+	}
+
+	// Move target2 to done too — now every blocker is done: unblocked.
+	target2 = moveForce(target2, "in_progress")
+	target2 = moveForce(target2, "review")
+	target2 = moveForce(target2, "done")
+	got = drain(sub.Ch)
+	if len(got) != 1 || got[0].Type != core.EventCardUnblocked || got[0].CardID != a.ID {
+		t.Fatalf("expected card_unblocked, got %+v", got)
+	}
+
+	// Reopening a done blocker (its link was never removed) re-blocks A.
+	moveForce(target2, "in_progress")
+	got = drain(sub.Ch)
+	if len(got) != 1 || got[0].Type != core.EventCardBlocked || got[0].CardID != a.ID {
+		t.Fatalf("expected card_blocked again after reopening a blocker, got %+v", got)
+	}
+
+	// Removing the (now sole active) blocking link unblocks A.
+	if _, err := svc.RemoveLink(ctx, a.ID, "depends-on", target2.ID); err != nil {
+		t.Fatalf("remove link: %v", err)
+	}
+	got = drain(sub.Ch)
+	if len(got) != 1 || got[0].Type != core.EventCardUnblocked {
+		t.Fatalf("expected card_unblocked after removing the link, got %+v", got)
+	}
+}
+
+// The store's Blockers (used by evaluateBlocked) and CardQuery.Blocked (used
+// by list/filter) must agree — they are required to share one SQL fragment
+// (blockedLinkTypesIN), not maintain two notions of "blocked".
+func TestConditions_BlockersAgreesWithCardQueryBlocked(t *testing.T) {
+	svc, st := newTestService(t)
+	ctx := core.WithActor(context.Background(), "u")
+
+	a := mkTask(t, svc, ctx, "A", "todo")
+	b := mkTask(t, svc, ctx, "B", "todo") // never blocked
+	target := mkTask(t, svc, ctx, "Target", "todo")
+	if _, err := svc.AddLink(ctx, a.ID, core.LinkInput{TypeID: "blocked-by", Target: target.ID, Actor: "u"}); err != nil {
+		t.Fatalf("add link: %v", err)
+	}
+
+	blockers, err := st.Blockers(ctx, a.ID)
+	if err != nil {
+		t.Fatalf("Blockers: %v", err)
+	}
+	if len(blockers) != 1 || blockers[0] != target.ID {
+		t.Fatalf("Blockers(a) = %v, want [%s]", blockers, target.ID)
+	}
+	if bb, err := st.Blockers(ctx, b.ID); err != nil || len(bb) != 0 {
+		t.Fatalf("Blockers(b) = %v, %v, want empty", bb, err)
+	}
+
+	page, err := svc.ListCards(ctx, core.CardQuery{Blocked: true, Limit: 10})
+	if err != nil {
+		t.Fatalf("list blocked: %v", err)
+	}
+	found := map[string]bool{}
+	for _, c := range page.Items {
+		found[c.ID] = true
+	}
+	if !found[a.ID] {
+		t.Errorf("CardQuery{Blocked:true} missing %s, which Blockers() reports blocked", a.ID)
+	}
+	if found[b.ID] {
+		t.Errorf("CardQuery{Blocked:true} wrongly includes %s, which Blockers() reports unblocked", b.ID)
+	}
+}
+
 // failingAppendStore wraps a real Store and fails Append for one event type,
 // simulating a durable-append failure on the escalated path without touching
 // production code.

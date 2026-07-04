@@ -235,6 +235,22 @@ func LaneRefilled(boardID, column string, count int) *Event {
 	return BoardEvent(boardID, EventLaneRefilled, LaneDiff{Column: column, Count: count})
 }
 
+// BlockedDiff is the payload of card_blocked / card_unblocked: the cards
+// currently holding a blocked-by/depends-on link to this card (empty on
+// card_unblocked). Card-scoped, ephemeral by default (escalatable via
+// persist_conditions). (3c)
+type BlockedDiff struct {
+	Blockers []string `json:"blockers"`
+}
+
+func CardBlocked(cardID string, blockers []string) *Event {
+	return CardEvent(cardID, EventCardBlocked, BlockedDiff{Blockers: blockers})
+}
+
+func CardUnblocked(cardID string) *Event {
+	return CardEvent(cardID, EventCardUnblocked, BlockedDiff{Blockers: []string{}})
+}
+
 // CardCreatedDiff is the payload of card_created.
 type CardCreatedDiff struct {
 	Card CardRef `json:"card"`

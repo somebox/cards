@@ -271,7 +271,7 @@ func buildCardWhere(q core.CardQuery) (string, []any, error) {
 	}
 	if q.Blocked {
 		b.WriteString(` AND EXISTS (SELECT 1 FROM links l JOIN cards t ON l.target = t.id
-			WHERE l.source_id = c.id AND l.type_id IN ('blocked-by','depends-on') AND t.status != 'done')`)
+			WHERE l.source_id = c.id AND l.type_id IN (` + blockedLinkTypesIN + `) AND t.status != 'done')`)
 	}
 	if len(q.Filter) > 0 {
 		frag, fargs, err := compileFilter(q.Filter)
@@ -292,6 +292,58 @@ func buildCardWhere(q core.CardQuery) (string, []any, error) {
 		// Bad cursors are rejected by the service layer before reaching the store.
 	}
 	return b.String(), args, nil
+}
+
+// blockedLinkTypesIN is the shared "is blocked" predicate's link-type set —
+// the single definition used by CardQuery.Blocked (buildCardWhere, above) and
+// the standalone IsBlocked/BlockingDependents queries below (Events seam 3c):
+// a card is blocked by an active blocked-by/depends-on link to a target that
+// is not yet done.
+const blockedLinkTypesIN = `'blocked-by','depends-on'`
+
+// Blockers returns the ids of not-yet-done cards currently blocking cardID
+// (targets of its blocked-by/depends-on links) — the same predicate
+// CardQuery.Blocked applies via buildCardWhere, factored into one shared
+// fragment (blockedLinkTypesIN) so "blocked" has a single definition. cardID
+// is blocked iff the returned slice is non-empty.
+func (s *Store) Blockers(ctx context.Context, cardID string) ([]string, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT t.id FROM links l JOIN cards t ON l.target = t.id
+		WHERE l.source_id = ? AND l.type_id IN (`+blockedLinkTypesIN+`) AND t.status != 'done'`, cardID)
+	if err != nil {
+		return nil, fmt.Errorf("blockers: %w", err)
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		out = append(out, id)
+	}
+	return out, rows.Err()
+}
+
+// BlockingDependents returns the ids of cards holding a blocking link
+// (blocked-by/depends-on) that targets targetID — the cards whose blocked
+// state may change when targetID's status changes (Events seam 3c).
+func (s *Store) BlockingDependents(ctx context.Context, targetID string) ([]string, error) {
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT source_id FROM links WHERE target = ? AND type_id IN (`+blockedLinkTypesIN+`)`, targetID)
+	if err != nil {
+		return nil, fmt.Errorf("blocking dependents: %w", err)
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		out = append(out, id)
+	}
+	return out, rows.Err()
 }
 
 const cardCols = "id, workspace_id, type_id, schema_version, title, status, owner, tags, fields, version, created_at, updated_at, created_by"

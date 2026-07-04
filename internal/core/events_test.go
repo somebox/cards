@@ -36,6 +36,8 @@ func TestEventContracts_GoldenFixtures(t *testing.T) {
 		{"comment_added", core.CommentAdded("c1", "cm1")},
 		{"comment_edited", core.CommentEdited("c1", "cm1", "before", "after")},
 		{"schema_upgraded", core.SchemaUpgraded("c1", 1, 2, map[string]any{"newField": "x"}, []string{"oldField"})},
+		{"card_blocked", core.CardBlocked("c1", []string{"c2", "c3"})},
+		{"card_unblocked", core.CardUnblocked("c1")},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

@@ -40,6 +40,14 @@ type Store interface {
 	// AllLinks returns every link edge (source→target) in the workspace, for
 	// building in/outbound relationship views without N+1 queries.
 	AllLinks(ctx context.Context) ([]LinkEdge, error)
+	// Blockers returns the ids of not-yet-done cards currently blocking
+	// cardID (targets of its blocked-by/depends-on links); cardID is blocked
+	// iff non-empty — the same definition CardQuery.Blocked applies. (3c)
+	Blockers(ctx context.Context, cardID string) ([]string, error)
+	// BlockingDependents returns the ids of cards whose blocked-by/depends-on
+	// link targets targetID — the cards to re-evaluate when targetID's status
+	// changes (Events seam 3c).
+	BlockingDependents(ctx context.Context, targetID string) ([]string, error)
 
 	// Comments
 	ListComments(ctx context.Context, cardID string) ([]Comment, error)

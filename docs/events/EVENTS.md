@@ -35,9 +35,11 @@ Related: [`INTEGRATION.md`](../events/INTEGRATION.md), [`SPEC.md`](../spec/SPEC.
 > `scope`.
 >
 > **Step 3 (condition events) — in progress.** 3a (WIP signal), 3b
-> (`persist:true` escalation), and the lane half of 3c (`lane_drained`/
-> `lane_refilled`, sharing 3a's column census) are merged; `card_blocked`/
-> `card_unblocked` (3c's remaining half), 3d, and 3e are next — see §12, Step 3.
+> (`persist:true` escalation), and 3c (all four remaining instant
+> conditions: `lane_drained`/`lane_refilled` sharing 3a's column census,
+> `card_blocked`/`card_unblocked` sharing `CardQuery.Blocked`'s SQL
+> definition) are merged; 3d (deadline scheduler) and 3e (temporal
+> conditions) are next — see §12, Step 3.
 >
 > **Step 4 (outbox/tailer) — future**, unstarted by design.
 >
@@ -457,8 +459,8 @@ machinery has validated the Signal / Emit / `persist:true` paths.
   seam routes each condition by policy: types in workspace
   `settings.persist_conditions` go through `Emit` (durable, replayable), the rest
   through `Signal`. Bus/observer delivery is identical either way. See §11.2.
-- **3c — remaining instant conditions.** `lane_drained` / `lane_refilled`
-  `[built]`, `card_blocked` / `card_unblocked` next. **Unified with 3a as
+- **3c — remaining instant conditions `[built]`.** `lane_drained` /
+  `lane_refilled` and `card_blocked` / `card_unblocked`. **Unified with 3a as
   specified:** `Service.evaluateColumn` runs a single **column census** (one
   `ListCards` per affected column per mutation) feeding both the WIP-limit
   crossing and, for columns in `board.monitors.alert_when_empty`, the
@@ -468,12 +470,19 @@ machinery has validated the Signal / Emit / `persist:true` paths.
   fires from every column-changing mutation path: `PatchCard` (status move,
   as 3a already had), `CreateCard` (a card landing directly in a capped/
   watched column — was a gap), and `TakeNext` (claim + optional status move,
-  evaluated from the returned `status_changed` diff — was a gap). Table-driven
-  tests cover all three paths + a card-state-immutability assertion (§2,
-  principle 4 — the core records, it does not act). `card_blocked` /
-  `card_unblocked` reuse the existing `CardQuery.blocked` definition (triggered
-  by link mutations, and by a target card's status change), *not* a second
-  notion of "blocked" — next slice.
+  evaluated from the returned `status_changed` diff — was a gap). `card_blocked`
+  / `card_unblocked` reuse `CardQuery.Blocked`'s exact SQL predicate — both
+  compile from the shared `internal/sqlite.blockedLinkTypesIN` fragment via
+  the new `Store.Blockers`/`Store.BlockingDependents`, so "blocked" has one
+  definition, not two. `evaluateBlocked` (keyed per-card in the same
+  `condState` map) fires from `AddLink`/`RemoveLink` (the source card's own
+  blocked state) and from any committed status change, via
+  `reevaluateDependents`, on every card depending on the card that moved
+  (covers a target reaching "done" — unblocks — and leaving it again —
+  re-blocks). Table-driven tests cover all instant-condition paths, a
+  card-state-immutability assertion (§2 principle 4 — the core records, it
+  does not act), a `Blockers` ≡ `CardQuery.Blocked` agreement test, and the
+  escalated-append-failure-is-logged-not-fatal case (§8 point 7).
 - **3d — deadline scheduler.** Min-heap keyed by earliest deadline; no fixed
   tick; sleeps until the next deadline; empty heap = zero wakeups. Deadlines are
   reconstructible from a denormalized `status_since` column + a fired-marker

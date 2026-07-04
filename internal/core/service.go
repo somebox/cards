@@ -126,6 +126,37 @@ func (s *Service) evaluateCrossing(ctx context.Context, key string, crossed bool
 	}
 }
 
+// evaluateBlocked fires card_blocked/card_unblocked when cardID's blocked
+// state crosses, sharing evaluateCrossing's state map (keyed per-card) so a
+// repeat blocking link or an unrelated re-evaluation does not re-fire while
+// the crossing state is unchanged. "Blocked" is store.Blockers' definition —
+// the same one CardQuery.Blocked applies — so this shares its single source
+// of truth with list/filter queries (Events seam 3c).
+func (s *Service) evaluateBlocked(ctx context.Context, cardID string) {
+	blockers, err := s.store.Blockers(ctx, cardID)
+	if err != nil {
+		return
+	}
+	s.evaluateCrossing(ctx, "card\x00"+cardID+"\x00blocked", len(blockers) > 0,
+		func() *Event { return CardBlocked(cardID, blockers) },
+		func() *Event { return CardUnblocked(cardID) })
+}
+
+// reevaluateDependents re-checks the blocked state of every card holding a
+// blocked-by/depends-on link to cardID — called after cardID's status
+// changes, since that status is the only thing that can flip a dependent's
+// blocked state (a target reaching "done" unblocks it; leaving "done" again
+// re-blocks it). Best-effort: a failed lookup silently returns. (3c)
+func (s *Service) reevaluateDependents(ctx context.Context, cardID string) {
+	deps, err := s.store.BlockingDependents(ctx, cardID)
+	if err != nil {
+		return
+	}
+	for _, dep := range deps {
+		s.evaluateBlocked(ctx, dep)
+	}
+}
+
 // Bus returns the in-process event bus (for SSE/hooks subscribers).
 func (s *Service) Bus() Bus { return s.bus }
 
@@ -486,11 +517,14 @@ func (s *Service) PatchCard(ctx context.Context, id string, req PatchCardRequest
 	}
 	// After the status change commits, re-check both columns: the destination
 	// may now exceed its limit or fill a watched empty lane, the source may
-	// have cleared its limit or emptied one. (3a/3c)
+	// have cleared its limit or emptied one. (3a/3c) A status change is also
+	// the only thing that can flip a dependent's blocked state (e.g. reaching
+	// or leaving "done") — re-check every card that depends on this one. (3c)
 	if next.Status != current.Status {
 		b := s.boardForCard(&next)
 		s.evaluateColumn(ctx, b, next.Status)
 		s.evaluateColumn(ctx, b, current.Status)
+		s.reevaluateDependents(ctx, next.ID)
 	}
 	return &next, nil
 }
@@ -766,6 +800,9 @@ func (s *Service) AddLink(ctx context.Context, id string, in LinkInput) (*Card, 
 	if err := s.store.InsertLink(ctx, id, l); err != nil {
 		log.Printf("ERROR: links table drift: insert %s -> %s (%s) on card %s: %v", id, in.Target, in.TypeID, id, err)
 	}
+	// A new link may have just blocked this card (store.Blockers reads the
+	// links table, so this must run after InsertLink). (3c)
+	s.evaluateBlocked(ctx, id)
 	return &next, nil
 }
 
@@ -799,6 +836,8 @@ func (s *Service) RemoveLink(ctx context.Context, id, typeID, target string) (*C
 	if _, err := s.store.DeleteLink(ctx, id, typeID, target); err != nil {
 		log.Printf("ERROR: links table drift: delete %s/%s on card %s: %v", typeID, target, id, err)
 	}
+	// Removing a blocking link may have just unblocked this card. (3c)
+	s.evaluateBlocked(ctx, id)
 	return &next, nil
 }
 
@@ -981,6 +1020,7 @@ func (s *Service) TakeNext(ctx context.Context, req TakeNextRequest) (*Card, err
 			b := s.boardForCard(c)
 			s.evaluateColumn(ctx, b, diff.After)
 			s.evaluateColumn(ctx, b, diff.Before)
+			s.reevaluateDependents(ctx, c.ID)
 			break
 		}
 	}
