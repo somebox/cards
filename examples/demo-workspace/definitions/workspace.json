@@ -57,6 +57,7 @@
     "enforce_transitions": false,
     "strict_fields": true,
     "tag_policy": "open",
-    "default_user": "local-dev"
+    "default_user": "local-dev",
+    "persist_conditions": ["wip_exceeded"]
   }
 }

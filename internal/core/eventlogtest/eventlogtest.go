@@ -134,7 +134,7 @@ func Conformance(t *testing.T, newLog func() core.EventLog) {
 		if err := log.Append(ctx, a, b, c); err != nil {
 			t.Fatalf("append: %v", err)
 		}
-		if !(a.ID < b.ID && b.ID < c.ID) {
+		if a.ID >= b.ID || b.ID >= c.ID {
 			t.Fatalf("ids not strictly increasing: %d, %d, %d", a.ID, b.ID, c.ID)
 		}
 		got, err := log.List(ctx, core.EventQuery{Limit: 100})

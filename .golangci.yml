@@ -1,40 +1,41 @@
-# golangci-lint config — pragmatic for a POC codebase.
-# Focuses on real bugs, not style pedantry.
-run:
-  timeout: 5m
-
+# golangci-lint v2 config — pragmatic for a POC codebase, focused on real
+# bugs, not style pedantry. Migrated from v1 via `golangci-lint migrate`;
+# verified to enable the same five linters and to still catch unexcluded
+# unchecked errors (errcheck) as the v1 config did — see commit history.
+version: "2"
 linters:
-  enable:
-    - errcheck      # catch ignored errors
-    - gosimple      # simplifications
-    - govet         # go vet
-    - ineffassign   # ineffectual assignments
-    - staticcheck   # real bug detector
-    - typecheck     # type errors
-    - unused        # unused code
-
-linters-settings:
-  errcheck:
-    # Allow unhandled errors on these idiomatic "best effort" calls only.
-    # No path-level excludes: every other dropped error needs an explicit
-    # handler or a documented best-effort helper (see DEBT-01..11 sweep).
-    exclude-functions:
-      - (*database/sql.Tx).Rollback
-      - (*github.com/somebox/cards/internal/sqlite.Store).Close
-      # HTTP response writes are best-effort: the client may be gone, and
-      # there is no useful recovery mid-response.
-      - (net/http.ResponseWriter).Write
-      # bufio errors are sticky and reported by Flush, which IS checked.
-      - (*bufio.Writer).Write
-      - (*bufio.Writer).WriteByte
-    check-blank: false
-    check-type-assertions: false
-
+  settings:
+    errcheck:
+      check-type-assertions: false
+      check-blank: false
+      exclude-functions:
+        - (*database/sql.Tx).Rollback
+        - (*github.com/somebox/cards/internal/sqlite.Store).Close
+        - (net/http.ResponseWriter).Write
+        - (*bufio.Writer).Write
+        - (*bufio.Writer).WriteByte
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      - linters:
+          - errcheck
+        path: _test\.go
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
 issues:
-  # Exclude common idiomatic error-ignoring patterns.
-  exclude-rules:
-    - path: _test\.go
-      linters:
-        - errcheck
   max-issues-per-linter: 0
   max-same-issues: 0
+formatters:
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
