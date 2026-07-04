@@ -41,9 +41,9 @@ type FieldDef struct {
 	Max            *float64   `json:"max,omitempty"`             // number/date
 	TargetType     string     `json:"target_type,omitempty"`     // card_link
 	LinkType       string     `json:"link_type,omitempty"`       // card_link
-	ItemFields     []FieldDef `json:"item_fields,omitempty"`      // repeating
+	ItemFields     []FieldDef `json:"item_fields,omitempty"`     // repeating
 	ArtifactPolicy string     `json:"artifact_policy,omitempty"` // artifact: "local"|"uri"
-	Display        string     `json:"display,omitempty"`          // UI hint: feed|badge|hidden|link|monospace
+	Display        string     `json:"display,omitempty"`         // UI hint: feed|badge|hidden|link|monospace
 	Deprecated     bool       `json:"deprecated,omitempty"`
 }
 
@@ -70,7 +70,7 @@ type CardType struct {
 	// Migrations describes how to reach each schema version, keyed by the
 	// target version as a string (e.g. "2"). Used by UpgradeSchema. SPEC §6.
 	Migrations map[string]Migration `json:"migrations,omitempty"`
-	Icon       string              `json:"icon,omitempty"` // legacy; folded into TypeTheme.Icon by httpapi.typeTheme
+	Icon       string               `json:"icon,omitempty"` // legacy; folded into TypeTheme.Icon by httpapi.typeTheme
 }
 
 // Migration declares how a card reaches a target schema version from a prior
@@ -133,12 +133,12 @@ type User struct {
 
 // WorkspaceSettings holds workspace-wide defaults. See SPEC.md §4.
 type WorkspaceSettings struct {
-	EnforceTransitions  bool   `json:"enforce_transitions"`
-	StrictFields        bool   `json:"strict_fields"`
-	TagPolicy           string `json:"tag_policy"`
-	EventRetentionDays  int    `json:"event_retention_days,omitempty"`
-	DefaultUser         string `json:"default_user,omitempty"`
-	Theme               string `json:"theme,omitempty"` // default UI theme (html[data-theme]); see docs/DESIGN.md
+	EnforceTransitions bool   `json:"enforce_transitions"`
+	StrictFields       bool   `json:"strict_fields"`
+	TagPolicy          string `json:"tag_policy"`
+	EventRetentionDays int    `json:"event_retention_days,omitempty"`
+	DefaultUser        string `json:"default_user,omitempty"`
+	Theme              string `json:"theme,omitempty"` // default UI theme (html[data-theme]); see docs/DESIGN.md
 	// PersistConditions escalates the named condition event types (e.g.
 	// "wip_exceeded") from ephemeral signals to durable, replayable facts. See
 	// docs/EVENTS.md §11.2 and seam 3b.
@@ -147,24 +147,24 @@ type WorkspaceSettings struct {
 
 // Workspace is the top-level scope. All cards belong to one workspace.
 type Workspace struct {
-	ID       string            `json:"id"`
-	Name     string            `json:"name"`
-	Columns  []Column          `json:"columns"`
-	TagSet   []string          `json:"tag_set"`
-	LinkTypes []LinkType       `json:"link_types"`
-	Users    []User            `json:"users"`
-	Settings WorkspaceSettings `json:"settings"`
+	ID        string            `json:"id"`
+	Name      string            `json:"name"`
+	Columns   []Column          `json:"columns"`
+	TagSet    []string          `json:"tag_set"`
+	LinkTypes []LinkType        `json:"link_types"`
+	Users     []User            `json:"users"`
+	Settings  WorkspaceSettings `json:"settings"`
 }
 
 // BoardPresentation carries UI hints. See SPEC.md §4 + DEVELOPER-REFERENCE.md §7.
 // These hints drive the schema-driven UI: which fields show on the board card,
 // which field is the accent color, which fields show in detail and in what order.
 type BoardPresentation struct {
-	LaneGroupBy     string              `json:"lane_group_by,omitempty"`      // status (default) or an enum field id
-	CardPreview     map[string][]string `json:"card_preview,omitempty"`       // per-type: field ids to show on the board card
-	CardTitleField  string              `json:"card_title_field,omitempty"`   // field to use as the card title (default: title)
-	CardAccentField string              `json:"card_accent_field,omitempty"`  // enum field whose value drives card accent color
-	DetailSections  []DetailSection     `json:"detail_sections,omitempty"`    // ordered sections for the detail/modal view
+	LaneGroupBy     string              `json:"lane_group_by,omitempty"`     // status (default) or an enum field id
+	CardPreview     map[string][]string `json:"card_preview,omitempty"`      // per-type: field ids to show on the board card
+	CardTitleField  string              `json:"card_title_field,omitempty"`  // field to use as the card title (default: title)
+	CardAccentField string              `json:"card_accent_field,omitempty"` // enum field whose value drives card accent color
+	DetailSections  []DetailSection     `json:"detail_sections,omitempty"`   // ordered sections for the detail/modal view
 	Filters         []BoardFilter       `json:"filters,omitempty"`
 }
 
@@ -185,26 +185,39 @@ type BoardFilter struct {
 // Board is a Kanban lens: a column subset, the card types shown, a default
 // filter, optional transitions, and UI hints. It does not own cards.
 type Board struct {
-	ID           string              `json:"id"`
-	Name         string              `json:"name"`
-	Description  string              `json:"description,omitempty"`
-	Columns      []string            `json:"columns"`
-	CardTypeIDs  []string            `json:"card_type_ids,omitempty"`
-	DefaultFilter map[string]any     `json:"default_filter,omitempty"`
-	Transitions  map[string][]string `json:"transitions,omitempty"`
+	ID            string              `json:"id"`
+	Name          string              `json:"name"`
+	Description   string              `json:"description,omitempty"`
+	Columns       []string            `json:"columns"`
+	CardTypeIDs   []string            `json:"card_type_ids,omitempty"`
+	DefaultFilter map[string]any      `json:"default_filter,omitempty"`
+	Transitions   map[string][]string `json:"transitions,omitempty"`
 	// WIPLimits caps cards per column (column id -> max). Crossing a limit fires
 	// an ephemeral wip_exceeded/wip_cleared board signal. (Events seam 3a)
-	WIPLimits    map[string]int      `json:"wip_limits,omitempty"`
-	Presentation *BoardPresentation  `json:"presentation,omitempty"`
+	WIPLimits map[string]int `json:"wip_limits,omitempty"`
+	// Monitors declares board-level condition watchers (Events seam 3c+).
+	Monitors     *BoardMonitors     `json:"monitors,omitempty"`
+	Presentation *BoardPresentation `json:"presentation,omitempty"`
 	// Theme is a board-scoped override of design-system hue tokens (e.g.
 	// {"--c-accent":"#a8503c","--c-flat":"#e7e0d6"}). Applied as inline custom
 	// properties on the board wrapper; only whitelisted keys are honoured
 	// (see httpapi.boardStyle). Neutral/ink/surface tokens stay theme-owned so
 	// dark mode keeps working.
-	Theme map[string]string `json:"theme,omitempty"`
-	Settings     struct {
+	Theme    map[string]string `json:"theme,omitempty"`
+	Settings struct {
 		EnforceTransitions bool `json:"enforce_transitions"`
 	} `json:"settings"`
+}
+
+// BoardMonitors declares which condition events (Events seam 3c+) a board
+// watches for. Fields are added incrementally as each condition type is
+// implemented; an unset field means that watcher is off. See
+// docs/events/EVENTS.md §12 Step 3 and docs/events/INTEGRATION.md.
+type BoardMonitors struct {
+	// AlertWhenEmpty lists columns to watch for lane_drained/lane_refilled:
+	// a column crossing to/from zero matching cards fires the corresponding
+	// signal. Shares the same column census as WIPLimits (3c).
+	AlertWhenEmpty []string `json:"alert_when_empty,omitempty"`
 }
 
 // View is a named filter plus optional URL binding. Read-only in v1.
@@ -256,31 +269,56 @@ const (
 	EventSchemaUpgraded   EventType = "schema_upgraded"
 	EventArtifactAdded    EventType = "artifact_added"
 	EventDefinitionReload EventType = "definition_reloaded"
-	// Condition signals (ephemeral; not persisted). Events seam 3a.
-	EventWIPExceeded EventType = "wip_exceeded"
-	EventWIPCleared  EventType = "wip_cleared"
+	// Condition signals: ephemeral by default, escalatable to durable facts via
+	// settings.persist_conditions (Events seam 3b). The full catalog is
+	// declared here up front (EVENTS.md §12 Step 3) so config validation of
+	// persist_conditions (see ConditionTypes) never churns as each condition
+	// type's evaluator lands in a later slice.
+	EventWIPExceeded        EventType = "wip_exceeded"        // 3a — built
+	EventWIPCleared         EventType = "wip_cleared"         // 3a — built
+	EventLaneDrained        EventType = "lane_drained"        // 3c — built
+	EventLaneRefilled       EventType = "lane_refilled"       // 3c — built
+	EventCardBlocked        EventType = "card_blocked"        // 3c
+	EventCardUnblocked      EventType = "card_unblocked"      // 3c
+	EventTransitionRejected EventType = "transition_rejected" // opt-in
+	EventStatusTimeout      EventType = "status_timeout"      // 3e
+	EventCardIdle           EventType = "card_idle"           // 3e
 )
+
+// ConditionTypes returns the full catalog of condition event types (built or
+// planned) — the set config validation checks settings.persist_conditions
+// entries against, so a typo (e.g. "wip_exceded") warns instead of silently
+// no-op'ing (EVENTS.md §12 Step 3 cross-cutting hardening).
+func ConditionTypes() []EventType {
+	return []EventType{
+		EventWIPExceeded, EventWIPCleared,
+		EventLaneDrained, EventLaneRefilled,
+		EventCardBlocked, EventCardUnblocked,
+		EventTransitionRejected,
+		EventStatusTimeout, EventCardIdle,
+	}
+}
 
 // Event is an append-only mutation record with a normative diff (SPEC §8).
 type Event struct {
-	ID      int64     `json:"id"`
-	CardID  string    `json:"card_id"`
+	ID     int64  `json:"id"`
+	CardID string `json:"card_id"`
 	// BoardID scopes board-level events (Events seam 1b). Inert until seam 2a
 	// adds the board_id column + populates it; the filter path is correct today
 	// and exercised by synthetic events in tests.
-	BoardID string    `json:"board_id,omitempty"`
+	BoardID string `json:"board_id,omitempty"`
 	// Version is the event-contract version (default 1), set by the constructors.
 	// omitempty keeps it off the wire for pre-versioned/replayed events. Bump it
 	// (with a new diff shape) instead of renaming a diff field. (Events seam 1g)
-	Version int       `json:"version,omitempty"`
+	Version int `json:"version,omitempty"`
 	// Scope is "" for card events (the default; omitted on the wire so existing
 	// consumers are unaffected) or "board" for board-scoped facts. Persisted as
 	// the events.scope column, defaulting to 'card'. (Events seam 2a)
-	Scope   string    `json:"scope,omitempty"`
-	Type    EventType `json:"type"`
-	Actor   string    `json:"actor"`
-	At      time.Time `json:"at"`
-	Diff    any       `json:"diff"`
+	Scope string    `json:"scope,omitempty"`
+	Type  EventType `json:"type"`
+	Actor string    `json:"actor"`
+	At    time.Time `json:"at"`
+	Diff  any       `json:"diff"`
 }
 
 // --- Request / result types ---
@@ -365,7 +403,7 @@ type ClaimRequest struct {
 type ReleaseRequest struct {
 	Version int    `json:"version"`
 	Status  string `json:"status,omitempty"` // optional status to move to
-	Force   bool   `json:"force,omitempty"`   // bypass enforced-transition check
+	Force   bool   `json:"force,omitempty"`  // bypass enforced-transition check
 	Actor   string `json:"actor,omitempty"`
 }
 
@@ -403,18 +441,18 @@ type HistoryEntry struct {
 
 // IdempotencyRecord is a stored mutation response for replay.
 type IdempotencyRecord struct {
-	Key      string
-	Actor    string
-	Status   int
-	Body     []byte
+	Key    string
+	Actor  string
+	Status int
+	Body   []byte
 }
 
 // WorkspaceSnapshot is the introspection payload for GET /workspace.
 type WorkspaceSnapshot struct {
-	Workspace       *Workspace              `json:"workspace"`
-	CardTypes       map[string]*CardType    `json:"card_types"`
-	Boards          map[string]*Board       `json:"boards"`
-	CurrentVersions map[string]int           `json:"current_schema_versions"`
+	Workspace       *Workspace           `json:"workspace"`
+	CardTypes       map[string]*CardType `json:"card_types"`
+	Boards          map[string]*Board    `json:"boards"`
+	CurrentVersions map[string]int       `json:"current_schema_versions"`
 }
 
 // CardCandidate is a title+id pair returned when a short id is ambiguous (1e).

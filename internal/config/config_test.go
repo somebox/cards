@@ -2,6 +2,7 @@ package config
 
 import (
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -77,5 +78,60 @@ func mustWrite(t *testing.T, path, content string) {
 	t.Helper()
 	if err := writeFile(path, content); err != nil {
 		t.Fatalf("write %s: %v", path, err)
+	}
+}
+
+// newMinimalWorkspaceDir writes a workspace.json with the given settings JSON
+// fragment plus an empty card-types dir, so Load() succeeds without also
+// exercising card-type/board validation.
+func newMinimalWorkspaceDir(t *testing.T, settingsJSON string) string {
+	t.Helper()
+	dir := t.TempDir()
+	mustWrite(t, filepath.Join(dir, "definitions", "workspace.json"), `{
+		"id":"t","name":"T",
+		"columns":[{"id":"a","name":"A"}],
+		"settings":`+settingsJSON+`
+	}`)
+	mustWrite(t, filepath.Join(dir, "definitions", "card-types", ".keep"), "")
+	return dir
+}
+
+// EVENTS.md §12 Step 3 cross-cutting hardening: a persist_conditions typo
+// warns instead of silently no-op'ing.
+func TestPersistConditionsUnknownTypeWarns(t *testing.T) {
+	dir := newMinimalWorkspaceDir(t, `{"default_user":"u","persist_conditions":["wip_exceded"]}`)
+	r, err := New(dir).Load()
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	if len(r.Warnings) != 1 {
+		t.Fatalf("warnings = %v, want 1 (typo'd persist_conditions entry)", r.Warnings)
+	}
+	if !strings.Contains(r.Warnings[0], "wip_exceded") {
+		t.Errorf("warning %q does not mention the bad entry", r.Warnings[0])
+	}
+}
+
+func TestPersistConditionsKnownTypeNoWarning(t *testing.T) {
+	dir := newMinimalWorkspaceDir(t, `{"default_user":"u","persist_conditions":["wip_exceeded"]}`)
+	r, err := New(dir).Load()
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	if len(r.Warnings) != 0 {
+		t.Errorf("unexpected warnings for a known condition type: %v", r.Warnings)
+	}
+}
+
+// A board's monitors.alert_when_empty must reference real columns, matching
+// the existing hard-fail convention for columns/transitions/card_type_ids.
+func TestRejectMonitorsAlertWhenEmptyUnknownColumn(t *testing.T) {
+	dir := newMinimalWorkspaceDir(t, `{"default_user":"u"}`)
+	mustWrite(t, filepath.Join(dir, "definitions", "boards", "b.json"), `{
+		"id":"b","name":"B","columns":["a"],
+		"monitors":{"alert_when_empty":["nope"]}
+	}`)
+	if _, err := New(dir).Load(); err == nil {
+		t.Fatal("expected error for unknown alert_when_empty column, got nil")
 	}
 }

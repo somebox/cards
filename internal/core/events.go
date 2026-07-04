@@ -6,8 +6,8 @@
 // facts), publishes to the Bus, and notifies observers, in that order.
 //
 // Design: docs/EVENTS.md. Invariants enforced here:
-//   - persist before publish (dispatchCommitted is package-private; durable
-//     card writes go through Service.commitCard);
+//   - persist before publish (dispatch is package-private; durable card
+//     writes go through Service.commitCard);
 //   - call sites never assign ID/Actor/At (the store assigns ID; the seam
 //     stamps Actor/At);
 //   - event payloads are named contracts (the Diff structs below), kept
@@ -74,7 +74,7 @@ func (e *Emitter) Emit(ctx context.Context, evs ...*Event) error {
 	if err := e.log.Append(ctx, evs...); err != nil {
 		return err
 	}
-	e.dispatchCommitted(evs)
+	e.dispatch(evs)
 	return nil
 }
 
@@ -83,7 +83,7 @@ func (e *Emitter) Emit(ctx context.Context, evs ...*Event) error {
 // definition, for nobody.
 func (e *Emitter) Signal(ctx context.Context, evs ...*Event) {
 	e.stamp(ctx, evs)
-	e.dispatchCommitted(evs)
+	e.dispatch(evs)
 }
 
 // PersistConditions promotes the named condition event types to the durable
@@ -155,11 +155,13 @@ func (e *Emitter) stamp(ctx context.Context, evs []*Event) {
 	}
 }
 
-// dispatchCommitted publishes durable-committed events to the bus and notifies
-// observers. Package-private on purpose: the only ways to reach it are Emit,
-// Signal, or Service.commitCard — so "publish only after commit" is enforced by
-// API shape, not caller discipline.
-func (e *Emitter) dispatchCommitted(evs []*Event) {
+// dispatch publishes events to the bus and notifies observers. It serves both
+// the durable path (Emit, after a successful append) and the ephemeral path
+// (Signal) — the name deliberately does not say "committed" since not every
+// caller commits. Package-private on purpose: the only ways to reach it are
+// Emit, Signal, or Service.commitCard — so "publish only after any required
+// persistence" is enforced by API shape, not caller discipline.
+func (e *Emitter) dispatch(evs []*Event) {
 	e.mu.RLock()
 	obs := e.observers
 	e.mu.RUnlock()
@@ -215,6 +217,22 @@ func WIPExceeded(boardID, column string, count, limit int) *Event {
 
 func WIPCleared(boardID, column string, count, limit int) *Event {
 	return BoardEvent(boardID, EventWIPCleared, WIPDiff{Column: column, Count: count, Limit: limit})
+}
+
+// LaneDiff is the payload of lane_drained / lane_refilled (a monitored column
+// crossing to/from zero matching cards). Ephemeral signals — emit via
+// Emitter.Signal (or Condition, which may escalate per persist_conditions). (3c)
+type LaneDiff struct {
+	Column string `json:"column"`
+	Count  int    `json:"count"`
+}
+
+func LaneDrained(boardID, column string, count int) *Event {
+	return BoardEvent(boardID, EventLaneDrained, LaneDiff{Column: column, Count: count})
+}
+
+func LaneRefilled(boardID, column string, count int) *Event {
+	return BoardEvent(boardID, EventLaneRefilled, LaneDiff{Column: column, Count: count})
 }
 
 // CardCreatedDiff is the payload of card_created.

@@ -6,6 +6,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"path/filepath"
 
 	"github.com/somebox/cards/internal/config"
@@ -23,6 +24,9 @@ func openWorkspace(dir string) (*sqlite.Store, *core.Service, *config.Result, er
 	result, err := config.New(dir).Load()
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("load workspace: %w", err)
+	}
+	for _, w := range result.Warnings {
+		log.Printf("WARN: %s", w)
 	}
 	st, err := sqlite.Open(dbPath(dir), result.Workspace)
 	if err != nil {

@@ -32,6 +32,11 @@ type Result struct {
 	CardTypes  map[string]*core.CardType
 	Boards     map[string]*core.Board
 	Extensions []Extension
+	// Warnings are non-fatal load-time findings (e.g. an unrecognized
+	// settings.persist_conditions entry) — surfaced by the caller (cmd/cards
+	// logs them to stderr), never blocking Load. See EVENTS.md §12 Step 3
+	// cross-cutting hardening.
+	Warnings []string
 }
 
 // Load reads definitions/{workspace.json,card-types/*.json,boards/*.json}
@@ -59,7 +64,29 @@ func (l *Loader) Load() (*Result, error) {
 			{ID: ws.Settings.DefaultUser, Kind: "human", CreatedAt: nowUTC()},
 		}
 	}
-	return &Result{Workspace: ws, CardTypes: types, Boards: boards, Extensions: exts}, nil
+	return &Result{
+		Workspace: ws, CardTypes: types, Boards: boards, Extensions: exts,
+		Warnings: validatePersistConditions(ws),
+	}, nil
+}
+
+// validatePersistConditions warns (does not fail Load) on any
+// settings.persist_conditions entry that isn't a known condition type — a
+// typo like "wip_exceded" would otherwise silently no-op (EVENTS.md §12
+// Step 3 cross-cutting hardening).
+func validatePersistConditions(ws *core.Workspace) []string {
+	known := map[core.EventType]bool{}
+	for _, t := range core.ConditionTypes() {
+		known[t] = true
+	}
+	var warnings []string
+	for _, raw := range ws.Settings.PersistConditions {
+		if !known[core.EventType(raw)] {
+			warnings = append(warnings, fmt.Sprintf(
+				"settings.persist_conditions: unknown condition type %q (typo? see core.ConditionTypes for the known catalog)", raw))
+		}
+	}
+	return warnings
 }
 
 func (l *Loader) loadWorkspace() (*core.Workspace, error) {
@@ -223,6 +250,13 @@ func validateBoard(b *core.Board, ws *core.Workspace, types map[string]*core.Car
 		for _, n := range nexts {
 			if !colSet[n] {
 				return fmt.Errorf("transitions[%s]: unknown to-status %q", from, n)
+			}
+		}
+	}
+	if b.Monitors != nil {
+		for _, c := range b.Monitors.AlertWhenEmpty {
+			if !colSet[c] {
+				return fmt.Errorf("monitors.alert_when_empty references unknown column %q", c)
 			}
 		}
 	}

@@ -26,10 +26,14 @@ type Service struct {
 	emitter *Emitter
 	now     func() time.Time
 
-	// wipExceeded tracks the last-known WIP-exceeded state per board+column so
-	// wip signals fire only on a crossing, not on every mutation. (seam 3a)
-	wipMu       sync.Mutex
-	wipExceeded map[string]bool
+	// condState tracks the last-known crossing state per (board, column,
+	// condition-kind) key so a condition fires only on a state crossing, not
+	// on every mutation. Shared by every instant condition that derives from
+	// evaluateColumn's census (wip_exceeded/cleared seam 3a, lane_drained/
+	// refilled seam 3c) — one map, one lock, per EVENTS.md §12 Step 3's
+	// "unify with 3a, don't build a second counting path" mandate.
+	condMu    sync.Mutex
+	condState map[string]bool
 }
 
 // NewService binds loaded config + a Store implementation.
@@ -39,7 +43,7 @@ func NewService(ws *Workspace, types map[string]*CardType, boards map[string]*Bo
 	svc := &Service{
 		ws: ws, types: types, boards: boards, store: st,
 		bus: bus, emitter: newEmitter(st, bus, now), now: now,
-		wipExceeded: map[string]bool{},
+		condState: map[string]bool{},
 	}
 	// Escalate any condition types the workspace opted into persisting (3b).
 	if len(ws.Settings.PersistConditions) > 0 {
@@ -52,38 +56,73 @@ func NewService(ws *Workspace, types map[string]*CardType, boards map[string]*Bo
 	return svc
 }
 
-// evaluateWIP fires wip_exceeded/wip_cleared as ephemeral board signals when a
-// board column crosses its configured WIP limit. Best-effort — it's a signal,
-// not a fact: a failed count never affects the mutation. Idempotent: fires only
-// on a state crossing (seam 3a).
-func (s *Service) evaluateWIP(ctx context.Context, b *Board, column string) {
+// evaluateColumn is the single column census (Events seam 3a/3c): one
+// ListCards query per (board, column) per mutation feeds both the WIP-limit
+// crossing (wip_exceeded/wip_cleared) and, for columns declared in
+// board.Monitors.AlertWhenEmpty, the drained-lane crossing (lane_drained/
+// lane_refilled) — the same count, one counting path, per EVENTS.md §12 Step
+// 3c. Called from every mutation path that can change a column's membership:
+// PatchCard (status move), CreateCard (card lands directly in a column), and
+// TakeNext (claim + optional status move).
+//
+// Best-effort: a failed count silently returns (never affects the triggering
+// mutation); a failed escalated append is logged by evaluateCrossing, never
+// returned here.
+//
+// Caveat (documented, not fixed — EVENTS.md §12 Step 3c): membership is
+// TypeIDIn only (board.CardTypeIDs); a board scoped by DefaultFilter instead
+// is not counted correctly, and the census caps at 500 cards. Revisit only if
+// a filter-defined board needs WIP/lane limits.
+func (s *Service) evaluateColumn(ctx context.Context, b *Board, column string) {
 	if b == nil {
 		return
 	}
-	limit, ok := b.WIPLimits[column]
-	if !ok || limit <= 0 {
+	limit, hasLimit := b.WIPLimits[column]
+	watchEmpty := b.Monitors != nil && contains(b.Monitors.AlertWhenEmpty, column)
+	if (!hasLimit || limit <= 0) && !watchEmpty {
 		return
 	}
 	page, err := s.store.ListCards(ctx, CardQuery{Status: column, TypeIDIn: b.CardTypeIDs, Limit: 500})
 	if err != nil {
 		return
 	}
-	exceeded := len(page.Items) > limit
-	key := b.ID + "\x00" + column
-	s.wipMu.Lock()
-	if s.wipExceeded[key] == exceeded {
-		s.wipMu.Unlock()
+	count := len(page.Items)
+	if hasLimit && limit > 0 {
+		s.evaluateCrossing(ctx, b.ID+"\x00"+column+"\x00wip", count > limit,
+			func() *Event { return WIPExceeded(b.ID, column, count, limit) },
+			func() *Event { return WIPCleared(b.ID, column, count, limit) })
+	}
+	if watchEmpty {
+		s.evaluateCrossing(ctx, b.ID+"\x00"+column+"\x00lane", count == 0,
+			func() *Event { return LaneDrained(b.ID, column, count) },
+			func() *Event { return LaneRefilled(b.ID, column, count) })
+	}
+}
+
+// evaluateCrossing is the shared instant-condition crossing tracker: it fires
+// onCrossed only the first time key transitions to crossed=true, and
+// onRecovered only the first time it transitions back to crossed=false —
+// staying quiet on every mutation in between (seam 3a's idempotence,
+// generalized in 3c to any boolean condition sharing this state map).
+// Escalated (persist:true) events route through Condition; a failed durable
+// append is logged, never returned — a best-effort signal must never fail the
+// mutation that triggered it (EVENTS.md §8 point 7, §12 Step 3c hardening).
+func (s *Service) evaluateCrossing(ctx context.Context, key string, crossed bool, onCrossed, onRecovered func() *Event) {
+	s.condMu.Lock()
+	if s.condState[key] == crossed {
+		s.condMu.Unlock()
 		return // no crossing — stay quiet
 	}
-	s.wipExceeded[key] = exceeded
-	s.wipMu.Unlock()
-	// Condition routes by persist policy (3b): escalated types become durable
-	// facts, the rest stay ephemeral signals. Best-effort either way — a failed
-	// durable append never affects the mutation that triggered evaluation.
-	if exceeded {
-		_ = s.emitter.Condition(ctx, WIPExceeded(b.ID, column, len(page.Items), limit))
+	s.condState[key] = crossed
+	s.condMu.Unlock()
+	var ev *Event
+	if crossed {
+		ev = onCrossed()
 	} else {
-		_ = s.emitter.Condition(ctx, WIPCleared(b.ID, column, len(page.Items), limit))
+		ev = onRecovered()
+	}
+	if err := s.emitter.Condition(ctx, ev); err != nil {
+		log.Printf("ERROR: escalated condition append failed (type=%s key=%s): %v", ev.Type, key, err)
 	}
 }
 
@@ -103,7 +142,7 @@ func (s *Service) commitCard(ctx context.Context, next *Card, evs []*Event) erro
 	if err := s.store.UpdateCard(ctx, next, evs); err != nil {
 		return err
 	}
-	s.emitter.dispatchCommitted(evs)
+	s.emitter.dispatch(evs)
 	return nil
 }
 
@@ -313,7 +352,11 @@ func (s *Service) CreateCard(ctx context.Context, req CreateCardRequest) (*Card,
 	if err := s.store.InsertCard(ctx, c, ev); err != nil {
 		return nil, err
 	}
-	s.emitter.dispatchCommitted([]*Event{ev})
+	s.emitter.dispatch([]*Event{ev})
+	// A card can land directly in a capped or watched column (e.g. created
+	// straight into an over-limit status) — evaluate it the same as any other
+	// column-changing mutation (3c closes this CreateCard gap).
+	s.evaluateColumn(ctx, s.boardForCard(c), c.Status)
 	return c, nil
 }
 
@@ -441,12 +484,13 @@ func (s *Service) PatchCard(ctx context.Context, id string, req PatchCardRequest
 	if err := s.commitCard(ctx, &next, events); err != nil {
 		return nil, err
 	}
-	// After the status change commits, re-check WIP on both columns: the
-	// destination may now exceed its limit, the source may have cleared. (3a)
+	// After the status change commits, re-check both columns: the destination
+	// may now exceed its limit or fill a watched empty lane, the source may
+	// have cleared its limit or emptied one. (3a/3c)
 	if next.Status != current.Status {
 		b := s.boardForCard(&next)
-		s.evaluateWIP(ctx, b, next.Status)
-		s.evaluateWIP(ctx, b, current.Status)
+		s.evaluateColumn(ctx, b, next.Status)
+		s.evaluateColumn(ctx, b, current.Status)
 	}
 	return &next, nil
 }
@@ -922,7 +966,24 @@ func (s *Service) TakeNext(ctx context.Context, req TakeNextRequest) (*Card, err
 	if err != nil {
 		return nil, err
 	}
-	s.emitter.dispatchCommitted(evs)
+	s.emitter.dispatch(evs)
+	// A claim can move the card's status (ClaimAtomic emits status_changed
+	// alongside owner_changed when it does) — evaluate both the entered and
+	// left columns the same as PatchCard/CreateCard (3c closes this TakeNext
+	// gap). A claim that only changes owner leaves every column's membership
+	// unchanged, so no evaluation is needed.
+	if c != nil {
+		for _, ev := range evs {
+			diff, ok := ev.Diff.(BeforeAfterDiff)
+			if ev.Type != EventStatusChanged || !ok {
+				continue
+			}
+			b := s.boardForCard(c)
+			s.evaluateColumn(ctx, b, diff.After)
+			s.evaluateColumn(ctx, b, diff.Before)
+			break
+		}
+	}
 	return c, nil // nil card → caller renders {card:null}
 }
 

@@ -34,8 +34,10 @@ Related: [`INTEGRATION.md`](../events/INTEGRATION.md), [`SPEC.md`](../spec/SPEC.
 > (verified against the real demo DB), and feed/SSE filtering by `board_id`/
 > `scope`.
 >
-> **Step 3 (condition events) — in progress.** 3a (WIP signal) and 3b
-> (`persist:true` escalation) merged; 3c–3e planned — see §12, Step 3.
+> **Step 3 (condition events) — in progress.** 3a (WIP signal), 3b
+> (`persist:true` escalation), and the lane half of 3c (`lane_drained`/
+> `lane_refilled`, sharing 3a's column census) are merged; `card_blocked`/
+> `card_unblocked` (3c's remaining half), 3d, and 3e are next — see §12, Step 3.
 >
 > **Step 4 (outbox/tailer) — future**, unstarted by design.
 >
@@ -398,7 +400,7 @@ Shift-left checks:
 ### 11.2 Condition signals
 
 Examples: `status_timeout`, `card_idle`, `wip_exceeded` `[built, 3a]`,
-`lane_drained`, `transition_rejected`.
+`lane_drained` `[built, 3c]`, `transition_rejected`.
 
 Default to `Signal`; promote to durable fact only if recovery/audit use-cases
 require replay.
@@ -455,15 +457,23 @@ machinery has validated the Signal / Emit / `persist:true` paths.
   seam routes each condition by policy: types in workspace
   `settings.persist_conditions` go through `Emit` (durable, replayable), the rest
   through `Signal`. Bus/observer delivery is identical either way. See §11.2.
-- **3c — remaining instant conditions.** `lane_drained` / `lane_refilled`,
-  `card_blocked` / `card_unblocked`. **Unify with 3a rather than repeat it:** WIP
-  *and* lane-drained/refilled both derive from a single **column census** (one
-  `ListCards` per affected column per mutation) and one shared crossing-state
-  map — do not build a second parallel counting path. `card_blocked` /
+- **3c — remaining instant conditions.** `lane_drained` / `lane_refilled`
+  `[built]`, `card_blocked` / `card_unblocked` next. **Unified with 3a as
+  specified:** `Service.evaluateColumn` runs a single **column census** (one
+  `ListCards` per affected column per mutation) feeding both the WIP-limit
+  crossing and, for columns in `board.monitors.alert_when_empty`, the
+  drained-lane crossing, through one shared crossing-state map
+  (`Service.condState`, keyed `board\x00column\x00{wip,lane}`) via
+  `evaluateCrossing` — no second parallel counting path. `evaluateColumn` now
+  fires from every column-changing mutation path: `PatchCard` (status move,
+  as 3a already had), `CreateCard` (a card landing directly in a capped/
+  watched column — was a gap), and `TakeNext` (claim + optional status move,
+  evaluated from the returned `status_changed` diff — was a gap). Table-driven
+  tests cover all three paths + a card-state-immutability assertion (§2,
+  principle 4 — the core records, it does not act). `card_blocked` /
   `card_unblocked` reuse the existing `CardQuery.blocked` definition (triggered
-  by link mutations, and by a target card's status change), *not* a second notion
-  of "blocked". Table-driven test per condition type; verify no condition handler
-  mutates card state (§2, principle 4 — the core records, it does not act).
+  by link mutations, and by a target card's status change), *not* a second
+  notion of "blocked" — next slice.
 - **3d — deadline scheduler.** Min-heap keyed by earliest deadline; no fixed
   tick; sleeps until the next deadline; empty heap = zero wakeups. Deadlines are
   reconstructible from a denormalized `status_since` column + a fired-marker
@@ -481,19 +491,23 @@ machinery has validated the Signal / Emit / `persist:true` paths.
   advance, and does not fire if the card leaves the status first;
   reconnect/disconnect refcounting exercised end to end.
 
-**Cross-cutting hardening — fold into 3c's PR, not separate slices:**
+**Cross-cutting hardening — folded into 3c's first PR, all `[built]`:**
 
 - **Board-membership caveat.** Condition census counts by *type* membership
   (`TypeIDIn`); a board defined by a `DefaultFilter` (e.g. `hipri`) is not counted
-  correctly, and the census caps at 500 cards. Document the limitation now; fix
-  only if/when filter-defined boards gain WIP or lane limits.
-- **Config validation.** Validate each `persist_conditions` entry against the
-  known condition-type catalog at load; warn on unknown types — today a typo
-  (`"wip_exceded"`) silently no-ops.
-- **Append-error surfacing.** `Condition`'s escalated path must log/observe a
-  failed durable append rather than swallow it (see §8, point 7).
-- **Rename (cosmetic).** `dispatchCommitted` now serves both the durable and the
-  ephemeral path; rename to `dispatch` so the name stops implying commit.
+  correctly, and the census caps at 500 cards. Documented on `evaluateColumn`;
+  fix only if/when filter-defined boards gain WIP or lane limits.
+- **Config validation.** `internal/config.validatePersistConditions` checks
+  each `persist_conditions` entry against `core.ConditionTypes()` at load and
+  appends a warning (`config.Result.Warnings`, printed by `cmd/cards` via
+  `openWorkspace`) for unknown types — a typo (`"wip_exceded"`) now surfaces
+  instead of silently no-op'ing. `monitors.alert_when_empty` unknown columns
+  hard-fail at load, matching the existing board-validation convention.
+- **Append-error surfacing.** `evaluateCrossing` logs a failed escalated
+  append (`log.Printf("ERROR: escalated condition append failed ...")`)
+  instead of discarding `Condition`'s return value (see §8, point 7).
+- **Rename (cosmetic).** `dispatchCommitted` → `dispatch` — it always served
+  both the durable and the ephemeral path; the old name implied commit.
 
 **Dogfood.** 3b is merged — set `persist_conditions: ["wip_exceeded"]`
 on the demo workspace so we exercise the escalation path the same way integrators

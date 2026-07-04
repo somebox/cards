@@ -7,9 +7,9 @@ import (
 )
 
 // Recorder captures dispatched events for assertions (Events seam 1f). Register
-// it on the emitter with svc.Emitter().Observe(rec.Record); every committed
+// it on the emitter with svc.Emitter().Observe(rec.Record); every dispatched
 // event then lands in the recorder. Concurrency-safe, so it also survives the
-// per-observer panic isolation in dispatchCommitted alongside other observers.
+// per-observer panic isolation in dispatch alongside other observers.
 //
 // It replaces ad hoc bus-subscriber scaffolding in tests that only need to
 // assert "what did this mutation emit" — no channels, no draining, no filter.
