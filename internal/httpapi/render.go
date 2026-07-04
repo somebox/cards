@@ -140,6 +140,13 @@ type ViewData struct {
 	// SortOptions / ActiveSort drive the board header's sort selector.
 	SortOptions []Option
 	ActiveSort  string
+	// Board filter header: saved-filter chips + owner/type dropdowns.
+	SavedFilters []Option
+	ActiveFilter string
+	OwnerOptions []Option
+	ActiveOwner  string
+	TypeOptions  []Option
+	ActiveType   string
 	// Home page
 	Workspace   *core.Workspace
 	CardCount   int

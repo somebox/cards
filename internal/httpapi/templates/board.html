@@ -4,16 +4,32 @@
 <div class="board-view" data-board="{{.Board.ID}}"{{with boardStyle .Board}} style="{{.}}"{{end}}>
 <h1 class="page-title">{{.Board.Name}}</h1>
 {{if .Board.Description}}<p class="muted">{{.Board.Description}}</p>{{end}}
-<div class="board-controls">
-  {{template "search_form" (dict "Action" (printf "/ui/boards/%s" .Board.ID) "Query" .Query)}}
-  <form class="board-sort" method="get" action="/ui/boards/{{.Board.ID}}">
-    {{if .Query}}<input type="hidden" name="q" value="{{.Query}}">{{end}}
-    <label class="board-sort__label" for="board-sort">Sort</label>
-    <select class="select" id="board-sort" name="sort" onchange="this.form.submit()">
+{{if .SavedFilters}}
+<div class="filter-chips">
+  <a class="chip-filter{{if not .ActiveFilter}} is-active{{end}}" href="/ui/boards/{{.Board.ID}}?sort={{.ActiveSort}}">All</a>
+  {{range .SavedFilters}}<a class="chip-filter{{if .Selected}} is-active{{end}}" href="/ui/boards/{{$.Board.ID}}?filter={{.Value}}&sort={{$.ActiveSort}}">{{.Label}}</a>{{end}}
+</div>
+{{end}}
+<form class="board-controls" method="get" action="/ui/boards/{{.Board.ID}}">
+  {{if .ActiveFilter}}<input type="hidden" name="filter" value="{{.ActiveFilter}}">{{end}}
+  <input class="search__input input" type="search" name="q" value="{{.Query}}" placeholder="Search this board…" aria-label="Search board">
+  <label class="control"><span class="control__label">Owner</span>
+    <select class="select" name="owner" onchange="this.form.submit()">
+      {{range .OwnerOptions}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>{{end}}
+    </select>
+  </label>
+  <label class="control"><span class="control__label">Type</span>
+    <select class="select" name="type" onchange="this.form.submit()">
+      {{range .TypeOptions}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>{{end}}
+    </select>
+  </label>
+  <label class="control"><span class="control__label">Sort</span>
+    <select class="select" name="sort" onchange="this.form.submit()">
       {{range .SortOptions}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>{{end}}
     </select>
-  </form>
-</div>
+  </label>
+  <button class="btn" type="submit">Apply</button>
+</form>
 <div class="board" id="board">
   {{range $col := .Columns}}
   <section class="lane">

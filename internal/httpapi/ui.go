@@ -192,6 +192,31 @@ func (s *Server) boardData(r *http.Request, b *core.Board) (ViewData, error) {
 		cq.Q = q
 		cq.IDLike = q // scoped to this board's types (1d)
 	}
+	// Filters compose server-side into the one query, so ordering-under-filter
+	// is consistent by construction. A saved filter (?filter=<id>) resolves
+	// from the board's presentation.Filters, with "me" substituted to the UI
+	// actor; ?owner= / ?type= narrow further.
+	actor := s.uiActor()
+	activeFilter := r.URL.Query().Get("filter")
+	if activeFilter != "" && b.Presentation != nil {
+		for _, bf := range b.Presentation.Filters {
+			if bf.ID == activeFilter {
+				cq.Filter = resolveMeFilter(bf.Filter, actor)
+				break
+			}
+		}
+	}
+	owner := r.URL.Query().Get("owner")
+	if owner == "me" {
+		owner = actor
+	}
+	if owner != "" {
+		cq.Owner = owner
+	}
+	typeID := r.URL.Query().Get("type")
+	if typeID != "" {
+		cq.TypeID = typeID // ANDs with TypeIDIn to a single board type
+	}
 	page, err := s.svc.ListCards(r.Context(), cq)
 	if err != nil {
 		return ViewData{}, fmt.Errorf("board %s: list cards: %w", b.ID, err)
@@ -251,7 +276,50 @@ func (s *Server) boardData(r *http.Request, b *core.Board) (ViewData, error) {
 	}
 	data.ActiveSort = active
 	data.SortOptions = boardSortOptions(active, b)
+	// Filter header: saved-filter chips + owner/type dropdowns, each carrying
+	// its active state so the UI reflects the current query.
+	data.SavedFilters = boardSavedFilters(b, activeFilter)
+	data.ActiveFilter = activeFilter
+	data.OwnerOptions = ownerOptions(users, owner)
+	data.ActiveOwner = owner
+	data.TypeOptions = boardTypeOptions(s.types, b, typeID)
+	data.ActiveType = typeID
 	return data, nil
+}
+
+// boardSavedFilters lists the board's saved filters as selectable chips.
+func boardSavedFilters(b *core.Board, active string) []Option {
+	if b.Presentation == nil {
+		return nil
+	}
+	opts := make([]Option, 0, len(b.Presentation.Filters))
+	for _, bf := range b.Presentation.Filters {
+		opts = append(opts, Option{Value: bf.ID, Label: bf.Label, Selected: bf.ID == active})
+	}
+	return opts
+}
+
+// ownerOptions builds the owner dropdown from the workspace users, marking the
+// active owner selected. A leading empty "Anyone" option clears the filter.
+func ownerOptions(users []core.User, active string) []Option {
+	opts := []Option{{Value: "", Label: "Anyone", Selected: active == ""}}
+	for _, u := range users {
+		opts = append(opts, Option{Value: u.ID, Label: u.ID, Selected: u.ID == active})
+	}
+	return opts
+}
+
+// boardTypeOptions builds the type dropdown from the board's card types.
+func boardTypeOptions(types map[string]*core.CardType, b *core.Board, active string) []Option {
+	opts := []Option{{Value: "", Label: "All types", Selected: active == ""}}
+	for _, tid := range b.CardTypeIDs {
+		label := tid
+		if ct := types[tid]; ct != nil {
+			label = ct.Name
+		}
+		opts = append(opts, Option{Value: tid, Label: label, Selected: tid == active})
+	}
+	return opts
 }
 
 // boardSortOptions builds the board header's sort selector. The presets cover

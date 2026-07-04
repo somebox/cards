@@ -280,6 +280,76 @@ func TestUIBoardSortRejectsBadKey(t *testing.T) {
 	}
 }
 
+func TestUIBoardSavedFilterMe(t *testing.T) {
+	ts, _ := newServer(t)
+	H := map[string]string{"X-Work-Cards-Actor": "local-dev", "Content-Type": "application/json"}
+	mk := func(title string) string {
+		_, out := do(t, ts, "POST", "/v1/cards", core.CreateCardRequest{
+			TypeID: "programming-task", Title: title, Status: "todo",
+			Fields: map[string]any{"description": "d", "branch": "b"},
+		}, H)
+		return out["id"].(string)
+	}
+	claim := func(id string) {
+		resp, out := do(t, ts, "POST", "/v1/cards/"+id+"/claim", core.ClaimRequest{Version: 1}, H)
+		if resp.StatusCode != 200 {
+			t.Fatalf("claim %s: %d %v", id, resp.StatusCode, out)
+		}
+	}
+	// Mine + open: claimed by local-dev, still todo → matches mine-open.
+	mine := mk("Mine open filter card")
+	claim(mine)
+	// Unowned → excluded (owner != me).
+	mk("Unowned filter card")
+	// Mine but done → excluded (status in [done]).
+	done := mk("Mine done filter card")
+	claim(done)
+	for _, st := range []string{"in_progress", "review", "done"} {
+		v := 0
+		_, gc := do(t, ts, "GET", "/v1/cards/"+done, nil, nil)
+		v = int(gc["version"].(float64))
+		do(t, ts, "PATCH", "/v1/cards/"+done, map[string]any{"version": v, "status": st}, H)
+	}
+
+	_, body := doGet(t, ts, "/ui/boards/engineering?filter=mine-open")
+	if !strings.Contains(body, "Mine open filter card") {
+		t.Error("mine-open should include the local-dev-owned open card")
+	}
+	if strings.Contains(body, "Unowned filter card") {
+		t.Error("mine-open must exclude the unowned card")
+	}
+	if strings.Contains(body, "Mine done filter card") {
+		t.Error("mine-open must exclude the done card (status $nin done)")
+	}
+	// The chip must render active.
+	if !strings.Contains(body, `class="chip-filter is-active"`) {
+		t.Error("mine-open chip should render as active")
+	}
+}
+
+func TestUIBoardOwnerAndTypeParams(t *testing.T) {
+	ts, _ := newServer(t)
+	H := map[string]string{"X-Work-Cards-Actor": "local-dev", "Content-Type": "application/json"}
+	// A research-goal card and a programming-task card; ?type filters to one.
+	_, rg := do(t, ts, "POST", "/v1/cards", core.CreateCardRequest{
+		TypeID: "research-goal", Title: "Research type card", Status: "todo",
+		Fields: map[string]any{"hypothesis": "h"},
+	}, H)
+	_ = rg
+	do(t, ts, "POST", "/v1/cards", core.CreateCardRequest{
+		TypeID: "programming-task", Title: "Programming type card", Status: "todo",
+		Fields: map[string]any{"description": "d", "branch": "b"},
+	}, H)
+
+	_, body := doGet(t, ts, "/ui/boards/engineering?type=research-goal")
+	if !strings.Contains(body, "Research type card") {
+		t.Error("?type=research-goal should include the research card")
+	}
+	if strings.Contains(body, "Programming type card") {
+		t.Error("?type=research-goal must exclude programming-task cards")
+	}
+}
+
 func TestUIBreachesPage(t *testing.T) {
 	ts, _ := newServer(t)
 	// Empty state: seeded demo has no breaching conditions.
