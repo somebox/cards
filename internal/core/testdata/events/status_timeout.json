@@ -1,0 +1,13 @@
+{
+  "id": 0,
+  "card_id": "c1",
+  "version": 1,
+  "type": "status_timeout",
+  "actor": "",
+  "at": "0001-01-01T00:00:00Z",
+  "diff": {
+    "status": "review",
+    "since": "2026-01-01T00:00:00Z",
+    "max": "168h"
+  }
+}

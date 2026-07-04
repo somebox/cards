@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/somebox/cards/internal/core"
 )
@@ -39,6 +40,8 @@ func TestEventContracts_GoldenFixtures(t *testing.T) {
 		{"card_blocked", core.CardBlocked("c1", []string{"c2", "c3"})},
 		{"card_unblocked", core.CardUnblocked("c1")},
 		{"transition_rejected", core.TransitionRejected("c1", "review", "backlog", "eng")},
+		{"status_timeout", core.StatusTimeout("c1", "review", time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), "168h")},
+		{"card_idle", core.CardIdle("c1", time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), "72h")},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

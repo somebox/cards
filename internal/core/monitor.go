@@ -22,10 +22,28 @@ package core
 import (
 	"container/heap"
 	"context"
+	"fmt"
 	"log"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
+
+// ParseMonitorDuration parses a board monitor's duration string: Go's
+// time.ParseDuration syntax, plus a "d" (days) suffix it lacks (e.g. "7d" ==
+// 168h) — the natural unit for status_timeout/card_idle thresholds. Used by
+// both config validation (at load) and the seam 3e rebuild callbacks.
+func ParseMonitorDuration(s string) (time.Duration, error) {
+	if days, ok := strings.CutSuffix(s, "d"); ok {
+		n, err := strconv.ParseFloat(days, 64)
+		if err != nil {
+			return 0, fmt.Errorf("invalid days duration %q: %w", s, err)
+		}
+		return time.Duration(n * float64(24*time.Hour)), nil
+	}
+	return time.ParseDuration(s)
+}
 
 // monitorDeadline is one pending temporal-condition check.
 type monitorDeadline struct {
@@ -215,6 +233,29 @@ func (m *MonitorScheduler) dropType(t EventType) {
 	heap.Init(&m.heap)
 	m.mu.Unlock()
 	m.signalWake()
+}
+
+// Arm schedules a single deadline for a live event — used when something
+// just happened that should (re)arm a temporal condition (seam 3e's
+// EventObserver), independent of a full rebuild. A no-op if t isn't armed
+// (no interest): nothing is scheduled for a type nobody is watching.
+//
+// This can leave a stale entry in the heap when a card re-arms the same
+// type again before the old deadline is due (e.g. every mutation re-arms
+// card_idle) — harmless, since Verify re-checks identity at fire time and
+// silently discards a deadline whose key no longer matches current state.
+// Removing the superseded entry outright would need an indexed heap; for
+// this scale, a silently-discarded stale fire is the simpler tradeoff.
+func (m *MonitorScheduler) Arm(t EventType, cardID string, at time.Time, key string) {
+	m.mu.Lock()
+	armed := m.armed[t]
+	if armed {
+		heap.Push(&m.heap, monitorDeadline{at: at, cardID: cardID, cond: t, key: key})
+	}
+	m.mu.Unlock()
+	if armed {
+		m.signalWake()
+	}
 }
 
 func (m *MonitorScheduler) signalWake() {

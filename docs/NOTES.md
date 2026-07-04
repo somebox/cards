@@ -225,3 +225,11 @@ Mismatched links are rejected with the valid set echoed. Stops an agent from
   `internal/sqlite/filter.go` (the store owns SQL). Extracting a
   backend-neutral `internal/filter` AST becomes the right move if and only if
   a second Store backend is actually scheduled — don't pre-build it.
+
+## Backlog notes (from the 2026-07 reactive-coordination milestone)
+
+- **`GET /v1/breaches` temporal items.** `Service.Breaches` (seam 3d/3e)
+  reports current `wip_exceeded`/`lane_drained`/`card_blocked` state but not
+  `status_timeout`/`card_idle` — timeboxed out of the milestone. Natural
+  extension: reuse `rebuildStatusTimeout`/`rebuildCardIdle`'s scans, checking
+  each candidate's deadline against `now` instead of arming it.

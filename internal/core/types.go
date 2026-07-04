@@ -223,6 +223,15 @@ type BoardMonitors struct {
 	// Force bypassed the check). Off by default — most integrators don't
 	// want a signal for every misclick.
 	EmitRejections bool `json:"emit_rejections,omitempty"`
+	// MaxTimeInStatus arms status_timeout (seam 3d/3e): column id -> max
+	// duration a card may sit in that column before firing. Duration
+	// strings use Go syntax plus a "d" (days) suffix Go's time.ParseDuration
+	// lacks — see ParseMonitorDuration.
+	MaxTimeInStatus map[string]string `json:"max_time_in_status,omitempty"`
+	// IdleAfter arms card_idle (seam 3d/3e): a card with no mutation event
+	// for longer than this duration fires. Same duration syntax as
+	// MaxTimeInStatus.
+	IdleAfter string `json:"idle_after,omitempty"`
 }
 
 // View is a named filter plus optional URL binding. Read-only in v1.

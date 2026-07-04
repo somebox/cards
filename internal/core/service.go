@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -34,6 +35,11 @@ type Service struct {
 	// "unify with 3a, don't build a second counting path" mandate.
 	condMu    sync.Mutex
 	condState map[string]bool
+
+	// monitors is the seam 3d deadline scheduler, started only when a board
+	// declares a temporal monitor (max_time_in_status/idle_after) or a
+	// temporal type is persisted — most workspaces never construct one. (3e)
+	monitors *MonitorScheduler
 }
 
 // now returns the service's current time (via its Clock) — a method, not a
@@ -72,7 +78,40 @@ func NewService(ws *Workspace, types map[string]*CardType, boards map[string]*Bo
 		}
 		svc.emitter.PersistConditions(esc...)
 	}
+	// The deadline scheduler only starts if something actually needs it — a
+	// board declaring a temporal monitor, or a temporal type escalated via
+	// persist_conditions above. (3d/3e)
+	if hasTemporalMonitors(boards) || svc.emitter.IsPersisted(EventStatusTimeout) || svc.emitter.IsPersisted(EventCardIdle) {
+		svc.monitors = NewMonitorScheduler(svc.clock, bus, svc.emitter, st)
+		svc.monitors.Register(EventStatusTimeout, svc.verifyStatusTimeout, svc.rebuildStatusTimeout)
+		svc.monitors.Register(EventCardIdle, svc.verifyCardIdle, svc.rebuildCardIdle)
+		svc.emitter.Observe(svc.monitorObserver)
+		svc.monitors.Start()
+	}
 	return svc
+}
+
+// hasTemporalMonitors reports whether any board declares max_time_in_status
+// or idle_after.
+func hasTemporalMonitors(boards map[string]*Board) bool {
+	for _, b := range boards {
+		if b.Monitors != nil && (len(b.Monitors.MaxTimeInStatus) > 0 || b.Monitors.IdleAfter != "") {
+			return true
+		}
+	}
+	return false
+}
+
+// Close releases resources the Service started internally — currently just
+// the seam 3d deadline scheduler, if one was started. A workspace with no
+// temporal monitors and nothing temporal persisted never starts one, so
+// Close is a no-op for the common case. The underlying Store is closed by
+// its owner (cmd/cards), not by Service — Service has never owned Store's
+// lifecycle, and this doesn't change that.
+func (s *Service) Close() {
+	if s.monitors != nil {
+		s.monitors.Stop()
+	}
 }
 
 // evaluateColumn is the single column census (Events seam 3a/3c): one
@@ -185,6 +224,162 @@ func (s *Service) reevaluateDependents(ctx context.Context, cardID string) {
 	for _, dep := range deps {
 		s.evaluateBlocked(ctx, dep)
 	}
+}
+
+// monitorObserver arms/re-arms the seam 3d temporal deadlines from every
+// dispatched event — zero new call sites in the mutation paths themselves.
+// status_changed/card_created (entering a status) arm status_timeout;
+// every durable card-mutation event re-arms card_idle — except a condition
+// event, which must never reset the idle deadline (§12 Step 3e: a fired
+// card_idle would otherwise immediately re-arm itself). Best-effort: a
+// failed card lookup just skips re-arming until the next event. (3e)
+func (s *Service) monitorObserver(ev *Event) {
+	if s.monitors == nil || ev.CardID == "" || isConditionType(ev.Type) {
+		return
+	}
+	ctx := context.Background()
+	c, err := s.store.GetCard(ctx, ev.CardID)
+	if err != nil {
+		return
+	}
+	b := s.boardForCard(c)
+	if b == nil || b.Monitors == nil {
+		return
+	}
+	if ev.Type == EventStatusChanged || ev.Type == EventCardCreated {
+		if max, ok := b.Monitors.MaxTimeInStatus[c.Status]; ok {
+			key := c.Status + "\x00" + c.StatusSince.Format(time.RFC3339Nano)
+			s.monitors.Arm(EventStatusTimeout, c.ID, c.StatusSince.Add(mustParseMonitorDuration(max)), key)
+		}
+	}
+	if b.Monitors.IdleAfter != "" {
+		key := c.UpdatedAt.Format(time.RFC3339Nano)
+		s.monitors.Arm(EventCardIdle, c.ID, c.UpdatedAt.Add(mustParseMonitorDuration(b.Monitors.IdleAfter)), key)
+	}
+}
+
+// verifyStatusTimeout re-checks a due status_timeout deadline: fires only if
+// the card is still in the exact (status, status_since) it was armed for —
+// a card that left the status (or re-entered it, getting a fresh
+// status_since) makes the deadline stale, discarded silently. (3e)
+func (s *Service) verifyStatusTimeout(ctx context.Context, cardID, key string) (*Event, error) {
+	c, err := s.store.GetCard(ctx, cardID)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	if c.Status+"\x00"+c.StatusSince.Format(time.RFC3339Nano) != key {
+		return nil, nil // stale — card moved on
+	}
+	b := s.boardForCard(c)
+	if b == nil || b.Monitors == nil {
+		return nil, nil
+	}
+	max, ok := b.Monitors.MaxTimeInStatus[c.Status]
+	if !ok {
+		return nil, nil // monitor config changed since arming
+	}
+	return StatusTimeout(c.ID, c.Status, c.StatusSince, max), nil
+}
+
+// rebuildStatusTimeout scans every board's monitored statuses for currently-
+// due status_timeout deadlines — called when interest in the type is
+// (re)gained (e.g. the first matching SSE subscriber connects). (3e)
+func (s *Service) rebuildStatusTimeout(ctx context.Context) ([]MonitorDeadline, error) {
+	var out []MonitorDeadline
+	for _, b := range s.boards {
+		if b.Monitors == nil || len(b.Monitors.MaxTimeInStatus) == 0 {
+			continue
+		}
+		for status, maxStr := range b.Monitors.MaxTimeInStatus {
+			max, err := ParseMonitorDuration(maxStr)
+			if err != nil {
+				continue // validated at config load; defensive
+			}
+			page, err := s.store.ListCards(ctx, CardQuery{Status: status, TypeIDIn: b.CardTypeIDs, Limit: 500})
+			if err != nil {
+				continue
+			}
+			for _, c := range page.Items {
+				key := c.Status + "\x00" + c.StatusSince.Format(time.RFC3339Nano)
+				out = append(out, MonitorDeadline{At: c.StatusSince.Add(max), CardID: c.ID, Key: key})
+			}
+		}
+	}
+	return out, nil
+}
+
+// verifyCardIdle re-checks a due card_idle deadline: fires only if the card
+// has had no further mutation since the exact UpdatedAt it was armed for —
+// any later mutation makes the deadline stale, discarded silently. (3e)
+func (s *Service) verifyCardIdle(ctx context.Context, cardID, key string) (*Event, error) {
+	c, err := s.store.GetCard(ctx, cardID)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	if c.UpdatedAt.Format(time.RFC3339Nano) != key {
+		return nil, nil // stale — card mutated again since this deadline armed
+	}
+	b := s.boardForCard(c)
+	if b == nil || b.Monitors == nil || b.Monitors.IdleAfter == "" {
+		return nil, nil
+	}
+	return CardIdle(c.ID, c.UpdatedAt, b.Monitors.IdleAfter), nil
+}
+
+// rebuildCardIdle scans every idle-monitoring board's cards for currently-
+// due card_idle deadlines. A card whose type is monitored by more than one
+// board is armed once (idleness isn't board-scoped). (3e)
+func (s *Service) rebuildCardIdle(ctx context.Context) ([]MonitorDeadline, error) {
+	var out []MonitorDeadline
+	seen := map[string]bool{}
+	for _, b := range s.boards {
+		if b.Monitors == nil || b.Monitors.IdleAfter == "" {
+			continue
+		}
+		idleAfter, err := ParseMonitorDuration(b.Monitors.IdleAfter)
+		if err != nil {
+			continue
+		}
+		page, err := s.store.ListCards(ctx, CardQuery{TypeIDIn: b.CardTypeIDs, Limit: 500})
+		if err != nil {
+			continue
+		}
+		for _, c := range page.Items {
+			if seen[c.ID] {
+				continue
+			}
+			seen[c.ID] = true
+			key := c.UpdatedAt.Format(time.RFC3339Nano)
+			out = append(out, MonitorDeadline{At: c.UpdatedAt.Add(idleAfter), CardID: c.ID, Key: key})
+		}
+	}
+	return out, nil
+}
+
+// isConditionType reports whether t is one of the condition types (as
+// opposed to a durable card-mutation fact) — used by monitorObserver to
+// never let a condition event reset the card_idle deadline.
+func isConditionType(t EventType) bool {
+	return slices.Contains(ConditionTypes(), t)
+}
+
+// mustParseMonitorDuration parses a duration already validated at config
+// load; a parse failure here would mean that validation was bypassed
+// (test-constructed workspace) — fail open with 0 (fires immediately, loud
+// and safe) rather than panic.
+func mustParseMonitorDuration(s string) time.Duration {
+	d, err := ParseMonitorDuration(s)
+	if err != nil {
+		log.Printf("ERROR: invalid monitor duration %q (should have been rejected at config load): %v", s, err)
+		return 0
+	}
+	return d
 }
 
 // Bus returns the in-process event bus (for SSE/hooks subscribers).

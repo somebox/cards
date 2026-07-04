@@ -135,3 +135,41 @@ func TestRejectMonitorsAlertWhenEmptyUnknownColumn(t *testing.T) {
 		t.Fatal("expected error for unknown alert_when_empty column, got nil")
 	}
 }
+
+func TestAcceptMonitorsTemporalFields(t *testing.T) {
+	dir := newMinimalWorkspaceDir(t, `{"default_user":"u"}`)
+	mustWrite(t, filepath.Join(dir, "definitions", "boards", "b.json"), `{
+		"id":"b","name":"B","columns":["a"],
+		"monitors":{"max_time_in_status":{"a":"7d"},"idle_after":"72h"}
+	}`)
+	r, err := New(dir).Load()
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	b := r.Boards["b"]
+	if b.Monitors == nil || b.Monitors.MaxTimeInStatus["a"] != "7d" || b.Monitors.IdleAfter != "72h" {
+		t.Errorf("board monitors = %+v", b.Monitors)
+	}
+}
+
+func TestRejectMonitorsMaxTimeInStatusUnknownColumn(t *testing.T) {
+	dir := newMinimalWorkspaceDir(t, `{"default_user":"u"}`)
+	mustWrite(t, filepath.Join(dir, "definitions", "boards", "b.json"), `{
+		"id":"b","name":"B","columns":["a"],
+		"monitors":{"max_time_in_status":{"nope":"7d"}}
+	}`)
+	if _, err := New(dir).Load(); err == nil {
+		t.Fatal("expected error for unknown max_time_in_status column, got nil")
+	}
+}
+
+func TestRejectMonitorsBadDuration(t *testing.T) {
+	dir := newMinimalWorkspaceDir(t, `{"default_user":"u"}`)
+	mustWrite(t, filepath.Join(dir, "definitions", "boards", "b.json"), `{
+		"id":"b","name":"B","columns":["a"],
+		"monitors":{"idle_after":"not-a-duration"}
+	}`)
+	if _, err := New(dir).Load(); err == nil {
+		t.Fatal("expected error for unparseable idle_after, got nil")
+	}
+}

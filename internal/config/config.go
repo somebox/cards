@@ -259,6 +259,19 @@ func validateBoard(b *core.Board, ws *core.Workspace, types map[string]*core.Car
 				return fmt.Errorf("monitors.alert_when_empty references unknown column %q", c)
 			}
 		}
+		for col, dur := range b.Monitors.MaxTimeInStatus {
+			if !colSet[col] {
+				return fmt.Errorf("monitors.max_time_in_status references unknown column %q", col)
+			}
+			if _, err := core.ParseMonitorDuration(dur); err != nil {
+				return fmt.Errorf("monitors.max_time_in_status[%s]: %w", col, err)
+			}
+		}
+		if b.Monitors.IdleAfter != "" {
+			if _, err := core.ParseMonitorDuration(b.Monitors.IdleAfter); err != nil {
+				return fmt.Errorf("monitors.idle_after: %w", err)
+			}
+		}
 	}
 	return nil
 }

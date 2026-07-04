@@ -271,6 +271,31 @@ func TransitionRejected(cardID, from, to, boardID string) *Event {
 	return CardEvent(cardID, EventTransitionRejected, TransitionRejectedDiff{From: from, To: to, BoardID: boardID})
 }
 
+// StatusTimeoutDiff is the payload of status_timeout: a card has sat in
+// Status since Since longer than Max (board.monitors.max_time_in_status).
+// Card-scoped, ephemeral by default. (3e)
+type StatusTimeoutDiff struct {
+	Status string    `json:"status"`
+	Since  time.Time `json:"since"`
+	Max    string    `json:"max"`
+}
+
+func StatusTimeout(cardID, status string, since time.Time, max string) *Event {
+	return CardEvent(cardID, EventStatusTimeout, StatusTimeoutDiff{Status: status, Since: since, Max: max})
+}
+
+// CardIdleDiff is the payload of card_idle: no mutation event on the card
+// since Since, past Threshold (board.monitors.idle_after). Card-scoped,
+// ephemeral by default. (3e)
+type CardIdleDiff struct {
+	Since     time.Time `json:"since"`
+	Threshold string    `json:"threshold"`
+}
+
+func CardIdle(cardID string, since time.Time, threshold string) *Event {
+	return CardEvent(cardID, EventCardIdle, CardIdleDiff{Since: since, Threshold: threshold})
+}
+
 // CardCreatedDiff is the payload of card_created.
 type CardCreatedDiff struct {
 	Card CardRef `json:"card"`

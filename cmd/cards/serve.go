@@ -50,6 +50,7 @@ func serveCmd(args []string) error {
 		return err
 	}
 	defer st.Close()
+	defer svc.Close() // stops the seam 3d scheduler, if a temporal monitor started one
 	log.Printf("loaded workspace %q: %d types, %d boards, %d columns",
 		result.Workspace.ID, len(result.CardTypes), len(result.Boards), len(result.Workspace.Columns))
 
@@ -125,6 +126,7 @@ func mcpCmd(args []string) error {
 		return err
 	}
 	defer st.Close()
+	defer svc.Close()
 	actor := os.Getenv("CARDS_USER")
 	if actor == "" {
 		actor = result.Workspace.Settings.DefaultUser

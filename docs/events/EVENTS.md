@@ -34,12 +34,13 @@ Related: [`INTEGRATION.md`](../events/INTEGRATION.md), [`SPEC.md`](../spec/SPEC.
 > (verified against the real demo DB), and feed/SSE filtering by `board_id`/
 > `scope`.
 >
-> **Step 3 (condition events) — in progress.** 3a (WIP signal), 3b
-> (`persist:true` escalation), and 3c (all four remaining instant
-> conditions: `lane_drained`/`lane_refilled` sharing 3a's column census,
-> `card_blocked`/`card_unblocked` sharing `CardQuery.Blocked`'s SQL
-> definition) are merged; 3d (deadline scheduler) and 3e (temporal
-> conditions) are next — see §12, Step 3.
+> **Step 3 (condition events) — done.** 3a (WIP signal), 3b (`persist:true`
+> escalation), 3c (all four remaining instant conditions: `lane_drained`/
+> `lane_refilled` sharing 3a's column census, `card_blocked`/`card_unblocked`
+> sharing `CardQuery.Blocked`'s SQL definition), 3d (the tickless deadline
+> scheduler), and 3e (`status_timeout`/`card_idle` wired onto it) are all
+> merged — every condition type in the design now emits through
+> `Emitter.Condition`, ephemeral or durable by config. See §12, Step 3.
 >
 > **Step 4 (outbox/tailer) — future**, unstarted by design.
 >
@@ -401,8 +402,9 @@ Shift-left checks:
 
 ### 11.2 Condition signals
 
-Examples: `status_timeout`, `card_idle`, `wip_exceeded` `[built, 3a]`,
-`lane_drained` `[built, 3c]`, `transition_rejected` `[built]`.
+Examples: `status_timeout` `[built, 3e]`, `card_idle` `[built, 3e]`,
+`wip_exceeded` `[built, 3a]`, `lane_drained` `[built, 3c]`,
+`transition_rejected` `[built]`.
 
 Default to `Signal`; promote to durable fact only if recovery/audit use-cases
 require replay.
@@ -507,11 +509,29 @@ machinery has validated the Signal / Emit / `persist:true` paths.
   persisted) never arms and the scheduler goroutine never does real work.
   Live-verified against the real demo workspace with a synthetic condition
   type and the real wall clock (not just the fake).
-- **3e — wire temporal conditions.** Attach `status_timeout` / `card_idle` to the
-  3d scheduler. Integration test with an injected clock and a *real* SSE
-  subscriber: the deadline arms on status entry, fires exactly once on clock
-  advance, and does not fire if the card leaves the status first;
-  reconnect/disconnect refcounting exercised end to end.
+- **3e — temporal conditions `[built]`.** `status_timeout`/`card_idle` wired
+  onto the 3d scheduler via `Service.monitorObserver`, an `EventObserver` —
+  zero new call sites in the mutation paths. `status_changed`/`card_created`
+  arm `status_timeout` at `status_since + max`; every durable card-mutation
+  event re-arms `card_idle` at `updated_at + idle_after` — a condition event
+  itself never resets it (`isConditionType` guards this; test-pinned: firing
+  `wip_exceeded` alongside real mutations must not push back a card's idle
+  deadline). Fire-time re-verify checks identity (`status`+`status_since` for
+  timeout, `updated_at` for idle) so a stale deadline discards silently
+  instead of firing on outdated state. The mandated integration test (real
+  SSE client + injected clock, `internal/httpapi/temporal_test.go`) confirms
+  the full contract: arms on a live subscriber, fires exactly once at the
+  deadline, no duplicate on a further advance, disarms on disconnect (a
+  second card's breach is never observed with nobody listening), and a fresh
+  subscriber's rebuild fires that still-true breach exactly once on
+  reconnect. Board config: `monitors.max_time_in_status`/`idle_after`
+  (duration strings via the new `ParseMonitorDuration`, which adds a `"d"`
+  days suffix `time.ParseDuration` lacks). Live-verified against a scratch
+  demo copy with a 2-second override: the rebuild path correctly enumerated
+  and fired every real backlog card already sitting in `review`, and a newly
+  created card fired precisely at its own deadline. `/v1/breaches` does not
+  yet include temporal items — deferred (noted in NOTES.md), not required by
+  this milestone.
 
 **Cross-cutting hardening — folded into 3c's first PR, all `[built]`:**
 
