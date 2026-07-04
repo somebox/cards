@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -82,6 +83,48 @@ func seedStore(t *testing.T, st *sqlite.Store) {
 	}
 	if err := st.InsertEventRaw(ctx, &core.Event{CardID: "card_a", Type: core.EventStatusChanged, Actor: "pi", At: at.Add(time.Hour), Diff: map[string]any{"before": "todo", "after": "in_progress"}}); err != nil {
 		t.Fatalf("seed event: %v", err)
+	}
+}
+
+// TestExportIsCompleteBeyondPageCap guards the export data-loss bug: a
+// workspace with more cards than ListCards' page ceiling must export ALL of
+// them (export cursor-paginates), not silently truncate to one page.
+func TestExportIsCompleteBeyondPageCap(t *testing.T) {
+	ctx := context.Background()
+	src, ws := newStore(t)
+	const total = 510 // just past the 500 page ceiling → two pages
+	base := time.Date(2026, 6, 26, 12, 0, 0, 0, time.UTC)
+	for i := range total {
+		id := "card_" + strconv.Itoa(i)
+		if err := src.InsertCard(ctx, &core.Card{
+			ID: id, WorkspaceID: "demo", TypeID: "task", SchemaVersion: 1,
+			Title: id, Status: "todo", Fields: map[string]any{}, Version: 1,
+			CreatedAt: base, UpdatedAt: base.Add(time.Duration(i) * time.Millisecond), CreatedBy: "u",
+		}, nil); err != nil {
+			t.Fatalf("seed %s: %v", id, err)
+		}
+	}
+
+	var buf bytes.Buffer
+	exp, err := exportJSONL(ctx, src, &buf, ws)
+	if err != nil {
+		t.Fatalf("export: %v", err)
+	}
+	if exp.Cards != total {
+		t.Fatalf("export tallied %d cards, want %d", exp.Cards, total)
+	}
+	if got := strings.Count(buf.String(), `"type":"card"`); got != total {
+		t.Errorf("export wrote %d card lines, want %d", got, total)
+	}
+
+	// Round-trips completely into a fresh store.
+	dst, _ := newStore(t)
+	imp, err := importJSONL(ctx, dst, bytes.NewReader(buf.Bytes()))
+	if err != nil {
+		t.Fatalf("import: %v", err)
+	}
+	if imp.Cards != total {
+		t.Errorf("import restored %d cards, want %d", imp.Cards, total)
 	}
 }
 

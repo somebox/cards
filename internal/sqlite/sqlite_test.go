@@ -127,6 +127,75 @@ func TestListCardsFilterAndSearch(t *testing.T) {
 	}
 }
 
+// clampCardLimit must apply the default for unset/≤0 and a 500 ceiling —
+// NOT the old ">200 → 50" rule that silently truncated large requests to 50
+// (the bug behind incomplete exports and undercounted censuses).
+func TestClampCardLimit(t *testing.T) {
+	cases := []struct{ in, want int }{
+		{0, 50}, {-5, 50}, // unset/negative → default
+		{1, 1}, {50, 50}, {200, 200}, {500, 500}, // honored as-is
+		{501, 500}, {100000, 500}, // ceiling
+	}
+	for _, tc := range cases {
+		if got := clampCardLimit(tc.in); got != tc.want {
+			t.Errorf("clampCardLimit(%d) = %d, want %d", tc.in, got, tc.want)
+		}
+	}
+}
+
+// A request for 500 must actually return up to 500, and a full sweep past the
+// ceiling must be reachable by cursor — the guarantee export depends on.
+func TestListCardsHonors500AndPaginatesBeyond(t *testing.T) {
+	st, _ := testStore(t)
+	ctx := context.Background()
+	const total = 510 // just past the 500 ceiling → two pages
+	for i := range total {
+		id := "card_" + strconv.Itoa(i)
+		if err := st.InsertCard(ctx, &core.Card{
+			ID: id, WorkspaceID: "t", TypeID: "task", SchemaVersion: 1,
+			Title: id, Status: "todo", Fields: map[string]any{}, Version: 1,
+			CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC().Add(time.Duration(i) * time.Millisecond), CreatedBy: "u",
+		}, nil); err != nil {
+			t.Fatalf("insert %s: %v", id, err)
+		}
+	}
+
+	first, err := st.ListCards(ctx, core.CardQuery{Limit: 500})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(first.Items) != 500 {
+		t.Fatalf("first page = %d, want 500 (ceiling honored)", len(first.Items))
+	}
+	if first.NextCursor == "" {
+		t.Fatal("expected a NextCursor with more cards remaining")
+	}
+
+	// Sweep to completion by cursor, asserting the full set is reachable and
+	// every card appears exactly once.
+	seen := map[string]bool{}
+	cursor := ""
+	for {
+		page, err := st.ListCards(ctx, core.CardQuery{Limit: 500, Cursor: cursor})
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, c := range page.Items {
+			if seen[c.ID] {
+				t.Fatalf("card %s seen twice during cursor sweep", c.ID)
+			}
+			seen[c.ID] = true
+		}
+		if page.NextCursor == "" {
+			break
+		}
+		cursor = page.NextCursor
+	}
+	if len(seen) != total {
+		t.Errorf("cursor sweep covered %d cards, want %d", len(seen), total)
+	}
+}
+
 func TestLinksAndCommentsLoadedOnGet(t *testing.T) {
 	st, _ := testStore(t)
 	ctx := context.Background()

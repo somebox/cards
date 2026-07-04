@@ -51,24 +51,34 @@ func exportJSONL(ctx context.Context, st *sqlite.Store, w io.Writer, ws *core.Wo
 	}
 	stats.Users = len(users)
 
-	// Cards (with links + comments loaded via GetCard).
-	page, err := st.ListCards(ctx, core.CardQuery{Limit: 100000})
-	if err != nil {
-		return stats, fmt.Errorf("export cards: %w", err)
-	}
-	for _, c := range page.Items {
-		full, err := st.GetCard(ctx, c.ID)
+	// Cards (with links + comments loaded via GetCard). ListCards caps a single
+	// page (see clampCardLimit), so a full backup must paginate by cursor
+	// rather than ask for an arbitrarily large limit — otherwise the export
+	// silently truncates to the cap.
+	cursor := ""
+	for {
+		page, err := st.ListCards(ctx, core.CardQuery{Limit: 500, Cursor: cursor})
 		if err != nil {
-			// A backup that silently drops cards is worse than one that fails.
-			return stats, fmt.Errorf("export card %s: %w", c.ID, err)
+			return stats, fmt.Errorf("export cards: %w", err)
 		}
-		stats.Comments += len(full.Comments)
-		stats.Links += len(full.Links)
-		if err := enc.Encode(map[string]any{"type": "card", "data": full}); err != nil {
-			return stats, err
+		for _, c := range page.Items {
+			full, err := st.GetCard(ctx, c.ID)
+			if err != nil {
+				// A backup that silently drops cards is worse than one that fails.
+				return stats, fmt.Errorf("export card %s: %w", c.ID, err)
+			}
+			stats.Comments += len(full.Comments)
+			stats.Links += len(full.Links)
+			if err := enc.Encode(map[string]any{"type": "card", "data": full}); err != nil {
+				return stats, err
+			}
 		}
+		stats.Cards += len(page.Items)
+		if page.NextCursor == "" {
+			break
+		}
+		cursor = page.NextCursor
 	}
-	stats.Cards = len(page.Items)
 
 	// Events (all — full audit log).
 	evs, err := st.List(ctx, core.EventQuery{Limit: 1000000})

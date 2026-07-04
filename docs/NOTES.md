@@ -233,3 +233,11 @@ Mismatched links are rejected with the valid set echoed. Stops an agent from
   `status_timeout`/`card_idle` — timeboxed out of the milestone. Natural
   extension: reuse `rebuildStatusTimeout`/`rebuildCardIdle`'s scans, checking
   each candidate's deadline against `now` instead of arming it.
+- **>500-card column census.** `ListCards` caps a page at 500
+  (`internal/sqlite/clampCardLimit`). The condition census / breach queries
+  (`evaluateColumn`, `Breaches`, blocked lookups) pass `Limit: 500` and are now
+  honored up to that ceiling — but a single column/board holding **more than
+  500 matching cards** would still under-count. Not a concern at coordination
+  scale (typically <100k cards, few hundred per column); if it ever matters,
+  give the census an unclamped `CountCards`/iterator path rather than raising
+  the ceiling further. Export already sidesteps this by cursor-paginating.

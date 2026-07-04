@@ -413,14 +413,35 @@ func (s *Store) BlockingDependents(ctx context.Context, targetID string) ([]stri
 
 const cardCols = "id, workspace_id, type_id, schema_version, title, status, owner, tags, fields, version, created_at, updated_at, created_by, status_since"
 
+// maxCardLimit is the hard ceiling on a single ListCards page. Callers that
+// need the whole set (export, backups) paginate via NextCursor rather than
+// asking for more; the census/breach queries (Limit: 500) are honored up to
+// this ceiling, matching the "caps at 500" contract documented on
+// Service.evaluateColumn / Service.Breaches. Columns with >500 matching cards
+// are a documented limitation (see docs/NOTES.md).
+const maxCardLimit = 500
+
+// clampCardLimit applies the default (unset/≤0 → 50) and the hard ceiling
+// (>500 → 500). Previously these were conflated into a single ">200 → 50"
+// rule that silently truncated any large request down to 50 — the bug behind
+// incomplete exports and undercounted WIP/breach censuses.
+func clampCardLimit(n int) int {
+	switch {
+	case n <= 0:
+		return 50
+	case n > maxCardLimit:
+		return maxCardLimit
+	default:
+		return n
+	}
+}
+
 func (s *Store) ListCards(ctx context.Context, q core.CardQuery) (*core.Page[core.Card], error) {
 	where, args, err := buildCardWhere(q)
 	if err != nil {
 		return nil, err
 	}
-	if q.Limit <= 0 || q.Limit > 200 {
-		q.Limit = 50
-	}
+	q.Limit = clampCardLimit(q.Limit)
 	query := "SELECT " + cardCols + " FROM cards c" + where + " ORDER BY c.updated_at DESC, c.id DESC LIMIT ?"
 	args = append(args, q.Limit+1)
 	rows, err := s.db.QueryContext(ctx, query, args...)
