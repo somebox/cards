@@ -442,7 +442,14 @@ func (s *Store) ListCards(ctx context.Context, q core.CardQuery) (*core.Page[cor
 		return nil, err
 	}
 	q.Limit = clampCardLimit(q.Limit)
-	query := "SELECT " + cardCols + " FROM cards c" + where + " ORDER BY c.updated_at DESC, c.id DESC LIMIT ?"
+	// Sort was validated at the service layer (ParseSort); a bad value can't
+	// reach here, so an error is a programmer bug — fail loud rather than
+	// silently reorder.
+	sort, err := core.ParseSort(q.Sort)
+	if err != nil {
+		return nil, fmt.Errorf("list cards: %w", err)
+	}
+	query := "SELECT " + cardCols + " FROM cards c" + where + orderClause(sort) + " LIMIT ?"
 	args = append(args, q.Limit+1)
 	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
@@ -460,10 +467,49 @@ func (s *Store) ListCards(ctx context.Context, q core.CardQuery) (*core.Page[cor
 	next := ""
 	if len(cards) > q.Limit {
 		last := cards[q.Limit-1]
-		next = core.EncodeCursor(last.UpdatedAt, last.ID)
+		// A NextCursor is only meaningful under the default order the keyset
+		// cursor encodes (updated_at, id). Under a custom sort the service
+		// forbids cursors, so we emit none.
+		if sort.IsZero() {
+			next = core.EncodeCursor(last.UpdatedAt, last.ID)
+		}
 		cards = cards[:q.Limit]
 	}
 	return &core.Page[core.Card]{Items: cards, NextCursor: next}, nil
+}
+
+// orderClause builds the ORDER BY for ListCards. The zero Sort keeps the
+// default keyset order (updated_at DESC, id DESC) the cursor pagination is
+// welded to. A custom sort orders by the mapped column with NULLs forced last
+// (so cards missing the sorted field sink to the bottom in either direction),
+// then a stable c.id DESC tiebreak.
+func orderClause(sort core.Sort) string {
+	if sort.IsZero() {
+		return " ORDER BY c.updated_at DESC, c.id DESC"
+	}
+	expr := sortColumnExpr(sort.Field)
+	dir := "ASC"
+	if sort.Desc {
+		dir = "DESC"
+	}
+	return " ORDER BY (" + expr + " IS NULL) ASC, " + expr + " " + dir + ", c.id DESC"
+}
+
+// sortColumnExpr maps a validated Sort.Field to its SQL expression. title is
+// compared case-insensitively; a fields.<id> key extracts from the JSON blob
+// (the id is regexp-restricted to a safe identifier by ParseSort, so splicing
+// it into the path is safe).
+func sortColumnExpr(field string) string {
+	switch field {
+	case "title":
+		return "c.title COLLATE NOCASE"
+	case "created_at":
+		return "c.created_at"
+	case "updated_at":
+		return "c.updated_at"
+	default: // fields.<id>
+		return "json_extract(c.fields, '$." + strings.TrimPrefix(field, "fields.") + "')"
+	}
 }
 
 func (s *Store) GetCard(ctx context.Context, id string) (*core.Card, error) {
@@ -1147,7 +1193,6 @@ func nullableString(s string) any {
 	}
 	return s
 }
-
 
 func placeholders(n int) string {
 	if n <= 0 {

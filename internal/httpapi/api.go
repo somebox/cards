@@ -67,6 +67,7 @@ func (s *Server) apiListCards(w http.ResponseWriter, r *http.Request) {
 		Blocked:    r.URL.Query().Get("blocked") == "true",
 		HasLink:    r.URL.Query().Get("has_link"),
 		LinkTarget: r.URL.Query().Get("link_target"),
+		Sort:       r.URL.Query().Get("sort"),
 		Cursor:     r.URL.Query().Get("cursor"),
 	}
 	if l := r.URL.Query().Get("limit"); l != "" {

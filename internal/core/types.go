@@ -166,6 +166,7 @@ type BoardPresentation struct {
 	CardAccentField string              `json:"card_accent_field,omitempty"` // enum field whose value drives card accent color
 	DetailSections  []DetailSection     `json:"detail_sections,omitempty"`   // ordered sections for the detail/modal view
 	Filters         []BoardFilter       `json:"filters,omitempty"`
+	LaneSort        string              `json:"lane_sort,omitempty"` // default within-lane order (ParseSort grammar, e.g. "-fields.priority")
 }
 
 // DetailSection is an ordered group of fields in the card detail/modal view.
@@ -356,8 +357,12 @@ type CardQuery struct {
 	HasLink    string // link type id present on the card
 	LinkTarget string // card id linked to
 	Unowned    bool
-	Limit      int
-	Cursor     string
+	// Sort is a flat ORDER BY directive ("-fields.priority"); empty = default
+	// order (updated_at DESC). Parsed/validated via ParseSort. Mutually
+	// exclusive with Cursor — keyset pagination is welded to the default order.
+	Sort   string
+	Limit  int
+	Cursor string
 	// Filter is the jq-like filter DSL (§9), passed through raw; the store
 	// compiles it (invalid DSL comes back as a validation error).
 	Filter map[string]any

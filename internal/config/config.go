@@ -273,6 +273,11 @@ func validateBoard(b *core.Board, ws *core.Workspace, types map[string]*core.Car
 			}
 		}
 	}
+	if b.Presentation != nil && b.Presentation.LaneSort != "" {
+		if _, err := core.ParseSort(b.Presentation.LaneSort); err != nil {
+			return fmt.Errorf("presentation.lane_sort: %w", err)
+		}
+	}
 	return nil
 }
 

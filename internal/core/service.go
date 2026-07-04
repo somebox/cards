@@ -452,6 +452,19 @@ func (s *Service) ListCards(ctx context.Context, q CardQuery) (*Page[Card], erro
 	// the default and ceiling into ">200 → 50" and silently truncated any
 	// larger API request down to 50.
 	//
+	// Validate the sort directive up front so a junk key 422s instead of
+	// silently ordering by nothing.
+	if _, err := ParseSort(q.Sort); err != nil {
+		return nil, err
+	}
+	// Keyset pagination is welded to the default order (updated_at, id), so a
+	// custom sort and a cursor can't coexist — reject rather than return a
+	// silently-wrong page. The only cursor consumers (export, API paging) use
+	// the default sort; the UI board is limit-200/no-cursor, so every sort
+	// works there.
+	if q.Sort != "" && q.Cursor != "" {
+		return nil, NewValidationError("sort", "sort is not supported together with cursor pagination")
+	}
 	// Validate cursor before hitting the store — a bad cursor should be a
 	// 400, not a silent fallthrough to the first page.
 	if q.Cursor != "" {

@@ -14,9 +14,9 @@ import (
 func testStore(t *testing.T) (*Store, *core.Workspace) {
 	t.Helper()
 	ws := &core.Workspace{
-		ID:      "t",
-		Name:    "T",
-		Columns: []core.Column{{ID: "todo", Name: "To Do"}, {ID: "done", Name: "Done"}},
+		ID:       "t",
+		Name:     "T",
+		Columns:  []core.Column{{ID: "todo", Name: "To Do"}, {ID: "done", Name: "Done"}},
 		Settings: core.WorkspaceSettings{StrictFields: true, TagPolicy: "propose", DefaultUser: "u"},
 	}
 	st, err := Open(":memory:", ws)
@@ -125,6 +125,64 @@ func TestListCardsFilterAndSearch(t *testing.T) {
 	if len(search.Items) != 1 || search.Items[0].ID != "a" {
 		t.Errorf("q=login -> %+v", search.Items)
 	}
+}
+
+// TestListCardsSort covers the configurable ORDER BY: each whitelisted key in
+// both directions, and NULLs-forced-last for a fields.<id> key that some cards
+// lack (they sink to the bottom regardless of direction).
+func TestListCardsSort(t *testing.T) {
+	st, _ := testStore(t)
+	ctx := context.Background()
+	base := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	mk := func(id, title string, createdOffset int, priority any) {
+		fields := map[string]any{}
+		if priority != nil {
+			fields["priority"] = priority
+		}
+		at := base.Add(time.Duration(createdOffset) * time.Hour)
+		_ = st.InsertCard(ctx, &core.Card{
+			ID: id, WorkspaceID: "t", TypeID: "task", SchemaVersion: 1,
+			Title: title, Status: "todo", Fields: fields, Version: 1,
+			CreatedAt: at, UpdatedAt: at, CreatedBy: "u",
+		}, nil)
+	}
+	// created order: c1(0), c2(1), c3(2); priorities: c1=3, c2=1, c3 missing.
+	mk("c1", "Banana", 0, 3)
+	mk("c2", "apple", 1, 1)
+	mk("c3", "Cherry", 2, nil)
+
+	ids := func(q core.CardQuery) []string {
+		page, err := st.ListCards(ctx, q)
+		if err != nil {
+			t.Fatalf("ListCards(%+v): %v", q, err)
+		}
+		out := make([]string, len(page.Items))
+		for i, c := range page.Items {
+			out[i] = c.ID
+		}
+		return out
+	}
+	eq := func(name string, got, want []string) {
+		if len(got) != len(want) {
+			t.Errorf("%s: got %v, want %v", name, got, want)
+			return
+		}
+		for i := range got {
+			if got[i] != want[i] {
+				t.Errorf("%s: got %v, want %v", name, got, want)
+				return
+			}
+		}
+	}
+
+	eq("created_at asc", ids(core.CardQuery{Sort: "created_at", Limit: 10}), []string{"c1", "c2", "c3"})
+	eq("created_at desc", ids(core.CardQuery{Sort: "-created_at", Limit: 10}), []string{"c3", "c2", "c1"})
+	// title is case-insensitive: apple, Banana, Cherry.
+	eq("title asc", ids(core.CardQuery{Sort: "title", Limit: 10}), []string{"c2", "c1", "c3"})
+	// priority asc, NULLs last: c2(1), c1(3), then c3(missing).
+	eq("fields.priority asc", ids(core.CardQuery{Sort: "fields.priority", Limit: 10}), []string{"c2", "c1", "c3"})
+	// priority desc, NULLs STILL last: c1(3), c2(1), then c3(missing).
+	eq("fields.priority desc", ids(core.CardQuery{Sort: "-fields.priority", Limit: 10}), []string{"c1", "c2", "c3"})
 }
 
 // clampCardLimit must apply the default for unset/≤0 and a 500 ceiling —

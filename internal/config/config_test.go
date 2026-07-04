@@ -74,6 +74,25 @@ func TestRejectBoardUnknownColumn(t *testing.T) {
 	}
 }
 
+func TestRejectBoardBadLaneSort(t *testing.T) {
+	dir := t.TempDir()
+	mustWrite(t, filepath.Join(dir, "definitions", "workspace.json"), `{
+		"id":"t","name":"T",
+		"columns":[{"id":"a","name":"A"}],
+		"settings":{"default_user":"u"}
+	}`)
+	mustWrite(t, filepath.Join(dir, "definitions", "card-types", "task.json"), `{
+		"id":"task","name":"Task","fields":[]
+	}`)
+	mustWrite(t, filepath.Join(dir, "definitions", "boards", "b.json"), `{
+		"id":"b","name":"B","columns":["a"],"card_type_ids":["task"],
+		"presentation":{"lane_sort":"owner"}
+	}`)
+	if _, err := New(dir).Load(); err == nil {
+		t.Fatal("expected error for unsupported lane_sort key, got nil")
+	}
+}
+
 func mustWrite(t *testing.T, path, content string) {
 	t.Helper()
 	if err := writeFile(path, content); err != nil {

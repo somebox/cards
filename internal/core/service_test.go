@@ -17,10 +17,10 @@ import (
 // -> review -> done) with WIPLimits{in_progress: 1}.
 func testConfig() (*core.Workspace, map[string]*core.CardType, map[string]*core.Board) {
 	ws := &core.Workspace{
-		ID:       "t",
-		Name:     "T",
-		Columns:  []core.Column{{ID: "todo", Name: "Todo"}, {ID: "in_progress", Name: "In Progress"}, {ID: "review", Name: "Review"}, {ID: "done", Name: "Done"}},
-		TagSet:   []string{"bug", "feature"},
+		ID:      "t",
+		Name:    "T",
+		Columns: []core.Column{{ID: "todo", Name: "Todo"}, {ID: "in_progress", Name: "In Progress"}, {ID: "review", Name: "Review"}, {ID: "done", Name: "Done"}},
+		TagSet:  []string{"bug", "feature"},
 		LinkTypes: []core.LinkType{
 			{ID: "depends-on", Name: "Depends on", Type: "directional"},
 			{ID: "blocked-by", Name: "Blocked by", Type: "directional"},
@@ -916,6 +916,32 @@ func TestListCards_HonorsLargeLimit(t *testing.T) {
 	}
 	if len(page.Items) != n {
 		t.Errorf("ListCards(Limit:%d) returned %d, want %d (service must not re-clamp to 50)", n, len(page.Items), n)
+	}
+}
+
+func TestListCards_SortValidation(t *testing.T) {
+	svc, _ := newTestService(t)
+	ctx := context.Background()
+
+	// A junk sort key is a validation error (422), not a silent default order.
+	if _, err := svc.ListCards(ctx, core.CardQuery{Sort: "owner"}); err == nil {
+		t.Error("expected validation error for unsupported sort key")
+	} else if e := core.AsError(err); e.HTTPStatus != 422 {
+		t.Errorf("bad sort → HTTP %d, want 422", e.HTTPStatus)
+	}
+
+	// Sort and cursor cannot coexist — keyset pagination is welded to the
+	// default order, so a custom sort + cursor must be rejected.
+	cur := core.EncodeCursor(time.Now().UTC(), "card_x")
+	if _, err := svc.ListCards(ctx, core.CardQuery{Sort: "title", Cursor: cur}); err == nil {
+		t.Error("expected validation error for sort + cursor together")
+	} else if e := core.AsError(err); e.HTTPStatus != 422 {
+		t.Errorf("sort+cursor → HTTP %d, want 422", e.HTTPStatus)
+	}
+
+	// A valid sort alone is fine.
+	if _, err := svc.ListCards(ctx, core.CardQuery{Sort: "-created_at"}); err != nil {
+		t.Errorf("valid sort rejected: %v", err)
 	}
 }
 
