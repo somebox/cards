@@ -57,6 +57,9 @@ func Open(path string, ws *core.Workspace) (*Store, error) {
 // Init creates tables/indexes if missing.
 func (s *Store) Init(ctx context.Context) error {
 	stmts := []string{
+		// status_since is nullable here for old DBs migrated by
+		// migrateStatusSince below (backfilled, never left null in practice);
+		// fresh DBs always have it set by the service layer. (seam 3d)
 		`CREATE TABLE IF NOT EXISTS cards (
 			id              TEXT PRIMARY KEY,
 			workspace_id    TEXT NOT NULL,
@@ -70,7 +73,8 @@ func (s *Store) Init(ctx context.Context) error {
 			version         INTEGER NOT NULL,
 			created_at      TEXT NOT NULL,
 			updated_at      TEXT NOT NULL,
-			created_by      TEXT NOT NULL
+			created_by      TEXT NOT NULL,
+			status_since    TEXT
 		)`,
 		`CREATE INDEX IF NOT EXISTS idx_cards_status_updated ON cards(status, updated_at)`,
 		`CREATE INDEX IF NOT EXISTS idx_cards_type ON cards(type_id)`,
@@ -132,6 +136,9 @@ func (s *Store) Init(ctx context.Context) error {
 		if _, err := s.db.ExecContext(ctx, q); err != nil {
 			return fmt.Errorf("init schema: %w (stmt: %s)", err, q)
 		}
+	}
+	if err := s.migrateStatusSince(ctx); err != nil {
+		return err
 	}
 	// Migrate old DBs BEFORE indexing events: an old events table is rebuilt
 	// (rename → copy → drop), which discards its indexes, and it has no scope
@@ -208,6 +215,52 @@ func (s *Store) migrateEventsScope(ctx context.Context) error {
 		if _, err := tx.ExecContext(ctx, q); err != nil {
 			return fmt.Errorf("migrate events scope: %w", err)
 		}
+	}
+	return tx.Commit()
+}
+
+// migrateStatusSince adds the status_since column (seam 3d, arming temporal
+// deadlines) to a pre-3d cards table and backfills it: the latest
+// status_changed event's timestamp for a card that has moved, else
+// created_at for a card that hasn't. Additive (no rebuild needed, unlike
+// migrateEventsScope's NOT NULL relaxation) — gated on the column's absence,
+// so it's a no-op for fresh DBs and idempotent on re-run.
+func (s *Store) migrateStatusSince(ctx context.Context) error {
+	rows, err := s.db.QueryContext(ctx, `PRAGMA table_info(cards)`)
+	if err != nil {
+		return err
+	}
+	hasStatusSince := false
+	for rows.Next() {
+		var cid, notnull, pk int
+		var name, ctype string
+		var dflt sql.NullString
+		if err := rows.Scan(&cid, &name, &ctype, &notnull, &dflt, &pk); err != nil {
+			rows.Close()
+			return err
+		}
+		if name == "status_since" {
+			hasStatusSince = true
+		}
+	}
+	rows.Close()
+	if hasStatusSince {
+		return nil
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, `ALTER TABLE cards ADD COLUMN status_since TEXT`); err != nil {
+		return fmt.Errorf("migrate status_since: add column: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx, `
+		UPDATE cards SET status_since = COALESCE(
+			(SELECT e.at FROM events e WHERE e.card_id = cards.id AND e.type = 'status_changed'
+				ORDER BY e.id DESC LIMIT 1),
+			created_at)`); err != nil {
+		return fmt.Errorf("migrate status_since: backfill: %w", err)
 	}
 	return tx.Commit()
 }
@@ -346,7 +399,7 @@ func (s *Store) BlockingDependents(ctx context.Context, targetID string) ([]stri
 	return out, rows.Err()
 }
 
-const cardCols = "id, workspace_id, type_id, schema_version, title, status, owner, tags, fields, version, created_at, updated_at, created_by"
+const cardCols = "id, workspace_id, type_id, schema_version, title, status, owner, tags, fields, version, created_at, updated_at, created_by, status_since"
 
 func (s *Store) ListCards(ctx context.Context, q core.CardQuery) (*core.Page[core.Card], error) {
 	where, args, err := buildCardWhere(q)
@@ -442,8 +495,11 @@ func (s *Store) UpdateCard(ctx context.Context, c *core.Card, evs []*core.Event)
 		return err
 	}
 	defer tx.Rollback()
-	res, err := tx.ExecContext(ctx, `UPDATE cards SET title=?, status=?, owner=?, tags=?, fields=?, schema_version=?, version=?, updated_at=? WHERE id=? AND version=?`,
-		c.Title, c.Status, nullableString(c.Owner), tagsJSON(c.Tags), fieldsJSON(c.Fields), c.SchemaVersion, c.Version, c.UpdatedAt.Format(time.RFC3339Nano), c.ID, c.Version-1)
+	// status_since is set unconditionally from c.StatusSince — the service
+	// layer already decided its value (now, on a real status change; carried
+	// over from current otherwise), so the store just persists it. (seam 3d)
+	res, err := tx.ExecContext(ctx, `UPDATE cards SET title=?, status=?, owner=?, tags=?, fields=?, schema_version=?, version=?, updated_at=?, status_since=? WHERE id=? AND version=?`,
+		c.Title, c.Status, nullableString(c.Owner), tagsJSON(c.Tags), fieldsJSON(c.Fields), c.SchemaVersion, c.Version, c.UpdatedAt.Format(time.RFC3339Nano), c.StatusSince.Format(time.RFC3339Nano), c.ID, c.Version-1)
 	if err != nil {
 		return fmt.Errorf("update card: %w", err)
 	}
@@ -495,8 +551,9 @@ func (s *Store) ClaimAtomic(ctx context.Context, q core.CardQuery, owner, status
 	var res sql.Result
 	nowStr := now.Format(time.RFC3339Nano)
 	if setStatus != "" {
-		res, err = tx.ExecContext(ctx, `UPDATE cards SET owner=?, status=?, version=version+1, updated_at=? WHERE id=? AND (owner IS NULL OR owner='')`,
-			owner, setStatus, nowStr, c.ID)
+		// A claimed status move enters a new status now, same as PatchCard. (3d)
+		res, err = tx.ExecContext(ctx, `UPDATE cards SET owner=?, status=?, version=version+1, updated_at=?, status_since=? WHERE id=? AND (owner IS NULL OR owner='')`,
+			owner, setStatus, nowStr, nowStr, c.ID)
 	} else {
 		res, err = tx.ExecContext(ctx, `UPDATE cards SET owner=?, version=version+1, updated_at=? WHERE id=? AND (owner IS NULL OR owner='')`,
 			owner, nowStr, c.ID)
@@ -897,10 +954,10 @@ type scanner interface {
 
 func scanCard(r scanner) (*core.Card, error) {
 	var c core.Card
-	var owner, tags sql.NullString
+	var owner, tags, statusSince sql.NullString
 	var fieldsB string
 	var created, updated string
-	err := r.Scan(&c.ID, &c.WorkspaceID, &c.TypeID, &c.SchemaVersion, &c.Title, &c.Status, &owner, &tags, &fieldsB, &c.Version, &created, &updated, &c.CreatedBy)
+	err := r.Scan(&c.ID, &c.WorkspaceID, &c.TypeID, &c.SchemaVersion, &c.Title, &c.Status, &owner, &tags, &fieldsB, &c.Version, &created, &updated, &c.CreatedBy, &statusSince)
 	if err != nil {
 		return nil, err
 	}
@@ -913,12 +970,15 @@ func scanCard(r scanner) (*core.Card, error) {
 	}
 	c.CreatedAt, _ = time.Parse(time.RFC3339Nano, created)
 	c.UpdatedAt, _ = time.Parse(time.RFC3339Nano, updated)
+	if statusSince.Valid {
+		c.StatusSince, _ = time.Parse(time.RFC3339Nano, statusSince.String)
+	}
 	return &c, nil
 }
 
 func execCardInsert(tx *sql.Tx, c *core.Card) error {
-	_, err := tx.Exec(`INSERT INTO cards(id, workspace_id, type_id, schema_version, title, status, owner, tags, fields, version, created_at, updated_at, created_by) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-		c.ID, c.WorkspaceID, c.TypeID, c.SchemaVersion, c.Title, c.Status, nullableString(c.Owner), tagsJSON(c.Tags), fieldsJSON(c.Fields), c.Version, c.CreatedAt.Format(time.RFC3339Nano), c.UpdatedAt.Format(time.RFC3339Nano), c.CreatedBy)
+	_, err := tx.Exec(`INSERT INTO cards(id, workspace_id, type_id, schema_version, title, status, owner, tags, fields, version, created_at, updated_at, created_by, status_since) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+		c.ID, c.WorkspaceID, c.TypeID, c.SchemaVersion, c.Title, c.Status, nullableString(c.Owner), tagsJSON(c.Tags), fieldsJSON(c.Fields), c.Version, c.CreatedAt.Format(time.RFC3339Nano), c.UpdatedAt.Format(time.RFC3339Nano), c.CreatedBy, c.StatusSince.Format(time.RFC3339Nano))
 	return err
 }
 

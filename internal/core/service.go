@@ -24,7 +24,7 @@ type Service struct {
 	store   Store
 	bus     Bus
 	emitter *Emitter
-	now     func() time.Time
+	clock   Clock
 
 	// condState tracks the last-known crossing state per (board, column,
 	// condition-kind) key so a condition fires only on a state crossing, not
@@ -36,15 +36,34 @@ type Service struct {
 	condState map[string]bool
 }
 
+// now returns the service's current time (via its Clock) — a method, not a
+// field, so every existing s.now() call site is unaffected by the seam 3d
+// clock-injection seam below.
+func (s *Service) now() time.Time { return s.clock.Now() }
+
+// ServiceOption configures optional Service construction behavior. See
+// WithClock.
+type ServiceOption func(*Service)
+
+// WithClock overrides the Service's time source (production default:
+// wallClock). Tests use a clocktest.Fake to drive stamping and the seam 3d
+// deadline scheduler deterministically, with no real sleeps.
+func WithClock(c Clock) ServiceOption {
+	return func(s *Service) { s.clock = c }
+}
+
 // NewService binds loaded config + a Store implementation.
-func NewService(ws *Workspace, types map[string]*CardType, boards map[string]*Board, st Store) *Service {
-	now := func() time.Time { return time.Now().UTC() }
+func NewService(ws *Workspace, types map[string]*CardType, boards map[string]*Board, st Store, opts ...ServiceOption) *Service {
 	bus := NewBus()
 	svc := &Service{
 		ws: ws, types: types, boards: boards, store: st,
-		bus: bus, emitter: newEmitter(st, bus, now), now: now,
+		bus: bus, clock: wallClock{},
 		condState: map[string]bool{},
 	}
+	for _, opt := range opts {
+		opt(svc)
+	}
+	svc.emitter = newEmitter(st, bus, svc.clock.Now)
 	// Escalate any condition types the workspace opted into persisting (3b).
 	if len(ws.Settings.PersistConditions) > 0 {
 		esc := make([]EventType, 0, len(ws.Settings.PersistConditions))
@@ -384,6 +403,7 @@ func (s *Service) CreateCard(ctx context.Context, req CreateCardRequest) (*Card,
 		CreatedAt:     now,
 		UpdatedAt:     now,
 		CreatedBy:     actor,
+		StatusSince:   now, // entering its initial status now (seam 3d)
 	}
 	if req.DryRun {
 		return c, nil
@@ -460,6 +480,7 @@ func (s *Service) PatchCard(ctx context.Context, id string, req PatchCardRequest
 		}
 		events = append(events, StatusChanged(id, current.Status, newStatus))
 		next.Status = newStatus
+		next.StatusSince = now // entering the new status now (seam 3d)
 	}
 
 	// owner

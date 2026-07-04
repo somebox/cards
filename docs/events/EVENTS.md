@@ -483,9 +483,16 @@ machinery has validated the Signal / Emit / `persist:true` paths.
   card-state-immutability assertion (§2 principle 4 — the core records, it
   does not act), a `Blockers` ≡ `CardQuery.Blocked` agreement test, and the
   escalated-append-failure-is-logged-not-fatal case (§8 point 7).
-- **3d — deadline scheduler.** Min-heap keyed by earliest deadline; no fixed
+- **3d — deadline scheduler.** Enablers `[built]`: a `Clock` seam
+  (`core.WithClock`, production `wallClock` default, `clocktest.Fake` for
+  tests — waitable, not just readable, so the scheduler can be driven without
+  real sleeps) and the `status_since` column itself (additive migration,
+  backfilled from the latest `status_changed` event or `created_at`;
+  maintained by `CreateCard`/`PatchCard`/`ClaimAtomic` — flips only on a real
+  status change, preserved by every other mutation). The scheduler machinery
+  itself is next. Min-heap keyed by earliest deadline; no fixed
   tick; sleeps until the next deadline; empty heap = zero wakeups. Deadlines are
-  reconstructible from a denormalized `status_since` column + a fired-marker
+  reconstructible from the `status_since` column + a fired-marker
   keyed by (card, status, status_since) — nothing is persisted for scheduling
   itself. Lazy / refcounted: a monitor is armed only while it has a live consumer
   (SSE filter, hook/webhook, or `persist:true`) and dropped when the last

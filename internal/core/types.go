@@ -253,6 +253,11 @@ type Card struct {
 	CreatedAt     time.Time `json:"created_at"`
 	UpdatedAt     time.Time `json:"updated_at"`
 	CreatedBy     string    `json:"created_by"`
+	// StatusSince is when the card entered its current Status — server-
+	// maintained (never client-writable), used to arm seam 3d/3e temporal
+	// deadlines (status_timeout/card_idle). Set at creation and on every
+	// status change; unaffected by any other mutation.
+	StatusSince time.Time `json:"status_since,omitempty"`
 }
 
 // EventType enumerates append-only event kinds. See SPEC.md §4/§8.
