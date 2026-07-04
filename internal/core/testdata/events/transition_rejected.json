@@ -1,0 +1,13 @@
+{
+  "id": 0,
+  "card_id": "c1",
+  "version": 1,
+  "type": "transition_rejected",
+  "actor": "",
+  "at": "0001-01-01T00:00:00Z",
+  "diff": {
+    "from": "review",
+    "to": "backlog",
+    "board_id": "eng"
+  }
+}

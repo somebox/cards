@@ -402,7 +402,7 @@ Shift-left checks:
 ### 11.2 Condition signals
 
 Examples: `status_timeout`, `card_idle`, `wip_exceeded` `[built, 3a]`,
-`lane_drained` `[built, 3c]`, `transition_rejected`.
+`lane_drained` `[built, 3c]`, `transition_rejected` `[built]`.
 
 Default to `Signal`; promote to durable fact only if recovery/audit use-cases
 require replay.

@@ -5,7 +5,7 @@
   "card_type_ids": ["programming-task", "research-goal"],
   "settings": { "enforce_transitions": true },
   "wip_limits": { "in_progress": 3 },
-  "monitors": { "alert_when_empty": ["todo"] },
+  "monitors": { "alert_when_empty": ["todo"], "emit_rejections": true },
   "transitions": {
     "backlog": ["todo"],
     "todo": ["in_progress"],

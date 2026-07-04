@@ -218,6 +218,11 @@ type BoardMonitors struct {
 	// a column crossing to/from zero matching cards fires the corresponding
 	// signal. Shares the same column census as WIPLimits (3c).
 	AlertWhenEmpty []string `json:"alert_when_empty,omitempty"`
+	// EmitRejections opts a board into transition_rejected: every PatchCard
+	// status move refused by EnforceTransitions fires the event (unless
+	// Force bypassed the check). Off by default — most integrators don't
+	// want a signal for every misclick.
+	EmitRejections bool `json:"emit_rejections,omitempty"`
 }
 
 // View is a named filter plus optional URL binding. Read-only in v1.

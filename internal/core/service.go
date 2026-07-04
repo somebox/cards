@@ -435,6 +435,15 @@ func (s *Service) PatchCard(ctx context.Context, id string, req PatchCardRequest
 		if b := s.boardForCard(current); b != nil && b.Settings.EnforceTransitions && !req.Force {
 			allowed, ok := b.Transitions[current.Status]
 			if ok && !contains(allowed, newStatus) {
+				// Opt-in: TakeNext never reaches this branch (it pre-filters
+				// candidates to legal from-statuses), so only a genuinely
+				// attempted-and-refused PatchCard move fires it. (3c)
+				if b.Monitors != nil && b.Monitors.EmitRejections {
+					ev := TransitionRejected(id, current.Status, newStatus, b.ID)
+					if err := s.emitter.Condition(ctx, ev); err != nil {
+						log.Printf("ERROR: escalated condition append failed (type=%s card=%s): %v", ev.Type, id, err)
+					}
+				}
 				return nil, newTransitionIllegal(current.Status, allowed)
 			}
 		}

@@ -366,12 +366,12 @@ by priority — the *policy* (which card, when) lives in the extension, the
 ## Build order
 
 1. ~~Actor/owner stream filters + `GET /v1/events` feed (observe: watch/follow).~~ **[done]**
-2. Board-scoped event model (`scope`, nullable `card_id`, `board_id`).
+2. ~~Board-scoped event model (`scope`, nullable `card_id`, `board_id`).~~ **[done]**
 3. `status_since` denormalized column (arming temporal deadlines).
-4. Monitors + instant condition events (WIP, empty lane, blocked) — synchronous.
+4. ~~Monitors + instant condition events (WIP, empty lane, blocked) — synchronous.~~ **[done]**
 5. Deadline-heap evaluator + temporal events (time-in-status, idle), lazy/refcounted.
 6. `GET /v1/breaches` (current-conditions catch-up for the ephemeral signals).
-7. `transition_rejected` (watch friction).
+7. ~~`transition_rejected` (watch friction).~~ **[done]**
 8. Artifact upload (attach files).
 9. `card_ready`/`card_unblocked` (DAG coordination).
 10. Priority/rank + reprioritize-on-`lane_drained`.

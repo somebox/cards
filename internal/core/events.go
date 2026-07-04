@@ -251,6 +251,19 @@ func CardUnblocked(cardID string) *Event {
 	return CardEvent(cardID, EventCardUnblocked, BlockedDiff{Blockers: []string{}})
 }
 
+// TransitionRejectedDiff is the payload of transition_rejected: an
+// EnforceTransitions board refused a status move. Opt-in via
+// board.monitors.emit_rejections. Card-scoped, ephemeral by default.
+type TransitionRejectedDiff struct {
+	From    string `json:"from"`
+	To      string `json:"to"`
+	BoardID string `json:"board_id"`
+}
+
+func TransitionRejected(cardID, from, to, boardID string) *Event {
+	return CardEvent(cardID, EventTransitionRejected, TransitionRejectedDiff{From: from, To: to, BoardID: boardID})
+}
+
 // CardCreatedDiff is the payload of card_created.
 type CardCreatedDiff struct {
 	Card CardRef `json:"card"`

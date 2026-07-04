@@ -314,6 +314,86 @@ func TestConditions_BlockersAgreesWithCardQueryBlocked(t *testing.T) {
 	}
 }
 
+// newRejectionWatchedService is newTestService with the "eng" board opted
+// into transition_rejected (WIPLimits/Transitions/EnforceTransitions are
+// unchanged from testConfig).
+func newRejectionWatchedService(t *testing.T) (*core.Service, *sqlite.Store) {
+	t.Helper()
+	ws, types, boards := testConfig()
+	boards["eng"].Monitors = &core.BoardMonitors{EmitRejections: true}
+	return newTestServiceWith(t, ws, types, boards)
+}
+
+// transition_rejected is opt-in: only a PatchCard move genuinely refused by
+// EnforceTransitions fires it (not Force, not TakeNext — which pre-filters
+// candidates to legal from-statuses, so it never attempts an illegal move).
+func TestConditions_TransitionRejected(t *testing.T) {
+	svc, _ := newRejectionWatchedService(t) // eng: todo->in_progress legal, todo->done is not
+	ctx := core.WithActor(context.Background(), "u")
+
+	sub := svc.Bus().Subscribe(core.EventFilter{Types: []string{"transition_rejected"}}, 8)
+	defer svc.Bus().Unsubscribe(sub.ID)
+
+	c := mkTask(t, svc, ctx, "A", "todo")
+	illegal := "done"
+	if _, err := svc.PatchCard(ctx, c.ID, core.PatchCardRequest{Version: c.Version, Status: &illegal, Actor: "u"}); err == nil {
+		t.Fatal("expected the illegal transition to be rejected")
+	}
+	got := drain(sub.Ch)
+	if len(got) != 1 || got[0].Type != core.EventTransitionRejected || got[0].CardID != c.ID {
+		t.Fatalf("expected transition_rejected, got %+v", got)
+	}
+	diff, ok := got[0].Diff.(core.TransitionRejectedDiff)
+	if !ok || diff.From != "todo" || diff.To != "done" || diff.BoardID != "eng" {
+		t.Fatalf("transition_rejected diff = %+v, want from=todo to=done board=eng", got[0].Diff)
+	}
+
+	// Force bypasses the check entirely — no rejection to report.
+	if _, err := svc.PatchCard(ctx, c.ID, core.PatchCardRequest{Version: c.Version, Status: &illegal, Actor: "u", Force: true}); err != nil {
+		t.Fatalf("forced move should succeed: %v", err)
+	}
+	if got := drain(sub.Ch); len(got) != 0 {
+		t.Fatalf("no transition_rejected expected for a forced move, got %+v", got)
+	}
+}
+
+func TestConditions_TransitionRejectedOptOut(t *testing.T) {
+	svc, _ := newTestService(t) // default monitors: EmitRejections unset
+	ctx := core.WithActor(context.Background(), "u")
+
+	sub := svc.Bus().Subscribe(core.EventFilter{Types: []string{"transition_rejected"}}, 8)
+	defer svc.Bus().Unsubscribe(sub.ID)
+
+	c := mkTask(t, svc, ctx, "A", "todo")
+	illegal := "done"
+	if _, err := svc.PatchCard(ctx, c.ID, core.PatchCardRequest{Version: c.Version, Status: &illegal, Actor: "u"}); err == nil {
+		t.Fatal("expected the illegal transition to be rejected")
+	}
+	if got := drain(sub.Ch); len(got) != 0 {
+		t.Fatalf("no transition_rejected expected without emit_rejections, got %+v", got)
+	}
+}
+
+// TakeNext restricts candidates to statuses that can legally reach the
+// requested one — it never attempts (and so never gets refused for) an
+// illegal move, so transition_rejected must not fire from it.
+func TestConditions_TransitionRejectedNeverFromTakeNext(t *testing.T) {
+	svc, _ := newRejectionWatchedService(t)
+	ctx := core.WithActor(context.Background(), "u")
+
+	sub := svc.Bus().Subscribe(core.EventFilter{Types: []string{"transition_rejected"}}, 8)
+	defer svc.Bus().Unsubscribe(sub.ID)
+
+	mkTask(t, svc, ctx, "A", "todo")
+	c, err := svc.TakeNext(ctx, core.TakeNextRequest{BoardID: "eng", Status: "in_progress", Actor: "u"})
+	if err != nil || c == nil {
+		t.Fatalf("take-next: card=%v err=%v", c, err)
+	}
+	if got := drain(sub.Ch); len(got) != 0 {
+		t.Fatalf("TakeNext must never fire transition_rejected, got %+v", got)
+	}
+}
+
 // failingAppendStore wraps a real Store and fails Append for one event type,
 // simulating a durable-append failure on the escalated path without touching
 // production code.
