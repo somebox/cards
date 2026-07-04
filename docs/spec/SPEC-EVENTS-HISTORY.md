@@ -34,6 +34,25 @@
 | `artifact_added` | `{ field, uri, sha256 }` *(reserved for when the artifacts subsystem — §6 — is implemented; not currently emitted)* |
 | `definition_reloaded` | `{ kind: "workspace"|"board"|"card_type", id }` *(reserved for when definition reload lands; not currently emitted)* |
 
+### Condition events (reactive signals)
+
+Condition events are **derived** — the core emits them when a board threshold
+crosses, it never acts on them. By default they are **ephemeral** (delivered
+to live SSE subscribers only, not persisted); a type listed in
+`settings.persist_conditions` is escalated to the durable log and replays from
+the feed. Instant conditions also have a current-state catch-up query,
+`GET /breaches`. See docs/events/EVENTS.md and docs/events/INTEGRATION.md.
+
+| Event type | scope | `diff` |
+|------------|-------|--------|
+| `wip_exceeded` / `wip_cleared` | board | `{ column, count, limit }` |
+| `lane_drained` / `lane_refilled` | board | `{ column, count }` |
+| `card_blocked` | card | `{ blockers: [card_id] }` |
+| `card_unblocked` | card | `{ blockers: [] }` |
+| `transition_rejected` | card | `{ from, to, board_id }` *(opt-in via `board.monitors.emit_rejections`)* |
+| `status_timeout` | card | `{ status, since, max }` *(temporal; armed by `board.monitors.max_time_in_status`)* |
+| `card_idle` | card | `{ since, threshold }` *(temporal; armed by `board.monitors.idle_after`)* |
+
 ### History as agent-resumption context
 
 Because events are structured and faithful, `GET /cards/:id/history` renders a

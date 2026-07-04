@@ -37,6 +37,13 @@ File: `definitions/boards/<board_id>.json`
     "review": ["done", "in_progress"],
     "done": []
   },
+  "wip_limits": { "in_progress": 3 },
+  "monitors": {
+    "alert_when_empty": ["todo"],
+    "emit_rejections": true,
+    "max_time_in_status": { "review": "168h" },
+    "idle_after": "72h"
+  },
   "presentation": {
     "lane_group_by": "status",
     "card_preview": {
@@ -54,6 +61,25 @@ File: `definitions/boards/<board_id>.json`
 `card_type_ids` is sugar merged into `default_filter` as `type_id $in [...]`.
 Boards do not own cards; they filter workspace cards for UI and `board_id`
 queries.
+
+**`wip_limits`** caps cards per column; crossing a limit fires
+`wip_exceeded`/`wip_cleared`. **`monitors`** declares reactive-condition
+watchers:
+
+| Field | Fires | Notes |
+|---|---|---|
+| `alert_when_empty` | `lane_drained` / `lane_refilled` | columns to watch cross 0 |
+| `emit_rejections` | `transition_rejected` | opt-in; off by default (noise) |
+| `max_time_in_status` | `status_timeout` | column → max duration (`"168h"`, `"7d"`) |
+| `idle_after` | `card_idle` | duration with no card mutation |
+
+Condition events are **ephemeral** (SSE-only) unless the type is listed in
+**`settings.persist_conditions`** in `workspace.json` (e.g.
+`"persist_conditions": ["wip_exceeded"]`), which escalates it to the durable
+event log so it replays from `GET /events` and `cards feed`. Current condition
+state is also queryable on demand via `GET /breaches` / `cards breaches`.
+The `presentation.filters` saved filters are applied by the board UI (a `"me"`
+owner value resolves to the viewing actor). See docs/events/EVENTS.md.
 
 ### View
 File: `definitions/views/<view_id>.json`

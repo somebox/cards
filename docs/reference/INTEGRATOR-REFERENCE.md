@@ -312,21 +312,25 @@ artifact-upload route or emit site exists yet — see `INTEGRATION.md`
 Act/Build-order #8) and `definition_reloaded` (constant declared; no reload
 handler or file watching — see §6 below). Both are [proposed], not built.
 
-### Condition events [proposed] — `INTEGRATION.md`
+### Condition events [built] — `internal/core/types.go`, `INTEGRATION.md`
 
-`status_timeout`, `card_idle`, `lane_drained`/`lane_refilled`,
-`card_blocked`/`card_unblocked`, `transition_rejected`
-(`wip_exceeded`/`wip_cleared` are already built as ephemeral signals — see §4).
-Declared as board **monitors** (data, not code), emitted
-by the core onto the **same bus** as mutation events. **Not yet in the code** —
-none of these constants exist today; monitors and the deadline evaluator are
-designed in `INTEGRATION.md`, not built. `persist: true` (record a monitor's
-events in the durable feed) is part of that design and **[proposed]**.
+`wip_exceeded`/`wip_cleared`, `lane_drained`/`lane_refilled`,
+`card_blocked`/`card_unblocked`, `transition_rejected` (opt-in), and the
+temporal `status_timeout`/`card_idle`. Declared as board **monitors** (data,
+not code — `board.monitors` + `wip_limits`), emitted by the core onto the
+**same bus** as mutation events, and evaluated through one seam
+(`Emitter.Condition`). Instant conditions evaluate synchronously on the
+triggering mutation; temporal conditions run through a tickless deadline
+scheduler armed from `status_since`. By default they are **ephemeral**
+(SSE-only); `settings.persist_conditions` escalates named types to the durable
+feed (`persist: true`). See `docs/events/EVENTS.md` §12 and `INTEGRATION.md`.
 
-### `GET /v1/breaches` [proposed]
+### `GET /v1/breaches` [built]
 
-The on-demand "which cards currently violate which monitors" query — the
-catch-up path for the (ephemeral) condition events. Designed, not built.
+The on-demand "which conditions are currently true" query — WIP-exceeded
+columns, drained lanes, and blocked cards — the catch-up path for the
+(ephemeral) instant condition events. `?board_id=&type=`. Temporal conditions
+(`status_timeout`/`card_idle`) are not yet included in this report.
 
 ### Three ways to consume [built]
 

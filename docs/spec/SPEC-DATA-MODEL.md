@@ -164,11 +164,24 @@ Board {
   card_type_ids   string[]       // sugar; merged into default_filter
   default_filter  Filter (optional)
   transitions     object (optional)  // from status -> [next statuses]
+  wip_limits      map[column]int (optional)  // column -> max; crossing fires wip_exceeded/wip_cleared
+  monitors        BoardMonitors (optional)   // reactive-condition watchers (see below)
   presentation    BoardPresentation (optional)
   theme           map[string]string (optional) // design-token overrides, whitelisted (docs/DESIGN.md §Theming)
   settings        { enforce_transitions: bool }
 }
+
+BoardMonitors {
+  alert_when_empty    string[] (optional)     // columns to watch for lane_drained/lane_refilled
+  emit_rejections     bool (optional)         // fire transition_rejected on refused status moves
+  max_time_in_status  map[column]duration (optional)  // arm status_timeout (e.g. {"review":"168h"})
+  idle_after          duration (optional)     // arm card_idle after no mutation for this long
+}
 ```
+
+Durations use Go's `time.ParseDuration` syntax plus a `d` (days) suffix it
+lacks — e.g. `"168h"`, `"7d"`, `"72h"`. See docs/events/EVENTS.md for the
+condition semantics.
 `card_type_ids` is sugar: it is merged into `default_filter` as
 `type_id $in [...]`. Either may be used; both may appear.
 
@@ -298,14 +311,21 @@ Card {
   comments        Comment[]
   version         int             // optimistic concurrency; increments per mutation
   created_at      timestamp       // server-set
-  updated_at      timestamp       // server-set
+  updated_at      timestamp       // server-set (any mutation)
+  status_since    timestamp       // server-set; when the card entered its current status
   created_by      string
 }
 ```
 
+`status_since` is maintained server-side: set at creation and reset only on a
+real status change (unaffected by other mutations), so it — not `updated_at` —
+answers "how long has this been in review?". It arms the temporal condition
+monitors (`status_timeout`; see §events). Server-set, never client-writable.
+
 **Universal envelope** (not in `fields`): `id`, `workspace_id`, `type_id`,
 `schema_version`, `title`, `status`, `owner`, `tags`, `links`, `comments`,
-`version`, timestamps, `created_by`. Custom data lives in `fields` only.
+`version`, timestamps, `status_since`, `created_by`. Custom data lives in
+`fields` only.
 
 > **Note:** `GET /cards` (list) responses omit `links`/`comments` for
 > performance (not loaded on the list path); `GET /cards/:id` includes them.

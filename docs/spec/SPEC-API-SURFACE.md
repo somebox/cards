@@ -61,11 +61,21 @@ implementation — header only.)
   no trigger endpoint yet).
 
 ### Boards and views
-**Not yet implemented as dedicated `/v1` routes.** Boards are currently
-only reachable via the `boards` map embedded in `GET /workspace`; there is no
-standalone `GET /boards`, `GET /boards/:id`, or `GET /views/:id/cards` route
-in the router today (only an HTML `GET /ui/boards/{id}` exists, outside the
-JSON API). Treat this subsection as a planned addition.
+- `GET /boards/:board_id` → **implemented** (see "Workspace and definitions"
+  above): one board's definition. Boards are also embedded in the `boards`
+  map of `GET /workspace`.
+- `GET /views/:id/cards` → **not yet implemented**. Named views
+  (`presentation.filters`) are applied by the HTML board UI but have no
+  dedicated JSON route.
+
+### Conditions
+- `GET /breaches?board_id=&type=` → **implemented**: the current-conditions
+  catch-up query — which board columns exceed their WIP limit, which watched
+  lanes are drained, and which cards are blocked right now. Returns
+  `{as_of, items:[{type, scope, board_id?, card_id?, column?, count?, limit?,
+  blockers?}]}`. The counterpart to the ephemeral condition signals on the
+  SSE stream (`GET /events/stream`); does not yet include temporal conditions
+  (`status_timeout`/`card_idle`). See docs/events/INTEGRATION.md.
 
 ### Users
 - `POST /users` → register (workspace-scoped).

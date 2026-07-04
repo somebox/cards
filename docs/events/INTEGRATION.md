@@ -132,7 +132,7 @@ A direct, synchronous consequence of an API call. Always card-scoped.
 | `schema_upgraded` | a card is re-pinned to a new schema version |
 | `definition_reloaded` **[proposed]** | workspace definitions reload (constant declared; no reload trigger implemented — restart to reload) |
 
-### Condition events — emitted when a declared threshold crosses **[proposed]**
+### Condition events — emitted when a declared threshold crosses **[built]**
 
 Not tied to a single write. Declared as **monitors** (below) and emitted by the
 core's evaluator. Two trigger kinds:
@@ -157,7 +157,7 @@ Condition events flow onto the **same** bus as mutation events, so every
 consumer below receives them identically. Unlike mutation events they are
 **ephemeral and derived** — see [Ephemeral signals](#condition-events-are-ephemeral).
 
-## Monitors — declaring conditions **[proposed]**
+## Monitors — declaring conditions **[built]**
 
 Monitors are data, not code (schema-is-the-process). Declared per board (or
 workspace defaults), they tell the core which condition events to emit:
@@ -283,7 +283,7 @@ the live stream.) Recovery is therefore: read the feed from your last id, paging
 on `cursor`, until `next_cursor` is empty → open the stream with `Last-Event-ID`
 set to that id. No event is lost between the two.
 
-### Current breaches (catch-up for conditions) **[proposed]**
+### Current breaches (catch-up for conditions) **[built]**
 ```
 GET /v1/breaches?board_id=&type=         (or GET /v1/cards?breaching=status_timeout)
 ```
