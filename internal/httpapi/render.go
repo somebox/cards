@@ -79,6 +79,7 @@ type FieldView struct {
 type ViewData struct {
 	Title         string
 	Theme         string // active UI theme name for html[data-theme] (empty = default)
+	Actor         string // resolved UI actor (CARDS_USER → workspace default); sent as X-Work-Cards-Actor by the board JS
 	Boards        map[string]*core.Board
 	Board         *core.Board
 	Columns       []core.Column
@@ -112,7 +113,19 @@ type ViewData struct {
 }
 
 func (s *Server) baseData(title string) ViewData {
-	return ViewData{Title: title, Boards: s.boards}
+	return ViewData{Title: title, Boards: s.boards, Actor: s.uiActor()}
+}
+
+// uiActor is the identity the server-rendered UI acts as: CARDS_USER if set,
+// else the workspace default_user. There is no per-request browser header
+// (the UI is the trusted-local surface), so this is the single injected
+// actor the board JS sends as X-Work-Cards-Actor — replacing the old
+// hardcoded 'foz'.
+func (s *Server) uiActor() string {
+	if s.envUser != "" {
+		return s.envUser
+	}
+	return s.ws.Settings.DefaultUser
 }
 
 // shortID = first 8 hex after the "card_" prefix (card_fca1f3d5… -> fca1f3d5).

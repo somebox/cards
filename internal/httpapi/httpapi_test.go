@@ -155,7 +155,7 @@ func TestAPIActorResolution(t *testing.T) {
 	resp, out := do(t, ts, "POST", "/v1/cards", core.CreateCardRequest{
 		TypeID: "programming-task", Title: "T", Status: "todo",
 		Fields: map[string]any{"description": "d", "branch": "b"},
-		Actor: "", // service requires actor; httpapi.withActor injects default
+		Actor:  "", // service requires actor; httpapi.withActor injects default
 	}, nil)
 	// The API path uses withActor which resolves default_user.
 	if resp.StatusCode != 201 {
@@ -195,6 +195,23 @@ func TestUIBoardRendersCards(t *testing.T) {
 	}
 	if !strings.Contains(body, "Backlog") || !strings.Contains(body, "To Do") {
 		t.Error("board does not render column names")
+	}
+}
+
+func TestUIBoardInjectsActor(t *testing.T) {
+	ts, _ := newServer(t)
+	resp, body := doGet(t, ts, "/ui/boards/engineering")
+	if resp.StatusCode != 200 {
+		t.Fatalf("status %d", resp.StatusCode)
+	}
+	// The layout injects the resolved UI actor (workspace default_user here,
+	// no CARDS_USER set in tests) as CARDS_ACTOR; html/template quotes it.
+	if !strings.Contains(body, `var CARDS_ACTOR = "local-dev";`) {
+		t.Errorf("board does not inject CARDS_ACTOR with default_user; body missing the marker")
+	}
+	// The old hardcoded actor must be gone from the shipped UI.
+	if strings.Contains(body, "foz") {
+		t.Error("board still contains the hardcoded 'foz' actor")
 	}
 }
 
@@ -277,7 +294,7 @@ func TestLifecycleExampleA(t *testing.T) {
 
 	// A5 — append a work_log entry (stable entry_id returned).
 	resp, appended := do(t, ts, "POST", "/v1/cards/"+authAPI+"/fields/work_log/append", map[string]any{
-		"entry": map[string]any{"commit_hash": "a1b2c3", "notes": "handler", "author": "coder-agent", "timestamp": "2026-06-25T14:30:00Z"},
+		"entry":   map[string]any{"commit_hash": "a1b2c3", "notes": "handler", "author": "coder-agent", "timestamp": "2026-06-25T14:30:00Z"},
 		"version": 2,
 	}, H)
 	if resp.StatusCode != 200 {

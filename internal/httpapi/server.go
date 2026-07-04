@@ -161,8 +161,6 @@ func (s *Server) Router() http.Handler {
 	r.Post("/ui/cards", s.uiCreateCard)
 	r.Get("/ui/cards/{id}", s.uiCardDetail)
 	r.Get("/ui/cards/{id}/modal", s.uiCardModal)
-	r.Post("/ui/cards/{id}/move", s.uiMoveCard)
-	r.Post("/ui/cards/{id}/field", s.uiEditField)
 	r.Post("/ui/cards/{id}/save", s.uiSaveCard)
 
 	return r

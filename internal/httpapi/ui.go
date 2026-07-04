@@ -188,17 +188,6 @@ func (s *Server) boardData(r *http.Request, b *core.Board) (ViewData, error) {
 	return data, nil
 }
 
-// renderBoardPartial re-renders the whole board partial (htmx swap target),
-// falling back to a 500 when the board's cards can't be loaded.
-func (s *Server) renderBoardPartial(w http.ResponseWriter, r *http.Request, b *core.Board) {
-	data, err := s.boardData(r, b)
-	if err != nil {
-		http.Error(w, "failed to load board", http.StatusInternalServerError)
-		return
-	}
-	s.renderPartial(w, "board.html", data)
-}
-
 func (s *Server) uiNewCardForm(w http.ResponseWriter, r *http.Request) {
 	typeID := r.URL.Query().Get("type")
 	if typeID == "" {
@@ -326,98 +315,6 @@ func (s *Server) renderCardAmbiguous(w http.ResponseWriter, r *http.Request, amb
 	data.Error = &core.Error{Code: "ambiguous", Message: amb.Short, HTTPStatus: 409}
 	data.Candidates = amb.Candidates
 	s.renderPage(w, r, "card_ambiguous.html", data)
-}
-
-func (s *Server) uiMoveCard(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "id")
-	if err := r.ParseForm(); err != nil {
-		http.Error(w, "bad form", http.StatusBadRequest)
-		return
-	}
-	c := s.loadCardUI(w, r, id)
-	if c == nil {
-		return
-	}
-	b := s.boardForCard(c)
-	newStatus := r.FormValue("status")
-	v := newStatus
-	req := core.PatchCardRequest{
-		Version: c.Version,
-		Status:  &v,
-		Actor:   s.ws.Settings.DefaultUser,
-	}
-	_, err := s.svc.PatchCard(r.Context(), id, req)
-	if err != nil {
-		// On error, re-render whichever surface the move came from.
-		if r.FormValue("from") == "detail" {
-			s.renderCardDetail(w, r, c, core.AsError(err))
-		} else if b != nil {
-			s.renderBoardPartial(w, r, b)
-		} else {
-			s.renderCardDetail(w, r, c, core.AsError(err))
-		}
-		return
-	}
-	// Success: detail move → re-render detail partial; board move → re-render
-	// the whole board so the card appears in its new column.
-	if r.FormValue("from") == "detail" && wantsPartial(r) {
-		updated := s.loadCardUI(w, r, id)
-		if updated == nil {
-			return
-		}
-		s.renderCardDetail(w, r, updated, nil)
-		return
-	}
-	if b != nil {
-		if wantsPartial(r) {
-			s.renderBoardPartial(w, r, b)
-			return
-		}
-		http.Redirect(w, r, "/ui/boards/"+b.ID, http.StatusSeeOther)
-		return
-	}
-	http.Redirect(w, r, "/", http.StatusSeeOther)
-}
-
-func (s *Server) uiEditField(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "id")
-	if err := r.ParseForm(); err != nil {
-		http.Error(w, "bad form", http.StatusBadRequest)
-		return
-	}
-	c := s.loadCardUI(w, r, id)
-	if c == nil {
-		return
-	}
-	req := core.PatchCardRequest{
-		Version: c.Version,
-		Actor:   s.ws.Settings.DefaultUser,
-		Fields:  map[string]any{},
-	}
-	if v := r.FormValue("title"); v != "" && v != c.Title {
-		t := v
-		req.Title = &t
-	}
-	if owner := r.FormValue("owner"); owner != c.Owner {
-		o := owner
-		req.Owner = &o
-	}
-	if tagsVal, ok := getFormIfPresent(r, "tags"); ok {
-		tags := parseTags(tagsVal)
-		req.Tags = &tags
-	}
-	for k := range r.Form {
-		if strings.HasPrefix(k, "field:") {
-			fid := strings.TrimPrefix(k, "field:")
-			req.Fields[fid] = r.FormValue(k)
-		}
-	}
-	updated, err := s.svc.PatchCard(r.Context(), id, req)
-	if err != nil {
-		s.renderCardDetail(w, r, c, core.AsError(err))
-		return
-	}
-	s.renderCardDetail(w, r, updated, nil)
 }
 
 // uiSaveCard is the modal's single save endpoint: gathers title/status/owner/

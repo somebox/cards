@@ -22,6 +22,9 @@
   <div id="toasts" class="toasts"></div>
   <dialog id="card-modal" class="modal" aria-modal="true"></dialog>
   <script>
+  // The identity the server-rendered UI acts as (CARDS_USER → workspace
+  // default), injected server-side. Sent as X-Work-Cards-Actor on board writes.
+  var CARDS_ACTOR = {{.Actor}};
   // ---- Toasts ----
   function toast(msg, kind) {
     var c = document.getElementById('toasts');
@@ -195,7 +198,7 @@
         // board), retry with force=true after a confirm (force-move).
         return fetch('/v1/cards/' + cardID, {
           method:'PATCH',
-          headers:{'Content-Type':'application/json','X-Work-Cards-Actor':'foz','Idempotency-Key':'move-'+cardID+'-to-'+status},
+          headers:{'Content-Type':'application/json','X-Work-Cards-Actor':CARDS_ACTOR,'Idempotency-Key':'move-'+cardID+'-to-'+status},
           body: JSON.stringify({version: c.version, status: status})
         }).then(function(r){
           if (r.status === 422) {
@@ -207,7 +210,7 @@
                   .then(function(c2){
                     return fetch('/v1/cards/' + cardID, {
                       method:'PATCH',
-                      headers:{'Content-Type':'application/json','X-Work-Cards-Actor':'foz','Idempotency-Key':'force-'+cardID+'-to-'+status},
+                      headers:{'Content-Type':'application/json','X-Work-Cards-Actor':CARDS_ACTOR,'Idempotency-Key':'force-'+cardID+'-to-'+status},
                       body: JSON.stringify({version: c2.version, status: status, force: true})
                     });
                   });
@@ -237,7 +240,7 @@
       .then(function(c){
         return fetch('/v1/cards/' + cardID + '/release', {
           method:'POST',
-          headers:{'Content-Type':'application/json','X-Work-Cards-Actor':'foz','Idempotency-Key':'release-'+cardID},
+          headers:{'Content-Type':'application/json','X-Work-Cards-Actor':CARDS_ACTOR,'Idempotency-Key':'release-'+cardID},
           body: JSON.stringify({version: c.version})
         });
       })
