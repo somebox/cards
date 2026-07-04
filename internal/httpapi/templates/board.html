@@ -4,7 +4,16 @@
 <div class="board-view" data-board="{{.Board.ID}}"{{with boardStyle .Board}} style="{{.}}"{{end}}>
 <h1 class="page-title">{{.Board.Name}}</h1>
 {{if .Board.Description}}<p class="muted">{{.Board.Description}}</p>{{end}}
-{{template "search_form" (dict "Action" (printf "/ui/boards/%s" .Board.ID) "Query" .Query)}}
+<div class="board-controls">
+  {{template "search_form" (dict "Action" (printf "/ui/boards/%s" .Board.ID) "Query" .Query)}}
+  <form class="board-sort" method="get" action="/ui/boards/{{.Board.ID}}">
+    {{if .Query}}<input type="hidden" name="q" value="{{.Query}}">{{end}}
+    <label class="board-sort__label" for="board-sort">Sort</label>
+    <select class="select" id="board-sort" name="sort" onchange="this.form.submit()">
+      {{range .SortOptions}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>{{end}}
+    </select>
+  </form>
+</div>
 <div class="board" id="board">
   {{range $col := .Columns}}
   <section class="lane">

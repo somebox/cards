@@ -179,19 +179,24 @@ func (s *Server) uiBreaches(w http.ResponseWriter, r *http.Request) {
 // board's primary content — so a failing store never renders as empty columns.
 func (s *Server) boardData(r *http.Request, b *core.Board) (ViewData, error) {
 	q := r.URL.Query().Get("q")
-	all := []core.Card{}
-	for _, t := range b.CardTypeIDs {
-		cq := core.CardQuery{TypeID: t, Limit: 200}
-		if q != "" {
-			cq.Q = q
-			cq.IDLike = q // scoped to this board's types (1d)
-		}
-		page, err := s.svc.ListCards(r.Context(), cq)
-		if err != nil {
-			return ViewData{}, fmt.Errorf("board %s: list %s cards: %w", b.ID, t, err)
-		}
-		all = append(all, page.Items...)
+	// Sort precedence: ?sort= request param > board lane_sort > default order.
+	sort := r.URL.Query().Get("sort")
+	if sort == "" && b.Presentation != nil {
+		sort = b.Presentation.LaneSort
 	}
+	// One query across all of the board's types (not a per-type loop that
+	// concatenated separately-ordered pages), so each lane is globally ordered
+	// by the resolved sort by construction.
+	cq := core.CardQuery{TypeIDIn: b.CardTypeIDs, Sort: sort, Limit: 200}
+	if q != "" {
+		cq.Q = q
+		cq.IDLike = q // scoped to this board's types (1d)
+	}
+	page, err := s.svc.ListCards(r.Context(), cq)
+	if err != nil {
+		return ViewData{}, fmt.Errorf("board %s: list cards: %w", b.ID, err)
+	}
+	all := page.Items
 	byCol := map[string][]CardView{}
 	colSet := map[string]bool{}
 	for _, c := range b.Columns {
@@ -237,7 +242,42 @@ func (s *Server) boardData(r *http.Request, b *core.Board) (ViewData, error) {
 	data.TypeThemes = s.buildTypeThemes()
 	data.Query = q
 	data.SSETypes = boardSSETypes()
+	// The resolved sort drives the header selector's selected state. An empty
+	// resolved sort renders as the default "Recently updated" option (which
+	// produces the same order the store applies for the zero Sort).
+	active := sort
+	if active == "" {
+		active = "-updated_at"
+	}
+	data.ActiveSort = active
+	data.SortOptions = boardSortOptions(active, b)
 	return data, nil
+}
+
+// boardSortOptions builds the board header's sort selector. The presets cover
+// the common orders; a board-declared lane_sort that isn't one of them is
+// surfaced as a leading "Board default" option so the configured order is
+// selectable by name.
+func boardSortOptions(active string, b *core.Board) []Option {
+	presets := []Option{
+		{Value: "-updated_at", Label: "Recently updated"},
+		{Value: "-created_at", Label: "Newest"},
+		{Value: "created_at", Label: "Oldest"},
+		{Value: "title", Label: "Title (A–Z)"},
+	}
+	known := map[string]bool{}
+	for _, o := range presets {
+		known[o.Value] = true
+	}
+	opts := []Option{}
+	if b.Presentation != nil && b.Presentation.LaneSort != "" && !known[b.Presentation.LaneSort] {
+		opts = append(opts, Option{Value: b.Presentation.LaneSort, Label: "Board default"})
+	}
+	opts = append(opts, presets...)
+	for i := range opts {
+		opts[i].Selected = opts[i].Value == active
+	}
+	return opts
 }
 
 // boardMutationTypes are the durable card/board mutations that change what a

@@ -137,6 +137,9 @@ type ViewData struct {
 	// SSETypes is the comma-joined event-type filter the board's live stream
 	// subscribes to (board mutations + condition events).
 	SSETypes string
+	// SortOptions / ActiveSort drive the board header's sort selector.
+	SortOptions []Option
+	ActiveSort  string
 	// Home page
 	Workspace   *core.Workspace
 	CardCount   int

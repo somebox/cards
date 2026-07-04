@@ -245,6 +245,41 @@ func TestUIBoardShowsBlockedBadge(t *testing.T) {
 	}
 }
 
+func TestUIBoardSortSelector(t *testing.T) {
+	ts, _ := newServer(t)
+	H := map[string]string{"X-Work-Cards-Actor": "local-dev", "Content-Type": "application/json"}
+	// Two todo cards with titles that sort opposite to insertion order.
+	for _, title := range []string{"Zebra sort card", "Alpha sort card"} {
+		do(t, ts, "POST", "/v1/cards", core.CreateCardRequest{
+			TypeID: "programming-task", Title: title, Status: "todo",
+			Fields: map[string]any{"description": "d", "branch": "b"},
+		}, H)
+	}
+	_, body := doGet(t, ts, "/ui/boards/engineering?sort=title")
+	ai := strings.Index(body, "Alpha sort card")
+	zi := strings.Index(body, "Zebra sort card")
+	if ai < 0 || zi < 0 {
+		t.Fatalf("both cards should render; alpha=%d zebra=%d", ai, zi)
+	}
+	if ai > zi {
+		t.Error("sort=title should place 'Alpha' before 'Zebra' in the rendered board")
+	}
+	// The selector must reflect the active sort.
+	if !strings.Contains(body, `<option value="title" selected>`) {
+		t.Error("sort selector does not mark title as the active option")
+	}
+}
+
+func TestUIBoardSortRejectsBadKey(t *testing.T) {
+	ts, _ := newServer(t)
+	// The board handler surfaces a validation failure as a 500 (it wraps the
+	// service error); the API path returns 422 — assert that here.
+	resp, out := do(t, ts, "GET", "/v1/cards?sort=owner", nil, nil)
+	if resp.StatusCode != 422 || out["error"] != "validation_failed" {
+		t.Fatalf("GET /v1/cards?sort=owner → %d %v, want 422 validation_failed", resp.StatusCode, out)
+	}
+}
+
 func TestUIBreachesPage(t *testing.T) {
 	ts, _ := newServer(t)
 	// Empty state: seeded demo has no breaching conditions.
