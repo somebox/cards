@@ -127,6 +127,77 @@ func TestMCPTakeNextTool(t *testing.T) {
 	}
 }
 
+// The breaches + events tools are advertised and callable, returning the
+// same reports the CLI/HTTP surfaces expose.
+func TestMCPToolsList_IncludesBreachesAndEvents(t *testing.T) {
+	srv := newMCPServer(t)
+	resp := call(t, srv, `{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}`)
+	tools := resp["result"].(map[string]any)["tools"].([]any)
+	got := map[string]bool{}
+	for _, tr := range tools {
+		got[tr.(map[string]any)["name"].(string)] = true
+	}
+	for _, want := range []string{"breaches", "events"} {
+		if !got[want] {
+			t.Errorf("tools/list missing %q", want)
+		}
+	}
+}
+
+func TestMCPBreachesTool(t *testing.T) {
+	srv := newMCPServer(t)
+	// Create A and B, block A on B (not done) → a card_blocked breach.
+	mk := func(title string) string {
+		r := call(t, srv, `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"create_task","arguments":{"title":"`+title+`"}}}`)
+		res := r["result"].(map[string]any)
+		if res["isError"] == true {
+			t.Fatalf("create %s failed: %v", title, res["content"])
+		}
+		text := res["content"].([]any)[0].(map[string]any)["text"].(string)
+		var c map[string]any
+		_ = json.Unmarshal([]byte(text), &c)
+		return c["id"].(string)
+	}
+	idA, idB := mk("A"), mk("B")
+	call(t, srv, `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"add_link","arguments":{"card_id":"`+idA+`","type_id":"blocked-by","target":"`+idB+`"}}}`)
+
+	resp := call(t, srv, `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"breaches","arguments":{}}}`)
+	res := resp["result"].(map[string]any)
+	text := res["content"].([]any)[0].(map[string]any)["text"].(string)
+	var report map[string]any
+	if err := json.Unmarshal([]byte(text), &report); err != nil {
+		t.Fatalf("breaches result not JSON: %v", err)
+	}
+	items, _ := report["items"].([]any)
+	found := false
+	for _, it := range items {
+		m := it.(map[string]any)
+		if m["type"] == "card_blocked" && m["card_id"] == idA {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("breaches missing card_blocked for %s: %v", idA, items)
+	}
+}
+
+func TestMCPEventsTool(t *testing.T) {
+	srv := newMCPServer(t)
+	resp := call(t, srv, `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"events","arguments":{"limit":5}}}`)
+	res := resp["result"].(map[string]any)
+	if res["isError"] == true {
+		t.Fatalf("events failed: %v", res["content"])
+	}
+	text := res["content"].([]any)[0].(map[string]any)["text"].(string)
+	var page map[string]any
+	if err := json.Unmarshal([]byte(text), &page); err != nil {
+		t.Fatalf("events result not JSON: %v", err)
+	}
+	if _, ok := page["items"]; !ok {
+		t.Errorf("events result missing items envelope: %v", page)
+	}
+}
+
 func TestMCPInitialize(t *testing.T) {
 	srv := newMCPServer(t)
 	resp := call(t, srv, `{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}`)

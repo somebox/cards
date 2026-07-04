@@ -290,8 +290,43 @@ func (s *Server) buildTools() []Tool {
 			run: func(ctx context.Context, a map[string]any) (any, error) {
 				return s.svc.History(ctx, strArg(a, "card_id"))
 			}},
+		Tool{Name: "breaches", Description: "Current breaching conditions across boards: columns over their WIP limit, watched lanes drained, and blocked cards. Optionally scope by board_id or a comma-separated type filter.",
+			InputSchema: objSchema(map[string]any{"board_id": str(), "type": str()}),
+			run: func(ctx context.Context, a map[string]any) (any, error) {
+				return s.svc.Breaches(ctx, strArg(a, "board_id"), splitCSV(strArg(a, "type")))
+			}},
+		Tool{Name: "events", Description: "Durable workspace event feed (condition + mutation facts). Replay missed events by passing since (an event-id floor); returns a page with next_cursor. Filter by comma-separated types and/or board_id.",
+			InputSchema: objSchema(map[string]any{"types": str(), "board_id": str(), "since": intSchema(), "limit": intSchema()}),
+			run: func(ctx context.Context, a map[string]any) (any, error) {
+				q := core.EventQuery{
+					Types:   splitCSV(strArg(a, "types")),
+					AfterID: int64(intArg(a, "since")),
+					Limit:   intArg(a, "limit"),
+				}
+				if b := strArg(a, "board_id"); b != "" {
+					if bd := s.boards[b]; bd != nil {
+						q.CardTypeIn = bd.CardTypeIDs
+					}
+				}
+				return s.svc.ListEventsPage(ctx, q)
+			}},
 	)
 	return tools
+}
+
+// splitCSV splits a comma-separated argument, trimming whitespace and
+// dropping empties; "" yields nil (no filter).
+func splitCSV(s string) []string {
+	if s == "" {
+		return nil
+	}
+	var out []string
+	for _, p := range strings.Split(s, ",") {
+		if p = strings.TrimSpace(p); p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
 }
 
 // makeCreateTool generates a create_<T> tool whose input schema is the card
