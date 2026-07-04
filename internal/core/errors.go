@@ -134,6 +134,12 @@ func Internal(msg string) *Error {
 // The service layer maps it to a 404 NotFound.
 var ErrNotFound = errors.New("not found")
 
+// ErrClaimRaced is a sentinel ClaimAtomic returns when its CAS lost a race
+// with another claimant (as opposed to no candidate matching at all, which
+// returns nil, nil, nil). TakeNext retries on it: a fresh transaction sees
+// the racer's commit and naturally selects the next candidate.
+var ErrClaimRaced = errors.New("claim raced")
+
 // ActorRequired returns a 403.
 func ActorRequired() *Error {
 	return &Error{

@@ -575,8 +575,11 @@ func (s *Store) ClaimAtomic(ctx context.Context, q core.CardQuery, owner, status
 	}
 	n, _ := res.RowsAffected()
 	if n == 0 {
-		// Raced: another claimant got it. Return nil so caller retries.
-		return nil, nil, nil
+		// Raced: another claimant's CAS beat this one. Distinct from "nothing
+		// matched" (above) so the service layer can retry — a fresh
+		// transaction will see the racer's commit and select the next
+		// candidate naturally.
+		return nil, nil, core.ErrClaimRaced
 	}
 
 	// Reload the claimed card. The row must exist (we just updated it), so any

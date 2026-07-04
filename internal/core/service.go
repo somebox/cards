@@ -1237,7 +1237,9 @@ func (s *Service) TakeNext(ctx context.Context, req TakeNextRequest) (*Card, err
 			q.StatusIn = allowedFromStatuses(b, req.Status)
 		}
 	}
-	c, evs, err := s.store.ClaimAtomic(ctx, q, assignTo, req.Status, actor, s.now())
+	c, evs, err := claimWithRetry(3, func() (*Card, []*Event, error) {
+		return s.store.ClaimAtomic(ctx, q, assignTo, req.Status, actor, s.now())
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -1261,6 +1263,24 @@ func (s *Service) TakeNext(ctx context.Context, req TakeNextRequest) (*Card, err
 		}
 	}
 	return c, nil // nil card → caller renders {card:null}
+}
+
+// claimWithRetry re-invokes claim on a raced CAS (ErrClaimRaced), up to
+// attempts times. A fresh transaction sees the racer's already-committed
+// claim and naturally selects the next candidate — no need to track or
+// exclude any ids across attempts. Exhausting every attempt while still
+// racing returns (nil, nil, nil): the same "nothing claimable right now"
+// result as an empty pool, not an error — TakeNext renders {card:null}
+// either way rather than surfacing a raced-out attempt to the caller.
+func claimWithRetry(attempts int, claim func() (*Card, []*Event, error)) (*Card, []*Event, error) {
+	for range attempts {
+		c, evs, err := claim()
+		if errors.Is(err, ErrClaimRaced) {
+			continue
+		}
+		return c, evs, err
+	}
+	return nil, nil, nil
 }
 
 // ListEvents returns recent events for a card. SPEC §11.

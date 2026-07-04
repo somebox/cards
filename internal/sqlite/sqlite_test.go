@@ -2,6 +2,7 @@ package sqlite
 
 import (
 	"context"
+	"errors"
 	"strconv"
 	"sync"
 	"testing"
@@ -213,7 +214,12 @@ func TestClaimAtomicNoDoubleClaim(t *testing.T) {
 			defer wg.Done()
 			c, _, err := st.ClaimAtomic(ctx, core.CardQuery{Unowned: true, Limit: 1}, owner, "in_progress", owner, time.Now().UTC())
 			if err != nil {
-				t.Errorf("claim error: %v", err)
+				// A raced CAS is an expected outcome under this much
+				// concurrency, not a failure — it's exactly the signal the
+				// service layer retries on.
+				if !errors.Is(err, core.ErrClaimRaced) {
+					t.Errorf("claim error: %v", err)
+				}
 				return
 			}
 			if c != nil {
