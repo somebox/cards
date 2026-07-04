@@ -447,9 +447,11 @@ func (s *Service) ListCards(ctx context.Context, q CardQuery) (*Page[Card], erro
 		}
 		s.applyBoardScope(&q, b)
 	}
-	if q.Limit <= 0 || q.Limit > 200 {
-		q.Limit = 50
-	}
+	// Limit is clamped once, in the store (clampCardLimit: default 50, ceiling
+	// 500) — this layer no longer applies its own cap, which used to conflate
+	// the default and ceiling into ">200 → 50" and silently truncated any
+	// larger API request down to 50.
+	//
 	// Validate cursor before hitting the store — a bad cursor should be a
 	// 400, not a silent fallthrough to the first page.
 	if q.Cursor != "" {

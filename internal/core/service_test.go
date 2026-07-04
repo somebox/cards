@@ -893,6 +893,32 @@ func TestListCards_InvalidCursor(t *testing.T) {
 	}
 }
 
+// Service.ListCards must honor a limit up to the store ceiling (500), not
+// re-clamp large requests to 50 — the API/CLI path bug that a store-only fix
+// left in place (the service used to duplicate the clamp).
+func TestListCards_HonorsLargeLimit(t *testing.T) {
+	svc, st := newTestService(t)
+	ctx := context.Background()
+	const n = 250 // > the old 200 service cap
+	for i := range n {
+		id := "card_" + fmt.Sprintf("%032d", i)
+		if err := st.InsertCard(ctx, &core.Card{
+			ID: id, WorkspaceID: "t", TypeID: "task", SchemaVersion: 1,
+			Title: id, Status: "todo", Fields: map[string]any{}, Version: 1,
+			CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC().Add(time.Duration(i) * time.Millisecond), CreatedBy: "u",
+		}, nil); err != nil {
+			t.Fatalf("insert: %v", err)
+		}
+	}
+	page, err := svc.ListCards(ctx, core.CardQuery{Limit: n})
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if len(page.Items) != n {
+		t.Errorf("ListCards(Limit:%d) returned %d, want %d (service must not re-clamp to 50)", n, len(page.Items), n)
+	}
+}
+
 func TestResolveCard_FullIDFirst(t *testing.T) {
 	// A full id that also suffixes another card still resolves to itself.
 	svc, st := newTestService(t)
