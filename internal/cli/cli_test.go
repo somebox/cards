@@ -203,6 +203,88 @@ func TestBoardsShowReturnsOneBoard(t *testing.T) {
 	}
 }
 
+// blockOneCard creates A and B in c's store and links A blocked-by B (B not
+// done), returning A's id — the setup for a card_blocked breach.
+func blockOneCard(t *testing.T, c *Client) string {
+	t.Helper()
+	q := &Client{cfg: Config{Quiet: true, As: "demo"}, t: c.t} // quiet id output, same store
+	a := strings.TrimSpace(mustRun(t, q, "create", "--type", "task", "--title", "A"))
+	b := strings.TrimSpace(mustRun(t, q, "create", "--type", "task", "--title", "B"))
+	mustRun(t, q, "link", "add", a, "--type", "blocked-by", "--target", b)
+	return a
+}
+
+func mustRun(t *testing.T, c *Client, name string, args ...string) string {
+	t.Helper()
+	out, err := runCmd(t, c, name, args...)
+	if err != nil {
+		t.Fatalf("%s %v: %v", name, args, err)
+	}
+	return out
+}
+
+// cards breaches surfaces a blocked card in both jsonl and quiet modes.
+func TestBreachesShowsBlockedCard(t *testing.T) {
+	// jsonl mode: the blocked card A appears with card_blocked.
+	cj := newTestClient(t, Config{As: "demo"})
+	idA := blockOneCard(t, cj)
+	out := mustRun(t, cj, "breaches")
+	if !strings.Contains(out, idA) || !strings.Contains(out, `"card_blocked"`) {
+		t.Fatalf("breaches missing blocked card %s: %q", idA, out)
+	}
+
+	// quiet mode prints the bare blocked card id.
+	cq := newTestClient(t, Config{Quiet: true, As: "demo"})
+	idA2 := blockOneCard(t, cq)
+	qout := mustRun(t, cq, "breaches")
+	if !strings.Contains(qout, idA2) {
+		t.Errorf("quiet breaches missing %s: %q", idA2, qout)
+	}
+}
+
+// cards feed returns the durable workspace event feed as JSONL, filterable
+// by type.
+func TestFeedShowsEvents(t *testing.T) {
+	c := newTestClient(t, Config{As: "demo"})
+	id, err := runCmd(t, newTestClient(t, Config{Quiet: true, As: "demo"}), "create", "--type", "task", "--title", "X")
+	_ = id
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	// The seeded workspace already has events; assert the feed returns
+	// well-formed JSONL event lines.
+	out, err := runCmd(t, c, "feed", "--limit", "5")
+	if err != nil {
+		t.Fatalf("feed: %v", err)
+	}
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	if len(lines) == 0 || lines[0] == "" {
+		t.Fatalf("feed returned no events: %q", out)
+	}
+	var ev map[string]any
+	if err := json.Unmarshal([]byte(lines[0]), &ev); err != nil {
+		t.Fatalf("feed line is not JSON: %q", lines[0])
+	}
+	if ev["type"] == nil || ev["id"] == nil {
+		t.Errorf("feed event missing type/id: %v", ev)
+	}
+
+	// Type filter narrows the feed.
+	filtered, err := runCmd(t, newTestClient(t, Config{As: "demo"}), "feed", "--types", "card_created", "--limit", "50")
+	if err != nil {
+		t.Fatalf("feed filtered: %v", err)
+	}
+	for _, l := range strings.Split(strings.TrimSpace(filtered), "\n") {
+		if l == "" {
+			continue
+		}
+		var e map[string]any
+		if json.Unmarshal([]byte(l), &e) == nil && e["type"] != "card_created" {
+			t.Errorf("type filter leaked a %v event", e["type"])
+		}
+	}
+}
+
 func TestIDOfDottedPath(t *testing.T) {
 	m := map[string]any{"card": map[string]any{"id": "card_x"}, "id": "top"}
 	if got := idOf(m, "card.id"); got != "card_x" {

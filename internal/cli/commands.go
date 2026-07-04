@@ -35,7 +35,9 @@ func Commands() []Command {
 		{Name: "link", Short: "Manage links (add/remove)", Run: cmdLink},
 		{Name: "comment", Short: "Manage comments (add/edit)", Run: cmdComment},
 		{Name: "events", Short: "Show events for a card", Run: cmdEvents},
+		{Name: "feed", Short: "Show the workspace event feed (durable, cursor-paged)", Run: cmdFeed},
 		{Name: "history", Short: "Show resumption history for a card", Run: cmdHistory},
+		{Name: "breaches", Short: "Show current breaching conditions (WIP/lane/blocked)", Run: cmdBreaches},
 		{Name: "users", Short: "Manage users (register)", Run: cmdUsers},
 		{Name: "workspace", Short: "Show workspace introspection", Run: cmdWorkspace},
 		{Name: "boards", Short: "Show a board", Run: cmdBoards},
@@ -452,6 +454,78 @@ func cmdEvents(c *Client, args []string) error {
 		return err
 	}
 	c.Print(data, true, "id")
+	return nil
+}
+
+// cmdFeed shows the durable workspace event feed (GET /v1/events) — the
+// cross-card counterpart to `cards events <id>`. Replay missed facts by
+// passing --since/--cursor (an event-id floor); the page's next_cursor is
+// printed to stderr so stdout stays clean JSONL.
+func cmdFeed(c *Client, args []string) error {
+	fs := NewFlagSet()
+	types := fs.String("types", "")
+	board := fs.String("board", "")
+	actor := fs.String("actor", "")
+	owner := fs.String("owner", "")
+	since := fs.String("since", "")
+	cursor := fs.String("cursor", "")
+	limit := fs.Int("limit", 50)
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	v := url.Values{}
+	add := func(k, val string) {
+		if val != "" {
+			v.Set(k, val)
+		}
+	}
+	add("types", *types)
+	add("board_id", *board)
+	add("actor", *actor)
+	add("owner", *owner)
+	add("since", *since)
+	add("cursor", *cursor)
+	if *limit != 50 {
+		v.Set("limit", strconv.Itoa(*limit))
+	}
+	data, _, err := c.get("/events", v)
+	if err != nil {
+		return err
+	}
+	c.Print(data, true, "id")
+	// Surface the continuation cursor on stderr (stdout stays valid JSONL).
+	var env struct {
+		NextCursor string `json:"next_cursor"`
+	}
+	if json.Unmarshal(data, &env) == nil && env.NextCursor != "" {
+		fmt.Fprintf(os.Stderr, "next_cursor: %s\n", env.NextCursor)
+	}
+	return nil
+}
+
+// cmdBreaches shows the current breaching conditions (GET /v1/breaches):
+// which board columns exceed their WIP limit, which watched lanes are
+// drained, and which cards are blocked — the catch-up counterpart to the
+// ephemeral condition signals on the event stream.
+func cmdBreaches(c *Client, args []string) error {
+	fs := NewFlagSet()
+	board := fs.String("board", "")
+	types := fs.String("type", "")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	v := url.Values{}
+	if *board != "" {
+		v.Set("board_id", *board)
+	}
+	if *types != "" {
+		v.Set("type", *types)
+	}
+	data, _, err := c.get("/breaches", v)
+	if err != nil {
+		return err
+	}
+	c.Print(data, true, "card_id")
 	return nil
 }
 
