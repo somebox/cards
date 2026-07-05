@@ -6,7 +6,7 @@
 |-----------|---------|
 | `type_id` | One or more types |
 | `status` | Column id(s) |
-| `owner` | User id; alias `me` → `default_user` |
+| `owner` | User id (exact). The `me` alias is resolved by the **board UI** to the viewing actor, not by this API param — `?owner=me` on `GET /cards` matches the literal owner `me`. |
 | `tag` | Tag(s) |
 | `q` | Full-text search (FTS5) |
 | `has_link` | Link type id present |
@@ -14,8 +14,15 @@
 | `blocked` | Shorthand: outgoing `blocked-by`/`depends-on` to a non-`done` card |
 | `board_id` | Apply board `default_filter` + type/column scope |
 
-Pagination: `limit` (default 50, max 200), `cursor` (opaque; sort
-`updated_at`, `id`).
+Pagination: `limit` (default 50, max 500), `cursor` (opaque; keyed to the
+default `updated_at, id` order).
+
+Ordering is **orthogonal to filtering**: filters (the params above and
+`filter=` JSON) select *which* cards; `sort` selects their *order*. `sort`
+takes one key (`created_at`, `updated_at`, `title`, or `fields.<id>`) with an
+optional leading `-` for descending; missing-field cards sort last; an unknown
+key is a `422`. `sort` cannot be combined with `cursor` (the keyset cursor is
+welded to the default order) — a custom sort returns no `next_cursor`.
 
 > **Note:** `updated_before`/`updated_after`/`created_before`/`created_after`
 > are **not implemented as separate query params** on `GET /cards`. For

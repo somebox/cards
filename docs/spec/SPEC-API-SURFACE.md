@@ -81,7 +81,15 @@ implementation — header only.)
 - `POST /users` → register (workspace-scoped).
 
 ### Cards (canonical)
-- `GET /cards` → search/filter/paginate (primary agent entry).
+- `GET /cards` → search/filter/paginate (primary agent entry). Filter params
+  include `board_id`, `type_id`, `status`, `owner`, `blocked`, `has_link`,
+  `link_target`, and `q` (FTS). **`sort`** orders the result with a flat
+  grammar — one key (`created_at`, `updated_at`, `title`, or `fields.<id>`),
+  optional leading `-` for descending; NULLs (cards missing the field) sort
+  last; an unsupported key is a `422`. `sort` and `cursor` are **mutually
+  exclusive** (`422` if both given): keyset pagination is welded to the default
+  `updated_at` order, so a custom sort returns no `next_cursor`. Default order
+  (no `sort`) is `updated_at DESC`.
 - `POST /cards` → create (`type_id`, `title`, `fields`, `status?`, `tags?`,
   `schema_version?`). `dry_run` supported.
 - `GET /cards/:id` → full card + `version`.

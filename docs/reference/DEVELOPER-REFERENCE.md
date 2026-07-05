@@ -46,6 +46,7 @@ File: `definitions/boards/<board_id>.json`
   },
   "presentation": {
     "lane_group_by": "status",
+    "lane_sort": "-fields.priority",
     "card_preview": {
       "programming-task": ["branch"],
       "research-goal": ["hypothesis"]
@@ -57,6 +58,21 @@ File: `definitions/boards/<board_id>.json`
   }
 }
 ```
+
+**`presentation.lane_sort`** sets the default within-lane order for the board
+UI (and is overridable per-request by the `?sort=` query param — see below).
+It uses the flat sort grammar: one key, optional leading `-` for descending,
+chosen from `created_at`, `updated_at`, `title`, or `fields.<id>`. Cards
+missing the sorted field sort last in either direction. It is validated at
+config load, so a bad key (e.g. `owner`) fails the load rather than silently
+ordering by nothing.
+
+**`presentation.filters`** are named saved filters the board UI renders as
+chips. Each `filter` is a query-DSL object (§9); the literal `"me"` under
+`owner`/`created_by` resolves to the viewing actor (`CARDS_USER`, else the
+workspace `default_user`). The board header also exposes owner and card-type
+dropdowns; all of these — plus `?sort=` and the search box — compose into one
+server-side query, so ordering-under-filter is consistent.
 
 `card_type_ids` is sugar merged into `default_filter` as `type_id $in [...]`.
 Boards do not own cards; they filter workspace cards for UI and `board_id`
@@ -78,8 +94,7 @@ Condition events are **ephemeral** (SSE-only) unless the type is listed in
 `"persist_conditions": ["wip_exceeded"]`), which escalates it to the durable
 event log so it replays from `GET /events` and `cards feed`. Current condition
 state is also queryable on demand via `GET /breaches` / `cards breaches`.
-The `presentation.filters` saved filters are applied by the board UI (a `"me"`
-owner value resolves to the viewing actor). See docs/events/EVENTS.md.
+See docs/events/EVENTS.md.
 
 ### View
 File: `definitions/views/<view_id>.json`
