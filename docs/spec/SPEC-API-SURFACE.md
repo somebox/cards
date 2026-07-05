@@ -97,6 +97,11 @@ implementation — header only.)
   the request body (optimistic concurrency). (There is no `If-Match` header
   alias in the current implementation.) `dry_run` supported (body field;
   signaled back via a `Dry-Run: true` response header, not a body field).
+- `DELETE /cards/:id` → remove a card, appending a `card_deleted` tombstone to
+  the append-only event log (history survives; dependent cards are re-evaluated
+  for `card_unblocked`). Optional optimistic-concurrency guard via `?version=`
+  (409 on mismatch); omit it to delete unconditionally. Honors `Idempotency-Key`.
+  Returns the deleted card; a second delete is a `404`.
 - `POST /cards/:id/upgrade-schema` → bump pinned version.
 
 ### Coordination atomics

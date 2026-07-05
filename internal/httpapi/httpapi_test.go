@@ -280,6 +280,79 @@ func TestUIBoardSortRejectsBadKey(t *testing.T) {
 	}
 }
 
+func TestDeleteCard(t *testing.T) {
+	ts, _ := newServer(t)
+	H := map[string]string{"X-Work-Cards-Actor": "local-dev", "Content-Type": "application/json"}
+	_, created := do(t, ts, "POST", "/v1/cards", core.CreateCardRequest{
+		TypeID: "programming-task", Title: "Delete me", Status: "todo",
+		Fields: map[string]any{"description": "d", "branch": "b"},
+	}, H)
+	id := created["id"].(string)
+
+	// Stale version → 409.
+	respC, outC := do(t, ts, "DELETE", "/v1/cards/"+id+"?version=999", nil, H)
+	if respC.StatusCode != 409 || outC["error"] != "version_conflict" {
+		t.Fatalf("stale delete → %d %v, want 409 version_conflict", respC.StatusCode, outC)
+	}
+
+	// Correct delete → 200, returns the tombstoned card.
+	resp, out := do(t, ts, "DELETE", "/v1/cards/"+id+"?version=1", nil, H)
+	if resp.StatusCode != 200 || out["id"] != id {
+		t.Fatalf("delete → %d %v, want 200 with id", resp.StatusCode, out)
+	}
+	// Gone from GET.
+	respG, _ := do(t, ts, "GET", "/v1/cards/"+id, nil, nil)
+	if respG.StatusCode != 404 {
+		t.Errorf("GET after delete → %d, want 404", respG.StatusCode)
+	}
+	// Re-delete → 404 (idempotent-ish: already gone).
+	respR, _ := do(t, ts, "DELETE", "/v1/cards/"+id, nil, H)
+	if respR.StatusCode != 404 {
+		t.Errorf("re-delete → %d, want 404", respR.StatusCode)
+	}
+	// Tombstone survives in the event feed.
+	_, feed := do(t, ts, "GET", "/v1/events?types=card_deleted", nil, nil)
+	items, _ := feed["items"].([]any)
+	found := false
+	for _, it := range items {
+		if m, ok := it.(map[string]any); ok && m["card_id"] == id {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("card_deleted tombstone not found in the event feed")
+	}
+}
+
+func TestDeleteCardUnblocksDependents(t *testing.T) {
+	ts, _ := newServer(t)
+	H := map[string]string{"X-Work-Cards-Actor": "local-dev", "Content-Type": "application/json"}
+	mk := func(title string) string {
+		_, out := do(t, ts, "POST", "/v1/cards", core.CreateCardRequest{
+			TypeID: "programming-task", Title: title, Status: "todo",
+			Fields: map[string]any{"description": "d", "branch": "b"},
+		}, H)
+		return out["id"].(string)
+	}
+	blocker := mk("Blocker to delete")
+	blocked := mk("Dependent card")
+	do(t, ts, "POST", "/v1/cards/"+blocked+"/links", core.LinkInput{TypeID: "depends-on", Target: blocker}, H)
+	// Confirm blocked.
+	_, before := do(t, ts, "GET", "/v1/cards?blocked=true", nil, nil)
+	if n := len(before["items"].([]any)); n != 1 {
+		t.Fatalf("expected 1 blocked card before delete, got %d", n)
+	}
+	// Deleting the blocker unblocks the dependent.
+	resp, _ := do(t, ts, "DELETE", "/v1/cards/"+blocker, nil, H)
+	if resp.StatusCode != 200 {
+		t.Fatalf("delete blocker → %d", resp.StatusCode)
+	}
+	_, after := do(t, ts, "GET", "/v1/cards?blocked=true", nil, nil)
+	if n := len(after["items"].([]any)); n != 0 {
+		t.Errorf("dependent should be unblocked after blocker delete, still blocked: %d", n)
+	}
+}
+
 func TestUIBoardSavedFilterMe(t *testing.T) {
 	ts, _ := newServer(t)
 	H := map[string]string{"X-Work-Cards-Actor": "local-dev", "Content-Type": "application/json"}

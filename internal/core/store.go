@@ -25,6 +25,12 @@ type Store interface {
 	GetCardsByShortID(ctx context.Context, short string) ([]Card, error)
 	InsertCard(ctx context.Context, c *Card, ev *Event) error
 	UpdateCard(ctx context.Context, c *Card, evs []*Event) error
+	// DeleteCard removes the card row and its dependent rows (links in both
+	// directions, comments, search index, condition marks) and appends the
+	// tombstone event in the same transaction. The append-only event history
+	// (including ev) is retained. Returns ErrNotFound if the row is already
+	// gone.
+	DeleteCard(ctx context.Context, id string, ev *Event) error
 	// ClaimAtomic picks the oldest unowned card matching q (updated_at ASC,
 	// id ASC) and atomically sets its owner (+status). Returns the claimed
 	// card, or nil if nothing matched. SPEC §11 take-next.

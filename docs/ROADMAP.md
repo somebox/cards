@@ -168,9 +168,11 @@ outbox (§5) for durable, replayable delivery.
   (`/views/:id/cards`); a real feature to design or explicitly drop.
 - **Workspace reload** *(proposed, card `4b507da7`)*. `POST /v1/workspace/reload`
   + `definition_reloaded` event so definition edits apply without a restart.
-- **Card delete** — kept on the board *(card `146260d9`)* as near-term:
-  `DELETE /v1/cards/:id` + tombstone event + idempotency. (Would also make
-  board hygiene like this cleanup a first-class operation instead of a DB edit.)
+- **Card delete** — **built** *(card `146260d9`)*: `DELETE /v1/cards/:id` +
+  `card_deleted` tombstone event + optional `?version=` guard + idempotency, with
+  a `cards delete` CLI verb. Dependent cards are re-evaluated for
+  `card_unblocked`. This made the board-hygiene cleanup below a first-class
+  operation rather than a raw DB edit.
 - **Other documented-but-unbuilt** *(proposed)*: `POST /cards/batch`,
   old-pinned-version schema serving (`GET /workspace/card-types/:id?version=`),
   markdown mirror (version-gated), `event_retention_days` trimming (schema field

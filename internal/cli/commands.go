@@ -27,6 +27,7 @@ func Commands() []Command {
 		{Name: "create", Short: "Create a card", Run: cmdCreate},
 		{Name: "patch", Short: "Patch a card (status/owner/tags/fields)", Run: cmdPatch},
 		{Name: "claim", Short: "Atomically claim a card", Run: cmdClaim},
+		{Name: "delete", Short: "Delete a card (tombstone event)", Run: cmdDelete},
 		{Name: "upgrade-schema", Short: "Upgrade a card to a newer schema version", Run: cmdUpgradeSchema},
 		{Name: "take-next", Short: "Pick + claim the next matching unowned card", Run: cmdTakeNext},
 		{Name: "append", Short: "Append a repeating entry", Run: cmdAppend},
@@ -62,7 +63,11 @@ func cmdList(c *Client, args []string) error {
 		return err
 	}
 	v := url.Values{}
-	add := func(k, val string) { if val != "" { v.Set(k, val) } }
+	add := func(k, val string) {
+		if val != "" {
+			v.Set(k, val)
+		}
+	}
 	add("board_id", *board)
 	add("owner", *owner)
 	add("status", *status)
@@ -230,6 +235,29 @@ func cmdClaim(c *Client, args []string) error {
 		body["status"] = *status
 	}
 	data, _, err := c.do("POST", "/cards/"+fs.Args()[0]+"/claim", body)
+	if err != nil {
+		return err
+	}
+	c.Print(data, false, "id")
+	return nil
+}
+
+func cmdDelete(c *Client, args []string) error {
+	fs := NewFlagSet()
+	// --version is an optional optimistic-concurrency guard; omitted → delete
+	// unconditionally (convenient for board hygiene / bulk cleanup).
+	version := fs.Int("version", 0)
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if len(fs.Args()) == 0 {
+		return fmt.Errorf("usage: cards delete <id> [--version N]")
+	}
+	body := map[string]any{}
+	if *version != 0 {
+		body["version"] = *version
+	}
+	data, _, err := c.do("DELETE", "/cards/"+fs.Args()[0], body)
 	if err != nil {
 		return err
 	}

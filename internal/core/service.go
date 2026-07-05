@@ -780,6 +780,42 @@ func (s *Service) PatchCard(ctx context.Context, id string, req PatchCardRequest
 	return &next, nil
 }
 
+// DeleteCard removes a card, appending a card_deleted tombstone to the
+// append-only log. The id may be a full or short id (resolved like GET/PATCH).
+// A non-zero req.Version is an optimistic-concurrency guard. Returns the
+// deleted card (its last state) so callers can confirm what was removed.
+func (s *Service) DeleteCard(ctx context.Context, id string, req DeleteCardRequest) (*Card, error) {
+	if req.Actor == "" {
+		return nil, ActorRequired()
+	}
+	current, err := s.ResolveCard(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if req.Version != 0 && req.Version != current.Version {
+		return nil, VersionConflict(current)
+	}
+	ctx = WithActor(ctx, req.Actor)
+	// Capture the cards this one blocks BEFORE deleting — DeleteCard removes the
+	// inbound links, so BlockingDependents would return nothing afterward.
+	deps, _ := s.store.BlockingDependents(ctx, current.ID)
+	ev := CardDeleted(current)
+	ev.Actor = req.Actor
+	ev.At = s.now()
+	if err := s.store.DeleteCard(ctx, current.ID, ev); err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return nil, NotFound("card " + id)
+		}
+		return nil, Internal("failed to delete card: " + err.Error())
+	}
+	// A deleted card can unblock its dependents (its blocking links are gone),
+	// so re-evaluate each for card_unblocked — same as moving it to done would.
+	for _, dep := range deps {
+		s.evaluateBlocked(ctx, dep)
+	}
+	return current, nil
+}
+
 // UpgradeSchemaRequest re-pins a card to a newer schema version of its type.
 type UpgradeSchemaRequest struct {
 	TargetVersion int  // 0 means the type's current schema_version

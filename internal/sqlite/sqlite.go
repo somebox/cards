@@ -597,6 +597,46 @@ func (s *Store) UpdateCard(ctx context.Context, c *core.Card, evs []*core.Event)
 	return tx.Commit()
 }
 
+// DeleteCard removes the card and its dependent rows, then appends the
+// tombstone event — all in one transaction. Inbound links (other cards →
+// this one) are removed too so no edge dangles; the event journal is kept
+// (append-only), including the tombstone, so the card's history survives.
+func (s *Store) DeleteCard(ctx context.Context, id string, ev *core.Event) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	res, err := tx.ExecContext(ctx, `DELETE FROM cards WHERE id = ?`, id)
+	if err != nil {
+		return fmt.Errorf("delete card: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return core.ErrNotFound
+	}
+	for _, stmt := range []string{
+		`DELETE FROM fts_cards WHERE card_id = ?`,
+		`DELETE FROM comments WHERE card_id = ?`,
+		`DELETE FROM condition_marks WHERE card_id = ?`,
+		`DELETE FROM links WHERE source_id = ? OR target = ?`,
+	} {
+		args := []any{id}
+		if strings.Contains(stmt, "OR target") {
+			args = append(args, id)
+		}
+		if _, err := tx.ExecContext(ctx, stmt, args...); err != nil {
+			return fmt.Errorf("delete card deps: %w", err)
+		}
+	}
+	if ev != nil {
+		if err := execEventInsert(tx, ev); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
 // ClaimAtomic picks the oldest unowned card matching q (updated_at ASC, id ASC)
 // and atomically sets owner (+optional status) via a CAS on owner IS NULL.
 // Returns nil card when nothing matches. SPEC §11 take-next.

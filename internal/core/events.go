@@ -315,6 +315,19 @@ func CardCreated(c *Card) *Event {
 	})
 }
 
+// CardDeletedDiff is the payload of card_deleted — a tombstone recording what
+// was removed so the append-only log stays self-describing after the live row
+// is gone.
+type CardDeletedDiff struct {
+	Card CardRef `json:"card"`
+}
+
+func CardDeleted(c *Card) *Event {
+	return CardEvent(c.ID, EventCardDeleted, CardDeletedDiff{
+		Card: CardRef{ID: c.ID, TypeID: c.TypeID, Title: c.Title, Status: c.Status},
+	})
+}
+
 // FieldUpdatedDiff is the payload of field_updated (scalar fields, incl. title).
 type FieldUpdatedDiff struct {
 	Field  string `json:"field"`

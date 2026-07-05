@@ -139,6 +139,33 @@ func (s *Server) apiPatchCard(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, c)
 }
 
+// apiDeleteCard removes a card (tombstone event). The body is optional; a
+// no-body client can pass the optimistic-concurrency guard as ?version=.
+func (s *Server) apiDeleteCard(w http.ResponseWriter, r *http.Request) {
+	var req core.DeleteCardRequest
+	if r.ContentLength != 0 {
+		if err := decodeJSON(r, &req); err != nil {
+			writeAPIError(w, core.NewValidationError("body", "invalid JSON: "+err.Error()))
+			return
+		}
+	}
+	if v := r.URL.Query().Get("version"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil {
+			writeAPIError(w, core.NewValidationError("version", "version must be an integer"))
+			return
+		}
+		req.Version = n
+	}
+	req.Actor = s.actorFromCtx(r)
+	c, err := s.svc.DeleteCard(r.Context(), chi.URLParam(r, "id"), req)
+	if err != nil {
+		writeAPIError(w, core.AsError(err))
+		return
+	}
+	writeJSON(w, 200, c)
+}
+
 func (s *Server) apiOpenAPI(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, openapi.Build(s.ws, s.types))
 }

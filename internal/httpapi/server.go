@@ -135,6 +135,7 @@ func (s *Server) Router() http.Handler {
 	r.Post("/v1/cards", s.withActor(s.idempotent(s.apiCreateCard)))
 	r.Get("/v1/cards/{id}", s.apiGetCard)
 	r.Patch("/v1/cards/{id}", s.withActor(s.idempotent(s.apiPatchCard)))
+	r.Delete("/v1/cards/{id}", s.withActor(s.idempotent(s.apiDeleteCard)))
 	r.Post("/v1/cards/{id}/upgrade-schema", s.withActor(s.idempotent(s.apiUpgradeSchema)))
 	r.Post("/v1/cards/take-next", s.withActor(s.idempotent(s.apiTakeNext)))
 	r.Post("/v1/cards/{id}/claim", s.withActor(s.idempotent(s.apiClaim)))

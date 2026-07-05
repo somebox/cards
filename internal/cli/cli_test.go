@@ -242,6 +242,20 @@ func TestBreachesShowsBlockedCard(t *testing.T) {
 	}
 }
 
+// cards delete removes a card; a subsequent get fails.
+func TestDeleteCommand(t *testing.T) {
+	c := newTestClient(t, Config{As: "demo"})
+	q := &Client{cfg: Config{Quiet: true, As: "demo"}, t: c.t} // same store, bare id output
+	id := strings.TrimSpace(mustRun(t, q, "create", "--type", "task", "--title", "Doomed"))
+
+	if _, err := runCmd(t, c, "delete", id); err != nil {
+		t.Fatalf("delete %s: %v", id, err)
+	}
+	if _, err := runCmd(t, c, "get", id); err == nil {
+		t.Errorf("get after delete should fail, got nil error")
+	}
+}
+
 // cards feed returns the durable workspace event feed as JSONL, filterable
 // by type.
 func TestFeedShowsEvents(t *testing.T) {

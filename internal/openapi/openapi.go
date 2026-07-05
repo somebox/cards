@@ -71,6 +71,10 @@ func paths(types map[string]*core.CardType) map[string]any {
 		"/cards/{id}": map[string]any{
 			"get":   op("Get one card", cardResp, idParam),
 			"patch": opBody("Patch a card (optimistic concurrency via version)", jsonBody("PatchCardReq"), cardResp, idParam),
+			"delete": op("Delete a card (tombstone event; optional ?version= guard)", cardResp, append(append([]any{}, idParam...), map[string]any{
+				"name": "version", "in": "query", "required": false,
+				"schema": map[string]any{"type": "integer"},
+			})),
 		},
 		"/cards/{id}/upgrade-schema": map[string]any{
 			"post": opBody("Upgrade a card to a newer schema version", map[string]any{

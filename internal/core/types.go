@@ -275,6 +275,7 @@ type EventType string
 
 const (
 	EventCardCreated      EventType = "card_created"
+	EventCardDeleted      EventType = "card_deleted"
 	EventFieldUpdated     EventType = "field_updated"
 	EventStatusChanged    EventType = "status_changed"
 	EventOwnerChanged     EventType = "owner_changed"
@@ -428,6 +429,14 @@ type ReleaseRequest struct {
 	Version int    `json:"version"`
 	Status  string `json:"status,omitempty"` // optional status to move to
 	Force   bool   `json:"force,omitempty"`  // bypass enforced-transition check
+	Actor   string `json:"actor,omitempty"`
+}
+
+// DeleteCardRequest is the body of DELETE /cards/:id. Version is optional: a
+// non-zero value is an optimistic-concurrency guard (409 if the card moved on);
+// 0 deletes unconditionally.
+type DeleteCardRequest struct {
+	Version int    `json:"version,omitempty"`
 	Actor   string `json:"actor,omitempty"`
 }
 
