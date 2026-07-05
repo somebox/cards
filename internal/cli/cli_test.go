@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -296,6 +297,113 @@ func TestFeedShowsEvents(t *testing.T) {
 		if json.Unmarshal([]byte(l), &e) == nil && e["type"] != "card_created" {
 			t.Errorf("type filter leaked a %v event", e["type"])
 		}
+	}
+}
+
+// normalizeBase appends /v1 to a bare host so --url http://host reaches the
+// API mount instead of 404ing.
+func TestNormalizeBase(t *testing.T) {
+	cases := map[string]string{
+		"http://127.0.0.1:9100":     "http://127.0.0.1:9100/v1",
+		"http://127.0.0.1:9100/":    "http://127.0.0.1:9100/v1",
+		"http://127.0.0.1:9100/v1":  "http://127.0.0.1:9100/v1",
+		"http://127.0.0.1:9100/v1/": "http://127.0.0.1:9100/v1",
+		"":                          "",
+	}
+	for in, want := range cases {
+		if got := normalizeBase(in); got != want {
+			t.Errorf("normalizeBase(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+// ExitCode classifies server errors by HTTP status so scripts branch on exit
+// code, not stderr text.
+func TestExitCode(t *testing.T) {
+	cases := []struct {
+		status int
+		want   int
+	}{
+		{http.StatusNotFound, 3},
+		{http.StatusConflict, 4},
+		{http.StatusBadRequest, 5},
+		{http.StatusUnprocessableEntity, 5},
+		{http.StatusInternalServerError, 1},
+	}
+	for _, tc := range cases {
+		err := &cliError{Code: "x", Message: "m", Status: tc.status}
+		if got := ExitCode(err); got != tc.want {
+			t.Errorf("ExitCode(status=%d) = %d, want %d", tc.status, got, tc.want)
+		}
+	}
+	if got := ExitCode(nil); got != 0 {
+		t.Errorf("ExitCode(nil) = %d, want 0", got)
+	}
+	if got := ExitCode(fmt.Errorf("local")); got != 1 {
+		t.Errorf("ExitCode(local) = %d, want 1", got)
+	}
+}
+
+// --help returns ErrHelp (a successful help request) rather than a parse error.
+func TestParseHelpReturnsErrHelp(t *testing.T) {
+	// printHelp writes to os.Stdout; redirect it so the test log stays clean.
+	old := os.Stdout
+	_, pw, _ := os.Pipe()
+	os.Stdout = pw
+	defer func() { os.Stdout = old; pw.Close() }()
+
+	for _, tok := range []string{"--help", "-h"} {
+		fs := NewFlagSet()
+		fs.String("title", "")
+		if err := fs.Parse([]string{tok}); err != ErrHelp {
+			t.Errorf("Parse(%q) = %v, want ErrHelp", tok, err)
+		}
+	}
+	// Unknown flags are still rejected (not treated as help).
+	fs := NewFlagSet()
+	if err := fs.Parse([]string{"--nope"}); err == nil || err == ErrHelp {
+		t.Errorf("Parse(--nope) = %v, want an unknown-flag error", err)
+	}
+}
+
+// patch --title renames a card under the same optimistic-concurrency fence.
+func TestPatchTitle(t *testing.T) {
+	c := newTestClient(t, Config{As: "demo"})
+	q := &Client{cfg: Config{Quiet: true, As: "demo"}, t: c.t}
+	id := strings.TrimSpace(mustRun(t, q, "create", "--type", "task", "--title", "Old"))
+
+	if _, err := runCmd(t, c, "patch", id, "--version", "1", "--title", "New"); err != nil {
+		t.Fatalf("patch --title: %v", err)
+	}
+	if got := newTestClientJSONGet(t, c, id)["title"]; got != "New" {
+		t.Errorf("title after patch = %v, want New", got)
+	}
+}
+
+// list --include=links eager-loads relations so an agent reads the dependency
+// graph in one call; unknown include values are rejected.
+func TestListIncludeLinks(t *testing.T) {
+	c := newTestClient(t, Config{As: "demo"})
+	idA := blockOneCard(t, c) // A blocked-by B; A is now a blocked card
+
+	// Without --include, list rows omit links.
+	plain := mustRun(t, c, "list", "--blocked")
+	if !strings.Contains(plain, idA) {
+		t.Fatalf("blocked list missing card %s: %q", idA, plain)
+	}
+	if strings.Contains(plain, `"blocked-by"`) {
+		t.Errorf("plain list unexpectedly carried links: %q", plain)
+	}
+
+	// With --include=links, card A's blocked-by link is present.
+	withLinks := mustRun(t, c, "list", "--blocked", "--include", "links")
+	if !strings.Contains(withLinks, `"blocked-by"`) {
+		t.Errorf("list --include=links missing the blocked-by link: %q", withLinks)
+	}
+
+	// An unknown include value is a validation error.
+	if _, err := runCmd(t, c, "list", "--include", "bogus"); err == nil {
+		t.Errorf("list --include=bogus should error")
 	}
 }
 

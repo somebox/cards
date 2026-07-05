@@ -10,22 +10,30 @@ package cli
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 )
 
+// ErrHelp is returned by FlagSet.Parse when a command is invoked with --help
+// (or -h). The command's flags have already been printed to stdout; callers
+// (cmd/cards' main) treat it as a successful, zero-exit request for help.
+var ErrHelp = errors.New("help requested")
+
 // Config holds the resolved global flags for a command invocation.
 type Config struct {
-	URL    string // CARDS_URL / --url ; default http://127.0.0.1:8787/v1
-	As     string // CARDS_USER / --as ; actor for writes
-	Quiet  bool   // ids only
-	JSON   bool   // single JSON object
-	JSONL  bool   // newline-delimited JSON
+	URL       string // CARDS_URL / --url ; empty selects the in-process backend
+	As        string // CARDS_USER / --as ; actor for writes
+	Workspace string // --workspace ; serverless workspace dir (the .cards dir)
+	Quiet     bool   // ids only
+	JSON      bool   // single JSON object
+	JSONL     bool   // newline-delimited JSON
 }
 
 // DefaultConfig resolves from env vars. URL is left empty when CARDS_URL is
@@ -78,9 +86,22 @@ type Client struct {
 	t   Transport
 }
 
-// New returns a Client that talks HTTP to cfg.URL.
+// New returns a Client that talks HTTP to cfg.URL. The base is normalized so a
+// bare host (e.g. --url http://127.0.0.1:9100) reaches the /v1 routes rather
+// than 404ing — command paths are all relative to the /v1 mount.
 func New(cfg Config) *Client {
-	return &Client{cfg: cfg, t: httpTransport{base: cfg.URL, hc: http.DefaultClient}}
+	return &Client{cfg: cfg, t: httpTransport{base: normalizeBase(cfg.URL), hc: http.DefaultClient}}
+}
+
+// normalizeBase ensures the HTTP base ends in the /v1 API mount. It trims a
+// trailing slash and appends /v1 when absent, so http://host, http://host/,
+// and http://host/v1 all resolve identically.
+func normalizeBase(raw string) string {
+	b := strings.TrimRight(raw, "/")
+	if b == "" || strings.HasSuffix(b, "/v1") {
+		return b
+	}
+	return b + "/v1"
 }
 
 // NewWithTransport returns a Client over a custom Transport (e.g. in-process).
@@ -111,7 +132,11 @@ func (c *Client) do(method, path string, body any) ([]byte, int, error) {
 		return nil, 0, err
 	}
 	if status >= 400 {
-		return data, status, parseErr(data)
+		e := parseErr(data)
+		if ce, ok := e.(*cliError); ok {
+			ce.Status = status
+		}
+		return data, status, e
 	}
 	return data, status, nil
 }
@@ -132,6 +157,33 @@ type cliError struct {
 	Value        any      `json:"value,omitempty"`
 	ValidOptions []string `json:"valid_options,omitempty"`
 	Hint         string   `json:"hint,omitempty"`
+	Status       int      `json:"-"` // HTTP status, set by do(); drives ExitCode
+}
+
+// ExitCode maps an error to a process exit code so non-interactive callers can
+// branch on the class of failure without parsing stderr. Server errors are
+// classified by HTTP status; everything else (usage, network, local) is 1.
+//
+//	3 = not found (404)
+//	4 = version/state conflict (409)
+//	5 = invalid request (400/422)
+//	1 = anything else
+func ExitCode(err error) int {
+	if err == nil {
+		return 0
+	}
+	var ce *cliError
+	if errors.As(err, &ce) {
+		switch ce.Status {
+		case http.StatusNotFound:
+			return 3
+		case http.StatusConflict:
+			return 4
+		case http.StatusBadRequest, http.StatusUnprocessableEntity:
+			return 5
+		}
+	}
+	return 1
 }
 
 func (e *cliError) Error() string {
@@ -258,16 +310,26 @@ func NewFlagSet() *FlagSet {
 		ints: map[string]*int{}, strArr: map[string]*[]string{},
 	}
 }
-func (f *FlagSet) Bool(name string, dflt bool) *bool    { v := dflt; f.bools[name] = &v; return &v }
-func (f *FlagSet) String(name, dflt string) *string     { v := dflt; f.strs[name] = &v; return &v }
-func (f *FlagSet) Int(name string, dflt int) *int        { v := dflt; f.ints[name] = &v; return &v }
-func (f *FlagSet) StringArr(name string, dflt []string) *[]string { v := dflt; f.strArr[name] = &v; return &v }
-func (f *FlagSet) Args() []string                        { return f.args }
+func (f *FlagSet) Bool(name string, dflt bool) *bool { v := dflt; f.bools[name] = &v; return &v }
+func (f *FlagSet) String(name, dflt string) *string  { v := dflt; f.strs[name] = &v; return &v }
+func (f *FlagSet) Int(name string, dflt int) *int    { v := dflt; f.ints[name] = &v; return &v }
+func (f *FlagSet) StringArr(name string, dflt []string) *[]string {
+	v := dflt
+	f.strArr[name] = &v
+	return &v
+}
+func (f *FlagSet) Args() []string { return f.args }
 
-// Parse consumes args (without the subcommand name).
+// Parse consumes args (without the subcommand name). A --help/-h token prints
+// the command's registered flags and returns ErrHelp (a successful help
+// request, not a parse failure); unknown flags are rejected.
 func (f *FlagSet) Parse(args []string) error {
 	for i := 0; i < len(args); i++ {
 		a := args[i]
+		if a == "--help" || a == "-h" || a == "--h" {
+			f.printHelp()
+			return ErrHelp
+		}
 		if !strings.HasPrefix(a, "--") {
 			f.args = append(f.args, a)
 			continue
@@ -309,4 +371,32 @@ func (f *FlagSet) Parse(args []string) error {
 		}
 	}
 	return nil
+}
+
+// printHelp writes the command's registered flags (sorted, with a value hint)
+// to stdout. Global flags (--url/--as/--json/--jsonl/--quiet) are peeled before
+// the command and are documented in the top-level `cards --help`.
+func (f *FlagSet) printHelp() {
+	var lines []string
+	for n := range f.bools {
+		lines = append(lines, "  --"+n)
+	}
+	for n := range f.strs {
+		lines = append(lines, "  --"+n+" <value>")
+	}
+	for n := range f.ints {
+		lines = append(lines, "  --"+n+" <int>")
+	}
+	for n := range f.strArr {
+		lines = append(lines, "  --"+n+" <value>  (repeatable)")
+	}
+	if len(lines) == 0 {
+		fmt.Println("(no flags; positional arguments only)")
+		return
+	}
+	sort.Strings(lines)
+	fmt.Println("flags:")
+	for _, l := range lines {
+		fmt.Println(l)
+	}
 }

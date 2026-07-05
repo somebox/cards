@@ -70,6 +70,9 @@ func (s *Server) apiListCards(w http.ResponseWriter, r *http.Request) {
 		Sort:       r.URL.Query().Get("sort"),
 		Cursor:     r.URL.Query().Get("cursor"),
 	}
+	if inc := r.URL.Query().Get("include"); inc != "" {
+		q.Include = strings.Split(inc, ",")
+	}
 	if l := r.URL.Query().Get("limit"); l != "" {
 		if n, err := strconv.Atoi(l); err == nil {
 			q.Limit = n

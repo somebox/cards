@@ -7,6 +7,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
@@ -15,8 +16,13 @@ import (
 
 func main() {
 	if err := run(os.Args[1:]); err != nil {
+		// A --help request is a successful, zero-exit outcome; the flags were
+		// already printed to stdout by the command's FlagSet.
+		if errors.Is(err, cli.ErrHelp) {
+			return
+		}
 		fmt.Fprintln(os.Stderr, "cards:", err)
-		os.Exit(1)
+		os.Exit(cli.ExitCode(err))
 	}
 }
 
@@ -25,40 +31,54 @@ func main() {
 // via log.Printf (serve, run-extensions) or fmt.Fprintf(os.Stderr, ...)
 // (import/export summaries), so stdout stays pipeable.
 func run(args []string) error {
-	// Peel leading global flags (e.g. --url=... --as=... list ...).
+	// Peel leading global flags (e.g. --url=... --as=... --workspace=... list ...).
 	globals, rest := peelGlobals(args)
 	if len(rest) == 0 {
-		// Zero-config: `cards` with no subcommand serves the resolved
-		// workspace (nearest .cards/ or the personal workspace).
-		return serveCmd(nil)
+		// A bare `cards` (no subcommand) prints usage rather than silently
+		// starting a server on 8787 — surprising for scripted callers. Run the
+		// server explicitly with `cards serve`.
+		fmt.Print(usage)
+		return nil
 	}
 	switch rest[0] {
 	case "-h", "--help", "help":
 		fmt.Print(usage)
 		return nil
 	}
+	// --workspace is peeled as a global so it can precede the subcommand like
+	// --url. Commands that open a workspace themselves (serve/export/import/mcp/
+	// run-extensions/do/extensions) parse their own --workspace flag, so re-inject
+	// the peeled value for them; `cards --workspace X serve` then works the same
+	// as `cards serve --workspace X`. The client path reads globals.Workspace
+	// directly (see runCLI).
+	reinject := func(a []string) []string {
+		if globals.Workspace == "" {
+			return a
+		}
+		return append([]string{"--workspace", globals.Workspace}, a...)
+	}
 	// A leading flag (e.g. `cards --port 9000 --seed`) is serve with those
 	// flags — the zero-config server, just customized.
 	if len(rest[0]) > 0 && rest[0][0] == '-' {
-		return serveCmd(rest)
+		return serveCmd(reinject(rest))
 	}
 	switch rest[0] {
 	case "serve":
-		return serveCmd(rest[1:])
+		return serveCmd(reinject(rest[1:]))
 	case "init":
-		return initCmd(rest[1:])
+		return initCmd(rest[1:]) // init takes a positional dir, not --workspace
 	case "export":
-		return exportCmd(rest[1:])
+		return exportCmd(reinject(rest[1:]))
 	case "import":
-		return importCmd(rest[1:])
+		return importCmd(reinject(rest[1:]))
 	case "mcp":
-		return mcpCmd(rest[1:])
+		return mcpCmd(reinject(rest[1:]))
 	case "run-extensions":
-		return runExtensionsCmd(rest[1:])
+		return runExtensionsCmd(reinject(rest[1:]))
 	case "do":
-		return doCmd(rest[1:])
+		return doCmd(reinject(rest[1:]))
 	case "extensions":
-		return extensionsCmd(rest[1:])
+		return extensionsCmd(reinject(rest[1:]))
 	default:
 		return runCLI(globals, rest)
 	}
@@ -84,6 +104,8 @@ func peelGlobals(args []string) (cli.Config, []string) {
 			cfg.URL = val(a, args, &i)
 		case hasPrefix(a, "--as"):
 			cfg.As = val(a, args, &i)
+		case hasPrefix(a, "--workspace"):
+			cfg.Workspace = val(a, args, &i)
 		default:
 			rest = append(rest, a)
 		}
@@ -136,11 +158,16 @@ func runCLI(cfg cli.Config, rest []string) error {
 
 	// Backend selection: an explicit CARDS_URL/--url talks to a running server
 	// (preserving its event bus/SSE/hooks); otherwise run the router in-process
-	// against the resolved workspace — no server required.
+	// against the resolved workspace ($CARDS_WORKSPACE or --workspace, else the
+	// nearest .cards/) — no server required. --workspace targets the serverless
+	// backend only; it is meaningless against a running server (somebox/cards#17).
 	if cfg.URL != "" {
+		if cfg.Workspace != "" {
+			return fmt.Errorf("--workspace has no effect with --url/CARDS_URL (the server owns its workspace)")
+		}
 		return cmd.Run(cli.New(cfg), rest[1:])
 	}
-	backend, err := newDirectBackend()
+	backend, err := newDirectBackend(cfg.Workspace)
 	if err != nil {
 		return err
 	}
@@ -151,10 +178,11 @@ func runCLI(cfg cli.Config, rest []string) error {
 const usage = `Work Cards — typed-card coordination.
 
 Usage:
-  cards                                (serve nearest .cards/ or ~/.cards)
+  cards                                Show this help
   cards init [dir] [--global]          Scaffold a new workspace
   cards serve [--workspace <dir>] [--port 8787] [--seed]
   cards <command> [flags]              (serverless by default; CARDS_URL targets a server)
+  cards <command> --help               List a command's flags
 
 Client commands run in-process against the resolved workspace
 ($CARDS_WORKSPACE, else nearest .cards/, else ~/.cards) with no server. Set
@@ -162,17 +190,21 @@ CARDS_URL (or --url) to talk to a running 'cards serve' instead — preferred
 when a server is up so its event stream and hooks stay correct.
 
 Global flags (before the command):
-  --url URL    API base ($CARDS_URL); unset runs serverless in-process
-  --as USER    actor for writes (default $CARDS_USER)
-  --json       pretty-print single object
-  --jsonl      newline-delimited JSON (default for list/events)
-  --quiet      ids only
+  --url URL        API base ($CARDS_URL); unset runs serverless in-process.
+                   A bare host is fine — /v1 is appended if missing.
+  --as USER        actor for writes (default $CARDS_USER)
+  --workspace DIR  serverless workspace dir for client verbs (the .cards dir
+                   itself; overrides $CARDS_WORKSPACE; ignored with --url)
+  --json           pretty-print single object
+  --jsonl          newline-delimited JSON (default for list/events)
+  --quiet          ids only
 
 Commands:
   list         List/search cards (--board/--owner/--status/--type/--q/--blocked)
+               [--include links,comments] eager-loads relations (one call, no N+1)
   get <id>     Show one card
   create       --type T --title T [--status S] [--field k=v]... [--tag t]... [--dry-run]
-  patch <id>   --version N [--status S] [--owner U] [--field k=v]... [--dry-run]
+  patch <id>   --version N [--title T] [--status S] [--owner U] [--field k=v]... [--dry-run]
   claim <id>   --version N [--status S]
   upgrade-schema <id>  [--target N] [--dry-run]
   take-next    [--type T] [--board B] [--assign-to U] [--status S] [--filter-file F]

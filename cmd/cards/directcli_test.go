@@ -15,7 +15,7 @@ func TestDirectBackend(t *testing.T) {
 	}
 	t.Setenv("CARDS_WORKSPACE", dir)
 
-	b, err := newDirectBackend()
+	b, err := newDirectBackend("")
 	if err != nil {
 		t.Fatalf("newDirectBackend: %v", err)
 	}
@@ -49,5 +49,27 @@ func TestDirectBackend(t *testing.T) {
 	status, _, _ = b.Do("POST", "/cards", []byte(`{"type_id":"nope","title":"x"}`), hdr)
 	if status != 404 {
 		t.Errorf("create with unknown type: status=%d, want 404", status)
+	}
+}
+
+// The --workspace override targets a workspace even when $CARDS_WORKSPACE points
+// elsewhere — the override wins (somebox/cards#17).
+func TestDirectBackendWorkspaceOverride(t *testing.T) {
+	target := t.TempDir()
+	if _, err := initWorkspace(target); err != nil {
+		t.Fatalf("init target workspace: %v", err)
+	}
+	// Point the env at a different, empty dir to prove the override wins.
+	t.Setenv("CARDS_WORKSPACE", t.TempDir())
+
+	b, err := newDirectBackend(target)
+	if err != nil {
+		t.Fatalf("newDirectBackend(override): %v", err)
+	}
+	defer b.Close()
+
+	status, _, err := b.Do("GET", "/cards?board_id=welcome", nil, nil)
+	if err != nil || status != 200 {
+		t.Fatalf("list via override workspace: status=%d err=%v", status, err)
 	}
 }

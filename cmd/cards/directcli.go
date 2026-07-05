@@ -46,10 +46,16 @@ func (d directBackend) Close() error {
 	return nil
 }
 
-// newDirectBackend opens the workspace ($CARDS_WORKSPACE, else the nearest
-// .cards/ or the personal workspace) and builds an in-process /v1 router.
-func newDirectBackend() (directBackend, error) {
-	dir := os.Getenv("CARDS_WORKSPACE")
+// newDirectBackend opens a workspace and builds an in-process /v1 router. The
+// directory is resolved in precedence order: an explicit --workspace override,
+// then $CARDS_WORKSPACE, then auto-discovery (nearest .cards/ or the personal
+// workspace). An explicit override or env value must already be a workspace
+// (no auto-init); only auto-discovery scaffolds an empty personal workspace.
+func newDirectBackend(workspaceOverride string) (directBackend, error) {
+	dir := workspaceOverride
+	if dir == "" {
+		dir = os.Getenv("CARDS_WORKSPACE")
+	}
 	if dir == "" {
 		d, autoInit, err := resolveWorkspaceDir("")
 		if err != nil {

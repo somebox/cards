@@ -57,6 +57,7 @@ func cmdList(c *Client, args []string) error {
 	blocked := fs.Bool("blocked", false)
 	hasLink := fs.String("has-link", "")
 	linkTarget := fs.String("link-target", "")
+	include := fs.String("include", "")
 	limit := fs.Int("limit", 50)
 	cursor := fs.String("cursor", "")
 	if err := fs.Parse(args); err != nil {
@@ -75,6 +76,7 @@ func cmdList(c *Client, args []string) error {
 	add("q", *q)
 	add("has_link", *hasLink)
 	add("link_target", *linkTarget)
+	add("include", *include)
 	if *blocked {
 		v.Set("blocked", "true")
 	}
@@ -147,6 +149,7 @@ func cmdCreate(c *Client, args []string) error {
 
 func cmdPatch(c *Client, args []string) error {
 	fs := NewFlagSet()
+	title := fs.String("title", "")
 	status := fs.String("status", "")
 	owner := fs.String("owner", "")
 	fields := fs.StringArr("field", nil)
@@ -163,6 +166,9 @@ func cmdPatch(c *Client, args []string) error {
 		return fmt.Errorf("--version is required (optimistic concurrency)")
 	}
 	body := map[string]any{"version": *version}
+	if *title != "" {
+		body["title"] = *title
+	}
 	if *status != "" {
 		body["status"] = *status
 	}

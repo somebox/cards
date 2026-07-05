@@ -367,6 +367,11 @@ type CardQuery struct {
 	// Filter is the jq-like filter DSL (§9), passed through raw; the store
 	// compiles it (invalid DSL comes back as a validation error).
 	Filter map[string]any
+	// Include names related collections to eager-load onto each returned card
+	// ("links", "comments"). The store lists only card rows; the service fills
+	// these so an agent can read a dependency graph in one call instead of an
+	// N+1 fan-out of per-card GETs. Unknown values are rejected.
+	Include []string
 }
 
 // Page is a paginated result.

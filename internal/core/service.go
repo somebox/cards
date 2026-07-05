@@ -472,7 +472,53 @@ func (s *Service) ListCards(ctx context.Context, q CardQuery) (*Page[Card], erro
 			return nil, NewValidationError("cursor", "invalid cursor: "+err.Error())
 		}
 	}
-	return s.store.ListCards(ctx, q)
+	wantLinks, wantComments, err := parseInclude(q.Include)
+	if err != nil {
+		return nil, err
+	}
+	page, err := s.store.ListCards(ctx, q)
+	if err != nil {
+		return nil, err
+	}
+	// Eager-load the requested related collections. This is an N+1 over the
+	// page (bounded by the clamped limit), traded for the client reading the
+	// whole graph in one call — the store's GetCard loads the same two.
+	for i := range page.Items {
+		if wantLinks {
+			links, err := s.store.ListLinks(ctx, page.Items[i].ID)
+			if err != nil {
+				return nil, err
+			}
+			page.Items[i].Links = links
+		}
+		if wantComments {
+			comments, err := s.store.ListComments(ctx, page.Items[i].ID)
+			if err != nil {
+				return nil, err
+			}
+			page.Items[i].Comments = comments
+		}
+	}
+	return page, nil
+}
+
+// parseInclude validates the ?include= set and reports which related
+// collections to eager-load. Unknown values are rejected so a typo surfaces
+// rather than silently omitting data.
+func parseInclude(include []string) (links, comments bool, err error) {
+	for _, inc := range include {
+		switch inc {
+		case "links":
+			links = true
+		case "comments":
+			comments = true
+		case "":
+			// tolerate empty segments from a trailing comma
+		default:
+			return false, false, NewValidationError("include", "unknown include "+inc+" (valid: links, comments)")
+		}
+	}
+	return links, comments, nil
 }
 
 // applyBoardScope folds a board's type/column scope into the query without

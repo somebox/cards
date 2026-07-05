@@ -41,3 +41,21 @@ func TestPeelGlobalsValueFlags(t *testing.T) {
 		t.Errorf("rest = %v, want [get card_x]", rest)
 	}
 }
+
+// --workspace is a global: it may precede the subcommand (like --url) and is
+// peeled out of rest so `cards --workspace X list` isn't mistaken for a serve
+// invocation (somebox/cards#17).
+func TestPeelGlobalsWorkspace(t *testing.T) {
+	for _, args := range [][]string{
+		{"--workspace", "/w", "list"},
+		{"list", "--workspace=/w"},
+	} {
+		cfg, rest := peelGlobals(args)
+		if cfg.Workspace != "/w" {
+			t.Errorf("args %v: Workspace = %q, want /w", args, cfg.Workspace)
+		}
+		if len(rest) != 1 || rest[0] != "list" {
+			t.Errorf("args %v: rest = %v, want [list]", args, rest)
+		}
+	}
+}
