@@ -317,11 +317,26 @@ func (m *MonitorScheduler) fireDue(now time.Time) {
 	}
 }
 
-// fireOne re-verifies a due deadline, and — if still true — marks it fired
-// (atomic check-and-set, exactly-once) and emits through Emitter.Condition
-// (which may escalate per persist_conditions; the scheduler holds no opinion
-// on durability itself). A failed escalated append is logged, never
-// propagated — a best-effort signal must never crash the scheduler loop.
+// fireOne re-verifies a due deadline and, if still true, records it fired
+// (atomic check-and-set, exactly-once) and emits. The emission path splits on
+// durability:
+//
+//   - persist:true — the fired-marker and the durable event append MUST commit
+//     together, else a crash between them loses the event forever AND suppresses
+//     re-fire (unrecoverable by any later cursor replay). The store commits both
+//     in one transaction (MarkConditionFiredAndAppend); the Emitter stamps and,
+//     on a first fire, dispatches post-commit. A failed atomic commit rolls both
+//     back — the condition re-fires next evaluation — and is logged, never
+//     propagated, so a best-effort escalation can't crash the scheduler loop.
+//
+//   - ephemeral — the fired-marker is the only durable write; the signal is
+//     dispatch-only, so a mark-then-signal crash drops a signal that is, by
+//     definition, for nobody. No atomicity needed.
+//
+// Crash re-fire semantics (persist:true): crash before commit -> nothing
+// persisted, re-fires next evaluation; crash after commit -> mark + event both
+// durable, no re-fire, live dispatch possibly missed but recoverable from the
+// log (the outbox's job, EVENTS.md §8.5).
 func (m *MonitorScheduler) fireOne(ctx context.Context, d monitorDeadline) {
 	m.mu.Lock()
 	mt, ok := m.types[d.cond]
@@ -337,6 +352,17 @@ func (m *MonitorScheduler) fireOne(ctx context.Context, d monitorDeadline) {
 	if ev == nil {
 		return // no longer true — nothing fires, nothing is marked
 	}
+
+	if m.emitter.IsPersisted(d.cond) {
+		firedAt := m.clock.Now()
+		if _, err := m.emitter.EmitPersistedFire(ctx, ev, func(ev *Event) (bool, error) {
+			return m.store.MarkConditionFiredAndAppend(ctx, d.cardID, d.cond, d.key, firedAt, ev)
+		}); err != nil {
+			log.Printf("ERROR: escalated condition mark+append failed (type=%s card=%s): %v", d.cond, d.cardID, err)
+		}
+		return
+	}
+
 	first, err := m.store.MarkConditionFired(ctx, d.cardID, d.cond, d.key, m.clock.Now())
 	if err != nil {
 		log.Printf("ERROR: monitor mark-fired failed (type=%s card=%s): %v", d.cond, d.cardID, err)
@@ -345,7 +371,5 @@ func (m *MonitorScheduler) fireOne(ctx context.Context, d monitorDeadline) {
 	if !first {
 		return
 	}
-	if err := m.emitter.Condition(ctx, ev); err != nil {
-		log.Printf("ERROR: escalated condition append failed (type=%s card=%s): %v", d.cond, d.cardID, err)
-	}
+	m.emitter.Signal(ctx, ev)
 }

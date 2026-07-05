@@ -86,6 +86,27 @@ func (e *Emitter) Signal(ctx context.Context, evs ...*Event) {
 	e.dispatch(evs)
 }
 
+// EmitPersistedFire records and publishes a fired persist:true condition with
+// exactly-once semantics and no mark-then-append crash window. It stamps ev,
+// then calls commit — which must atomically record the fire AND append ev in a
+// single transaction (see Store.MarkConditionFiredAndAppend), returning whether
+// this call was the first to record it. On a first fire ev is dispatched
+// (post-commit publish, the same persist-before-publish order as Emit); a
+// duplicate fire or a commit error publishes nothing. This keeps the Emitter the
+// sole stamper/publisher while the store owns the atomic transaction — the
+// scheduler (fireOne) never touches the bus or the clock-stamp directly.
+func (e *Emitter) EmitPersistedFire(ctx context.Context, ev *Event, commit func(ev *Event) (first bool, err error)) (bool, error) {
+	e.stamp(ctx, []*Event{ev})
+	first, err := commit(ev)
+	if err != nil {
+		return false, err
+	}
+	if first {
+		e.dispatch([]*Event{ev})
+	}
+	return first, nil
+}
+
 // PersistConditions promotes the named condition event types to the durable
 // fact path: Condition then routes those types through Emit (append + dispatch)
 // instead of Signal (dispatch only). Everything else stays ephemeral. Configure

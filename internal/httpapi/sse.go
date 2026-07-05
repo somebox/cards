@@ -60,9 +60,10 @@ func (s *Server) apiEventStream(w http.ResponseWriter, r *http.Request) {
 			// reconnect with Last-Event-ID rather than silently missing events.
 			log.Printf("ERROR: SSE replay after id %d failed: %v", afterID, err)
 			fmt.Fprint(w, ": replay failed, reconnect to retry\n\n")
-		}
-		for _, e := range filterBoardEvents(s, evs, boardID) {
-			writeSSEEvent(w, &e)
+		} else {
+			for _, e := range filterBoardEvents(s, evs, boardID) {
+				writeSSEEvent(w, &e)
+			}
 		}
 		flusher.Flush()
 	}

@@ -34,8 +34,8 @@ anchor below the reconciliation as unverified until checked** — in particular
 | DEBT-02 | **Fixed** | `scanCard` path returns `nil,nil,nil` only for `sql.ErrNoRows` (`sqlite.go:658-663`); other errors propagate. Pinned by `TestClaimAtomicScanErrorPropagates`. |
 | DEBT-30 | **Fixed** | `ClaimAtomic` builds events via `core.OwnerChanged`/`StatusChanged` (`sqlite.go:703-711`) → `Version:1`. Pinned by `TestClaimAtomicEventsUseConstructors`. |
 | DEBT-17 | **Fixed** | `strOrEmpty` fully removed from `internal/core` and `internal/sqlite`; the ClaimAtomic raw-literal caller it named is gone. |
-| DEBT-06 | **Remaining → Phase 2** | Anchor stale; now `internal/httpapi/sse.go:57-63` (replay error logged, falls through a nil range). |
-| DEBT-07 | **Remaining → Phase 2** | Anchor stale; now `internal/httpapi/middleware.go:74-78` (`PutIdempotency` error swallowed). |
+| DEBT-06 | **Fixed (Phase 2)** | Anchor stale; now `internal/httpapi/sse.go`. The replay error was already logged + surfaced as an SSE `: replay failed` comment; Phase 2 added an `else` guard so the empty replay range is skipped on error. Not silent. |
+| DEBT-07 | **Fixed (as designed)** | Anchor stale; now `internal/httpapi/middleware.go:74-78`. The `PutIdempotency` error is logged with a clear "a retry will re-execute" message; not failing the already-durable request is intentional (documented in the code). No change needed. |
 | DEBT-29 | **Remaining → Phase 3** | Supervisor lifecycle still fire-and-forget; now `cmd/cards/serve.go:79-94` (ctx cancelled only after `ListenAndServe` returns; no WaitGroup/drain). |
 | DEBT-33 | **Fixed** | `idOf` (`internal/cli/client.go`) does dotted-path lookup; `TestIDOfDottedPath`. |
 | DEBT-34 | **Fixed** | `cmdPatch` guards `len(*tags) > 0`; `TestPatchWithoutTagsPreservesTags`. |

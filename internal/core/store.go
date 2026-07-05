@@ -72,6 +72,15 @@ type Store interface {
 	// MarkConditionFired atomically records a first fire, returning true iff
 	// this call was the one to record it (an atomic check-and-set).
 	MarkConditionFired(ctx context.Context, cardID string, t EventType, key string, firedAt time.Time) (bool, error)
+	// MarkConditionFiredAndAppend records a first fire AND appends the escalated
+	// event ev in a single transaction: either both the fired-marker and the
+	// durable event row commit, or neither does. This closes the mark-then-append
+	// crash window for persist:true conditions, where a crash between the two
+	// separate writes would lose the event forever and suppress re-fire. Returns
+	// true iff this call recorded the fire; when false, nothing is appended
+	// (already fired). ev must be stamped (Actor/At) before the call; on a first
+	// fire ev.ID is assigned.
+	MarkConditionFiredAndAppend(ctx context.Context, cardID string, t EventType, key string, firedAt time.Time, ev *Event) (bool, error)
 
 	// Users
 	ListUsers(ctx context.Context) ([]User, error)

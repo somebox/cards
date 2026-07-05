@@ -1060,6 +1060,48 @@ func (s *Store) MarkConditionFired(ctx context.Context, cardID string, t core.Ev
 	return first, nil
 }
 
+// MarkConditionFiredAndAppend is the atomic mark+append for persist:true
+// conditions: the fired-marker INSERT and the durable event INSERT commit in one
+// transaction, so a crash can never leave a fired-but-never-appended condition
+// (which the old two-transaction path could — losing the event forever AND
+// suppressing re-fire, unrecoverable by any later cursor replay). It mirrors
+// MarkConditionFired's atomic check-and-set + supersede-prune, and on a first
+// fire appends ev in the same tx (execEventInsert assigns ev.ID). If the append
+// fails the whole transaction rolls back, so the mark is not recorded and the
+// condition re-fires on the next evaluation.
+func (s *Store) MarkConditionFiredAndAppend(ctx context.Context, cardID string, t core.EventType, key string, firedAt time.Time, ev *core.Event) (bool, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return false, err
+	}
+	defer tx.Rollback()
+	res, err := tx.ExecContext(ctx,
+		`INSERT OR IGNORE INTO condition_marks(card_id, type, key, fired_at) VALUES(?,?,?,?)`,
+		cardID, string(t), key, firedAt.Format(time.RFC3339Nano))
+	if err != nil {
+		return false, fmt.Errorf("mark condition fired: %w", err)
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		// Already fired: no append, nothing to prune.
+		if err := tx.Commit(); err != nil {
+			return false, err
+		}
+		return false, nil
+	}
+	if _, err := tx.ExecContext(ctx,
+		`DELETE FROM condition_marks WHERE card_id=? AND type=? AND key<>?`, cardID, string(t), key); err != nil {
+		return false, fmt.Errorf("mark condition fired: prune: %w", err)
+	}
+	if err := execEventInsert(tx, ev); err != nil {
+		return false, fmt.Errorf("mark condition fired: append event: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
 // --- Idempotency ---
 
 func (s *Store) GetIdempotency(ctx context.Context, key, actor string) (*core.IdempotencyRecord, error) {
