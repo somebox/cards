@@ -259,12 +259,14 @@ let plan = await agent(
 // revise that consumes all three (its own Revise phase, below).
 // ===========================================================================
 phase('Review')
-log(`Draft ready: "${plan.title}" — ${(plan.phases || []).length} phases. Review panel: ${LENSES.length} lenses (${LENSES.map(l => l.key).join(', ')}) on ${M.review}@${E.review}…`)
+// LENSES must be declared before the log() that reads it (const is in a
+// temporal dead zone until this line).
 const LENSES = [
   { key: 'design-ux',      brief: 'design & user experience: does each phase deliver visible user value, in a sensible order, with demos that prove it?' },
   { key: 'arch-data',      brief: 'architecture & data model: are the seams right, migrations/compat handled, domain concepts coherent, no hidden coupling?' },
   { key: 'reliability',    brief: 'reliability & maintainability: testability, failure modes, operational risk, and whether it adds or pays down debt' },
 ]
+log(`Draft ready: "${plan.title}" — ${(plan.phases || []).length} phases. Review panel: ${LENSES.length} lenses (${LENSES.map(l => l.key).join(', ')}) on ${M.review}@${E.review}…`)
 const reviews = await parallel(LENSES.map(l => () =>
   agent(
     `Review this DRAFT sprint plan through the lens of ${l.brief}\n\nPLAN:\n${JSON.stringify(plan, null, 1)}\n\n` +
