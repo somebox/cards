@@ -12,19 +12,18 @@ Branch: `main`, up to date with `origin/main`.
 
 ## 1. TODO / FIXME / debt markers in source
 
+> **Updated 2026-07-05 (Sprint A, Phase 1):** the artifacts `TODO` below is
+> resolved — `internal/artifacts` now implements content addressing, SHA-256,
+> MIME sniffing, and symlink-safe path confinement. The remaining gap is that it
+> has no callers (the policy is unenforced at any write path); Phase 4 wires it.
+> No `TODO`/`FIXME` markers remain in source.
+
+_Original 2026-07-02 finding (now superseded):_
+
 | File | Line | Marker | Snippet |
 |------|------|--------|---------|
 | `internal/artifacts/artifacts.go` | 11 | `TODO` | `// TODO: content-addressed or per-card subdirs, sha256, mime sniff,` |
 | `internal/artifacts/artifacts.go` | 12 | (continuation) | `// path-confinement validation for local policy.` |
-
-No other `TODO`, `FIXME`, `XXX`, `HACK`, or `DEPRECATED` markers were found in
-`*.go`, `*.md`, `*.json`, `*.yml`, `*.yaml`, `*.sql`, `*.html`, `*.css`, or
-`*.sh` files inside the repo (excluding `.git/`, `.claude/`, and
-`.code-quality-pipeline/`).
-
-The single debt marker is a 2-line `TODO` block in `internal/artifacts` that
-flags three follow-up items (content addressing, mime sniffing, path
-confinement) for the local-artifact policy.
 
 ---
 

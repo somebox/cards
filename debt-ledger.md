@@ -1,7 +1,9 @@
 # Technical-Debt Ledger — `github.com/somebox/cards`
 
 Generated: 2026-07-02
-Sources: `inventory.md`, `issues-small.md`, `issues-core.md`, `issues-http-cli.md`, `issues-docs.md`
+Sources: `inventory.md`, and the 2026-07-02 review notes now archived under
+`docs/archive/2026-07-debt-review/` (`issues-small.md`, `issues-core.md`,
+`issues-http-cli.md`, `issues-docs.md`)
 
 This is a deduplicated, cross-referenced registry of the technical debt surfaced by the
 parallel review pass. Items are grouped by theme and given stable IDs so follow-up work
@@ -13,6 +15,40 @@ Conventions:
 - `file:line` references are exact where the source review gave them.
 - "Cross-ref" lists related IDs that share a root cause or should be fixed together.
 - The ledger intentionally does **not** edit any source files; it only records findings.
+
+---
+
+## Reconciliation — 2026-07-05 (Sprint A, Phase 1)
+
+The original ledger (2026-07-02) has drifted: code has moved and several items are
+fixed at HEAD. It misled the sprint plan once — the "ClaimAtomic swallows errors"
+foundation step targeted code already corrected. This pass re-verifies every entry
+Sprint A touches against HEAD and records a disposition. **Treat any `file:line`
+anchor below the reconciliation as unverified until checked** — in particular
+`internal/httpapi/httpapi.go` has been split into `api.go` / `sse.go` /
+`middleware.go`, and `ClaimAtomic` moved from `sqlite.go:~445` to `sqlite.go:643-728`.
+
+| ID | Disposition | Evidence at HEAD / corrected anchor |
+|----|-------------|--------------------------------------|
+| DEBT-01 | **Fixed** | `ClaimAtomic` (`sqlite.go:713-720`) returns on `execEventInsert`/`upsertFTS` failure and rolls back. Pinned by `TestClaimAtomicFTSFailureRollsBack`. |
+| DEBT-02 | **Fixed** | `scanCard` path returns `nil,nil,nil` only for `sql.ErrNoRows` (`sqlite.go:658-663`); other errors propagate. Pinned by `TestClaimAtomicScanErrorPropagates`. |
+| DEBT-30 | **Fixed** | `ClaimAtomic` builds events via `core.OwnerChanged`/`StatusChanged` (`sqlite.go:703-711`) → `Version:1`. Pinned by `TestClaimAtomicEventsUseConstructors`. |
+| DEBT-17 | **Fixed** | `strOrEmpty` fully removed from `internal/core` and `internal/sqlite`; the ClaimAtomic raw-literal caller it named is gone. |
+| DEBT-06 | **Remaining → Phase 2** | Anchor stale; now `internal/httpapi/sse.go:57-63` (replay error logged, falls through a nil range). |
+| DEBT-07 | **Remaining → Phase 2** | Anchor stale; now `internal/httpapi/middleware.go:74-78` (`PutIdempotency` error swallowed). |
+| DEBT-29 | **Remaining → Phase 3** | Supervisor lifecycle still fire-and-forget; now `cmd/cards/serve.go:79-94` (ctx cancelled only after `ListenAndServe` returns; no WaitGroup/drain). |
+| DEBT-33 | **Fixed** | `idOf` (`internal/cli/client.go`) does dotted-path lookup; `TestIDOfDottedPath`. |
+| DEBT-34 | **Fixed** | `cmdPatch` guards `len(*tags) > 0`; `TestPatchWithoutTagsPreservesTags`. |
+| DEBT-35 | **Fixed** | `GET /v1/boards/{id}` exists; `cmdBoards` calls `/boards/{id}`; `TestBoardsShowReturnsOneBoard`. |
+| DEBT-36 | **Fixed** | `peelGlobals` peels globals from any position; `TestPeelGlobalsAnyPosition`. |
+| DEBT-37 | **Fixed** | `cmds := cli.Commands()` hoisted once (`cmd/cards/main.go`). |
+| DEBT-42 | **Stale claim** | `internal/core/events_test.go` exists with `TestEventContracts_GoldenFixtures` / `TestNoRawEventLiterals`; the "does not exist" claim is false. Doc text refresh → Phase 5. |
+| DEBT-44 | **Count stale** | `internal/core/types.go:277-306` now declares **25** event constants (16 durable/state + 9 condition), not 17. Doc text refresh → Phase 5. |
+| DEBT-57 | **Description stale; policy-wiring remains** | `internal/artifacts` is fully implemented (content-addressing, SHA-256, MIME sniff, symlink-safe confinement) — not an empty struct. It has **no callers**, so the local-artifact policy is still unenforced at any write path → Phase 4 wires it. See corrected inline note below. |
+
+Entries not listed were out of Sprint A's scope and were not re-verified; their
+anchors may also be stale. The CLI cluster (DEBT-33/34/35/36/37) and several others
+were fixed in earlier work and in Phase 0 (`feat(cli): machine contract`).
 
 ---
 
@@ -164,7 +200,7 @@ whether hooks should emit `board_ids`.
 
 | ID | Severity | Affected files / lines | Description | Cross-ref |
 |----|----------|------------------------|-------------|-----------|
-| DEBT-57 | medium | `internal/artifacts/artifacts.go:11-12` | The only `TODO` in the repo. `Manager` is an empty struct; the comment flags content-addressed subdirs, SHA-256, MIME sniff, and path-confinement validation — none implemented. The local artifact policy is not enforced. Address before artifact handling is exposed to untrusted paths. | — |
+| DEBT-57 | medium | `internal/artifacts/artifacts.go` | **Superseded 2026-07-05:** the Manager is now fully implemented — `New`/`Put`/`Resolve`/`Open` with content-addressed storage, SHA-256, MIME sniffing, and symlink-safe path confinement (the original TODO is gone). What remains is that it has **no callers**: nothing constructs it and the local-artifact policy is not enforced at any write path. Phase 4 (attachments end-to-end) wires it into the service + surfaces. | — |
 
 ---
 
