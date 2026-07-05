@@ -21,13 +21,26 @@ import (
 	"github.com/somebox/cards/internal/core"
 )
 
+// defaultDrainTimeout bounds how long Run waits for in-flight hook subprocesses
+// to finish after its context is cancelled, before killing the stragglers.
+const defaultDrainTimeout = 5 * time.Second
+
 // Supervisor subscribes to the event bus and spawns hook subprocesses.
+//
+// Lifecycle / graceful drain (the convention Sprint B's outbox tailer and
+// webhook worker reuse): Run(ctx) accepts events until ctx is cancelled, then
+// drains — it stops accepting new events and waits up to drainTimeout for
+// already-spawned hooks to finish (tracked by wg), killing any that overrun.
+// The caller cancels the context and waits for Run to return; nothing is left
+// running past that point.
 type Supervisor struct {
 	svc          *core.Service
 	ws           *core.Workspace
 	extensions   []config.Extension
 	workspaceDir string
 	cardsURL     string
+	drainTimeout time.Duration
+	wg           sync.WaitGroup // in-flight hook subprocesses
 	mu           sync.Mutex
 	logs         map[string][]string // per-extension recent log lines
 }
@@ -37,9 +50,14 @@ func New(svc *core.Service, ws *core.Workspace, exts []config.Extension, workspa
 	return &Supervisor{
 		svc: svc, ws: ws, extensions: exts,
 		workspaceDir: workspaceDir, cardsURL: cardsURL,
-		logs: map[string][]string{},
+		drainTimeout: defaultDrainTimeout,
+		logs:         map[string][]string{},
 	}
 }
+
+// SetDrainTimeout overrides how long Run waits for in-flight hooks on shutdown
+// before killing stragglers. Call before Run.
+func (s *Supervisor) SetDrainTimeout(d time.Duration) { s.drainTimeout = d }
 
 // Hooks returns the declared hooks (kind == "hook").
 func (s *Supervisor) Hooks() []config.Extension {
@@ -52,9 +70,15 @@ func (s *Supervisor) Hooks() []config.Extension {
 	return out
 }
 
-// Run blocks, dispatching matching events to hooks until ctx is cancelled.
-// It subscribes to the bus with no filter (each hook applies its own filter)
-// and spawns hooks asynchronously.
+// Run blocks, dispatching matching events to hooks until ctx is cancelled, then
+// drains in-flight hooks before returning (see drain). It subscribes to the bus
+// with no filter (each hook applies its own filter) and spawns hooks
+// asynchronously, tracking each with wg so shutdown can await them.
+//
+// Hook subprocesses run under spawnCtx, a separate context that outlives ctx's
+// cancellation, so a shutdown gives in-flight hooks a bounded grace period to
+// finish rather than SIGKILLing them the instant the server stops accepting
+// requests. drain cancels spawnCtx only if the grace period elapses.
 func (s *Supervisor) Run(ctx context.Context) error {
 	hooks := s.Hooks()
 	if len(hooks) == 0 {
@@ -62,6 +86,9 @@ func (s *Supervisor) Run(ctx context.Context) error {
 		<-ctx.Done()
 		return ctx.Err()
 	}
+	spawnCtx, killSpawns := context.WithCancel(context.Background())
+	defer killSpawns()
+
 	// Subscribe to all events; filter per-hook.
 	sub := s.svc.Bus().Subscribe(core.EventFilter{}, 128)
 	defer s.svc.Bus().Unsubscribe(sub.ID)
@@ -69,6 +96,7 @@ func (s *Supervisor) Run(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
+			s.drain(killSpawns)
 			return ctx.Err()
 		case e, ok := <-sub.Ch:
 			if !ok {
@@ -79,10 +107,33 @@ func (s *Supervisor) Run(ctx context.Context) error {
 			}
 			for _, h := range hooks {
 				if h.MatchesEvent(e, s.cardBoardMembership, s.cardTypeID) {
-					go s.spawn(ctx, h, e) // async: spawn ordered, completion not
+					s.wg.Add(1)
+					go func(h config.Extension, e *core.Event) {
+						defer s.wg.Done()
+						s.spawn(spawnCtx, h, e) // async: spawn ordered, completion not
+					}(h, e)
 				}
 			}
 		}
+	}
+}
+
+// drain waits up to drainTimeout for in-flight hook subprocesses to finish; if
+// the grace period elapses, it cancels their context (SIGKILLing stragglers via
+// exec.CommandContext) and waits for them to exit. This is the shutdown template
+// the Sprint B outbox tailer and webhook worker reuse: a WaitGroup of in-flight
+// work + a bounded drain + a kill fallback, so shutdown neither hangs nor
+// abandons live subprocesses.
+func (s *Supervisor) drain(killSpawns context.CancelFunc) {
+	done := make(chan struct{})
+	go func() { s.wg.Wait(); close(done) }()
+	select {
+	case <-done:
+		// All in-flight hooks finished within the grace period.
+	case <-time.After(s.drainTimeout):
+		s.log("supervisor", fmt.Sprintf("drain timeout (%s) exceeded; killing in-flight hooks", s.drainTimeout))
+		killSpawns()
+		<-done
 	}
 }
 
@@ -101,6 +152,10 @@ func (s *Supervisor) spawn(ctx context.Context, h config.Extension, e *core.Even
 		"workspace_id": s.ws.ID,
 	})
 	cmd := exec.CommandContext(ctx, h.Run[0], h.Run[1:]...)
+	setProcessGroup(cmd) // kill the whole group on cancel, not just the shell
+	// Backstop: if a hook exits but leaves a child holding its output pipes,
+	// don't let Wait block indefinitely — force-close after a bounded delay.
+	cmd.WaitDelay = 5 * time.Second
 	cmd.Stdin = bytes.NewReader(payload)
 	// Environment.
 	cmd.Env = append(os.Environ(),

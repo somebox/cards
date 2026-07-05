@@ -36,7 +36,7 @@ anchor below the reconciliation as unverified until checked** — in particular
 | DEBT-17 | **Fixed** | `strOrEmpty` fully removed from `internal/core` and `internal/sqlite`; the ClaimAtomic raw-literal caller it named is gone. |
 | DEBT-06 | **Fixed (Phase 2)** | Anchor stale; now `internal/httpapi/sse.go`. The replay error was already logged + surfaced as an SSE `: replay failed` comment; Phase 2 added an `else` guard so the empty replay range is skipped on error. Not silent. |
 | DEBT-07 | **Fixed (as designed)** | Anchor stale; now `internal/httpapi/middleware.go:74-78`. The `PutIdempotency` error is logged with a clear "a retry will re-execute" message; not failing the already-durable request is intentional (documented in the code). No change needed. |
-| DEBT-29 | **Remaining → Phase 3** | Supervisor lifecycle still fire-and-forget; now `cmd/cards/serve.go:79-94` (ctx cancelled only after `ListenAndServe` returns; no WaitGroup/drain). |
+| DEBT-29 | **Fixed (Phase 3)** | The hook Supervisor now drains: `Run` tracks in-flight hooks with a WaitGroup and, on ctx cancel, awaits them up to a bounded `drainTimeout` before returning, killing stragglers by process group (`internal/hooks/hooks.go`, `procgroup_unix.go`). `serve.go` cancels and waits for the drain before returning. This is the shutdown template the Sprint B tailer/webhook worker reuse. |
 | DEBT-33 | **Fixed** | `idOf` (`internal/cli/client.go`) does dotted-path lookup; `TestIDOfDottedPath`. |
 | DEBT-34 | **Fixed** | `cmdPatch` guards `len(*tags) > 0`; `TestPatchWithoutTagsPreservesTags`. |
 | DEBT-35 | **Fixed** | `GET /v1/boards/{id}` exists; `cmdBoards` calls `/boards/{id}`; `TestBoardsShowReturnsOneBoard`. |

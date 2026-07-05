@@ -78,16 +78,23 @@ func serveCmd(args []string) error {
 	log.Printf("  API: http://%s/v1/workspace", addr)
 	if *runExt {
 		// Tie the supervisor's lifetime to the HTTP server's: when
-		// ListenAndServe returns (including an immediate bind failure), the
-		// context is cancelled and the supervisor goroutine exits with it.
+		// ListenAndServe returns (including an immediate bind failure), cancel
+		// the supervisor's context and wait for Run to drain in-flight hooks
+		// (bounded) before serveCmd returns. Registered after the store/service
+		// defers so it runs first (LIFO): drain hooks, then close the store.
 		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
 		cardsURL := fmt.Sprintf("http://%s/v1", addr)
 		sup := hooks.New(svc, result.Workspace, result.Extensions, abs, cardsURL)
+		supDone := make(chan struct{})
 		go func() {
+			defer close(supDone)
 			if err := sup.Run(ctx); err != nil && !errors.Is(err, context.Canceled) {
 				log.Printf("hook supervisor stopped: %v", err)
 			}
+		}()
+		defer func() {
+			cancel()
+			<-supDone // await the supervisor's bounded drain of in-flight hooks
 		}()
 		log.Printf("  hooks: supervisor running (%d declared)", countHooks(result.Extensions))
 	}
