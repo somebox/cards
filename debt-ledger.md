@@ -42,8 +42,8 @@ anchor below the reconciliation as unverified until checked** — in particular
 | DEBT-35 | **Fixed** | `GET /v1/boards/{id}` exists; `cmdBoards` calls `/boards/{id}`; `TestBoardsShowReturnsOneBoard`. |
 | DEBT-36 | **Fixed** | `peelGlobals` peels globals from any position; `TestPeelGlobalsAnyPosition`. |
 | DEBT-37 | **Fixed** | `cmds := cli.Commands()` hoisted once (`cmd/cards/main.go`). |
-| DEBT-42 | **Stale claim** | `internal/core/events_test.go` exists with `TestEventContracts_GoldenFixtures` / `TestNoRawEventLiterals`; the "does not exist" claim is false. Doc text refresh → Phase 5. |
-| DEBT-44 | **Count stale** | `internal/core/types.go:277-306` now declares **25** event constants (16 durable/state + 9 condition), not 17. Doc text refresh → Phase 5. |
+| DEBT-42 | **Fixed** | `internal/core/events_test.go` exists (`TestEventContracts_GoldenFixtures` / `TestNoRawEventLiterals`); EVENTS.md §10/§12 no longer carries the "does not exist" claim (already refreshed to `[built]`). |
+| DEBT-44 | **Fixed (Phase 5)** | Corrected INTEGRATOR-REFERENCE §4 to the real count — `internal/core/types.go:277-306` declares **25** event types (16 card/state + 9 condition); `artifact_added` is now `[built]` (emits from `Service.AddArtifact`), leaving only `definition_reloaded` as declared-drift. |
 | DEBT-57 | **Fixed (Phase 4)** | `internal/artifacts` was already implemented (content-addressing, SHA-256, MIME sniff, symlink-safe confinement) — never an empty struct — and is now wired end-to-end via `Service.AddArtifact`/`OpenArtifact` with HTTP/CLI/MCP/`ui` surfaces and the confinement enforced at the serve route (traversal → 404). See corrected inline note below and ROADMAP §4. |
 
 Entries not listed were out of Sprint A's scope and were not re-verified; their

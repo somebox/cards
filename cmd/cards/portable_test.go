@@ -106,7 +106,7 @@ func TestExportIsCompleteBeyondPageCap(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	exp, err := exportJSONL(ctx, src, &buf, ws)
+	exp, err := exportJSONL(ctx, src, &buf, ws, false)
 	if err != nil {
 		t.Fatalf("export: %v", err)
 	}
@@ -128,6 +128,39 @@ func TestExportIsCompleteBeyondPageCap(t *testing.T) {
 	}
 }
 
+// A state-only export omits the mutation log (keeping only card_deleted
+// tombstones, of which the seed has none) but still round-trips card state;
+// importing it reconstructs no mutation history.
+func TestExportStateOnly(t *testing.T) {
+	ctx := context.Background()
+	src, ws := newStore(t)
+	seedStore(t, src)
+
+	var buf bytes.Buffer
+	exp, err := exportJSONL(ctx, src, &buf, ws, true)
+	if err != nil {
+		t.Fatalf("export: %v", err)
+	}
+	if exp.Events != 0 {
+		t.Errorf("state-only export tallied %d events, want 0", exp.Events)
+	}
+	if strings.Contains(buf.String(), `"type":"event"`) {
+		t.Errorf("state-only export wrote event lines")
+	}
+	if exp.Cards != 2 {
+		t.Errorf("state-only export tallied %d cards, want 2", exp.Cards)
+	}
+
+	dst, _ := newStore(t)
+	imp, err := importJSONL(ctx, dst, bytes.NewReader(buf.Bytes()))
+	if err != nil {
+		t.Fatalf("import: %v", err)
+	}
+	if imp.Cards != 2 || imp.Events != 0 {
+		t.Errorf("import restored %+v, want 2 cards / 0 events", imp)
+	}
+}
+
 // TestExportImportRoundTrip is the core fidelity guarantee: export a populated
 // store, import the bytes into a fresh store, and assert every entity matches —
 // ids, versions, timestamps, fields, comments, links, and the event log.
@@ -137,7 +170,7 @@ func TestExportImportRoundTrip(t *testing.T) {
 	seedStore(t, src)
 
 	var buf bytes.Buffer
-	exp, err := exportJSONL(ctx, src, &buf, ws)
+	exp, err := exportJSONL(ctx, src, &buf, ws, false)
 	if err != nil {
 		t.Fatalf("export: %v", err)
 	}

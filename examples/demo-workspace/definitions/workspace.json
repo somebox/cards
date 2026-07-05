@@ -51,6 +51,11 @@
       "target_types": [
         "printer"
       ]
+    },
+    {
+      "id": "parent",
+      "name": "Parent",
+      "type": "directional"
     }
   ],
   "settings": {

@@ -23,8 +23,8 @@ func TestLoadDemoWorkspace(t *testing.T) {
 	if got := len(r.Workspace.TagSet); got != 3 {
 		t.Errorf("tag_set = %v, want 3", got)
 	}
-	if got := len(r.Workspace.LinkTypes); got != 4 {
-		t.Errorf("link_types = %d, want 4", got)
+	if got := len(r.Workspace.LinkTypes); got != 5 {
+		t.Errorf("link_types = %d, want 5", got)
 	}
 	if got := len(r.CardTypes); got != 3 {
 		t.Fatalf("card types = %d, want 3", got)

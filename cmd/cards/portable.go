@@ -2,10 +2,13 @@ package main
 
 import (
 	"bufio"
+	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
+	"slices"
+	"strings"
 
 	"github.com/somebox/cards/internal/core"
 	"github.com/somebox/cards/internal/sqlite"
@@ -21,11 +24,17 @@ type portStats struct {
 	Users    int
 }
 
-// exportJSONL writes the full workspace state (header, users, cards with
-// embedded comments+links, then the event log) to w as one JSON object per
-// line. It is the testable core of `cards export`; the command wrapper only
-// opens the store and picks the destination.
-func exportJSONL(ctx context.Context, st *sqlite.Store, w io.Writer, ws *core.Workspace) (portStats, error) {
+// exportJSONL writes the workspace state (header, users, cards with embedded
+// comments+links, and — unless stateOnly — the event log) to w as one JSON
+// object per line. It is the testable core of `cards export`; the command
+// wrapper only opens the store and picks the destination.
+//
+// stateOnly omits the event journal: definitions + current card state are the
+// canonical, git-portable form, while the event journal (and condition_marks,
+// and future delivery state) are SQLite-owned durable ground truth that an
+// import must never reconstruct (docs/events/EVENTS.md). A state-only export is
+// also sorted by id so a committed snapshot diffs cleanly across re-exports.
+func exportJSONL(ctx context.Context, st *sqlite.Store, w io.Writer, ws *core.Workspace, stateOnly bool) (portStats, error) {
 	var stats portStats
 	enc := json.NewEncoder(w)
 	enc.SetEscapeHTML(false)
@@ -36,6 +45,7 @@ func exportJSONL(ctx context.Context, st *sqlite.Store, w io.Writer, ws *core.Wo
 		"version":      1,
 		"workspace_id": ws.ID,
 		"workspace":    ws.Name,
+		"state_only":   stateOnly,
 	}); err != nil {
 		return stats, err
 	}
@@ -43,6 +53,9 @@ func exportJSONL(ctx context.Context, st *sqlite.Store, w io.Writer, ws *core.Wo
 	users, err := st.ListUsers(ctx)
 	if err != nil {
 		return stats, fmt.Errorf("export users: %w", err)
+	}
+	if stateOnly {
+		slices.SortFunc(users, func(a, b core.User) int { return strings.Compare(a.ID, b.ID) })
 	}
 	for _, u := range users {
 		if err := enc.Encode(map[string]any{"type": "user", "data": u}); err != nil {
@@ -54,7 +67,9 @@ func exportJSONL(ctx context.Context, st *sqlite.Store, w io.Writer, ws *core.Wo
 	// Cards (with links + comments loaded via GetCard). ListCards caps a single
 	// page (see clampCardLimit), so a full backup must paginate by cursor
 	// rather than ask for an arbitrarily large limit — otherwise the export
-	// silently truncates to the cap.
+	// silently truncates to the cap. Collect first, then encode, so a state-only
+	// export can be id-sorted for stable diffs.
+	var cards []*core.Card
 	cursor := ""
 	for {
 		page, err := st.ListCards(ctx, core.CardQuery{Limit: 500, Cursor: cursor})
@@ -67,23 +82,40 @@ func exportJSONL(ctx context.Context, st *sqlite.Store, w io.Writer, ws *core.Wo
 				// A backup that silently drops cards is worse than one that fails.
 				return stats, fmt.Errorf("export card %s: %w", c.ID, err)
 			}
-			stats.Comments += len(full.Comments)
-			stats.Links += len(full.Links)
-			if err := enc.Encode(map[string]any{"type": "card", "data": full}); err != nil {
-				return stats, err
-			}
+			cards = append(cards, full)
 		}
-		stats.Cards += len(page.Items)
 		if page.NextCursor == "" {
 			break
 		}
 		cursor = page.NextCursor
 	}
+	if stateOnly {
+		slices.SortFunc(cards, func(a, b *core.Card) int { return strings.Compare(a.ID, b.ID) })
+	}
+	for _, full := range cards {
+		stats.Comments += len(full.Comments)
+		stats.Links += len(full.Links)
+		if err := enc.Encode(map[string]any{"type": "card", "data": full}); err != nil {
+			return stats, err
+		}
+	}
+	stats.Cards = len(cards)
 
-	// Events (all — full audit log).
-	evs, err := st.List(ctx, core.EventQuery{Limit: 1000000})
+	// Events. A full export carries the whole audit log. A state-only export
+	// carries ONLY card_deleted tombstones — the record of which cards were
+	// removed — so references to retired cards (e.g. a roadmap item that came
+	// from a since-deleted board card) stay resolvable, without committing the
+	// churn of the mutation log (which is SQLite-owned durable state).
+	q := core.EventQuery{Limit: 1000000}
+	if stateOnly {
+		q.Types = []string{string(core.EventCardDeleted)}
+	}
+	evs, err := st.List(ctx, q)
 	if err != nil {
 		return stats, fmt.Errorf("export events: %w", err)
+	}
+	if stateOnly {
+		slices.SortFunc(evs, func(a, b core.Event) int { return cmp.Compare(a.ID, b.ID) })
 	}
 	for _, e := range evs {
 		if err := enc.Encode(map[string]any{"type": "event", "data": e}); err != nil {

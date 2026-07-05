@@ -17,6 +17,7 @@ func exportCmd(args []string) error {
 	workspace := fs.String("workspace", "", "workspace directory (contains definitions/)")
 	out := fs.String("out", "", "output file (default: stdout)")
 	format := fs.String("format", "jsonl", "output format: jsonl (default)")
+	stateOnly := fs.Bool("state-only", false, "omit the event journal — canonical card-state export (events are SQLite-owned)")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -54,7 +55,7 @@ func exportCmd(args []string) error {
 		w = f
 	}
 
-	stats, err := exportJSONL(ctx, st, w, result.Workspace)
+	stats, err := exportJSONL(ctx, st, w, result.Workspace, *stateOnly)
 	if err != nil {
 		return err
 	}

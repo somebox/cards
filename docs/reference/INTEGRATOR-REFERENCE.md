@@ -299,18 +299,16 @@ shapes per type (`field_updated`: `{field, before, after}`; `item_updated`:
 
 ### Mutation events [built] — `internal/core/types.go:209`
 
-Canonical enumeration (17 declared: 13 durable facts + 2 ephemeral board
-signals + 2 declared-only): `card_created`,
-`field_updated`, `status_changed`, `owner_changed`, `tags_changed`,
-`item_appended`, `item_updated`, `item_removed`, `link_added`, `link_removed`,
-`comment_added`, `comment_edited`, `schema_upgraded` — these 13 are **facts**:
-synchronous on a write, card-scoped, persisted, replayable.
-`wip_exceeded`/`wip_cleared` are **[built]** ephemeral board-scoped signals
-(`Scope: "board"`, `BoardID` set, not persisted — see `internal/core/wip_test.go`).
-The remaining two are **[drift]**: `artifact_added` (constant declared; no
-artifact-upload route or emit site exists yet — see `INTEGRATION.md`
-Act/Build-order #8) and `definition_reloaded` (constant declared; no reload
-handler or file watching — see §6 below). Both are [proposed], not built.
+Canonical enumeration — `internal/core/types.go` declares **25** event types:
+16 card/state events plus the 9 condition events (§ below). The **15 durable
+card facts** are `card_created`, `card_deleted`, `field_updated`,
+`status_changed`, `owner_changed`, `tags_changed`, `item_appended`,
+`item_updated`, `item_removed`, `link_added`, `link_removed`, `comment_added`,
+`comment_edited`, `schema_upgraded`, `artifact_added` — synchronous on a write,
+card-scoped, persisted, replayable. `artifact_added` emits from the attachments
+upload path (`Service.AddArtifact`, **[built]**). The one remaining **[drift]**
+constant is `definition_reloaded` (declared; no reload handler or file watching —
+see §6 below).
 
 ### Condition events [built] — `internal/core/types.go`, `INTEGRATION.md`
 

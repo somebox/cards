@@ -323,6 +323,31 @@ This keeps data integrity deterministic while making live delivery best-effort.
 If post-commit live/observer delivery must itself become reliable, evolve to the
 outbox/tailer model in §12, Step 4.
 
+### 8.7 State ownership: canonical card state vs SQLite-owned durable state
+
+A workspace has two kinds of durable state, and they have different homes:
+
+- **Canonical card state** — workspace/type/board *definitions* (`definitions/`)
+  and *current card state* (cards, their fields, links, comments). This is the
+  git-portable form: `cards export --state-only` writes it as JSONL, and `cards
+  import` reconstructs it into a fresh store. A committed
+  `backlog.jsonl` snapshot is the source of truth for "what cards exist."
+- **SQLite-owned durable state** — the append-only **event journal**, the
+  `condition_marks` fired-markers, and any future cursor / dead-letter /
+  subscription tables. These are ground truth that lives *only* in SQLite. They
+  are **not** part of the canonical JSONL and an import never reconstructs them:
+  `cards import` refuses a non-empty workspace, so it is a fresh-clone restore of
+  card state, never a merge that could truncate or rewrite history.
+
+The one deliberate bridge: a `--state-only` export also carries `card_deleted`
+**tombstones** (only those), so a reference to a since-retired card stays
+resolvable from the snapshot without dragging in the churn of the full mutation
+log. Everything else in the journal stays SQLite-owned.
+
+Consequence: rebuilding a DB from a committed export restores card state and the
+record of deletions, but **not** event history or delivery/cursor state — those
+are re-accumulated live. Design any consumer accordingly.
+
 ---
 
 ## 9) Delivery semantics by surface

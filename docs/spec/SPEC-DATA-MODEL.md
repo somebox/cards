@@ -244,9 +244,27 @@ Link {
 | `blocked-by` | directional | source is hard-blocked by target |
 | `related` | bidirectional | loose association |
 | `sent-to` | directional | source dispatched to target asset |
+| `parent` | directional | source belongs to target (membership/hierarchy) |
 
 Both `depends-on` and `blocked-by` are stored on the *waiting* card, so a
 card's outgoing edges answer "what am I waiting on?".
+
+#### Modeling hierarchy (epic → story → task)
+
+Only `depends-on` and `blocked-by` participate in blocked-ness; every other link
+type is inert for it. So `parent` cleanly expresses **membership** without
+conflating it with **prerequisite** — an epic is not a blocker of its own story.
+Model a tree by pointing each child at its parent:
+
+```bash
+cards link add <story-id> --type parent --target <epic-id>
+cards link add <task-id>  --type parent --target <story-id>
+```
+
+`parent` ships in the demo workspace's `link_types`; add it (or an `epic-of`
+variant, optionally `source_types`/`target_types`-scoped) to any workspace. A
+first-class parent field and a tree-rendering UI are on the roadmap; today the
+hierarchy lives as ordinary typed edges you can already query and traverse.
 
 ### Comment
 
