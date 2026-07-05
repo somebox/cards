@@ -44,6 +44,7 @@ Welcome to the Work Cards documentation. The files have been organized into topi
 ---
 
 ### Flat Reference Files at Docs Root
+- [ROADMAP.md](./ROADMAP.md) — Forward-looking work relocated from the board backlog (auth, storage, attachments, events, API, extensions).
 - [NOTES.md](./NOTES.md) — Historical rationale and stable design decisions (D1–D18).
 - [GH-PAGES-TODO.md](./GH-PAGES-TODO.md) — Roadmap and plan for building GitHub Pages & integrations.
 
