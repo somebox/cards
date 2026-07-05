@@ -103,7 +103,18 @@ type FieldView struct {
 	Entries       [][]PreviewField
 	Users         []core.User
 	ValueRendered string
-	Display       string // UI hint from FieldDef.Display (feed|badge|hidden|link|monospace)
+	Display       string        // UI hint from FieldDef.Display (feed|badge|hidden|link|monospace)
+	Artifact      *ArtifactView // set for artifact fields with stored bytes
+}
+
+// ArtifactView is the rendered metadata of an artifact field, so card_detail can
+// show a real thumbnail/download instead of the raw {uri,mime,size} JSON.
+type ArtifactView struct {
+	URI     string
+	MIME    string
+	Size    int64
+	IsImage bool
+	Href    string // GET /v1/artifacts/<uri>
 }
 
 // ViewData is the template payload.
@@ -487,9 +498,40 @@ func fieldViews(ct *core.CardType, fields any, users []core.User) []FieldView {
 		if f.Type == core.FieldRepeating {
 			fv.Entries = repeatingEntries(f.ID, fm, f.ItemFields)
 		}
+		if f.Type == core.FieldArtifact {
+			fv.Artifact = artifactView(fv.Value)
+		}
 		out = append(out, fv)
 	}
 	return out
+}
+
+// artifactView extracts an artifact field's stored metadata ({uri,mime,size})
+// into a view with a serve href and an image hint; nil if no bytes are stored.
+func artifactView(v any) *ArtifactView {
+	m, ok := v.(map[string]any)
+	if !ok {
+		return nil
+	}
+	uri, _ := m["uri"].(string)
+	if uri == "" {
+		return nil
+	}
+	mime, _ := m["mime"].(string)
+	var size int64
+	switch s := m["size"].(type) {
+	case float64:
+		size = int64(s)
+	case int64:
+		size = s
+	}
+	return &ArtifactView{
+		URI:     uri,
+		MIME:    mime,
+		Size:    size,
+		IsImage: strings.HasPrefix(mime, "image/"),
+		Href:    "/v1/artifacts/" + uri,
+	}
 }
 
 func repeatingEntries(fieldID string, fm map[string]any, itemFields []core.FieldDef) [][]PreviewField {

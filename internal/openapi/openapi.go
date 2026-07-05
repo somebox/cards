@@ -92,6 +92,30 @@ func paths(types map[string]*core.CardType) map[string]any {
 				"content": map[string]any{"application/json": map[string]any{"schema": map[string]any{"type": "object"}}},
 			}, cardResp, nil),
 		},
+		"/cards/{id}/artifacts/{field}": map[string]any{
+			"post": opBody("Store bytes for an artifact field (raw body; content-addressed + path-confined)", map[string]any{
+				"required": true,
+				"content": map[string]any{
+					"application/octet-stream": map[string]any{"schema": map[string]any{"type": "string", "format": "binary"}},
+				},
+			}, map[string]any{
+				"201": map[string]any{"description": "Updated card",
+					"content": map[string]any{"application/json": map[string]any{"schema": refOf("Card")}}},
+			}, append(append([]any{}, idParam...), map[string]any{
+				"name": "field", "in": "path", "required": true,
+				"schema": map[string]any{"type": "string"},
+			})),
+		},
+		"/artifacts/{uri}": map[string]any{
+			"get": op("Serve stored artifact bytes by content-addressed uri (confined to the artifacts root; traversal/missing → 404)", map[string]any{
+				"200": map[string]any{"description": "Artifact bytes",
+					"content": map[string]any{"application/octet-stream": map[string]any{"schema": map[string]any{"type": "string", "format": "binary"}}}},
+				"404": map[string]any{"description": "Not found or refused"},
+			}, []any{map[string]any{
+				"name": "uri", "in": "path", "required": true,
+				"schema": map[string]any{"type": "string"},
+			}}),
+		},
 		"/workspace": map[string]any{
 			"get": op("Workspace introspection (columns, types, boards, users)", map[string]any{
 				"200": map[string]any{"description": "Workspace"},

@@ -141,6 +141,28 @@ func (c *Client) do(method, path string, body any) ([]byte, int, error) {
 	return data, status, nil
 }
 
+// doRaw sends raw bytes (not JSON) — used for artifact uploads, where the body
+// is the file content itself rather than a JSON document.
+func (c *Client) doRaw(method, path string, raw []byte) ([]byte, int, error) {
+	hdr := http.Header{}
+	hdr.Set("Content-Type", "application/octet-stream")
+	if c.cfg.As != "" {
+		hdr.Set("X-Work-Cards-Actor", c.cfg.As)
+	}
+	status, data, err := c.t.Do(method, path, raw, hdr)
+	if err != nil {
+		return nil, 0, err
+	}
+	if status >= 400 {
+		e := parseErr(data)
+		if ce, ok := e.(*cliError); ok {
+			ce.Status = status
+		}
+		return data, status, e
+	}
+	return data, status, nil
+}
+
 // get is a convenience for GET with query params.
 func (c *Client) get(path string, q url.Values) ([]byte, int, error) {
 	if len(q) > 0 {

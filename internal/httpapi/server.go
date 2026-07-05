@@ -144,6 +144,8 @@ func (s *Server) Router() http.Handler {
 	r.Delete("/v1/cards/{id}/links/{typeID}/{target}", s.withActor(s.apiRemoveLink))
 	r.Post("/v1/cards/{id}/comments", s.withActor(s.idempotent(s.apiAddComment)))
 	r.Patch("/v1/cards/{id}/comments/{commentID}", s.withActor(s.idempotent(s.apiEditComment)))
+	r.Post("/v1/cards/{id}/artifacts/{field}", s.withActor(s.idempotent(s.apiAddArtifact)))
+	r.Get("/v1/artifacts/*", s.apiGetArtifact)
 	r.Post("/v1/cards/{id}/fields/{field}/append", s.withActor(s.idempotent(s.apiAppendEntry)))
 	r.Patch("/v1/cards/{id}/fields/{field}/{entryID}", s.withActor(s.idempotent(s.apiUpdateEntry)))
 	r.Delete("/v1/cards/{id}/fields/{field}/{entryID}", s.withActor(s.apiRemoveEntry))

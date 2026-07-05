@@ -303,6 +303,7 @@ main { padding: var(--s-5); max-width: 100%; }
 /* Tag chip: white stock, ink hairline, "#" prefix — content, not a stamp. */
 .chip--tag { background: var(--c-surface); color: var(--c-text-2); border-color: var(--c-border-2); font-weight: 600; }
 .chip--tag::before { content: "#"; opacity: .5; margin-right: 1px; }
+.artifact-thumb { max-width: 240px; max-height: 240px; border-radius: 6px; border: 1px solid var(--c-border-2); display: block; }
 
 /* Owner chip: person icon; clicking unclaims (hover → danger). Inherits the
    .chip base (size/padding/mono); only its icon + interactivity differ. */

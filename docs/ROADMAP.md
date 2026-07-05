@@ -100,25 +100,30 @@ in-memory `EventLog` fake already passes the same conformance suite.
 
 ---
 
-## 4. Attachments — *partial (store built, not wired)* — card `dafd0873`
+## 4. Attachments — *built* — card `dafd0873`
 
-An `artifact` field type exists, and `internal/artifacts` is a fully-built,
-adversarially-tested **content-addressed** store (SHA-256 dedup, MIME sniffing,
-symlink-safe path confinement). Cards hold metadata only:
+An `artifact` field type and `internal/artifacts` (a content-addressed store —
+SHA-256 dedup, MIME sniffing, symlink-safe path confinement) are now **wired
+end-to-end** (Sprint A, Phase 4). Cards hold metadata only:
 `{uri, mime, size, sha256}`.
 
-**But nothing calls it** — no upload endpoint, no download/serve route, no CLI
-verb, no MCP tool — and the `artifact` field is stored "as-is" with no
-write-time validation. The `artifact_added` event constant exists but no real
-upload flow emits it.
+Shipped: `Service.AddArtifact` (validates the field is a local-policy artifact
+field, ingests via `Manager.Put`, records the metadata, emits `artifact_added`);
+`Service.OpenArtifact` (serve path with `Resolve` confinement); the composition
+root (`openWorkspace`) builds one `artifacts.Manager` per workspace at
+`<dir>/artifacts` so every surface shares it. Surfaces: `POST
+/v1/cards/{id}/artifacts/{field}` (raw body) + `GET /v1/artifacts/*` (confined,
+traversal → 404); `cards attach <id> <field> <file>`; MCP `attach_artifact` /
+`get_artifact` (base64, deliberate stdio asymmetry); and `/ui` card detail
+renders an inline thumbnail (images) or download link, with `artifact_added` on
+the board SSE stream. Design intent (`NOTES.md`, `ARCHITECTURE.md`):
+`path/json/yaml/command/markdown` field types were deliberately dropped;
+`artifact` (link-to-bytes) was kept because posting links to artifacts is a
+stated core use case.
 
-To ship: an ingest path (`Manager.Put`), a serve path (`Resolve`/`Open` with
-its confinement checks), write-time validation of the metadata shape (and, for
-`artifact_policy: local`, that the uri resolves inside the artifacts root), and
-wiring an artifacts root into the server. Design intent (`NOTES.md`,
-`ARCHITECTURE.md`): `path/json/yaml/command/markdown` field types were
-deliberately dropped; `artifact` (link-to-bytes) was kept because posting links
-to artifacts is a stated core use case.
+Remaining follow-ups (not blocking): browser multipart *upload* form (today
+`/ui` renders but doesn't upload — attach via CLI/API); `artifact_policy: uri`
+fields still take their URI via patch, not upload.
 
 ---
 

@@ -77,7 +77,15 @@
     {{else if eq .Def.Type "artifact"}}
     <div class="field">
       <label class="field__label">{{.Def.Label}}</label>
-      {{if .Value}}<div class="field__val">{{.ValueRendered}}</div>{{else}}<span class="muted">—</span>{{end}}
+      {{if .Artifact}}
+        <div class="field__val">
+        {{if .Artifact.IsImage}}
+          <a href="{{.Artifact.Href}}" target="_blank" rel="noopener"><img class="artifact-thumb" src="{{.Artifact.Href}}" alt="{{.Def.Label}}"></a>
+        {{else}}
+          <a href="{{.Artifact.Href}}" download>⬇ {{.Artifact.MIME}} · {{.Artifact.Size}} bytes</a>
+        {{end}}
+        </div>
+      {{else}}<span class="muted">—</span>{{end}}
     </div>
     {{else if eq .Def.Type "card_link"}}
     <div class="field">

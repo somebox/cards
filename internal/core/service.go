@@ -10,11 +10,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"slices"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/somebox/cards/internal/artifacts"
 )
 
 // Service is the transport-independent core. Construct with NewService.
@@ -40,7 +43,16 @@ type Service struct {
 	// declares a temporal monitor (max_time_in_status/idle_after) or a
 	// temporal type is persisted — most workspaces never construct one. (3e)
 	monitors *MonitorScheduler
+
+	// artifacts stores/serves bytes for artifact fields (local policy). Wired by
+	// the composition root (SetArtifacts); nil in workspaces that never
+	// configure a root, where AddArtifact/OpenArtifact return a clear error.
+	artifacts *artifacts.Manager
 }
+
+// SetArtifacts wires the workspace artifact store (bytes for artifact fields).
+// Called once by the composition root after construction.
+func (s *Service) SetArtifacts(m *artifacts.Manager) { s.artifacts = m }
 
 // now returns the service's current time (via its Clock) — a method, not a
 // field, so every existing s.now() call site is unaffected by the seam 3d
@@ -1201,6 +1213,66 @@ func (s *Service) AddComment(ctx context.Context, id string, body string) (*Card
 		log.Printf("ERROR: comments table drift: insert %s on card %s: %v", c.ID, id, err)
 	}
 	return &next, nil
+}
+
+// AddArtifact stores bytes for an artifact field (artifact_policy: local) and
+// records the resulting metadata on the card, emitting artifact_added. It
+// mirrors AddLink/AddComment: resolve + actor + validate, then commit the card
+// mutation and the event together via commitCard. The Manager enforces
+// content-addressing and path confinement; a "uri"-policy field takes an
+// external URI via patch, not an upload, and is rejected here.
+func (s *Service) AddArtifact(ctx context.Context, id, field string, r io.Reader) (*Card, error) {
+	if s.artifacts == nil {
+		return nil, NewValidationError("artifact", "artifact storage is not configured for this workspace")
+	}
+	current, err := s.getCard(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	actor := ctxActor(ctx)
+	if actor == "" {
+		return nil, ActorRequired()
+	}
+	fd, err := s.findField(s.types[current.TypeID], field)
+	if err != nil {
+		return nil, err
+	}
+	if fd.Type != FieldArtifact {
+		return nil, NewValidationError(field, fmt.Sprintf("field %q is not an artifact field", field))
+	}
+	if fd.ArtifactPolicy == "uri" {
+		return nil, NewValidationError(field, fmt.Sprintf("field %q uses artifact_policy: uri; set the uri via patch, not upload", field))
+	}
+	meta, err := s.artifacts.Put(r)
+	if err != nil {
+		return nil, fmt.Errorf("store artifact: %w", err)
+	}
+	// Confinement sanity check: the freshly stored URI must resolve back inside
+	// the artifacts root — the same check the serve path applies.
+	if _, err := s.artifacts.Resolve(meta.URI); err != nil {
+		return nil, fmt.Errorf("store artifact: %w", err)
+	}
+	next := *current
+	next.Fields = setField(current.Fields, field, map[string]any{
+		"uri": meta.URI, "mime": meta.MIME, "size": meta.Size, "sha256": meta.SHA256,
+	})
+	next.Version = current.Version + 1
+	next.UpdatedAt = s.now()
+	ev := ArtifactAdded(id, field, meta.URI, meta.MIME, meta.Size, meta.SHA256)
+	if err := s.commitCard(ctx, &next, []*Event{ev}); err != nil {
+		return nil, err
+	}
+	return &next, nil
+}
+
+// OpenArtifact opens stored artifact bytes by URI, enforcing the local-policy
+// path confinement (artifacts.Manager.Resolve): a relative URI that stays inside
+// the artifacts root, symlinks included.
+func (s *Service) OpenArtifact(uri string) (io.ReadCloser, error) {
+	if s.artifacts == nil {
+		return nil, NewValidationError("artifact", "artifact storage is not configured for this workspace")
+	}
+	return s.artifacts.Open(uri)
 }
 
 // EditComment updates a comment's body. SPEC §11.

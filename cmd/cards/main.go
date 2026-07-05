@@ -215,6 +215,7 @@ Commands:
   link remove <id> <type> <target>
   comment add <id> --body B
   comment edit <id> <comment_id> --body B
+  attach <id> <field> <file>   Upload a file to an artifact field
   events <id> [--types t1,t2] [--limit N]
   history <id>
   users register --id ID [--kind human|agent] [--display-name N]

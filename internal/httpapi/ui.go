@@ -353,7 +353,7 @@ func boardSortOptions(active string, b *core.Board) []Option {
 var boardMutationTypes = []string{
 	"status_changed", "card_created", "field_updated", "owner_changed",
 	"tags_changed", "item_appended", "item_updated", "item_removed",
-	"link_added", "comment_added",
+	"link_added", "comment_added", "artifact_added",
 }
 
 // boardSSETypes is the comma-joined event-type filter the board's live stream

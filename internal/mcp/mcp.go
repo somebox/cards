@@ -11,7 +11,9 @@ package mcp
 
 import (
 	"bufio"
+	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -21,6 +23,11 @@ import (
 
 	"github.com/somebox/cards/internal/core"
 )
+
+// maxArtifactMCPBytes bounds an artifact carried over the stdio JSON-RPC channel
+// as base64 (there is no binary frame; the asymmetry with HTTP's raw body is
+// deliberate). Smaller than the HTTP cap since base64 inflates ~33%.
+const maxArtifactMCPBytes = 8 << 20 // 8 MiB
 
 // Server is the stdio MCP server.
 type Server struct {
@@ -284,6 +291,39 @@ func (s *Server) buildTools() []Tool {
 			InputSchema: objSchema(map[string]any{"card_id": str(), "body": str()}),
 			run: func(ctx context.Context, a map[string]any) (any, error) {
 				return s.svc.AddComment(ctx, strArg(a, "card_id"), strArg(a, "body"))
+			}},
+		Tool{Name: "attach_artifact", Description: "Store bytes for an artifact field from base64-encoded content (stdio has no binary frame); returns the updated card.",
+			InputSchema: objSchema(map[string]any{"card_id": str(), "field": str(), "content_base64": str()}),
+			run: func(ctx context.Context, a map[string]any) (any, error) {
+				raw, err := base64.StdEncoding.DecodeString(strArg(a, "content_base64"))
+				if err != nil {
+					return nil, core.NewValidationError("content_base64", "invalid base64: "+err.Error())
+				}
+				if len(raw) > maxArtifactMCPBytes {
+					return nil, core.NewValidationError("content_base64", "artifact exceeds the MCP size limit")
+				}
+				return s.svc.AddArtifact(ctx, strArg(a, "card_id"), strArg(a, "field"), bytes.NewReader(raw))
+			}},
+		Tool{Name: "get_artifact", Description: "Fetch stored artifact bytes by uri, returned as base64 with size.",
+			InputSchema: objSchema(map[string]any{"uri": str()}),
+			run: func(ctx context.Context, a map[string]any) (any, error) {
+				rc, err := s.svc.OpenArtifact(strArg(a, "uri"))
+				if err != nil {
+					return nil, err
+				}
+				defer rc.Close()
+				raw, err := io.ReadAll(io.LimitReader(rc, maxArtifactMCPBytes+1))
+				if err != nil {
+					return nil, err
+				}
+				if len(raw) > maxArtifactMCPBytes {
+					return nil, core.NewValidationError("uri", "artifact exceeds the MCP size limit")
+				}
+				return map[string]any{
+					"uri":            strArg(a, "uri"),
+					"size":           len(raw),
+					"content_base64": base64.StdEncoding.EncodeToString(raw),
+				}, nil
 			}},
 		Tool{Name: "history", Description: "Resumption-ready event timeline for a card.",
 			InputSchema: objSchema(map[string]any{"card_id": str()}),

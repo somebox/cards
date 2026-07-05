@@ -9,6 +9,7 @@ import (
 	"log"
 	"path/filepath"
 
+	"github.com/somebox/cards/internal/artifacts"
 	"github.com/somebox/cards/internal/config"
 	"github.com/somebox/cards/internal/core"
 	"github.com/somebox/cards/internal/sqlite"
@@ -16,6 +17,11 @@ import (
 
 // dbPath is the SQLite file location inside a workspace dir.
 func dbPath(dir string) string { return filepath.Join(dir, "work-cards.db") }
+
+// artifactsRoot is the on-disk artifact-bytes store inside a workspace dir. One
+// helper owns this mapping so every surface (HTTP, CLI-direct, MCP) that goes
+// through openWorkspace resolves the identical root.
+func artifactsRoot(dir string) string { return filepath.Join(dir, "artifacts") }
 
 // openWorkspace loads the definitions in dir and opens its store + service.
 // Callers own resolving/initializing dir beforehand and closing the returned
@@ -33,5 +39,11 @@ func openWorkspace(dir string) (*sqlite.Store, *core.Service, *config.Result, er
 		return nil, nil, nil, fmt.Errorf("open store: %w", err)
 	}
 	svc := core.NewService(result.Workspace, result.CardTypes, result.Boards, st)
+	am, err := artifacts.New(artifactsRoot(dir))
+	if err != nil {
+		st.Close()
+		return nil, nil, nil, fmt.Errorf("artifacts root: %w", err)
+	}
+	svc.SetArtifacts(am)
 	return st, svc, result, nil
 }

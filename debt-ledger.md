@@ -44,7 +44,7 @@ anchor below the reconciliation as unverified until checked** — in particular
 | DEBT-37 | **Fixed** | `cmds := cli.Commands()` hoisted once (`cmd/cards/main.go`). |
 | DEBT-42 | **Stale claim** | `internal/core/events_test.go` exists with `TestEventContracts_GoldenFixtures` / `TestNoRawEventLiterals`; the "does not exist" claim is false. Doc text refresh → Phase 5. |
 | DEBT-44 | **Count stale** | `internal/core/types.go:277-306` now declares **25** event constants (16 durable/state + 9 condition), not 17. Doc text refresh → Phase 5. |
-| DEBT-57 | **Description stale; policy-wiring remains** | `internal/artifacts` is fully implemented (content-addressing, SHA-256, MIME sniff, symlink-safe confinement) — not an empty struct. It has **no callers**, so the local-artifact policy is still unenforced at any write path → Phase 4 wires it. See corrected inline note below. |
+| DEBT-57 | **Fixed (Phase 4)** | `internal/artifacts` was already implemented (content-addressing, SHA-256, MIME sniff, symlink-safe confinement) — never an empty struct — and is now wired end-to-end via `Service.AddArtifact`/`OpenArtifact` with HTTP/CLI/MCP/`ui` surfaces and the confinement enforced at the serve route (traversal → 404). See corrected inline note below and ROADMAP §4. |
 
 Entries not listed were out of Sprint A's scope and were not re-verified; their
 anchors may also be stale. The CLI cluster (DEBT-33/34/35/36/37) and several others

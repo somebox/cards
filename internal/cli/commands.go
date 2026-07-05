@@ -35,6 +35,7 @@ func Commands() []Command {
 		{Name: "remove-entry", Short: "Remove a repeating entry by entry_id", Run: cmdRemoveEntry},
 		{Name: "link", Short: "Manage links (add/remove)", Run: cmdLink},
 		{Name: "comment", Short: "Manage comments (add/edit)", Run: cmdComment},
+		{Name: "attach", Short: "Attach a file to an artifact field", Run: cmdAttach},
 		{Name: "events", Short: "Show events for a card", Run: cmdEvents},
 		{Name: "feed", Short: "Show the workspace event feed (durable, cursor-paged)", Run: cmdFeed},
 		{Name: "history", Short: "Show resumption history for a card", Run: cmdHistory},
@@ -463,6 +464,30 @@ func cmdComment(c *Client, args []string) error {
 	default:
 		return fmt.Errorf("unknown comment subcommand %q", sub)
 	}
+	return nil
+}
+
+// cmdAttach uploads a local file as the bytes for an artifact field, printing
+// the updated card. The file is sent as the raw request body (the server
+// content-addresses and confines it); works serverless or against a server.
+func cmdAttach(c *Client, args []string) error {
+	fs := NewFlagSet()
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if len(fs.Args()) < 3 {
+		return fmt.Errorf("usage: cards attach <id> <field> <file>")
+	}
+	id, field, path := fs.Args()[0], fs.Args()[1], fs.Args()[2]
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	resp, _, err := c.doRaw("POST", "/cards/"+id+"/artifacts/"+field, data)
+	if err != nil {
+		return err
+	}
+	c.Print(resp, false, "id")
 	return nil
 }
 

@@ -468,3 +468,19 @@ type SchemaUpgradedDiff struct {
 func SchemaUpgraded(cardID string, from, to int, defaultsApplied map[string]any, fieldsDropped []string) *Event {
 	return CardEvent(cardID, EventSchemaUpgraded, SchemaUpgradedDiff{From: from, To: to, DefaultsApplied: defaultsApplied, FieldsDropped: fieldsDropped})
 }
+
+// ArtifactAddedDiff is the payload of artifact_added: bytes were stored for an
+// artifact field. It mirrors the field metadata a card holds ({uri, mime, size,
+// sha256}) plus the field id, so a durable consumer can react to an upload
+// without re-reading the card.
+type ArtifactAddedDiff struct {
+	Field  string `json:"field"`
+	URI    string `json:"uri"`
+	MIME   string `json:"mime,omitempty"`
+	Size   int64  `json:"size,omitempty"`
+	SHA256 string `json:"sha256,omitempty"`
+}
+
+func ArtifactAdded(cardID, field, uri, mime string, size int64, sha256 string) *Event {
+	return CardEvent(cardID, EventArtifactAdded, ArtifactAddedDiff{Field: field, URI: uri, MIME: mime, Size: size, SHA256: sha256})
+}

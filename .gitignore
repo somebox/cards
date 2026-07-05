@@ -36,5 +36,8 @@ examples/demo-workspace/work-cards.db
 examples/demo-workspace/work-cards.db-*
 examples/demo-workspace/export.jsonl
 
+# artifact bytes stored per workspace (content-addressed; never commit)
+examples/demo-workspace/artifacts/
+
 # Claude Code: share workflows, keep local settings out
 .claude/settings.local.json

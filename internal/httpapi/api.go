@@ -3,6 +3,7 @@ package httpapi
 import (
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -13,6 +14,10 @@ import (
 	"github.com/somebox/cards/internal/core"
 	"github.com/somebox/cards/internal/openapi"
 )
+
+// maxArtifactBytes bounds a single artifact upload so a runaway body can't
+// exhaust disk/memory. Generous for logs/diffs/screenshots.
+const maxArtifactBytes = 32 << 20 // 32 MiB
 
 // --- API handlers ---
 
@@ -365,6 +370,48 @@ func (s *Server) apiAddComment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, 201, c)
+}
+
+// apiAddArtifact stores the request body as bytes for an artifact field and
+// returns the updated card. The body is the raw file (CLI/MCP send it directly;
+// MCP base64-decodes first). Content-addressed + confined by the Manager.
+func (s *Server) apiAddArtifact(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	field := chi.URLParam(r, "field")
+	body := http.MaxBytesReader(w, r.Body, maxArtifactBytes)
+	defer body.Close()
+	c, err := s.svc.AddArtifact(r.Context(), id, field, body)
+	if err != nil {
+		writeAPIError(w, core.AsError(err))
+		return
+	}
+	writeJSON(w, 201, c)
+}
+
+// apiGetArtifact streams stored artifact bytes by content-addressed URI. The
+// wildcard path is passed to the Manager, which rejects anything escaping the
+// artifacts root (traversal, symlink, absolute) — all of which resolve to 404
+// so the route never leaks whether or why a path was refused.
+func (s *Server) apiGetArtifact(w http.ResponseWriter, r *http.Request) {
+	uri := chi.URLParam(r, "*")
+	rc, err := s.svc.OpenArtifact(uri)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	defer rc.Close()
+	// Sniff the type from the first bytes (the store keeps raw content, no
+	// per-file MIME), then stream the buffered head + the rest.
+	head := make([]byte, 512)
+	n, _ := io.ReadFull(rc, head)
+	head = head[:n]
+	w.Header().Set("Content-Type", http.DetectContentType(head))
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.WriteHeader(http.StatusOK)
+	if _, err := w.Write(head); err != nil {
+		return
+	}
+	_, _ = io.Copy(w, rc)
 }
 
 func (s *Server) apiEditComment(w http.ResponseWriter, r *http.Request) {
