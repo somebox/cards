@@ -44,6 +44,9 @@ func run(args []string) error {
 	case "-h", "--help", "help":
 		fmt.Print(usage)
 		return nil
+	case "-v", "--version", "version":
+		versionCmd()
+		return nil
 	}
 	// --workspace is peeled as a global so it can precede the subcommand like
 	// --url. Commands that open a workspace themselves (serve/export/import/mcp/
@@ -179,6 +182,7 @@ const usage = `Work Cards — typed-card coordination.
 
 Usage:
   cards                                Show this help
+  cards version                        Print version, commit, and build info
   cards init [dir] [--global]          Scaffold a new workspace
   cards serve [--workspace <dir>] [--port 8787] [--seed]
   cards <command> [flags]              (serverless by default; CARDS_URL targets a server)

@@ -61,15 +61,22 @@ Build, then start your own workspace with zero configuration:
 
 ```bash
 go build -o cards ./cmd/cards
+./cards version       # print version / commit / build info
 ./cards init          # scaffold ./.cards with a welcome board
-./cards               # serve the nearest .cards/ (or ~/.cards)
+./cards serve         # serve the nearest .cards/ (or ~/.cards)
 open http://127.0.0.1:8787/ui/boards/welcome
 ```
 
-`cards` with no arguments walks up for a `.cards/` workspace like git finds
-`.git/`, falling back to a personal workspace at `~/.cards`. To run the bundled
-demo board (the project's own dogfooding backlog) instead, point at it
-explicitly:
+Or install a released build directly:
+
+```bash
+go install github.com/somebox/cards/cmd/cards@latest   # or @v0.1.0
+```
+
+`cards serve` with no `--workspace` walks up for a `.cards/` workspace like git
+finds `.git/`, falling back to a personal workspace at `~/.cards`. (Bare `cards`
+prints usage; run the server explicitly.) To run the bundled demo board (the
+project's own dogfooding backlog) instead, point at it explicitly:
 
 ```bash
 ./cards serve --workspace ./examples/demo-workspace --port 8787 --seed
@@ -216,6 +223,32 @@ project-local unless a release notes otherwise.
 PRs and issue reports are welcome. For local development, build with
 `go build ./cmd/cards`, run the demo workspace, and use the docs above as the
 current contract for changes.
+
+## Releases
+
+Versions follow [Semantic Versioning](https://semver.org/). While pre-1.0, a
+minor bump (`0.x`) may include breaking changes and a patch bump (`0.x.y`) is
+reserved for backwards-compatible fixes. Every change is recorded in
+[`CHANGELOG.md`](CHANGELOG.md), and each binary reports its provenance:
+
+```bash
+cards version         # e.g. "cards v0.1.0 (a1b2c3d4e5f6) built 2026-07-06T…"
+```
+
+A working-tree `go build` reports `dev` plus the commit; a tagged release
+build stamps the version via `-ldflags "-X main.version=vX.Y.Z"`.
+
+**Cutting a release** (maintainers): move the `Unreleased` section of
+`CHANGELOG.md` under a new `## [X.Y.Z]` heading, commit, then:
+
+```bash
+git tag vX.Y.Z && git push origin vX.Y.Z
+```
+
+The [`release` workflow](.github/workflows/release.yml) builds static
+cross-platform binaries (linux/darwin/windows × amd64/arm64) with the version
+stamped in, and publishes a GitHub Release whose notes are that CHANGELOG
+section, with `checksums.txt`.
 
 ## License
 
