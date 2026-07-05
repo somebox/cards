@@ -134,10 +134,14 @@ the temporal `status_timeout` / `card_idle`, the deadline scheduler,
 persist-escalation, board-scoped events, resumable SSE, and `/breaches`
 (instant conditions). Remaining:
 
-- **Outbox / tailer (Step 4)** *(proposed / `[future]`, cards `d416cec3`,
+- **Outbox / tailer (Step 4)** *(designed, **gated — deferred**; cards `d416cec3`,
   `180e7621`)*. Durable-log-driven dispatch that closes the
-  commit-then-crash-before-dispatch live-delivery gap. The `d416cec3` "Events
-  core design" epic is largely delivered; this is its last unbuilt seam.
+  commit-then-crash-before-dispatch live-delivery gap. Designed cold in
+  [`docs/design/SUBSCRIBERS.md`](design/SUBSCRIBERS.md) and **deferred** by the
+  Phase-6 go/no-go ([`docs/design/OUTBOX-GONOGO.md`](design/OUTBOX-GONOGO.md)):
+  the log is now crash-safe (foundation gate passed), but no relied-upon consumer
+  was observed losing events that matter, so building it now would be
+  infrastructure ahead of need. Re-open on a real go signal.
 - **`card_ready` on DAG progress** *(proposed, card `2898a658`)*. Fires when
   *all* dependencies are satisfied — distinct from the built `card_unblocked`.
 - **Priority / rank + reprioritize-on-`lane_drained`** *(proposed, card
@@ -156,12 +160,17 @@ persist-escalation, board-scoped events, resumable SSE, and `/breaches`
 
 ---
 
-## 6. Integration — webhooks *(proposed, card `a9f78958`)*
+## 6. Integration — webhooks *(designed, gated — deferred; card `a9f78958`)*
 
 A first-class `webhook` extension kind: push events to external URLs with
 retry + HMAC signing + cursor replay. Today only a shell `hook` can react to an
-event (and only observe-post-hoc, per §2). Depends on / benefits from the
-outbox (§5) for durable, replayable delivery.
+event (and only observe-post-hoc, per §2). Built on the outbox (§5), so it
+shares the same deferral and design: see
+[`docs/design/SUBSCRIBERS.md`](design/SUBSCRIBERS.md) — which pins the
+`Consumer` model, reject-at-registration deliverability, the additive
+(non-republishing) tailer topology, and the **enforced default-deny egress
+allowlist** (registration + dispatch time) that any runtime `/v1/subscribers`
+registration must ship with.
 
 ---
 
