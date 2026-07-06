@@ -7,6 +7,7 @@
   <title>{{.Title}} — Work Cards</title>
   <link rel="stylesheet" href="/ui/style.css">
   {{if eq .Theme "journal"}}<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;600;700&family=Kalam:wght@400;700&display=swap" rel="stylesheet">{{end}}
+  {{if eq .Theme "labels"}}<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Sono:wght@200;400;600&display=swap" rel="stylesheet">{{end}}
   <script src="https://unpkg.com/htmx.org@1.9.12"></script>
 </head>
 <body>
@@ -161,16 +162,49 @@
   function closeModal() { if (modal.open) modal.close(); modal.innerHTML = ''; }
   modal.addEventListener('click', function(e){ if (e.target === modal) closeModal(); });
   document.addEventListener('keydown', function(e){
-    if (e.key !== 'Escape') return;
-    // Escape while editing a field reverts just that field; otherwise closes the modal.
-    var active = document.activeElement;
-    var openEdit = active && active.closest && active.closest('[data-edit]:not([hidden])');
-    if (openEdit) {
-      e.preventDefault();
-      revertField(openEdit);
+    if (e.key === 'Escape') {
+      // Escape while editing a field reverts just that field; otherwise closes the modal.
+      var active = document.activeElement;
+      var openEdit = active && active.closest && active.closest('[data-edit]:not([hidden])');
+      if (openEdit) {
+        e.preventDefault();
+        revertField(openEdit);
+        return;
+      }
+      if (modal.open) { e.preventDefault(); closeModal(); }
       return;
     }
-    if (modal.open) { e.preventDefault(); closeModal(); }
+    // ←/→ navigates between cards on the board (test affordance). Only when
+    // the modal is open AND no field/control is focused (so editing text,
+    // arrowing through a <select>, or tabbing the board never hijacks the key).
+    if (modal.open && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+      var a = document.activeElement;
+      if (a && a.tagName === 'INPUT' || (a && (a.tagName === 'TEXTAREA' || a.tagName === 'SELECT' || a.isContentEditable))) return;
+      var cur = currentModalCardID();
+      if (!cur) return;
+      var cards = Array.prototype.slice.call(document.querySelectorAll('.card[data-card-id]'));
+      if (!cards.length) return; // detail page has no siblings
+      var idx = -1;
+      for (var i = 0; i < cards.length; i++) { if (cards[i].getAttribute('data-card-id') === cur) { idx = i; break; } }
+      if (idx === -1) return;
+      var next = e.key === 'ArrowRight' ? idx + 1 : idx - 1;
+      if (next < 0 || next >= cards.length) return;
+      e.preventDefault();
+      var link = cards[next].getAttribute('data-card-link');
+      if (link) loadModal(link);
+    }
+  });
+  // Copy-card-link button (labels header). Copies the full card id; falls back
+  // to a prompt if the Clipboard API is unavailable (non-secure context).
+  modal.addEventListener('click', function(e){
+    var b = e.target.closest('[data-copy-id]');
+    if (!b) return;
+    e.preventDefault(); e.stopPropagation();
+    var id = b.getAttribute('data-copy-id');
+    var url = window.location.origin + '/ui/cards/' + id;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).then(function(){ toast('Copied link'); }, function(){ window.prompt('Copy link:', url); });
+    } else { window.prompt('Copy link:', url); }
   });
   // Keyboard: a board card's title <a> is the keyboard affordance (Enter
   // activates it → the click handler below loads the modal). The card root is

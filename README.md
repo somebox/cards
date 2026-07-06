@@ -268,9 +268,10 @@ model. Design background is in [`docs/concepts/PHILOSOPHY.md`](docs/concepts/PHI
 [`docs/architecture/ARCHITECTURE.md`](docs/architecture/ARCHITECTURE.md); agent and extension details are
 in [`docs/extensions/MCP.md`](docs/extensions/MCP.md) and [`docs/extensions/EXTENSIONS.md`](docs/extensions/EXTENSIONS.md).
 How other apps observe changes, dispatch work, and react to timeouts/WIP/empty
-lanes is in [`docs/events/INTEGRATION.md`](docs/events/INTEGRATION.md); the internal event core
-(the emission seam, log, bus, observers) is specified in
-[`docs/events/EVENTS.md`](docs/events/EVENTS.md). For a single-page, code-verified reference
+lanes is in [`docs/events/INTEGRATION.md`](docs/events/INTEGRATION.md). The event docs start at
+[`docs/events/EVENTS.md`](docs/events/EVENTS.md); the core contract (emission seam, log, bus, observers) is specified in
+[`docs/events/EVENTS-CORE.md`](docs/events/EVENTS-CORE.md), with staged history in
+[`docs/events/EVENTS-ROLLOUT.md`](docs/events/EVENTS-ROLLOUT.md). For a single-page, code-verified reference
 (what's actually built vs. proposed), see
 [`docs/reference/INTEGRATOR-REFERENCE.md`](docs/reference/INTEGRATOR-REFERENCE.md); for worked
 end-to-end scenarios, see [`docs/examples/LIFECYCLE-EXAMPLES.md`](docs/examples/LIFECYCLE-EXAMPLES.md).
@@ -283,7 +284,22 @@ project-local unless a release notes otherwise.
 
 PRs and issue reports are welcome. For local development, build with
 `go build ./cmd/cards`, run the demo workspace, and use the docs above as the
-current contract for changes.
+current contract for changes. UI templates and CSS are embedded in the Go
+binary, so edit/review loops need a rebuild; `scripts/dev-server.sh` automates
+that by rebuilding and restarting the demo server on source/template/config
+changes:
+
+```bash
+scripts/dev-server.sh
+open 'http://127.0.0.1:8787/ui/boards/engineering?theme=labels'
+```
+
+If [`air`](https://github.com/air-verse/air) is installed, the script delegates
+to `.air.toml`; otherwise it uses a small dependency-free watcher.
+
+Coding agents working in this repo should start from [`CLAUDE.md`](CLAUDE.md) —
+it maps the design rules, doc locations, run/test commands, and web UI/CSS
+conventions.
 
 ## Releases
 

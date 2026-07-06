@@ -23,10 +23,11 @@ type CardView struct {
 	CardType      *core.CardType
 	PreviewFields []PreviewField
 	MoveOptions   []Option
-	TypeIcon      string // 1a — precomputed badge glyph
-	TypeAccent    string // 1a — precomputed accent (overrides [data-type])
-	TypeMuted     string // 1a — precomputed muted shade
+	TypeIcon      string          // 1a — precomputed badge glyph
+	TypeAccent    string          // 1a — precomputed accent (overrides [data-type])
+	TypeMuted     string          // 1a — precomputed muted shade
 	TypeLabel     string          // 1a — precomputed type display name (== CardType.Name)
+	StatusLabel   string          // board card: resolved column/status display name
 	Artifacts     []*ArtifactView // board card: stored artifacts (thumbnails / download chips), live via artifact_added SSE
 	CommentCount  int             // board card: number of comments
 	OutCount      int             // board card: number of outbound links
@@ -315,6 +316,7 @@ func (s *Server) renderCardDetail(w http.ResponseWriter, r *http.Request, c *cor
 	data.Error = err
 	data.TypeThemes = s.buildTypeThemes()
 	data.OutLinks, data.InLinks = s.cardRelations(r.Context(), c)
+	data.Theme = s.resolveTheme(w, r)
 	if wantsPartial(r) {
 		s.renderPartial(w, "card_detail.html", data)
 	} else {
@@ -343,6 +345,7 @@ func (s *Server) uiCardModal(w http.ResponseWriter, r *http.Request) {
 	data.TagSet = s.ws.TagSet
 	data.TypeThemes = s.buildTypeThemes()
 	data.OutLinks, data.InLinks = s.cardRelations(r.Context(), c)
+	data.Theme = s.resolveTheme(w, r)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if e := s.pages["card_modal.html"].ExecuteTemplate(w, "card_modal", data); e != nil {
 		http.Error(w, "template error: "+e.Error(), http.StatusInternalServerError)
@@ -401,6 +404,7 @@ func (s *Server) cardView(c *core.Card, b *core.Board, users []core.User) CardVi
 		TypeAccent:    th.Accent,
 		TypeMuted:     th.Muted,
 		TypeLabel:     label,
+		StatusLabel:   s.columnName(c.Status),
 		Artifacts:     cardArtifacts(ct, c),
 	}
 }

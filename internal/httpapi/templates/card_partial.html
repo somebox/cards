@@ -1,5 +1,5 @@
 {{define "card_partial"}}
-<div class="card" id="card-{{.Card.ID}}" data-card-id="{{.Card.ID}}" data-type="{{.Card.TypeID}}"
+<div class="card" id="card-{{.Card.ID}}" data-card-id="{{.Card.ID}}" data-type="{{.Card.TypeID}}"{{if .TypeIcon}} data-icon="{{.TypeIcon}}"{{end}}
      draggable="true" data-card-link="/ui/cards/{{.Card.ID}}/modal"
      {{if .TypeAccent}}style="--card-stock:{{.TypeAccent}}{{if .TypeMuted}};--card-stock-bg:{{.TypeMuted}}{{end}}" {{end}}title="{{.TypeLabel}} · {{.Card.Title}}">
   {{/* Minimal corner type indicator: colour-stock tab + icon, no text label
@@ -29,6 +29,16 @@
     {{end}}
   </div>
   {{end}}
+  {{/* Theme hook: a compact, one-line metadata summary for dense card themes.
+       Hidden in the default theme; named themes can promote it without changing
+       the card data contract. */}}
+  <div class="card__secondary" aria-hidden="true">
+    <span class="card__secondary-item card__secondary-item--status">{{.StatusLabel}}</span>
+    {{if .Card.Owner}}<span class="card__secondary-item card__secondary-item--owner">{{.Card.Owner}}</span>{{end}}
+    {{if .Card.Tags}}{{range .Card.Tags}}<span class="card__secondary-item card__secondary-item--tag">#{{.}}</span>{{end}}{{end}}
+    {{range .PreviewFields}}<span class="card__secondary-item card__secondary-item--preview">{{.Label}} {{.Value}}</span>{{end}}
+    <span class="card__secondary-item card__secondary-item--updated"><time data-ago="{{iso .Card.UpdatedAt}}" datetime="{{iso .Card.UpdatedAt}}"></time></span>
+  </div>
   <div class="card__stats">
     <span class="card__stat card__stat--time"><time data-ago="{{iso .Card.UpdatedAt}}" datetime="{{iso .Card.UpdatedAt}}" title="last updated"></time></span>
     {{if .Blocked}}<span class="card__stat" data-stat="blocked" title="blocked by an unresolved dependency">blocked</span>{{end}}

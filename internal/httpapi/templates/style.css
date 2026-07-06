@@ -91,6 +91,61 @@
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-mono: "SF Mono", "Cascadia Code", ui-monospace, "Consolas", "Liberation Mono", monospace;
 
+  /* Typography roles — semantic hooks a theme overrides instead of hunting
+     selectors. Every text-bearing rule below reads one of these instead of a
+     literal size/weight, so a theme can retune the whole hierarchy from one
+     place (its `html[data-theme="<name>"] { ... }` block).
+     Units: font-size/line-height are unitless or `rem` (root-relative, so
+     browser zoom + devtools "Computed" stay predictable); never `vw`/`vh` for
+     type — those make the same element render a different px size depending
+     on window width, which is unreadable in devtools and breaks zoom. Reserve
+     `px` for hairlines/icons (--edge/--stroke/--rule), not text. To tweak in
+     devtools: inspect the element, open Styles → find which `--role-*`
+     custom property is read by the matched rule (often on `:root` or
+     `html[data-theme="x"]`), then edit that one property — every element
+     sharing the role updates together. */
+  --role-heading-weight: 700;   /* h1–h4 */
+  --role-strong-weight:  700;   /* <strong>/<b>, chrome emphasis (nav, buttons, badges) */
+
+  --role-title-card-font:     var(--font-sans);   /* board card title */
+  --role-title-card-size:     var(--t-base);
+  --role-title-card-weight:   700;
+  --role-title-card-leading:  1.2;
+  --role-title-card-tracking: 0em;
+
+  --role-title-detail-font:     var(--font-sans);  /* modal/detail title */
+  --role-title-detail-size:     var(--t-lg);
+  --role-title-detail-weight:   700;
+  --role-title-detail-leading:  1.2;
+  --role-title-detail-tracking: -.01em;
+
+  --role-label-font:     var(--font-mono);   /* field labels ("TAGS", "STATUS") */
+  --role-label-size:     var(--t-xs);
+  --role-label-weight:   600;
+  --role-label-leading:  normal;
+  --role-label-tracking: .08em;
+
+  --role-meta-font:      var(--font-mono);   /* header metadata line (status/owner/id/version/updated) */
+  --role-meta-size:      var(--t-xs);
+  --role-meta-weight:    400;
+  --role-meta-value-weight: 700;  /* editable values (status/owner) inside the meta line — emphasis vs. the key */
+  --role-meta-leading:   1.3;
+  --role-meta-tracking:  0em;
+
+  --role-body-font:      var(--font-sans);   /* field values / body copy */
+  --role-body-size:      var(--t-base);
+  --role-body-weight:    400;
+  --role-body-leading:   1.5;
+
+  /* Modal geometry — theme-customizable card-detail size. `width` may use
+     clamp()/min() (fluid layout is the point); `ratio` + `height: auto` lets
+     the ratio drive height. A compact theme sets a fixed height + ratio auto.
+     Presets (documented in DESIGN.md): standard = min(1040px,92vw,135vh) / 3:2;
+     compact = min(640px,94vw) / auto / min(78vh,660px); wide = min(1200px,95vw) / 16:10. */
+  --modal-width:  min(1040px, 92vw, 135vh);
+  --modal-height: auto;
+  --modal-ratio:  3 / 2;
+
   /* Line weights — semantic, not decorative */
   --edge:   4px;   /* card color-stock top edge */
   --stroke: 2px;   /* crisp card / control outline */
@@ -172,7 +227,8 @@ body {
   background-size: 11px 11px;
   background-position: -5px -5px;
 }
-h1, h2, h3, h4 { margin: 0; line-height: 1.2; font-weight: 700; letter-spacing: -.01em; }
+h1, h2, h3, h4 { margin: 0; line-height: 1.2; font-weight: var(--role-heading-weight); letter-spacing: -.01em; }
+strong, b { font-weight: var(--role-strong-weight); }
 a { color: var(--c-accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
 
@@ -332,12 +388,25 @@ main { padding: var(--s-5); max-width: 100%; }
 }
 /* Per-type monochromatic icon, shared by the board card corner mark (.card)
    and the modal/detail/home type badge (.card__type-badge). */
-.card[data-type="feature"], .card__type-badge[data-type="feature"]          { --ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Cpath d='M12 2l2.4 7.6L22 12l-7.6 2.4L12 22l-2.4-7.6L2 12l7.6-2.4z'/%3E%3C/svg%3E"); }
-.card[data-type="bug"], .card__type-badge[data-type="bug"]                  { --ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 8a5 5 0 0 1 5 5v1a5 5 0 0 1-10 0v-1a5 5 0 0 1 5-5z'/%3E%3Cpath d='M12 3v3'/%3E%3Cpath d='M9 4l1.5 2'/%3E%3Cpath d='M15 4l-1.5 2'/%3E%3Cpath d='M7 12l-3-1'/%3E%3Cpath d='M7 16H4'/%3E%3Cpath d='M17 12l3-1'/%3E%3Cpath d='M17 16h3'/%3E%3C/svg%3E"); }
-.card[data-type="task"], .card__type-badge[data-type="task"]                { --ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E"); }
-.card[data-type="experiment"], .card__type-badge[data-type="experiment"]    { --ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 3v6l-5 9a2 2 0 0 0 1.8 3h12.4a2 2 0 0 0 1.8-3l-5-9V3'/%3E%3Cpath d='M8 3h8'/%3E%3Cpath d='M7 15h10'/%3E%3C/svg%3E"); }
-.card[data-type="research-goal"], .card__type-badge[data-type="research-goal"] { --ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Ccircle cx='12' cy='12' r='4'/%3E%3C/svg%3E"); }
-.card[data-type="programming-task"], .card__type-badge[data-type="programming-task"] { --ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8 6l-6 6 6 6'/%3E%3Cpath d='M16 6l6 6-6 6'/%3E%3C/svg%3E"); }
+.card[data-type="feature"], .card__type-badge[data-type="feature"], .modal__head[data-type="feature"]          { --ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Cpath d='M12 2l2.4 7.6L22 12l-7.6 2.4L12 22l-2.4-7.6L2 12l7.6-2.4z'/%3E%3C/svg%3E"); }
+.card[data-type="bug"], .card__type-badge[data-type="bug"], .modal__head[data-type="bug"]                  { --ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 8a5 5 0 0 1 5 5v1a5 5 0 0 1-10 0v-1a5 5 0 0 1 5-5z'/%3E%3Cpath d='M12 3v3'/%3E%3Cpath d='M9 4l1.5 2'/%3E%3Cpath d='M15 4l-1.5 2'/%3E%3Cpath d='M7 12l-3-1'/%3E%3Cpath d='M7 16H4'/%3E%3Cpath d='M17 12l3-1'/%3E%3Cpath d='M17 16h3'/%3E%3C/svg%3E"); }
+.card[data-type="task"], .card__type-badge[data-type="task"], .modal__head[data-type="task"]                { --ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E"); }
+.card[data-type="experiment"], .card__type-badge[data-type="experiment"], .modal__head[data-type="experiment"]    { --ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 3v6l-5 9a2 2 0 0 0 1.8 3h12.4a2 2 0 0 0 1.8-3l-5-9V3'/%3E%3Cpath d='M8 3h8'/%3E%3Cpath d='M7 15h10'/%3E%3C/svg%3E"); }
+.card[data-type="research-goal"], .card__type-badge[data-type="research-goal"], .modal__head[data-type="research-goal"] { --ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Ccircle cx='12' cy='12' r='4'/%3E%3C/svg%3E"); }
+.card[data-type="programming-task"], .card__type-badge[data-type="programming-task"], .modal__head[data-type="programming-task"] { --ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8 6l-6 6 6 6'/%3E%3Cpath d='M16 6l6 6-6 6'/%3E%3C/svg%3E"); }
+
+/* Config-driven icon aliases. `type_theme.icon` (and future style-field
+   option themes) emit data-icon; these selectors intentionally sit after the
+   type defaults so workspace configuration wins without inline SVG text. */
+.card[data-icon="card"], .card__type-badge[data-icon="card"], .modal__head[data-icon="card"]       { --ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2'%3E%3Crect x='4' y='4' width='16' height='16' rx='1'/%3E%3C/svg%3E"); }
+.card[data-icon="star"], .card__type-badge[data-icon="star"], .modal__head[data-icon="star"]       { --ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Cpath d='M12 2l2.4 7.6L22 12l-7.6 2.4L12 22l-2.4-7.6L2 12l7.6-2.4z'/%3E%3C/svg%3E"); }
+.card[data-icon="bug"], .card__type-badge[data-icon="bug"], .modal__head[data-icon="bug"]         { --ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 8a5 5 0 0 1 5 5v1a5 5 0 0 1-10 0v-1a5 5 0 0 1 5-5z'/%3E%3Cpath d='M12 3v3'/%3E%3Cpath d='M9 4l1.5 2'/%3E%3Cpath d='M15 4l-1.5 2'/%3E%3Cpath d='M7 12l-3-1'/%3E%3Cpath d='M7 16H4'/%3E%3Cpath d='M17 12l3-1'/%3E%3Cpath d='M17 16h3'/%3E%3C/svg%3E"); }
+.card[data-icon="check"], .card__type-badge[data-icon="check"], .modal__head[data-icon="check"]     { --ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E"); }
+.card[data-icon="flask"], .card__type-badge[data-icon="flask"], .modal__head[data-icon="flask"]     { --ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 3v6l-5 9a2 2 0 0 0 1.8 3h12.4a2 2 0 0 0 1.8-3l-5-9V3'/%3E%3Cpath d='M8 3h8'/%3E%3Cpath d='M7 15h10'/%3E%3C/svg%3E"); }
+.card[data-icon="target"], .card__type-badge[data-icon="target"], .modal__head[data-icon="target"]   { --ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Ccircle cx='12' cy='12' r='4'/%3E%3C/svg%3E"); }
+.card[data-icon="code"], .card__type-badge[data-icon="code"], .modal__head[data-icon="code"]       { --ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8 6l-6 6 6 6'/%3E%3Cpath d='M16 6l6 6-6 6'/%3E%3C/svg%3E"); }
+.card[data-icon="pen"], .card__type-badge[data-icon="pen"], .modal__head[data-icon="pen"]         { --ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 20h9'/%3E%3Cpath d='M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z'/%3E%3C/svg%3E"); }
+.card[data-icon="wrench"], .card__type-badge[data-icon="wrench"], .modal__head[data-icon="wrench"]   { --ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14.7 6.3a4 4 0 0 0-5 5L3 18l3 3 6.7-6.7a4 4 0 0 0 5-5l-2.8 2.8-3-3Z'/%3E%3C/svg%3E"); }
 
 /* Per-type "colour stock" on a board card — read by the corner mark. A board
    Theme may override the ink (--type-* via the whitelist); the wash (-bg) is
@@ -418,7 +487,10 @@ main { padding: var(--s-5); max-width: 100%; }
 .card:focus-visible { outline: var(--stroke) solid var(--c-accent); outline-offset: 2px; }
 .card.is-dragging { opacity: .4; }
 
-.card__title { font-weight: 700; font-size: var(--t-base); line-height: 1.2;
+.card__title {
+  font-family: var(--role-title-card-font); font-size: var(--role-title-card-size);
+  font-weight: var(--role-title-card-weight); line-height: var(--role-title-card-leading);
+  letter-spacing: var(--role-title-card-tracking);
   /* Title flows from a clean left margin; reserve room on the right so the
      first line clears the top-right corner type mark. */
   padding-right: 1.3rem; }
@@ -431,6 +503,12 @@ main { padding: var(--s-5); max-width: 100%; }
 .card__preview { display: flex; flex-wrap: wrap; gap: var(--s-1) var(--s-3); font-family: var(--font-mono); font-size: var(--t-xs); color: var(--c-text-2); }
 .card__preview .truncate { max-width: 100%; }
 .card__preview b { color: var(--c-faint); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; margin-right: .25em; }
+
+/* Board card compact summary: a semantic one-line hook for dense named themes.
+   The default card keeps the established meta/preview/stats rows; themes may
+   promote this line when they need a fixed-height, two-line card. */
+.card__secondary { display: none; }
+.card__secondary-item { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* Board card stats: updated time on the left, count badges (comments / out /
    in links) on the right — monochrome icons, directional colours. */
@@ -481,10 +559,14 @@ main { padding: var(--s-5); max-width: 100%; }
 /* --- Fields (detail / modal / forms) ------------------------------------ */
 .field { padding: var(--s-2) 0; margin-bottom: 0; }
 .field__label {
-  font-family: var(--font-mono); font-size: var(--t-xs); text-transform: uppercase;
-  letter-spacing: .08em; color: var(--c-muted); display: block; margin-bottom: var(--s-1); font-weight: 600;
+  font-family: var(--role-label-font); font-size: var(--role-label-size); text-transform: uppercase;
+  letter-spacing: var(--role-label-tracking); line-height: var(--role-label-leading);
+  color: var(--c-muted); display: block; margin-bottom: var(--s-1); font-weight: var(--role-label-weight);
 }
-.field__val { font-size: var(--t-base); }
+.field__val {
+  font-family: var(--role-body-font); font-size: var(--role-body-size);
+  font-weight: var(--role-body-weight); line-height: var(--role-body-leading);
+}
 .field .req { color: var(--c-danger); }
 
 /* dirty state for inline-edit */
@@ -499,6 +581,10 @@ main { padding: var(--s-5); max-width: 100%; }
   border: 1px solid transparent; cursor: text;
   transition: background var(--t-fast), border-color var(--t-fast);
   white-space: pre-wrap; word-break: break-word;
+  /* Base body-value voice; more specific rules below (.card-title__view,
+     .modal__meta-field .field__view, .mono) override per role/context. */
+  font-family: var(--role-body-font); font-size: var(--role-body-size);
+  font-weight: var(--role-body-weight); line-height: var(--role-body-leading);
 }
 .field__view:hover { background: var(--c-surface-2); border-color: var(--c-border); }
 .field__view:focus-visible { outline: none; background: var(--c-surface-2); border-color: var(--c-accent); box-shadow: 0 0 0 3px var(--c-accent-soft); }
@@ -510,9 +596,15 @@ main { padding: var(--s-5); max-width: 100%; }
 .modal__head .field__view, .card-title__view { display: inline-block; padding: 0 var(--s-1); border-radius: var(--r-sm); }
 .card-title__view {
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
-  font-size: var(--t-lg); font-weight: 700; letter-spacing: -.01em; line-height: 1.2;
+  font-family: var(--role-title-detail-font); font-size: var(--role-title-detail-size);
+  font-weight: var(--role-title-detail-weight); letter-spacing: var(--role-title-detail-tracking);
+  line-height: var(--role-title-detail-leading);
 }
-.card-title__edit .input { font-size: var(--t-lg); font-weight: 700; line-height: 1.2; padding: 0 var(--s-1); }
+.card-title__edit .input {
+  font-family: var(--role-title-detail-font); font-size: var(--role-title-detail-size);
+  font-weight: var(--role-title-detail-weight); line-height: var(--role-title-detail-leading);
+  padding: 0 var(--s-1);
+}
 
 /* View↔edit parity (Principle 3 — “editing changes chrome, not geometry”):
    the edit control matches the view's box model — same font-size/line-height/
@@ -604,7 +696,7 @@ main { padding: var(--s-5); max-width: 100%; }
    viewport width, and — via 135vh (= 90vh × 3/2) — the viewport height, so it
    grows on big screens without ever breaking the ratio or overflowing. */
 .modal {
-  padding: 0; width: min(1040px, 92vw, 135vh); aspect-ratio: 3 / 2;
+  padding: 0; width: var(--modal-width); height: var(--modal-height); aspect-ratio: var(--modal-ratio);
   overflow: hidden;
   border: 1px solid var(--c-ink); border-radius: var(--r-lg);
   box-shadow: var(--sh-lg);
@@ -621,13 +713,23 @@ main { padding: var(--s-5); max-width: 100%; }
 }
 .modal__head-main { min-width: 0; flex: 1 1 auto; }
 .modal__meta {
-  font-family: var(--font-mono); font-size: var(--t-xs); color: var(--c-muted);
-  margin-top: var(--s-2); display: flex; flex-wrap: wrap; gap: var(--s-1) var(--s-3); align-items: center; line-height: 1.3;
+  font-family: var(--role-meta-font); font-size: var(--role-meta-size); color: var(--c-muted);
+  font-weight: var(--role-meta-weight); line-height: var(--role-meta-leading); letter-spacing: var(--role-meta-tracking);
+  margin-top: var(--s-2); display: flex; flex-wrap: wrap; gap: var(--s-1) var(--s-3); align-items: center;
 }
 .modal__meta-field { display: inline-flex; align-items: center; gap: .35em; }
 .modal__meta-key { text-transform: uppercase; letter-spacing: .05em; color: var(--c-faint); }
-.modal__meta-field .field__view { padding: 0 .15em; font-weight: 600; color: var(--c-text-2); }
+.modal__meta-field .field__view { padding: 0 .15em; font: inherit; font-weight: var(--role-meta-value-weight); color: var(--c-text-2); }
 .modal__meta-tail { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--s-1) var(--s-3); margin-left: auto; }
+/* One metadata voice: whatever utility classes (.mono/.faint) or <time> land
+   inside the header metadata line inherit its role font wholesale, so short
+   id / version / "updated" never drift from status/owner even if a utility
+   class elsewhere declares its own font-size. */
+.modal__meta .mono,
+.modal__meta .faint,
+.modal__meta time,
+.modal__meta-tail,
+.modal__meta-tail * { font: inherit; }
 .modal__close { background: none; border: 0; font-size: 1.5rem; cursor: pointer; color: var(--c-muted); line-height: 1; padding: 0; flex: none; }
 .modal__close:hover { color: var(--c-text); }
 .modal__body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: var(--s-3) var(--s-4); }
@@ -777,7 +879,6 @@ html[data-theme="journal"] .card:hover { transform: rotate(0deg) translateY(-3px
 html[data-theme="journal"] .card__type-mark,
 html[data-theme="journal"] .card__preview,
 html[data-theme="journal"] .card__stats { display: none; }
-html[data-theme="journal"] .card__title { padding-right: 0; font-size: var(--t-lg); line-height: 1.05; font-weight: 700; }
 html[data-theme="journal"] .card__title a { color: var(--c-ink); }
 
 /* Chips read like rubber stamps: rotated red ink outline, no fill. */
@@ -811,15 +912,11 @@ html[data-theme="journal"] .modal {
 html[data-theme="journal"] .modal__head { border-bottom: 2px solid var(--c-ink); padding-left: 3rem; }
 html[data-theme="journal"] .modal__body { padding-left: 3rem; }
 html[data-theme="journal"] .modal__footer { border-top: 1px dashed var(--c-border-2); }
-html[data-theme="journal"] .card-title__view { font-size: var(--t-xl); font-weight: 700; }
-/* "key: value" written lines for the meta + field labels. */
-html[data-theme="journal"] .modal__meta { font-family: var(--font-sans); font-size: var(--t-base); }
+/* "key: value" written lines for the meta + field labels; sizes/weights come
+   from the --role-* overrides declared with the token remap above. */
 html[data-theme="journal"] .modal__meta-key { text-transform: capitalize; letter-spacing: 0; color: var(--c-muted); }
 html[data-theme="journal"] .modal__meta-key::after { content: ":"; }
-html[data-theme="journal"] .field__label {
-  font-family: var(--font-mono); text-transform: none; letter-spacing: 0;
-  font-size: var(--t-base); font-weight: 700; color: var(--c-accent-2);
-}
+html[data-theme="journal"] .field__label { text-transform: none; color: var(--c-accent-2); }
 html[data-theme="journal"] .field__label::after { content: ":"; }
 
 /* Repeating entries look taped onto the page. */
@@ -874,4 +971,336 @@ html[data-theme="journal"] .entry::before {
   display: inline-flex; align-items: center; gap: var(--s-1);
   font-family: var(--font-mono); font-size: var(--t-xs); color: var(--c-muted);
   padding: 0 var(--s-1); border: 1px solid var(--c-border); border-radius: var(--r-sm);
+}
+
+/* ===========================================================================
+   THEME: "labels"  ·  html[data-theme="labels"]
+   ---------------------------------------------------------------------------
+   Compact routing labels for sorting work. Sono gives the theme one typographic
+   voice: ExtraLight body copy, Regular emphasis, Semibold titles/labels. Board
+   cards are small adhesive inventory labels; modal/detail cards are textured
+   white cardboard with colour-coded stuck-on field labels. Activate with
+   ?theme=labels.
+   ========================================================================== */
+html[data-theme="labels"] {
+  /* Compact detail card: smaller than the default 3:2 print card. */
+  --modal-width:  min(660px, 94vw);
+  --modal-height: min(80vh, 680px);
+  --modal-ratio:  auto;
+  --c-flat:      #d9d3c4;  --c-flat-dot: #c7bda6;
+  --c-surface:   #faf8f1;  --c-surface-2: #f1ead9;  --c-surface-3: #e4d8c1;
+  --c-ink:       #171a1c;  --c-text: #171a1c;  --c-text-2: #2c3134;
+  --c-muted:     #586064;  --c-faint: #7c7a70;
+  --c-border:    #b9ad95;  --c-border-2: #171a1c;
+  --c-label-bg:  #171a1c;  --c-label-fg: #fffdf5;
+  --c-nav-bg:    #131618;  --c-nav-fg: #fffdf5;
+  --c-accent:    #0f5d78;  --c-accent-2: #104557;  --c-accent-soft: #c6d8dc;
+  --c-danger:    #e23b2e;  --c-danger-soft: #f1c8bc;
+  --type-feature: #005bd3; --type-feature-bg: #f8efd9;
+  --type-bug:     #e21f26; --type-bug-bg:     #f8efd9;
+  --type-task:    #596469; --type-task-bg:    #f8efd9;
+  --type-experiment: #cf7b00; --type-experiment-bg: #f8efd9;
+  --type-research-goal: #079b43; --type-research-goal-bg: #f8efd9;
+  --type-programming-task: #0f5d78; --type-programming-task-bg: #f8efd9;
+  --rel-out: #005bd3; --rel-in: #e21f26;
+
+  /* 80s office-supply palette for field labels. */
+  --label-pink:   #e83f8f;
+  --label-cyan:   #00a8c6;
+  --label-purple: #7b4cc2;
+  --label-yellow: #f2a900;
+  --label-green:  #00a86b;
+  --label-orange: #ff6b35;
+  --label-blue:   #2f6fed;
+  --label-red:    #e23b2e;
+  --label-lime:   #8bbf24;
+  --label-tan:    #a86f3d;
+  /* Dark ink for the white-text-on-dark attribute labels (header meta + body
+     field labels). Brighter than neutral grey and semi-opaque so the card /
+     cardstock background bleeds through. Tweak this one value to retune all
+     dark labels at once. */
+  --labels-ink: rgba(74,82,90,.5);
+
+  --font-sans: "Sono", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "Sono", "SF Mono", "Cascadia Code", ui-monospace, monospace;
+  --t-xs: .62rem; --t-sm: .72rem; --t-base: .78rem; --t-md: .9rem; --t-lg: 1.05rem; --t-xl: 1.5rem;
+  --s-3: .55rem; --s-4: .75rem; --s-5: 1rem;
+  --r-sm: 0; --r-md: 0; --r-lg: 0; --r-pill: 0;
+  --sh-sm: 0 2px 4px rgba(23,26,28,.16); --sh-hover: 0 4px 8px rgba(23,26,28,.22);
+  --sh-md: 0 2px 0 rgba(23,26,28,.18); --sh-lg: 0 22px 42px rgba(23,26,28,.30);
+
+  /* Sono ships weights 200/400/600 (loaded in layout.html); the theme's
+     typography roles map onto exactly those three so every title/label/body
+     element stays on-voice. Body copy: ExtraLight (200). Emphasis/meta:
+     Regular (400). Titles + field labels: Semibold (600) — titles must
+     always read bold at a glance, per the theme brief. */
+  --role-heading-weight: 600;
+  --role-strong-weight:  400;
+
+  --role-title-card-font:     var(--font-sans);
+  --role-title-card-size:     1.2rem;
+  --role-title-card-weight:   600;
+  --role-title-card-leading:  1.15;
+  --role-title-card-tracking: -.01em;
+
+  --role-title-detail-font:     var(--font-sans);
+  --role-title-detail-size:     1.35rem;
+  --role-title-detail-weight:   600;
+  --role-title-detail-leading:  1.15;
+  --role-title-detail-tracking: -.015em;
+
+  --role-label-font:     var(--font-mono);
+  --role-label-size:     .72rem;
+  --role-label-weight:   600;
+  --role-label-tracking: .07em;
+
+  --role-meta-font:      var(--font-mono);
+  --role-meta-size:      .72rem;
+  --role-meta-weight:    400;
+  --role-meta-value-weight: 600;
+  --role-meta-leading:   1.3;
+
+  --role-body-font:      var(--font-sans);
+  --role-body-size:      .78rem;
+  --role-body-weight:    200;
+  --role-body-leading:   1.4;
+}
+html[data-theme="labels"] body,
+html[data-theme="labels"] .board-view {
+  font-family: var(--role-body-font);
+  font-weight: var(--role-body-weight);
+  background-color: #d8d2c2;
+}
+html[data-theme="labels"] .app-nav {
+  min-height: 3rem; box-shadow: none; border-bottom: 3px solid #343632;
+}
+html[data-theme="labels"] .app-nav .brand,
+html[data-theme="labels"] .app-nav a {
+  font-family: var(--role-meta-font); font-weight: var(--role-strong-weight); text-transform: uppercase; letter-spacing: .06em;
+}
+html[data-theme="labels"] .page-title {
+  font-family: var(--role-meta-font); font-weight: var(--role-heading-weight); text-transform: uppercase; letter-spacing: .08em; font-size: var(--t-xl);
+}
+html[data-theme="labels"] .filter-chips,
+html[data-theme="labels"] .board-controls { margin-bottom: var(--s-3); }
+html[data-theme="labels"] .input,
+html[data-theme="labels"] .select,
+html[data-theme="labels"] .textarea,
+html[data-theme="labels"] .btn,
+html[data-theme="labels"] .chip-filter {
+  border-width: 1px; box-shadow: inset 0 -2px 0 rgba(23,26,28,.08); font-weight: 400;
+}
+
+html[data-theme="labels"] .board { gap: var(--s-3); }
+html[data-theme="labels"] .lane { min-width: 260px; max-width: 300px; flex-basis: 282px; gap: var(--s-2); }
+html[data-theme="labels"] .lane__head {
+  min-height: 1.75rem; padding: .34rem .52rem;
+  border-radius: 0; background: var(--c-ink); color: var(--c-label-fg);
+  box-shadow: inset 0 -3px 0 rgba(255,248,234,.18);
+  font-weight: var(--role-heading-weight);
+}
+html[data-theme="labels"] .lane__count {
+  border-radius: 0; min-width: 1.7em; background: var(--c-label-fg); color: var(--c-ink); font-weight: var(--role-heading-weight);
+}
+html[data-theme="labels"] .lane__body { gap: .38rem; }
+
+html[data-theme="labels"] .card {
+  position: relative; min-height: 3rem; padding: 0; gap: 0;
+  display: grid; grid-template-columns: 1.34rem minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto;
+  background: var(--card-stock-bg, var(--c-surface));
+  color: var(--c-text);
+  border: 1px solid var(--card-stock, var(--c-ink)); border-radius: 0;
+  box-shadow: var(--sh-sm);
+}
+html[data-theme="labels"] .card:hover { transform: translateY(-1px); box-shadow: var(--sh-hover); }
+html[data-theme="labels"] .card__type-mark {
+  position: static; grid-column: 1; grid-row: 1 / 3;
+  width: auto; height: auto; border: 0; border-radius: 0;
+  background: var(--card-stock, var(--c-ink)); color: #fffdf5;
+}
+html[data-theme="labels"] .card__type-mark::before { width: .92rem; height: .92rem; }
+html[data-theme="labels"] .card__title {
+  grid-column: 2; grid-row: 1; align-self: start; min-width: 0;
+  padding: .32rem .48rem .04rem; text-transform: none;
+}
+html[data-theme="labels"] .card__title,
+html[data-theme="labels"] .card__title a {
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden; color: var(--c-text); font: inherit; letter-spacing: inherit;
+}
+html[data-theme="labels"] .card__meta,
+html[data-theme="labels"] .card__preview,
+html[data-theme="labels"] .card__stats { display: none; }
+html[data-theme="labels"] .card__secondary {
+  grid-column: 2; grid-row: 2; min-width: 0; overflow: hidden;
+  display: flex; align-items: baseline; gap: .38rem;
+  padding: .04rem .48rem .32rem;
+  font-family: var(--role-meta-font); font-size: .58rem; line-height: 1.05;
+  color: var(--c-muted); text-transform: uppercase; letter-spacing: .025em; font-weight: var(--role-strong-weight);
+}
+html[data-theme="labels"] .card__secondary-item {
+  flex: 0 1 auto; min-width: 0; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap;
+}
+html[data-theme="labels"] .card__secondary-item--status { display: none; }
+html[data-theme="labels"] .card__secondary-item--owner {
+  flex: 0 0 auto; color: var(--card-stock, var(--c-ink)); font-weight: var(--role-heading-weight);
+}
+html[data-theme="labels"] .card__secondary-item--tag { flex: 0 0 auto; color: var(--c-text-2); }
+html[data-theme="labels"] .card__secondary-item--preview { flex: 1 1 auto; }
+html[data-theme="labels"] .card__secondary-item--updated { margin-left: auto; flex: 0 0 auto; color: var(--c-faint); }
+
+html[data-theme="labels"] .modal {
+  width: min(820px, 94vw); height: min(82vh, 700px); aspect-ratio: auto;
+  border: 2px solid var(--c-ink); border-radius: 0;
+  background-color: #fffdf7;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260' viewBox='0 0 260 260'%3E%3Cfilter id='paper' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.2' numOctaves='6' seed='8' result='noise'/%3E%3CfeDiffuseLighting in='noise' lighting-color='%23f4efe3' surfaceScale='0.7'%3E%3CfeDistantLight azimuth='45' elevation='60'/%3E%3C/feDiffuseLighting%3E%3C/filter%3E%3Crect width='260' height='260' fill='%23fffdf7'/%3E%3Crect width='260' height='260' filter='url(%23paper)' opacity='.38'/%3E%3C/svg%3E");
+  background-size: 260px 260px;
+}
+html[data-theme="labels"] .modal::backdrop { background: rgba(23,26,28,.32); }
+
+/* --- Labels detail header: icon | title (title + meta) | actions --------
+   The title cell stacks the editable title (top) and the four attribute
+   cells (Status/Owner/Updated/Version, bottom-aligned). The actions column
+   holds close (top) and the ID row (bottom). Only the title is editable in
+   the header; status/owner/type are editable fields in the body. */
+html[data-theme="labels"] .modal__head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas: "icon title actions";
+  gap: 0; padding: 0; margin: 0; border: 0; border-radius: 0;
+  background: transparent; color: #fffdf7;
+}
+html[data-theme="labels"] .modal__head[data-type="feature"] { --card-stock: var(--type-feature); }
+html[data-theme="labels"] .modal__head[data-type="bug"] { --card-stock: var(--type-bug); }
+html[data-theme="labels"] .modal__head[data-type="task"] { --card-stock: var(--type-task); }
+html[data-theme="labels"] .modal__head[data-type="experiment"] { --card-stock: var(--type-experiment); }
+html[data-theme="labels"] .modal__head[data-type="research-goal"] { --card-stock: var(--type-research-goal); }
+html[data-theme="labels"] .modal__head[data-type="programming-task"] { --card-stock: var(--type-programming-task); }
+
+html[data-theme="labels"] .labels-head__icon {
+  grid-area: icon; align-self: stretch; display: grid; place-items: center;
+  width: 6rem; min-height: 6rem;
+  background: var(--card-stock, var(--c-accent)); color: #fffdf7;
+  border-right: 1px solid var(--labels-rule, rgba(23,26,28,.45));
+}
+html[data-theme="labels"] .labels-head__icon::before {
+  content: ""; width: 3.7rem; height: 3.7rem; background: currentColor;
+  -webkit-mask: var(--ico) center / contain no-repeat; mask: var(--ico) center / contain no-repeat;
+}
+html[data-theme="labels"] .labels-head__title {
+  grid-area: title; align-self: stretch; min-width: 0;
+  display: flex; flex-direction: column; justify-content: space-between; gap: 0;
+  padding: 0; background: var(--card-stock, var(--c-accent)); color: #fffdf7;
+}
+html[data-theme="labels"] .labels-head__titlefield { padding: .4rem .6rem .3rem; }
+html[data-theme="labels"] .labels-head__title .field__view,
+html[data-theme="labels"] .labels-head__title .card-title__view {
+  padding: 0; background: transparent; border: 0; color: #fffdf7;
+}
+html[data-theme="labels"] .labels-head__title .field__edit .input {
+  font-family: var(--role-title-detail-font); font-size: var(--role-title-detail-size);
+  font-weight: var(--role-title-detail-weight); line-height: var(--role-title-detail-leading);
+  background: rgba(255,253,247,.94); color: var(--card-stock, var(--c-accent));
+  border: 1px solid rgba(23,26,28,.4); padding: 0 .3rem;
+}
+html[data-theme="labels"] .labels-head__actions {
+  grid-area: actions; align-self: stretch; min-width: 0; width: min-content;
+  display: flex; flex-direction: column; justify-content: flex-start; align-items: stretch;
+  background: var(--card-stock, var(--c-accent)); color: #fffdf7;
+  border-left: 1px solid var(--labels-rule, rgba(23,26,28,.45));
+}
+html[data-theme="labels"] .labels-head__close {
+  align-self: flex-end; background: transparent; color: #fffdf7;
+  border: 0; border-bottom: 1px solid var(--labels-rule, rgba(23,26,28,.45));
+  font-size: 1.4rem; line-height: 1; padding: .25rem .55rem; cursor: pointer; opacity: .92;
+}
+html[data-theme="labels"] .labels-head__close:hover { opacity: 1; }
+
+/* Attribute cells (live inside the title cell, bottom-aligned): label (dark
+   grey/white) + value (white/black). The meta block is flush with the title
+   cell's frame (no inset padding) so it lines up with the header edges. */
+html[data-theme="labels"] .labels-head__meta {
+  display: grid; grid-template-columns: repeat(5, minmax(0, 1fr));
+  border-top: 1px solid var(--labels-rule, rgba(23,26,28,.45));
+  padding: 0; margin: 0;
+}
+html[data-theme="labels"] .labels-meta-cell {
+  display: grid; grid-template-columns: auto minmax(0, 1fr);
+  border-right: 1px solid var(--labels-rule, rgba(23,26,28,.45));
+}
+html[data-theme="labels"] .labels-meta-cell:last-child { border-right: 0; }
+html[data-theme="labels"] .labels-meta-label {
+  padding: .22rem .38rem; background: var(--labels-ink, rgba(74,82,90,.82)); color: #fffdf7;
+  font-family: var(--font-mono); font-size: .56rem; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .06em; line-height: 1.1; white-space: nowrap;
+}
+html[data-theme="labels"] .labels-meta-value {
+  padding: .22rem .38rem; background: rgba(255,253,247,.5); color: #171a1c;
+  font-family: var(--font-mono); font-size: .66rem; font-weight: 400;
+  line-height: 1.1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+html[data-theme="labels"] .labels-meta-value--id {
+  display: inline-flex; align-items: center; gap: .3rem;
+  overflow: hidden;
+}
+html[data-theme="labels"] .labels-id-value { font-size: .66rem; color: #171a1c; }
+html[data-theme="labels"] .labels-id-copy {
+  flex: none; background: transparent; color: #171a1c; opacity: .45;
+  border: 0; border-radius: 0; font-size: .78rem; line-height: 1;
+  padding: 0 .12rem; cursor: pointer;
+}
+html[data-theme="labels"] .labels-id-copy:hover { opacity: 1; }
+html[data-theme="labels"] .card__type-badge {
+  background: rgba(255,253,247,.92); color: var(--card-stock, var(--badge-ink, var(--c-ink)));
+  border-color: rgba(255,253,247,.95); font-weight: var(--role-heading-weight); font-size: .72rem;
+}
+html[data-theme="labels"] .modal__body {
+  padding: .5rem .7rem .7rem;
+  background: transparent;
+}
+html[data-theme="labels"] .modal__body .field {
+  display: grid; grid-template-columns: minmax(6.5rem, 9rem) minmax(0, 1fr);
+  gap: .5rem; align-items: start; padding: .26rem 0;
+}
+html[data-theme="labels"] .modal__body .field + .field { border-top: 1px solid var(--labels-ink); }
+/* Field labels: uniform dark squares with white text (matching the header
+   attribute-label style). The label aligns to the first text line of the
+   value (.24rem top padding == the value's first-line offset) so their tops
+   line up; the value column is a transparent container, not a box. */
+html[data-theme="labels"] .modal__body .field__label {
+  justify-self: start; align-self: start; margin: 0; padding: .156rem .42rem .156rem;
+  line-height: 1; text-transform: uppercase; color: #fffdf7;
+  background: var(--labels-ink, rgba(74,82,90,.5)); border: 0; border-radius: 0; box-shadow: none;
+}
+/* Value text-top alignment: the value's first line sits at half its
+   line-height leading below the box top (no top padding); the label's
+   text-top is its padding-top (line-height 1). Setting label padding-top to
+   the value's half-leading (.156rem for .78rem/1.4) aligns the text-tops. */
+html[data-theme="labels"] .modal__body .field__view,
+html[data-theme="labels"] .modal__body .field__val { padding-top: 0; }
+html[data-theme="labels"] .modal__body .field__view.mono { font-family: var(--font-mono); background: transparent; border: 0; }
+html[data-theme="labels"] .entry {
+  margin: 0 0 var(--s-2); padding: .32rem .46rem;
+  background: rgba(255,255,255,.66); border: 1px solid rgba(23,26,28,.18);
+  border-left: 4px solid var(--labels-ink, rgba(74,82,90,.5)); border-radius: 0;
+}
+html[data-theme="labels"] .modal__footer {
+  border-top: 2px solid var(--c-ink); background: rgba(255,253,247,.65); padding: .5rem .8rem;
+}
+html[data-theme="labels"] .save-form.detail {
+  max-width: var(--modal-width); margin: 0 auto; border: 2px solid var(--c-ink);
+  background-color: #fffdf7;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260' viewBox='0 0 260 260'%3E%3Cfilter id='paper' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.2' numOctaves='6' seed='8' result='noise'/%3E%3CfeDiffuseLighting in='noise' lighting-color='%23f4efe3' surfaceScale='0.7'%3E%3CfeDistantLight azimuth='45' elevation='60'/%3E%3C/feDiffuseLighting%3E%3C/filter%3E%3Crect width='260' height='260' fill='%23fffdf7'/%3E%3Crect width='260' height='260' filter='url(%23paper)' opacity='.38'/%3E%3C/svg%3E");
+  background-size: 260px 260px;
+}
+html[data-theme="labels"] .save-form.detail .modal__body,
+html[data-theme="labels"] .save-form.detail .modal__footer { background-color: transparent; }
+
+@media (max-width: 720px) {
+  html[data-theme="labels"] .lane { min-width: 240px; flex-basis: 260px; }
+  html[data-theme="labels"] .card { grid-template-columns: 1.2rem minmax(0, 1fr); }
+  html[data-theme="labels"] .card__type-mark::before { width: .82rem; height: .82rem; }
+  html[data-theme="labels"] .labels-head__meta { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  html[data-theme="labels"] .modal__body .field { grid-template-columns: 1fr; gap: var(--s-1); }
 }

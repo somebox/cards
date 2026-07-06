@@ -1,5 +1,9 @@
-{{define "card_body"}}
-  <div class="modal__head">
+{{/* card_head: default-theme detail header (icon + editable title + meta line).
+     The labels theme uses labels_card_head instead — see card_body. */}}
+{{define "card_head"}}
+  {{$th := typeTheme .TypeThemes .Card.TypeID}}
+  <div class="modal__head" data-type="{{.Card.TypeID}}"{{if $th.Icon}} data-icon="{{$th.Icon}}"{{end}}
+       {{- if $th.Accent}} style="--card-stock:{{$th.Accent}}{{- if $th.Muted}};--card-stock-bg:{{$th.Muted}}{{end}}"{{end -}}>
     <div class="modal__head-main">
       <div class="field field--editable" data-field="title">
         <span class="field__view card-title__view{{if not .Card.Title}} is-empty{{end}}" tabindex="0" data-view title="{{.Card.Title}}">{{if .Card.Title}}{{.Card.Title}}{{else}}Untitled{{end}}</span>
@@ -8,8 +12,7 @@
         </span>
       </div>
       <div class="modal__meta">
-        {{$th := typeTheme .TypeThemes .Card.TypeID}}
-        <span class="card__type-badge" data-type="{{.Card.TypeID}}"
+        <span class="card__type-badge" data-type="{{.Card.TypeID}}"{{if $th.Icon}} data-icon="{{$th.Icon}}"{{end}}
               {{- if $th.Accent}} style="--badge-ink:{{$th.Accent}}{{- if $th.Muted}};--badge-wash:{{$th.Muted}}{{end}}"{{end -}}
               title="{{.Card.TypeID}}">
           {{.CardType.Name}}
@@ -42,10 +45,75 @@
     </div>
     <button type="button" class="modal__close" onclick="closeModal()" aria-label="close">×</button>
   </div>
-  <div class="modal__body">
+{{end}}
+
+{{/* labels_card_head: icon | title (title top + meta bottom) | actions (close + ID). */}}
+{{define "labels_card_head"}}
+  {{$th := typeTheme .TypeThemes .Card.TypeID}}
+  <div class="modal__head labels-head" data-type="{{.Card.TypeID}}"{{if $th.Icon}} data-icon="{{$th.Icon}}"{{end}}
+       {{- if $th.Accent}} style="--card-stock:{{$th.Accent}}{{- if $th.Muted}};--card-stock-bg:{{$th.Muted}}{{end}}"{{end -}}>
+    <span class="labels-head__icon" aria-hidden="true"></span>
+    <div class="labels-head__title">
+      <div class="field field--editable labels-head__titlefield" data-field="title">
+        <span class="field__view card-title__view{{if not .Card.Title}} is-empty{{end}}" tabindex="0" data-view title="{{.Card.Title}}">{{if .Card.Title}}{{.Card.Title}}{{else}}Untitled{{end}}</span>
+        <span class="field__edit card-title__edit" data-edit hidden>
+          <input type="text" class="input" name="title" value="{{.Card.Title}}">
+        </span>
+      </div>
+      <div class="labels-head__meta">
+        <div class="labels-meta-cell"><span class="labels-meta-label">Status</span><span class="labels-meta-value">{{columnName .Card.Status}}</span></div>
+        <div class="labels-meta-cell"><span class="labels-meta-label">Owner</span><span class="labels-meta-value">{{if .Card.Owner}}{{.Card.Owner}}{{else}}unassigned{{end}}</span></div>
+        <div class="labels-meta-cell"><span class="labels-meta-label">Updated</span><span class="labels-meta-value"><time data-ago="{{iso .Card.UpdatedAt}}" datetime="{{iso .Card.UpdatedAt}}"></time></span></div>
+        <div class="labels-meta-cell"><span class="labels-meta-label">Version</span><span class="labels-meta-value">v{{.Card.Version}}</span></div>
+        <div class="labels-meta-cell labels-meta-cell--id">
+          <span class="labels-meta-label">ID</span>
+          <span class="labels-meta-value labels-meta-value--id">
+            <span class="labels-id-value" title="{{.Card.ID}}">{{shortID .Card.ID}}</span>
+            <button type="button" class="labels-id-copy" data-copy-id="{{.Card.ID}}" title="Copy link · {{.Card.ID}}" aria-label="Copy link">⧉</button>
+          </span>
+        </div>
+      </div>
+    </div>
+    <div class="labels-head__actions">
+      <button type="button" class="labels-head__close" onclick="closeModal()" aria-label="close">×</button>
+    </div>
+  </div>
+{{end}}
+
+{{/* labels_meta_fields: editable status/owner + read-only type, shown in the
+     body so the header stays a compact display table. Type is immutable
+     (schema differs per type) so it is read-only. */}}
+{{define "labels_meta_fields"}}
+    <div class="field field--editable" data-field="status" data-field-type="enum">
+      <label class="field__label">Status</label>
+      <div class="field__view" tabindex="0" data-view>{{columnName .Card.Status}}</div>
+      <div class="field__edit" data-edit hidden>
+        <select class="select" name="status">
+          {{range .MoveOptions}}
+            <option value="{{.Value}}" {{if .Disabled}}disabled{{end}} {{if .Selected}}selected{{end}}>{{.Label}}</option>
+          {{end}}
+        </select>
+      </div>
+    </div>
+    <div class="field field--editable" data-field="owner" data-field-type="string">
+      <label class="field__label">Owner</label>
+      <div class="field__view{{if not .Card.Owner}} is-empty{{end}}" tabindex="0" data-view>{{if .Card.Owner}}{{.Card.Owner}}{{else}}unassigned{{end}}</div>
+      <div class="field__edit" data-edit hidden>
+        <input type="text" class="input" name="owner" value="{{.Card.Owner}}" placeholder="unassigned">
+      </div>
+    </div>
+    <div class="field" data-field-type="string">
+      <label class="field__label">Type</label>
+      <div class="field__view">{{.CardType.Name}}</div>
+    </div>
+{{end}}
+
+{{/* card_body_fields: the shared, theme-independent field list (tags, typed
+     fields, relationships, comments, provenance). Used by every theme's body. */}}
+{{define "card_body_fields"}}
     {{if .Error}}<div class="alert"><span class="alert__code">{{.Error.Code}}:</span> {{.Error.Message}}{{if .Error.ValidOptions}} (valid: {{join .Error.ValidOptions ", "}}){{end}}</div>{{end}}
 
-    <div class="field field--editable" data-field="tags">
+    <div class="field field--editable" data-field="tags" data-field-type="tags">
       <label class="field__label">Tags</label>
       <div class="field__view{{if not .Card.Tags}} is-empty{{end}}" tabindex="0" data-view>{{- if .Card.Tags}}{{range .Card.Tags}}<span class="chip chip--tag">{{.}}</span> {{end}}{{else}}Add tags…{{end -}}
       </div>
@@ -60,7 +128,7 @@
     {{if eq .Display "hidden"}}{{else}}
     {{if eq .Def.Type "repeating"}}
     {{/* Repeating fields are managed via append/update-entry, not this save-form. Always read-only here. */}}
-    <div class="field">
+    <div class="field" data-field-type="{{.Def.Type}}">
       <label class="field__label">{{.Def.Label}}</label>
       {{if .Entries}}
         <div class="modal__scroll">
@@ -75,7 +143,7 @@
       {{else}}<span class="muted">No entries.</span>{{end}}
     </div>
     {{else if eq .Def.Type "artifact"}}
-    <div class="field">
+    <div class="field" data-field-type="{{.Def.Type}}">
       <label class="field__label">{{.Def.Label}}</label>
       {{if .Artifact}}
         <div class="field__val">
@@ -108,7 +176,7 @@
       {{end}}
     </div>
     {{else if eq .Def.Type "card_link"}}
-    <div class="field">
+    <div class="field" data-field-type="{{.Def.Type}}">
       <label class="field__label">{{.Def.Label}}</label>
       {{if .Value}}
         {{if eq .Display "link"}}<a href="/ui/cards/{{.Value}}" data-card-link="/ui/cards/{{.Value}}/modal">{{.Value}}</a>
@@ -117,7 +185,7 @@
     </div>
     {{else}}
     {{/* Editable scalar fields: click the rendered value to edit in place. */}}
-    <div class="field field--editable" data-field="field:{{.Def.ID}}">
+    <div class="field field--editable" data-field="field:{{.Def.ID}}" data-field-type="{{.Def.Type}}">
       <label class="field__label">{{.Def.Label}}{{if .Def.Required}} <span class="req">*</span>{{end}}</label>
 
       <div class="field__view{{if not .ValueStr}} is-empty{{end}}{{if eq .Display "monospace"}} mono{{end}}" tabindex="0" data-view>{{- if eq .Display "badge" -}}
@@ -154,7 +222,7 @@
     {{/* --- Relationships: outbound (this → other) + inbound (other → this),
          shown with the linked card's title and a directional look. --- */}}
     {{if or .OutLinks .InLinks}}
-    <div class="field">
+    <div class="field" data-field-type="card_link">
       <label class="field__label">Relationships</label>
       <div class="rels">
         {{range .OutLinks}}
@@ -177,7 +245,7 @@
 
     {{/* --- Comments (read-only feed) --- */}}
     {{if .Card.Comments}}
-    <div class="field">
+    <div class="field" data-field-type="repeating">
       <label class="field__label">Comments ({{len .Card.Comments}})</label>
       <div class="modal__scroll">
         <div class="stack">
@@ -198,7 +266,24 @@
     <div class="field">
       <div class="mono faint">created by {{.Card.CreatedBy}} · <time data-ago="{{iso .Card.CreatedAt}}" datetime="{{iso .Card.CreatedAt}}"></time></div>
     </div>
-  </div>
+{{end}}
+
+{{/* card_body: picks the header + body assembly per theme. The labels theme
+     gets its two-row attribute-table header and moves status/owner/type into
+     the body as editable fields; every other theme uses the shared header. */}}
+{{define "card_body"}}
+  {{if eq $.Theme "labels"}}
+    {{template "labels_card_head" .}}
+    <div class="modal__body">
+      {{template "labels_meta_fields" .}}
+      {{template "card_body_fields" .}}
+    </div>
+  {{else}}
+    {{template "card_head" .}}
+    <div class="modal__body">
+      {{template "card_body_fields" .}}
+    </div>
+  {{end}}
 {{end}}
 
 {{define "card_modal"}}

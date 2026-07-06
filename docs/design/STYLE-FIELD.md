@@ -34,13 +34,20 @@ consistent with "the definition drives every surface"):
   "id": "kind", "type": "enum",
   "options": ["feature", "bug", "design", "infra"],
   "option_themes": {
-    "feature": { "icon": "star",  "accent": "#005bd3" },
-    "bug":     { "icon": "bug",   "accent": "#e21f26" },
-    "design":  { "icon": "pen",   "accent": "#cf7b00" },
-    "infra":   { "icon": "wrench","accent": "#596469" }
+    "feature": { "icon": "star",   "accent": "#005bd3", "muted": "#d9e8ff" },
+    "bug":     { "icon": "bug",    "accent": "#e21f26", "muted": "#ffd9d6" },
+    "design":  { "icon": "pen",    "accent": "#cf7b00", "muted": "#ffe8bf" },
+    "infra":   { "icon": "wrench", "accent": "#596469", "muted": "#e0e4e5" }
   }
 }
 ```
+
+This is the user-facing value→icon/color mapping: the enum value names the
+category, and `option_themes[value]` supplies the icon and card colours for that
+category. Icon names resolve through the design-system `data-icon` aliases
+(currently `card`, `star`, `bug`, `check`, `flask`, `target`, `code`, `pen`, and
+`wrench`; adding a new icon means adding one CSS mask alias, not changing card
+markup).
 
 **2. A board opts in** to using that field as its visual + filter key:
 
@@ -53,6 +60,20 @@ Resolution chain, one place (`httpapi.cardView` / modal data):
 ```
 option theme (card's style_field value)  →  TypeTheme (card's type)  →  CSS [data-type] defaults
 ```
+
+Today, without `style_field`, users can already specify type-level identity in a
+card type:
+
+```json
+{
+  "id": "programming-task",
+  "type_theme": { "icon": "code", "accent": "#0f5d78", "muted": "#d9edf2" }
+}
+```
+
+With `style_field`, the same `TypeTheme` shape is reused for enum values so the
+card root, modal badge, and detail header all receive the effective `data-icon`,
+`--card-stock`, and `--card-stock-bg`.
 
 - Cards without the field, or with an unthemed value, fall through — nothing
   breaks, `style_field` is pure opt-in.
@@ -76,10 +97,10 @@ option theme (card's style_field value)  →  TypeTheme (card's type)  →  CSS 
 
 ## Open questions (decide before building)
 
-1. **Where do option themes live** — on the field def (workspace-wide,
-   reusable, favored above) or per-board in `presentation` (lets two boards
-   color the same field differently, but forks identity)? Leaning field def;
-   a board that wants different colors is probably two different fields.
+1. **Where do option themes live** — decided for the proposed contract: on the
+   enum field definition (`option_themes`), because the value's identity should
+   be consistent across boards. A board opts into *using* the field via
+   `presentation.style_field`; it does not redefine the icon/color map.
 2. **Filter semantics.** Replace the TYPE dropdown or sit beside it? On a
    single-type board "replace" is obviously right; on mixed boards both keys
    are meaningful. Cheapest honest answer: show the style-field dropdown when
