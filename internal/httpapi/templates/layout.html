@@ -56,7 +56,107 @@
     if (!modal.open) modal.showModal();
     wireDirtySave(modal);
     wireClickToEdit(modal);
+    wireArtifactUpload(modal);
     refreshAgo(); // convert injected <time data-ago> to relative text
+  }
+  // currentModalCardID reads the card the open modal is showing, from the
+  // save-form's action (/ui/cards/{id}/save). Used to guard async refreshes
+  // against the user having closed the modal or switched to another card.
+  function currentModalCardID() {
+    var form = modal.querySelector('form.save-form');
+    if (!form) return null;
+    var m = /\/ui\/cards\/([^/]+)\/save/.exec(form.getAttribute('action') || '');
+    return m ? m[1] : null;
+  }
+  // reloadModal re-fetches the modal after a NON-PATCH mutation (upload today;
+  // the follow-on comments/entries sprint reuses this). The board grid is
+  // SSE-live; the open modal is not, so it is refreshed explicitly. Defined
+  // edge behavior: if the user closed the modal or switched cards mid-request
+  // we do NOT clobber it, and a failed refetch surfaces an error and keeps the
+  // (now-stale) modal rather than blanking it or pretending it is current.
+  function reloadModal(cardID) {
+    return fetch('/ui/cards/' + cardID + '/modal', {headers:{'HX-Request':'true','X-Modal':'true'}})
+      .then(function(r){ if (!r.ok) throw new Error(''+r.status); return r.text(); })
+      .then(function(html){
+        if (!modal.open || currentModalCardID() !== cardID) return; // superseded — leave it
+        openModal(html);
+      })
+      .catch(function(){ toast('Saved, but refreshing the card failed — reopen it to see the change.', 'err'); });
+  }
+
+  // ---- Artifact upload: click-to-browse (primary, keyboard-reachable) +
+  // modal-scoped drag-drop. Full state machine on [data-artifact-upload]:
+  // idle / dragover / uploading / success / error. ----
+  function dtHasFiles(e){
+    var t = e.dataTransfer && e.dataTransfer.types;
+    return t && Array.prototype.indexOf.call(t, 'Files') !== -1;
+  }
+  function wireArtifactUpload(root) {
+    root.querySelectorAll('[data-artifact-upload]').forEach(function(zone){
+      var input   = zone.querySelector('[data-input]');
+      var drop    = zone.querySelector('[data-drop]');
+      var status  = zone.querySelector('[data-status]');
+      var cardID  = zone.getAttribute('data-card-id');
+      var field   = zone.getAttribute('data-field');
+      var version = zone.getAttribute('data-version');
+      var maxBytes = parseInt(zone.getAttribute('data-max-bytes'), 10) || 0;
+
+      function setState(s){ zone.setAttribute('data-state', s); }
+      function say(msg, kind){ status.hidden = false; status.textContent = msg;
+        status.className = 'artifact-upload__status' + (kind ? ' is-' + kind : ''); }
+
+      function upload(file){
+        if (!file) return;
+        // Client-side oversize pre-check: reject before spending a round-trip.
+        if (maxBytes && file.size > maxBytes) {
+          setState('error');
+          say('That file is ' + Math.ceil(file.size/1048576) + ' MiB; the limit is '
+              + Math.floor(maxBytes/1048576) + ' MiB.', 'error');
+          return;
+        }
+        setState('uploading'); say('Uploading ' + file.name + '…');
+        var q = (version && version !== '0') ? ('?version=' + encodeURIComponent(version)) : '';
+        fetch('/v1/cards/' + cardID + '/artifacts/' + field + q, {
+          method: 'POST',
+          headers: {'Content-Type':'application/octet-stream','X-Work-Cards-Actor':CARDS_ACTOR},
+          body: file
+        }).then(function(r){
+          if (r.ok) { setState('success'); toast('Uploaded'); reloadModal(cardID); return; }
+          if (r.status === 409) { setState('error');
+            say('This card changed since you opened it — reload it and upload again.', 'error'); return; }
+          if (r.status === 413) { setState('error');
+            say('The server rejected the file as too large.', 'error'); return; }
+          return r.text().then(function(t){
+            var m = 'Upload failed'; try { m = JSON.parse(t).message || m; } catch(_){}
+            setState('error'); say(m, 'error');
+          });
+        }).catch(function(){ setState('error'); say('Upload failed (network).', 'error'); });
+      }
+
+      input.addEventListener('change', function(){
+        if (input.files && input.files[0]) upload(input.files[0]);
+      });
+      // Drag-drop bound to THIS zone only (never document/board), and only for
+      // files — so it cannot fire the column-move gesture or navigate away.
+      ['dragenter','dragover'].forEach(function(ev){
+        drop.addEventListener(ev, function(e){
+          if (!dtHasFiles(e)) return;
+          e.preventDefault(); e.stopPropagation();
+          e.dataTransfer.dropEffect = 'copy';
+          if (zone.getAttribute('data-state') !== 'uploading') setState('dragover');
+        });
+      });
+      drop.addEventListener('dragleave', function(e){
+        if (e.target === drop && zone.getAttribute('data-state') === 'dragover') setState('idle');
+      });
+      drop.addEventListener('drop', function(e){
+        if (!dtHasFiles(e)) return;
+        e.preventDefault(); e.stopPropagation();
+        var files = e.dataTransfer.files;
+        if (files.length > 1) { setState('error'); say('Drop one file at a time.', 'error'); return; }
+        upload(files[0]);
+      });
+    });
   }
   function closeModal() { if (modal.open) modal.close(); modal.innerHTML = ''; }
   modal.addEventListener('click', function(e){ if (e.target === modal) closeModal(); });

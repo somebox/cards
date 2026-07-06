@@ -834,3 +834,44 @@ html[data-theme="journal"] .entry::before {
   width: 66px; height: 20px; transform: translateX(-50%) rotate(-3deg);
   background: rgba(208,196,150,.55); box-shadow: 0 1px 2px rgba(57,51,43,.15);
 }
+
+/* ---- Artifact upload (card modal) — sprint 2026-07-06 Phase 4 --------------
+   Click-to-browse is the primary control (a real, focusable <input type=file>);
+   the zone also accepts a modal-scoped file drop. State lives on the data-state
+   attribute of [data-artifact-upload]: idle / dragover / uploading / success /
+   error. */
+.artifact-upload { margin-top: var(--s-2); }
+.artifact-upload__zone {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2);
+  padding: var(--s-3); border: var(--stroke) dashed var(--c-border);
+  border-radius: var(--r-md); background: var(--c-surface-2); cursor: pointer;
+}
+.artifact-upload__zone:hover { border-color: var(--c-border-2); }
+.artifact-upload__input { font-size: var(--t-sm); max-width: 100%; }
+.artifact-upload__input:focus-visible { outline: var(--stroke) solid var(--c-accent); outline-offset: 2px; }
+.artifact-upload__cta { font-weight: 600; font-size: var(--t-sm); }
+.artifact-upload__hint { color: var(--c-faint); font-size: var(--t-xs); }
+.artifact-upload__status {
+  margin-top: var(--s-1); font-family: var(--font-mono); font-size: var(--t-xs);
+  color: var(--c-muted);
+}
+.artifact-upload__status.is-error { color: var(--c-danger); font-weight: 600; }
+.artifact-upload[data-state="dragover"] .artifact-upload__zone {
+  border-style: solid; border-color: var(--c-accent); background: var(--c-accent-soft);
+}
+.artifact-upload[data-state="uploading"] .artifact-upload__zone { opacity: .7; cursor: progress; }
+.artifact-upload[data-state="success"] .artifact-upload__zone { border-color: var(--c-success); }
+.artifact-upload[data-state="error"]   .artifact-upload__zone { border-color: var(--c-danger); }
+
+/* ---- Board card artifacts: thumbnails / download chips (live via SSE) ------
+   Height-capped so an attachment never breaks the grid's card rhythm. */
+.card__artifacts { display: flex; flex-wrap: wrap; gap: var(--s-1); margin-top: var(--s-1); }
+.card__artifact-thumb img {
+  max-height: 240px; max-width: 100%; display: block;
+  border: 1px solid var(--c-border-2); border-radius: var(--r-sm);
+}
+.card__artifact-file {
+  display: inline-flex; align-items: center; gap: var(--s-1);
+  font-family: var(--font-mono); font-size: var(--t-xs); color: var(--c-muted);
+  padding: 0 var(--s-1); border: 1px solid var(--c-border); border-radius: var(--r-sm);
+}

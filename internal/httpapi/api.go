@@ -2,6 +2,8 @@ package httpapi
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -386,6 +388,17 @@ func (s *Server) apiAddArtifact(w http.ResponseWriter, r *http.Request) {
 	defer body.Close()
 	c, err := s.svc.AddArtifact(r.Context(), id, field, body, version)
 	if err != nil {
+		// A body over the cap makes MaxBytesReader error mid-stream; surface a
+		// clean 413 (with the limit) instead of a generic 500.
+		var maxErr *http.MaxBytesError
+		if errors.As(err, &maxErr) {
+			writeAPIError(w, &core.Error{
+				Code:       "artifact_too_large",
+				Message:    fmt.Sprintf("artifact exceeds the %d-byte upload limit", maxArtifactBytes),
+				HTTPStatus: http.StatusRequestEntityTooLarge,
+			})
+			return
+		}
 		writeAPIError(w, core.AsError(err))
 		return
 	}

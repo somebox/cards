@@ -85,7 +85,27 @@
           <a href="{{.Artifact.Href}}" download>⬇ {{.Artifact.MIME}} · {{.Artifact.Size}} bytes</a>
         {{end}}
         </div>
-      {{else}}<span class="muted">—</span>{{end}}
+      {{end}}
+      {{if eq .Def.ArtifactPolicy "uri"}}
+        {{if not .Artifact}}<span class="muted">— (set via patch; this field takes a URI, not an upload)</span>{{end}}
+      {{else}}
+      {{/* Upload affordance: a real <input type=file> is the primary,
+           keyboard-reachable control; the surrounding zone accepts a drag-drop
+           as an enhancement, scoped to this modal only so it can never collide
+           with the board's column-move drag gesture. */}}
+      <div class="artifact-upload" data-artifact-upload
+           data-card-id="{{$.Card.ID}}" data-field="{{.Def.ID}}"
+           data-version="{{$.Card.Version}}" data-max-bytes="{{$.MaxArtifactBytes}}"
+           data-state="idle">
+        <label class="artifact-upload__zone" data-drop>
+          <input type="file" class="artifact-upload__input" data-input
+                 aria-label="{{if .Artifact}}Replace{{else}}Upload{{end}} {{.Def.Label}}">
+          <span class="artifact-upload__cta">{{if .Artifact}}Replace file…{{else}}Choose a file…{{end}}</span>
+          <span class="artifact-upload__hint">or drop one here</span>
+        </label>
+        <div class="artifact-upload__status" data-status role="status" aria-live="polite" hidden></div>
+      </div>
+      {{end}}
     </div>
     {{else if eq .Def.Type "card_link"}}
     <div class="field">

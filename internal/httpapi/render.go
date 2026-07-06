@@ -26,11 +26,12 @@ type CardView struct {
 	TypeIcon      string // 1a — precomputed badge glyph
 	TypeAccent    string // 1a — precomputed accent (overrides [data-type])
 	TypeMuted     string // 1a — precomputed muted shade
-	TypeLabel     string // 1a — precomputed type display name (== CardType.Name)
-	CommentCount  int    // board card: number of comments
-	OutCount      int    // board card: number of outbound links
-	InCount       int    // board card: number of inbound links (others → this)
-	Blocked       bool   // board card: has an unresolved blocked-by link (condition engine)
+	TypeLabel     string          // 1a — precomputed type display name (== CardType.Name)
+	Artifacts     []*ArtifactView // board card: stored artifacts (thumbnails / download chips), live via artifact_added SSE
+	CommentCount  int             // board card: number of comments
+	OutCount      int             // board card: number of outbound links
+	InCount       int             // board card: number of inbound links (others → this)
+	Blocked       bool            // board card: has an unresolved blocked-by link (condition engine)
 }
 
 // BreachRow is one resolved condition for the /ui/breaches page: the raw
@@ -168,10 +169,13 @@ type ViewData struct {
 	// Breaches page (/ui/breaches): resolved current conditions + snapshot time.
 	Breaches   []BreachRow
 	BreachAsOf string
+	// MaxArtifactBytes is the server's per-upload cap, surfaced so the card
+	// modal's file input can reject an oversize file client-side before POST.
+	MaxArtifactBytes int64
 }
 
 func (s *Server) baseData(title string) ViewData {
-	return ViewData{Title: title, Boards: s.boards, Actor: s.uiActor()}
+	return ViewData{Title: title, Boards: s.boards, Actor: s.uiActor(), MaxArtifactBytes: maxArtifactBytes}
 }
 
 // uiActor is the identity the server-rendered UI acts as: CARDS_USER if set,
@@ -397,7 +401,31 @@ func (s *Server) cardView(c *core.Card, b *core.Board, users []core.User) CardVi
 		TypeAccent:    th.Accent,
 		TypeMuted:     th.Muted,
 		TypeLabel:     label,
+		Artifacts:     cardArtifacts(ct, c),
 	}
+}
+
+// cardArtifacts collects the stored artifacts on a card's artifact fields, in
+// the type's field order, so the board card can show a thumbnail (images) or a
+// download chip (everything else). Empty when nothing is attached.
+func cardArtifacts(ct *core.CardType, c *core.Card) []*ArtifactView {
+	if ct == nil {
+		return nil
+	}
+	fm, ok := c.Fields.(map[string]any)
+	if !ok {
+		return nil
+	}
+	var out []*ArtifactView
+	for i := range ct.Fields {
+		if ct.Fields[i].Type != core.FieldArtifact {
+			continue
+		}
+		if av := artifactView(fm[ct.Fields[i].ID]); av != nil {
+			out = append(out, av)
+		}
+	}
+	return out
 }
 
 func (s *Server) moveOptions(b *core.Board, current string) []Option {

@@ -9,6 +9,15 @@ backwards-compatible fixes.
 ## [Unreleased]
 
 ### Added
+- **Attach files from the board UI.** A card's artifact field in the modal is
+  now an upload control: click-to-browse (a real, keyboard-reachable file
+  input) is the primary action, with drag-and-drop as an enhancement scoped to
+  the modal (it can't collide with the board's column-move drag). The upload
+  has a full state machine — idle, drag-over, uploading, success, and worded
+  errors (a client-side size pre-check, the server's 413, and a
+  "card changed — reload" message on a version conflict). Uploaded artifacts
+  render on the board card as image thumbnails (height-capped) or a download
+  chip, live via the existing `artifact_added` SSE.
 - **The loop works out of the box.** The starter `task` card type now ships
   an `attachment` artifact field, so `cards init NEW && cards attach …` works
   from a fresh install with no manual schema edit (pre-existing workspaces:
@@ -48,6 +57,9 @@ backwards-compatible fixes.
   in the standard `value` field.
 
 ### Fixed
+- **An oversize upload returns a clean 413, not a 500.** A body over the 32 MiB
+  cap (which `MaxBytesReader` fails mid-stream) is now reported as a typed
+  `artifact_too_large` error instead of falling through as a generic 500.
 - **A failed or raced attachment upload no longer orphans a blob.** Artifact
   bytes are now staged to a temp file and published to the content-addressed
   store only after the card write commits; a stale version, a lost

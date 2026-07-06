@@ -18,6 +18,17 @@
     {{range .PreviewFields}}<span class="truncate" title="{{.Label}}: {{.Value}}"><b>{{.Label}}</b> {{.Value}}</span>{{end}}
   </div>
   {{end}}
+  {{if .Artifacts}}
+  {{/* Attached artifacts: image thumbnails (capped to preserve card rhythm)
+       and a download chip for other types, so an attachment is never invisible
+       at grid level. Appears live via the board's artifact_added SSE. */}}
+  <div class="card__artifacts">
+    {{range .Artifacts}}
+      {{if .IsImage}}<a class="card__artifact-thumb" href="{{.Href}}" target="_blank" rel="noopener" title="{{.MIME}} · {{.Size}} bytes"><img src="{{.Href}}" alt="attachment" loading="lazy"></a>
+      {{else}}<a class="card__artifact-file" href="{{.Href}}" download title="{{.MIME}} · {{.Size}} bytes">⬇ file</a>{{end}}
+    {{end}}
+  </div>
+  {{end}}
   <div class="card__stats">
     <span class="card__stat card__stat--time"><time data-ago="{{iso .Card.UpdatedAt}}" datetime="{{iso .Card.UpdatedAt}}" title="last updated"></time></span>
     {{if .Blocked}}<span class="card__stat" data-stat="blocked" title="blocked by an unresolved dependency">blocked</span>{{end}}
