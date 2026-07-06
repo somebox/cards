@@ -73,7 +73,7 @@ func TestAddArtifactStoresEmitsAndRoundTrips(t *testing.T) {
 	c := mkArtifactCard(t, svc, ctx)
 
 	content := []byte("hello artifact bytes")
-	updated, err := svc.AddArtifact(ctx, c.ID, "screenshot", bytes.NewReader(content))
+	updated, err := svc.AddArtifact(ctx, c.ID, "screenshot", bytes.NewReader(content), 0)
 	if err != nil {
 		t.Fatalf("AddArtifact: %v", err)
 	}
@@ -116,11 +116,11 @@ func TestAddArtifactOverwrites(t *testing.T) {
 	ctx := core.WithActor(context.Background(), "u")
 	c := mkArtifactCard(t, svc, ctx)
 
-	u1, err := svc.AddArtifact(ctx, c.ID, "screenshot", bytes.NewReader([]byte("first")))
+	u1, err := svc.AddArtifact(ctx, c.ID, "screenshot", bytes.NewReader([]byte("first")), 0)
 	if err != nil {
 		t.Fatal(err)
 	}
-	u2, err := svc.AddArtifact(ctx, c.ID, "screenshot", bytes.NewReader([]byte("second")))
+	u2, err := svc.AddArtifact(ctx, c.ID, "screenshot", bytes.NewReader([]byte("second")), 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -146,8 +146,8 @@ func TestAddArtifactDeduplicates(t *testing.T) {
 	c2 := mkArtifactCard(t, svc, ctx)
 
 	same := []byte("identical bytes")
-	u1, _ := svc.AddArtifact(ctx, c1.ID, "screenshot", bytes.NewReader(same))
-	u2, _ := svc.AddArtifact(ctx, c2.ID, "screenshot", bytes.NewReader(same))
+	u1, _ := svc.AddArtifact(ctx, c1.ID, "screenshot", bytes.NewReader(same), 0)
+	u2, _ := svc.AddArtifact(ctx, c2.ID, "screenshot", bytes.NewReader(same), 0)
 	if metaOf(t, u1, "screenshot")["uri"] != metaOf(t, u2, "screenshot")["uri"] {
 		t.Error("identical content should dedup to the same URI")
 	}
@@ -165,7 +165,7 @@ func TestAddArtifactRejectsBadFieldAndPolicy(t *testing.T) {
 		"unknown field":      "nope",
 	}
 	for name, field := range cases {
-		if _, err := svc.AddArtifact(ctx, c.ID, field, bytes.NewReader([]byte("x"))); err == nil {
+		if _, err := svc.AddArtifact(ctx, c.ID, field, bytes.NewReader([]byte("x")), 0); err == nil {
 			t.Errorf("%s: expected an error attaching to %q", name, field)
 		}
 	}
@@ -185,7 +185,7 @@ func TestAddArtifactRequiresConfiguredStore(t *testing.T) {
 	svc := core.NewService(ws, types, boards, st) // no SetArtifacts
 	ctx := core.WithActor(context.Background(), "u")
 	c := mkArtifactCard(t, svc, ctx)
-	if _, err := svc.AddArtifact(ctx, c.ID, "screenshot", bytes.NewReader([]byte("x"))); err == nil {
+	if _, err := svc.AddArtifact(ctx, c.ID, "screenshot", bytes.NewReader([]byte("x")), 0); err == nil {
 		t.Error("expected an error when the artifacts store is not configured")
 	}
 }

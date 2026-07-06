@@ -8,9 +8,11 @@
 // that boundary, including symlink escapes. See docs/SPEC.md §6 and
 // docs/ARCHITECTURE.md (Security and Trust Boundary).
 //
-// No HTTP endpoint calls into this package yet; exposure is a separate
-// product decision. The policy is implemented (and adversarially tested)
-// first so an endpoint can never ship ahead of the confinement rules.
+// This package is wired through every surface (HTTP POST
+// /v1/cards/{id}/artifacts/{field} + GET /v1/artifacts/*, the CLI `attach`
+// verb, and MCP attach_artifact). The confinement policy (Resolve) was
+// implemented and adversarially tested before any endpoint shipped, so a
+// surface can never outrun the boundary rules.
 package artifacts
 
 import (
@@ -49,19 +51,46 @@ func New(root string) (*Manager, error) {
 	return &Manager{root: abs}, nil
 }
 
-// Put ingests content: hashes it (SHA-256), sniffs the MIME type from the
-// first 512 bytes, and stores it content-addressed. Identical content
-// deduplicates to the same URI.
+// Put ingests content and stores it content-addressed in one step. It is
+// Stage followed by Commit — convenient when there is no surrounding
+// transaction to coordinate with.
 func (m *Manager) Put(r io.Reader) (Meta, error) {
+	s, err := m.Stage(r)
+	if err != nil {
+		return Meta{}, err
+	}
+	if err := s.Commit(); err != nil {
+		_ = s.Discard()
+		return Meta{}, err
+	}
+	return s.Meta(), nil
+}
+
+// Staged is content ingested to a temp file with its metadata already known,
+// but not yet placed in the content-addressed store. It lets a caller learn
+// the URI/sha (to write into a card) and only make the bytes durable once the
+// card write commits — so a failed or raced write never orphans a blob.
+// Exactly one of Commit or Discard should be called; Discard after Commit is
+// a safe no-op.
+type Staged struct {
+	m    *Manager
+	tmp  string // temp file path; "" once consumed by Commit/Discard
+	meta Meta
+}
+
+// Stage hashes content (SHA-256), sniffs its MIME type from the first 512
+// bytes, and writes it to a temp file — computing the final Meta without yet
+// publishing the bytes to the store. Call Commit to publish, or Discard to
+// drop them.
+func (m *Manager) Stage(r io.Reader) (*Staged, error) {
 	if err := os.MkdirAll(m.root, 0o755); err != nil {
-		return Meta{}, fmt.Errorf("artifacts: create root: %w", err)
+		return nil, fmt.Errorf("artifacts: create root: %w", err)
 	}
 	tmp, err := os.CreateTemp(m.root, ".ingest-*")
 	if err != nil {
-		return Meta{}, fmt.Errorf("artifacts: temp file: %w", err)
+		return nil, fmt.Errorf("artifacts: temp file: %w", err)
 	}
 	tmpName := tmp.Name()
-	defer os.Remove(tmpName) // no-op after a successful rename
 
 	h := sha256.New()
 	var head headWriter
@@ -70,28 +99,61 @@ func (m *Manager) Put(r io.Reader) (Meta, error) {
 		err = cerr
 	}
 	if err != nil {
-		return Meta{}, fmt.Errorf("artifacts: ingest: %w", err)
+		_ = os.Remove(tmpName)
+		return nil, fmt.Errorf("artifacts: ingest: %w", err)
 	}
 
 	sum := hex.EncodeToString(h.Sum(nil))
-	dir := filepath.Join(m.root, sum[:2])
+	return &Staged{
+		m:   m,
+		tmp: tmpName,
+		meta: Meta{
+			URI:    path.Join(sum[:2], sum), // relative to the artifacts root
+			MIME:   http.DetectContentType(head.buf),
+			Size:   size,
+			SHA256: sum,
+		},
+	}, nil
+}
+
+// Meta returns the artifact metadata, known as soon as the content is staged.
+func (s *Staged) Meta() Meta { return s.meta }
+
+// Commit publishes the staged bytes into the content-addressed store. If
+// identical content is already stored it deduplicates (dropping the temp).
+// Idempotent: a second call after success is a no-op.
+func (s *Staged) Commit() error {
+	if s.tmp == "" {
+		return nil
+	}
+	sum := s.meta.SHA256
+	dir := filepath.Join(s.m.root, sum[:2])
 	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return Meta{}, fmt.Errorf("artifacts: create shard dir: %w", err)
+		return fmt.Errorf("artifacts: create shard dir: %w", err)
 	}
 	final := filepath.Join(dir, sum)
-	if _, err := os.Stat(final); err != nil {
-		if err := os.Rename(tmpName, final); err != nil {
-			return Meta{}, fmt.Errorf("artifacts: store: %w", err)
-		}
+	if _, err := os.Stat(final); err == nil {
+		// Content already stored; drop the temp duplicate.
+		_ = os.Remove(s.tmp)
+		s.tmp = ""
+		return nil
 	}
-	// else: content already stored; the deferred Remove drops the duplicate.
+	if err := os.Rename(s.tmp, final); err != nil {
+		return fmt.Errorf("artifacts: store: %w", err)
+	}
+	s.tmp = ""
+	return nil
+}
 
-	return Meta{
-		URI:    path.Join(sum[:2], sum), // relative to the artifacts root
-		MIME:   http.DetectContentType(head.buf),
-		Size:   size,
-		SHA256: sum,
-	}, nil
+// Discard removes the staged temp file. Call it when the surrounding write
+// fails so nothing is orphaned. No-op after Commit.
+func (s *Staged) Discard() error {
+	if s.tmp == "" {
+		return nil
+	}
+	err := os.Remove(s.tmp)
+	s.tmp = ""
+	return err
 }
 
 // Resolve maps a local artifact URI to an absolute path, enforcing the

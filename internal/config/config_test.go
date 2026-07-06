@@ -192,3 +192,39 @@ func TestRejectMonitorsBadDuration(t *testing.T) {
 		t.Fatal("expected error for unparseable idle_after, got nil")
 	}
 }
+
+// TestYAMLCardTypeDefinitionIsNotLoaded pins the JSON-only contract for
+// definitions (sprint 2026-07-06 Phase 3). The docs once claimed definitions
+// accept JSON *or* YAML; the loader only ever reads .json (a .yaml card type
+// is silently ignored). This decision is deliberate — no yaml dependency, and
+// the structs are json-tagged, so a YAML parser would drop fields. Only
+// definitions/extensions.{yaml,json} accepts YAML, and that is unaffected.
+func TestYAMLCardTypeDefinitionIsNotLoaded(t *testing.T) {
+	dir := t.TempDir()
+	mustWrite(t, filepath.Join(dir, "definitions", "workspace.json"), `{
+		"id":"t","name":"T",
+		"columns":[{"id":"a","name":"A"}],
+		"settings":{"default_user":"u"}
+	}`)
+	// A valid JSON card type that loads.
+	mustWrite(t, filepath.Join(dir, "definitions", "card-types", "json-type.json"), `{
+		"id":"json-type","name":"JSON Type","fields":[]
+	}`)
+	// A YAML card type that MUST be ignored (not loaded, not an error).
+	mustWrite(t, filepath.Join(dir, "definitions", "card-types", "yaml-type.yaml"),
+		"id: yaml-type\nname: YAML Type\nfields: []\n")
+
+	r, err := New(dir).Load()
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	if _, ok := r.CardTypes["yaml-type"]; ok {
+		t.Error("a .yaml card-type definition was loaded — definitions are JSON-only")
+	}
+	if _, ok := r.CardTypes["json-type"]; !ok {
+		t.Error("the .json card-type definition should still load")
+	}
+	if len(r.CardTypes) != 1 {
+		t.Errorf("card types = %d, want 1 (only the JSON one)", len(r.CardTypes))
+	}
+}

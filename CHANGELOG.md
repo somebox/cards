@@ -29,6 +29,16 @@ backwards-compatible fixes.
   full ids.
 
 ### Changed
+- **Attachment upload gained an optional concurrency guard.** `POST
+  /v1/cards/{id}/artifacts/{field}?version=N` (and `cards attach --version N`)
+  rejects a stale write with `version_conflict` before any bytes are stored,
+  mirroring `DELETE`; omitting the version proceeds against the current card,
+  so `cards attach <id> <field> <file>` is unchanged. MCP `attach_artifact`
+  stays unguarded.
+- **JSON-only definitions, pinned.** Workspace/card-type/board definitions
+  load from `.json` only (a `.yaml` definition file is silently ignored); only
+  `definitions/extensions.{yaml,yml,json}` accepts YAML. This was already the
+  code's behavior and is now enforced by a test so the docs can't drift back.
 - **One `ambiguous` error shape on every transport.** An ambiguous short id
   now returns the standard structured error (`error: "ambiguous"`, HTTP 409,
   `candidates` with each match's full id + title, the query in `value`) from
@@ -38,6 +48,10 @@ backwards-compatible fixes.
   in the standard `value` field.
 
 ### Fixed
+- **A failed or raced attachment upload no longer orphans a blob.** Artifact
+  bytes are now staged to a temp file and published to the content-addressed
+  store only after the card write commits; a stale version, a lost
+  optimistic-concurrency race, or any store error discards the staged bytes.
 - **Ambiguous short id on `DELETE /v1/cards/{id}` returned a 500.** It now
   returns the structured 409 like every other verb.
 

@@ -472,6 +472,7 @@ func cmdComment(c *Client, args []string) error {
 // content-addresses and confines it); works serverless or against a server.
 func cmdAttach(c *Client, args []string) error {
 	fs := NewFlagSet()
+	version := fs.Int("version", 0) // optional optimistic-concurrency guard (0 = none)
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -483,7 +484,11 @@ func cmdAttach(c *Client, args []string) error {
 	if err != nil {
 		return err
 	}
-	resp, _, err := c.doRaw("POST", "/cards/"+id+"/artifacts/"+field, data)
+	route := "/cards/" + id + "/artifacts/" + field
+	if *version != 0 {
+		route += "?version=" + strconv.Itoa(*version)
+	}
+	resp, _, err := c.doRaw("POST", route, data)
 	if err != nil {
 		return err
 	}

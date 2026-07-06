@@ -1226,13 +1226,26 @@ func (s *Service) AddComment(ctx context.Context, id string, body string) (*Card
 // mutation and the event together via commitCard. The Manager enforces
 // content-addressing and path confinement; a "uri"-policy field takes an
 // external URI via patch, not an upload, and is rejected here.
-func (s *Service) AddArtifact(ctx context.Context, id, field string, r io.Reader) (*Card, error) {
+//
+// version is an OPTIONAL optimistic-concurrency guard, mirroring DeleteCard:
+// version==0 proceeds against the current card (so a simple `cards attach <id>
+// <file>` still works); a non-zero version that does not match the card is
+// rejected with version_conflict before any bytes are published.
+//
+// Ordering matters for durability: the bytes are STAGED (written to a temp
+// file, metadata computed) but only published to the store after commitCard
+// succeeds. A stale version, a lost CAS race, or any store error therefore
+// discards the staged bytes instead of leaking an orphan blob.
+func (s *Service) AddArtifact(ctx context.Context, id, field string, r io.Reader, version int) (*Card, error) {
 	if s.artifacts == nil {
 		return nil, NewValidationError("artifact", "artifact storage is not configured for this workspace")
 	}
 	current, err := s.resolveForWrite(ctx, &id)
 	if err != nil {
 		return nil, err
+	}
+	if version != 0 && version != current.Version {
+		return nil, VersionConflict(current)
 	}
 	actor := ctxActor(ctx)
 	if actor == "" {
@@ -1248,15 +1261,12 @@ func (s *Service) AddArtifact(ctx context.Context, id, field string, r io.Reader
 	if fd.ArtifactPolicy == "uri" {
 		return nil, NewValidationError(field, fmt.Sprintf("field %q uses artifact_policy: uri; set the uri via patch, not upload", field))
 	}
-	meta, err := s.artifacts.Put(r)
+	// Stage the bytes (temp file + metadata) but do not publish them yet.
+	staged, err := s.artifacts.Stage(r)
 	if err != nil {
 		return nil, fmt.Errorf("store artifact: %w", err)
 	}
-	// Confinement sanity check: the freshly stored URI must resolve back inside
-	// the artifacts root — the same check the serve path applies.
-	if _, err := s.artifacts.Resolve(meta.URI); err != nil {
-		return nil, fmt.Errorf("store artifact: %w", err)
-	}
+	meta := staged.Meta()
 	next := *current
 	next.Fields = setField(current.Fields, field, map[string]any{
 		"uri": meta.URI, "mime": meta.MIME, "size": meta.Size, "sha256": meta.SHA256,
@@ -1265,7 +1275,18 @@ func (s *Service) AddArtifact(ctx context.Context, id, field string, r io.Reader
 	next.UpdatedAt = s.now()
 	ev := ArtifactAdded(id, field, meta.URI, meta.MIME, meta.Size, meta.SHA256)
 	if err := s.commitCard(ctx, &next, []*Event{ev}); err != nil {
+		// The card write lost (stale version / CAS race / store error): drop
+		// the staged bytes so a failed attach never orphans a blob.
+		_ = staged.Discard()
 		return nil, err
+	}
+	// Card committed — publish the bytes, then confinement-sanity-check the URI
+	// (the same check the serve path applies).
+	if err := staged.Commit(); err != nil {
+		return nil, fmt.Errorf("store artifact: %w", err)
+	}
+	if _, err := s.artifacts.Resolve(meta.URI); err != nil {
+		return nil, fmt.Errorf("store artifact: %w", err)
 	}
 	return &next, nil
 }

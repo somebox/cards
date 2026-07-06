@@ -302,7 +302,9 @@ func (s *Server) buildTools() []Tool {
 				if len(raw) > maxArtifactMCPBytes {
 					return nil, core.NewValidationError("content_base64", "artifact exceeds the MCP size limit")
 				}
-				return s.svc.AddArtifact(ctx, strArg(a, "card_id"), strArg(a, "field"), bytes.NewReader(raw))
+				// version 0: no optimistic-concurrency guard (the stdio tool has
+				// no version arg; an agent that needs one uses the HTTP surface).
+				return s.svc.AddArtifact(ctx, strArg(a, "card_id"), strArg(a, "field"), bytes.NewReader(raw), 0)
 			}},
 		Tool{Name: "get_artifact", Description: "Fetch stored artifact bytes by uri, returned as base64 with size.",
 			InputSchema: objSchema(map[string]any{"uri": str()}),

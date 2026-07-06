@@ -367,12 +367,24 @@ func (s *Server) apiAddComment(w http.ResponseWriter, r *http.Request) {
 // apiAddArtifact stores the request body as bytes for an artifact field and
 // returns the updated card. The body is the raw file (CLI/MCP send it directly;
 // MCP base64-decodes first). Content-addressed + confined by the Manager.
+// An optional ?version=N applies the optimistic-concurrency guard (mirrors
+// DELETE): a mismatch is rejected 409 with the current card before any bytes
+// are published; omitted proceeds against the current card.
 func (s *Server) apiAddArtifact(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	field := chi.URLParam(r, "field")
+	var version int
+	if v := r.URL.Query().Get("version"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil {
+			writeAPIError(w, core.NewValidationError("version", "version must be an integer"))
+			return
+		}
+		version = n
+	}
 	body := http.MaxBytesReader(w, r.Body, maxArtifactBytes)
 	defer body.Close()
-	c, err := s.svc.AddArtifact(r.Context(), id, field, body)
+	c, err := s.svc.AddArtifact(r.Context(), id, field, body, version)
 	if err != nil {
 		writeAPIError(w, core.AsError(err))
 		return

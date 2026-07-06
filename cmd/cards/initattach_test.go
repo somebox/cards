@@ -61,7 +61,7 @@ func TestInitThenAttach_OutOfTheBox(t *testing.T) {
 		t.Fatalf("no seeded task cards: %v", err)
 	}
 	shortRef := page.Items[0].ID[5:13]
-	got, err := svc.AddArtifact(ctx, shortRef, artifactField, strings.NewReader("attached from a fresh init"))
+	got, err := svc.AddArtifact(ctx, shortRef, artifactField, strings.NewReader("attached from a fresh init"), 0)
 	if err != nil {
 		t.Fatalf("attach by short id on a fresh init: %v", err)
 	}

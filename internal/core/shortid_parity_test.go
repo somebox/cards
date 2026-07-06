@@ -106,7 +106,7 @@ func parityVerbs() []parityVerb {
 				svc.SetArtifacts(am)
 			},
 			call: func(ctx context.Context, svc *core.Service, ref string) error {
-				_, err := svc.AddArtifact(core.WithActor(ctx, "u"), ref, "description", strings.NewReader("x"))
+				_, err := svc.AddArtifact(core.WithActor(ctx, "u"), ref, "description", strings.NewReader("x"), 0)
 				return err
 			}},
 		{name: "Claim", call: func(ctx context.Context, svc *core.Service, ref string) error {
