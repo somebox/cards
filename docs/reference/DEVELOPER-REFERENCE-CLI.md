@@ -20,6 +20,16 @@ candidate's full id and title so you can pick one and retry. The reference is
 normalized to the full id before anything is written, so events, links, and
 comments always record full ids.
 
+**Attachments out of the box.** The starter `task` type ships an `attachment`
+artifact field, so a fresh install can run the whole loop immediately:
+`cards init proj && cards --workspace ./proj attach <id> attachment ./file.png`
+(`--workspace` accepts the project root or its `.cards` child; if both look
+like workspaces the command errors with the choices rather than guessing).
+Workspaces initialized before this field existed keep their old definitions —
+add it to `definitions/card-types/task.json` yourself:
+`{ "id": "attachment", "type": "artifact", "artifact_policy": "local" }`
+(additive and optional; no schema_version bump required).
+
 ```bash
 cards serve --workspace ./demo-workspace --port 8787
 

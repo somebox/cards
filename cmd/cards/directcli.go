@@ -12,7 +12,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"path/filepath"
 
 	"github.com/somebox/cards/internal/httpapi"
 )
@@ -56,24 +55,20 @@ func newDirectBackend(workspaceOverride string) (directBackend, error) {
 	if dir == "" {
 		dir = os.Getenv("CARDS_WORKSPACE")
 	}
-	if dir == "" {
-		d, autoInit, err := resolveWorkspaceDir("")
-		if err != nil {
-			return directBackend{}, err
-		}
-		if autoInit {
-			if _, err := initWorkspace(d); err != nil {
-				return directBackend{}, fmt.Errorf("initialize workspace: %w", err)
-			}
-		}
-		dir = d
-	} else {
-		abs, err := filepath.Abs(dir)
-		if err != nil {
-			return directBackend{}, err
-		}
-		dir = abs
+	// Explicit and env paths go through the SAME resolver as serve and
+	// discovery (normalizeWorkspaceDir: workspace dir or project root,
+	// both-valid errors) so the "where is the workspace" rule cannot
+	// silently diverge per entry point.
+	d, autoInit, err := resolveWorkspaceDir(dir)
+	if err != nil {
+		return directBackend{}, err
 	}
+	if autoInit {
+		if _, err := initWorkspace(d); err != nil {
+			return directBackend{}, fmt.Errorf("initialize workspace: %w", err)
+		}
+	}
+	dir = d
 
 	st, svc, result, err := openWorkspace(dir)
 	if err != nil {

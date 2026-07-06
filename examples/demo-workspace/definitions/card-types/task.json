@@ -3,7 +3,23 @@
   "name": "Task",
   "schema_version": 1,
   "fields": [
-    { "id": "notes", "type": "text", "required": false, "display": "monospace" }
+    {
+      "id": "notes",
+      "type": "text",
+      "required": false,
+      "display": "monospace"
+    },
+    {
+      "id": "attachment",
+      "type": "artifact",
+      "artifact_policy": "local",
+      "required": false,
+      "description": "File attached to this task (image, log, diff, ...) - uploaded via `cards attach` or POST .../artifacts/attachment"
+    }
   ],
-  "allowed_columns": ["todo", "in_progress", "done"]
+  "allowed_columns": [
+    "todo",
+    "in_progress",
+    "done"
+  ]
 }

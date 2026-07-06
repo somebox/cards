@@ -30,7 +30,7 @@ var ErrHelp = errors.New("help requested")
 type Config struct {
 	URL       string // CARDS_URL / --url ; empty selects the in-process backend
 	As        string // CARDS_USER / --as ; actor for writes
-	Workspace string // --workspace ; serverless workspace dir (the .cards dir)
+	Workspace string // --workspace ; serverless workspace dir (.cards dir or its project root)
 	Quiet     bool   // ids only
 	JSON      bool   // single JSON object
 	JSONL     bool   // newline-delimited JSON

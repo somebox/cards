@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"time"
@@ -13,21 +14,58 @@ import (
 )
 
 // resolveWorkspaceDir picks the workspace root. When explicit is non-empty it
-// is used verbatim (absolute). Otherwise it discovers the nearest .cards/
-// walking up from the cwd; failing that it returns the global personal
-// workspace. autoInit is true only for the global fallback, signalling that the
-// caller should scaffold + seed it if empty (an explicit or discovered path is
-// expected to already be a workspace).
+// is normalized by the ONE shared rule (see normalizeWorkspaceDir): the path
+// may be the workspace dir itself or a project root whose .cards child is
+// the workspace. Otherwise it discovers the nearest .cards/ walking up from
+// the cwd; failing that it returns the global personal workspace. autoInit
+// is true only for the global fallback, signalling that the caller should
+// scaffold + seed it if empty (an explicit or discovered path is expected to
+// already be a workspace).
 func resolveWorkspaceDir(explicit string) (dir string, autoInit bool, err error) {
 	if explicit != "" {
 		abs, aerr := filepath.Abs(explicit)
-		return abs, false, aerr
+		if aerr != nil {
+			return "", false, aerr
+		}
+		norm, nerr := normalizeWorkspaceDir(abs)
+		return norm, false, nerr
 	}
 	if found, ok := findDotCards(); ok {
 		return found, false, nil
 	}
 	home, herr := globalHome()
 	return home, true, herr
+}
+
+// isWorkspaceDir reports whether dir itself holds a workspace definition
+// (definitions/workspace.json) — the same test .cards discovery uses.
+func isWorkspaceDir(dir string) bool {
+	fi, err := os.Stat(filepath.Join(dir, "definitions", "workspace.json"))
+	return err == nil && !fi.IsDir()
+}
+
+// normalizeWorkspaceDir is the one explicit-path rule shared by
+// --workspace/$CARDS_WORKSPACE (serve + client verbs) and init's guard: an
+// explicit path may name the workspace dir itself OR a project root whose
+// .cards child is the workspace, so `cards --workspace ./myproject` and
+// `--workspace ./myproject/.cards` open the same board. When BOTH the path
+// and its .cards child are workspaces the reference is ambiguous — fail with
+// the concrete choices rather than guess, because guessing wrong silently
+// targets the wrong board. A path that is neither passes through verbatim:
+// opening it still fails loudly, and init scaffolds it.
+func normalizeWorkspaceDir(abs string) (string, error) {
+	child := filepath.Join(abs, ".cards")
+	self, childIs := isWorkspaceDir(abs), isWorkspaceDir(child)
+	switch {
+	case self && childIs:
+		return "", fmt.Errorf(
+			"ambiguous workspace: both %s and %s hold definitions/workspace.json — pass the one you mean (did you mean --workspace %s, the project's board?)",
+			abs, child, child)
+	case childIs:
+		return child, nil
+	default:
+		return abs, nil
+	}
 }
 
 // findDotCards walks up from the cwd looking for a .cards/ directory that holds

@@ -197,8 +197,9 @@ Global flags (before the command):
   --url URL        API base ($CARDS_URL); unset runs serverless in-process.
                    A bare host is fine — /v1 is appended if missing.
   --as USER        actor for writes (default $CARDS_USER)
-  --workspace DIR  serverless workspace dir for client verbs (the .cards dir
-                   itself; overrides $CARDS_WORKSPACE; ignored with --url)
+  --workspace DIR  serverless workspace dir for client verbs — the .cards dir
+                   or the project root holding it (overrides $CARDS_WORKSPACE;
+                   ignored with --url)
   --json           pretty-print single object
   --jsonl          newline-delimited JSON (default for list/events)
   --quiet          ids only

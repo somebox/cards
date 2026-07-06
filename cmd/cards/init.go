@@ -33,6 +33,13 @@ func initCmd(args []string) error {
 		if err != nil {
 			return err
 		}
+		// Same rule as --workspace resolution (isWorkspaceDir): if the target
+		// is ALREADY a workspace dir, scaffolding a .cards child inside it
+		// would create the nested-ambiguous layout normalizeWorkspaceDir
+		// refuses. Say so instead of building the trap.
+		if isWorkspaceDir(abs) {
+			return fmt.Errorf("%s is already a workspace (it has definitions/workspace.json) — nothing to init; use it with: cards --workspace %s", abs, abs)
+		}
 		dir = filepath.Join(abs, ".cards")
 	}
 

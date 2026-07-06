@@ -9,6 +9,17 @@ backwards-compatible fixes.
 ## [Unreleased]
 
 ### Added
+- **The loop works out of the box.** The starter `task` card type now ships
+  an `attachment` artifact field, so `cards init NEW && cards attach …` works
+  from a fresh install with no manual schema edit (pre-existing workspaces:
+  add the field to `definitions/card-types/task.json`; additive, no version
+  bump). `--workspace`/`$CARDS_WORKSPACE` accept the project root as well as
+  its `.cards` child — every entry point (client verbs, serve, init) shares
+  ONE resolution rule, and a directory where BOTH the root and `.cards` are
+  workspaces errors with the concrete choices instead of guessing. `cards
+  init X` refuses when X is already a workspace (it would nest one inside
+  the other). A Go test keeps the demo workspace's card types field-synced
+  with the starter assets.
 - **Short ids work on every verb.** All mutating commands and endpoints
   (`patch`, `comment`, `link` — including the link *target* —, `attach`,
   `claim`, `release`, `delete`, `upgrade-schema`, entry edits, `history`) now
