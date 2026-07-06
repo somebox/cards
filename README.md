@@ -63,10 +63,9 @@ archive for your platform (`linux`/`darwin`/`windows` × `amd64`/`arm64`;
 Windows ships a `.zip`). For example, on macOS (Apple Silicon):
 
 ```bash
-# replace v0.1.2 with the current release tag
 curl -L -o cards.tar.gz \
-  https://github.com/somebox/cards/releases/download/v0.1.2/cards_v0.1.2_darwin_arm64.tar.gz
-tar -xzf cards.tar.gz && cd cards_v0.1.2_darwin_arm64
+  https://github.com/somebox/cards/releases/latest/download/cards_darwin_arm64.tar.gz
+tar -xzf cards.tar.gz && cd cards_darwin_arm64
 ./cards version
 ```
 

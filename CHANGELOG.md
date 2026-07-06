@@ -8,6 +8,15 @@ backwards-compatible fixes.
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-07-06
+
+### Changed
+- **Stable download links.** Release archives are now named without the version
+  (`cards_<os>_<arch>.tar.gz`), so
+  `https://github.com/somebox/cards/releases/latest/download/cards_<os>_<arch>.tar.gz`
+  always resolves to the newest binary. The version is still stamped into the
+  binary (`cards version`) and bundled `CHANGELOG.md`.
+
 ## [0.1.2] - 2026-07-06
 
 ### Added
@@ -140,7 +149,8 @@ SSE — to a shippable baseline, and adds the following.
   already fixed); completed review/planning artifacts were archived under
   `docs/archive/`.
 
-[Unreleased]: https://github.com/somebox/cards/compare/v0.1.2...HEAD
+[Unreleased]: https://github.com/somebox/cards/compare/v0.1.3...HEAD
+[0.1.3]: https://github.com/somebox/cards/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/somebox/cards/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/somebox/cards/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/somebox/cards/releases/tag/v0.1.0

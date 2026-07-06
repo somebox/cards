@@ -43,7 +43,11 @@ jobs:
           set -euo pipefail
           bin=cards
           [ "$GOOS" = "windows" ] && bin=cards.exe
-          name="cards_${TAG}_${GOOS}_${GOARCH}"
+          # Version-less asset names so the permanent
+          # /releases/latest/download/cards_<os>_<arch>.<ext> link always
+          # resolves to the newest release. The version is still stamped into
+          # the binary (cards version) and bundled in CHANGELOG.md.
+          name="cards_${GOOS}_${GOARCH}"
           mkdir -p "dist/${name}"
           go build -trimpath -ldflags "-s -w -X main.version=${TAG}" \
             -o "dist/${name}/${bin}" ./cmd/cards
