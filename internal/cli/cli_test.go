@@ -43,6 +43,14 @@ func (t inprocTransport) Do(method, path string, body []byte, header http.Header
 
 func newTestClient(t *testing.T, cfg Config) *Client {
 	t.Helper()
+	c, _ := newTestClientStore(t, cfg)
+	return c
+}
+
+// newTestClientStore also exposes the backing store so tests can seed
+// crafted short-id fixtures through the shared coretest seam.
+func newTestClientStore(t *testing.T, cfg Config) (*Client, *sqlite.Store) {
+	t.Helper()
 	r, err := config.New("../../examples/demo-workspace").Load()
 	if err != nil {
 		t.Fatalf("load: %v", err)
@@ -60,7 +68,7 @@ func newTestClient(t *testing.T, cfg Config) *Client {
 	if err != nil {
 		t.Fatalf("new server: %v", err)
 	}
-	return NewWithTransport(cfg, inprocTransport{h: srv.Router()})
+	return NewWithTransport(cfg, inprocTransport{h: srv.Router()}), st
 }
 
 // runCmd dispatches a subcommand by name and captures its stdout.

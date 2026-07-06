@@ -526,7 +526,7 @@ func (s *Store) GetCard(ctx context.Context, id string) (*core.Card, error) {
 	return c, nil
 }
 
-// GetCardsByShortID returns cards whose full id equals short OR whose last-8
+// GetCardsByShortID returns cards whose full id equals short OR whose leading-8
 // hex suffix equals short. Ordered by updated_at DESC, id DESC for stable
 // candidates. Used by Service.ResolveCard (1e). (1e)
 func (s *Store) GetCardsByShortID(ctx context.Context, short string) ([]core.Card, error) {

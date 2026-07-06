@@ -493,7 +493,7 @@ func (s *Server) uiCardDetail(w http.ResponseWriter, r *http.Request) {
 // cards linking to /ui/cards/{full_id}. (1e)
 func (s *Server) renderCardAmbiguous(w http.ResponseWriter, r *http.Request, amb *core.AmbiguousIDError) {
 	data := s.baseData("Ambiguous id: " + amb.Short)
-	data.Error = &core.Error{Code: "ambiguous", Message: amb.Short, HTTPStatus: 409}
+	data.Error = core.AsError(amb) // one construction point: the taxonomy fold
 	data.Candidates = amb.Candidates
 	s.renderPage(w, r, "card_ambiguous.html", data)
 }

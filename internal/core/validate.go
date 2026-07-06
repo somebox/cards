@@ -6,6 +6,7 @@ package core
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"time"
@@ -92,12 +93,15 @@ func (s *Service) validateFieldValue(ctx context.Context, f *FieldDef, v any) er
 		if id == "" {
 			return nil
 		}
-		target, err := s.getCard(ctx, id)
+		// Field VALUES hold exact full ids — no short-id resolution here: a
+		// card_link field is stored data, not a verb reference, and silently
+		// rewriting a value during validation would surprise the writer.
+		target, err := s.store.GetCard(ctx, id)
 		if err != nil {
-			if ce := AsError(err); ce != nil && ce.Code == "not_found" {
+			if errors.Is(err, ErrNotFound) {
 				return newTargetCardMissing(id, f.TargetType)
 			}
-			return err
+			return Internal("failed to get card: " + err.Error())
 		}
 		if f.TargetType != "" && target.TypeID != f.TargetType {
 			return newTargetCardTypeMismatch(id, []string{f.TargetType})

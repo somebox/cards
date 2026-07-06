@@ -179,7 +179,13 @@ type cliError struct {
 	Value        any      `json:"value,omitempty"`
 	ValidOptions []string `json:"valid_options,omitempty"`
 	Hint         string   `json:"hint,omitempty"`
-	Status       int      `json:"-"` // HTTP status, set by do(); drives ExitCode
+	// Candidates rides on "ambiguous" (409) short-id errors: every matching
+	// card's full id + title, so the caller can pick one and retry.
+	Candidates []struct {
+		ID    string `json:"id"`
+		Title string `json:"title"`
+	} `json:"candidates,omitempty"`
+	Status int `json:"-"` // HTTP status, set by do(); drives ExitCode
 }
 
 // ExitCode maps an error to a process exit code so non-interactive callers can
@@ -217,6 +223,9 @@ func (e *cliError) Error() string {
 	b.WriteString(": " + e.Message)
 	if len(e.ValidOptions) > 0 {
 		b.WriteString(" [valid: " + strings.Join(e.ValidOptions, ", ") + "]")
+	}
+	for _, c := range e.Candidates {
+		b.WriteString("\n  " + c.ID + "  " + c.Title)
 	}
 	if e.Hint != "" {
 		b.WriteString(" — " + e.Hint)

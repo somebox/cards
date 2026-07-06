@@ -20,7 +20,7 @@ type Store interface {
 	// Cards
 	ListCards(ctx context.Context, q CardQuery) (*Page[Card], error)
 	GetCard(ctx context.Context, id string) (*Card, error) // loads links + comments
-	// GetCardsByShortID returns cards whose id equals short or whose last-8-hex
+	// GetCardsByShortID returns cards whose id equals short or whose leading 8 hex chars
 	// suffix equals short. Used by ResolveCard (1e); returns 0, 1, or many.
 	GetCardsByShortID(ctx context.Context, short string) ([]Card, error)
 	InsertCard(ctx context.Context, c *Card, ev *Event) error

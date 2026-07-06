@@ -21,6 +21,10 @@ type Error struct {
 	HTTPStatus   int      `json:"-"`
 	// CurrentCard is attached to version_conflict (409) responses.
 	CurrentCard *Card `json:"card,omitempty"`
+	// Candidates is attached to "ambiguous" (409) short-id responses: the
+	// id+title of every card matching the short id, so callers can pick the
+	// full id and retry. Never auto-resolved. (1e)
+	Candidates []CardCandidate `json:"candidates,omitempty"`
 }
 
 func (e *Error) Error() string {
@@ -150,9 +154,23 @@ func ActorRequired() *Error {
 }
 
 // AsError unwraps *Error from error; nil if not a core.Error.
+// *AmbiguousIDError is part of the taxonomy: it converts to code "ambiguous"
+// (409) carrying the candidate list, so every renderer that goes through
+// AsError (HTTP writeAPIError, MCP toolError, CLI) surfaces the same shape.
 func AsError(err error) *Error {
 	if err == nil {
 		return nil
+	}
+	var amb *AmbiguousIDError
+	if errors.As(err, &amb) {
+		return &Error{
+			Code:       "ambiguous",
+			Message:    amb.Error(),
+			Value:      amb.Short,
+			Candidates: amb.Candidates,
+			Hint:       "Use a full card id.",
+			HTTPStatus: 409,
+		}
 	}
 	var e *Error
 	if ok := errors.As(err, &e); ok {

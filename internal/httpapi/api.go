@@ -2,7 +2,6 @@ package httpapi
 
 import (
 	"encoding/json"
-	"errors"
 	"io"
 	"net/http"
 	"strconv"
@@ -114,15 +113,8 @@ func (s *Server) apiCreateCard(w http.ResponseWriter, r *http.Request) {
 func (s *Server) apiGetCard(w http.ResponseWriter, r *http.Request) {
 	c, err := s.svc.ResolveCard(r.Context(), chi.URLParam(r, "id"))
 	if err != nil {
-		var amb *core.AmbiguousIDError
-		if errors.As(err, &amb) {
-			writeJSON(w, 409, map[string]any{
-				"error":      "ambiguous",
-				"query":      amb.Short,
-				"candidates": amb.Candidates,
-			})
-			return
-		}
+		// Ambiguous short ids render through the taxonomy (code "ambiguous",
+		// 409, candidates) like every other error — no bespoke shape.
 		writeAPIError(w, core.AsError(err))
 		return
 	}

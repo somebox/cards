@@ -13,6 +13,7 @@ import (
 
 	"github.com/somebox/cards/internal/config"
 	"github.com/somebox/cards/internal/core"
+	"github.com/somebox/cards/internal/core/coretest"
 	"github.com/somebox/cards/internal/httpapi"
 	"github.com/somebox/cards/internal/seed"
 	"github.com/somebox/cards/internal/sqlite"
@@ -710,18 +711,11 @@ func newServerStore(t *testing.T) (*httptest.Server, *core.Service, *sqlite.Stor
 	return ts, svc, st
 }
 
+// insertCraftedCard delegates to the shared coretest fixture so all four
+// surface packages force short-id scenarios through ONE seam.
 func insertCraftedCard(t *testing.T, st *sqlite.Store, id string) {
-	t.Helper()
-	ctx := context.Background()
-	now := time.Now().UTC()
-	c := &core.Card{
-		ID: id, WorkspaceID: "demo", TypeID: "programming-task", SchemaVersion: 1,
-		Title: "Crafted " + id, Status: "todo", Fields: map[string]any{"description": "d", "branch": "b"},
-		Version: 1, CreatedAt: now, UpdatedAt: now, CreatedBy: "local-dev",
-	}
-	if err := st.InsertCard(ctx, c, &core.Event{CardID: id, Type: core.EventCardCreated, Actor: "local-dev", At: now}); err != nil {
-		t.Fatalf("insert crafted %s: %v", id, err)
-	}
+	coretest.SeedCard(t, st, "demo", "programming-task", id,
+		map[string]any{"description": "d", "branch": "b"})
 }
 
 func TestAPIGetCard_ShortIDResolves(t *testing.T) {
@@ -759,7 +753,7 @@ func TestAPIGetCard_AmbiguousShortID409(t *testing.T) {
 	if resp.StatusCode != 409 {
 		t.Fatalf("expected 409, got %d %v", resp.StatusCode, out)
 	}
-	if out["error"] != "ambiguous" || out["query"] != "COLLIDE1" {
+	if out["error"] != "ambiguous" || out["value"] != "COLLIDE1" {
 		t.Errorf("body = %v", out)
 	}
 	cands, _ := out["candidates"].([]any)

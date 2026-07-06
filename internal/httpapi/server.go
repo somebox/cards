@@ -39,7 +39,7 @@ type Server struct {
 func New(svc *core.Service, ws *core.Workspace, types map[string]*core.CardType, boards map[string]*core.Board, st core.Store) (*Server, error) {
 	funcMap := template.FuncMap{
 		"join": strings.Join,
-		// shortID returns the last-8-hex suffix of a card id for compact display;
+		// shortID returns the leading 8 hex chars of a card id (matches substr(id,6,8) resolution) for compact display;
 		// the full id is kept canonical in store/API JSON and in title="". (1e)
 		"shortID": shortID,
 		// iso formats a time.Time as RFC3339 for the client-side `data-ago`

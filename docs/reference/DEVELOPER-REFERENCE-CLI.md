@@ -10,6 +10,16 @@ serve` required. Set `CARDS_URL` (or `--url`) to talk to a running server
 instead. Prefer the server when one is up: a direct write bypasses that
 process's event bus, so its SSE stream and hooks would not observe the change.
 
+**Card references.** Everywhere a command takes a card id — reads *and* writes
+(`get`, `patch`, `comment`, `link`, `attach`, `claim`, `delete`, …, including
+`link add --target`) — you may pass either the full `card_…` id or its 8-char
+short id (the first 8 characters after `card_`, as shown on the board). A
+short id matching more than one card is never auto-resolved: the command fails
+with the structured `ambiguous` error (HTTP 409, exit code 4) listing every
+candidate's full id and title so you can pick one and retry. The reference is
+normalized to the full id before anything is written, so events, links, and
+comments always record full ids.
+
 ```bash
 cards serve --workspace ./demo-workspace --port 8787
 

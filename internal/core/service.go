@@ -568,7 +568,7 @@ func (s *Service) GetCard(ctx context.Context, id string) (*Card, error) {
 	return c, nil
 }
 
-// ResolveCard resolves an id that may be a full id or a last-8-hex short id.
+// ResolveCard resolves an id that may be a full id or an 8-char short id (the leading 8 chars of the hex part).
 // A full id wins even if it suffixes another card. 0 → ErrNotFound (mapped to
 // NotFound/404), 1 → that card (with links + comments loaded), >1 →
 // *AmbiguousIDError with candidates (never auto-resolves). (1e)
@@ -580,7 +580,7 @@ func (s *Service) ResolveCard(ctx context.Context, id string) (*Card, error) {
 	} else if !errors.Is(err, ErrNotFound) {
 		return nil, Internal("failed to get card: " + err.Error())
 	}
-	// Fall back to short-id (last-8-hex) matching.
+	// Fall back to short-id (leading-8) matching.
 	cands, err := s.store.GetCardsByShortID(ctx, id)
 	if err != nil {
 		return nil, Internal("failed to resolve short id: " + err.Error())
@@ -606,17 +606,21 @@ func (s *Service) ResolveCard(ctx context.Context, id string) (*Card, error) {
 	}
 }
 
-// getCard is the internal helper used by all mutating methods. It maps
-// store errors correctly: ErrNotFound→404, other→500 (previously all store
-// errors were masked as 404, hiding real failures).
-func (s *Service) getCard(ctx context.Context, id string) (*Card, error) {
-	c, err := s.store.GetCard(ctx, id)
+// resolveForWrite is the lookup used by every mutating method: a card
+// reference may be a full id or an 8-char short id, exactly like reads.
+// It normalizes *ref to the card's full id in place, so a short id can never
+// leak into events, link rows, or store writes — taking the reference by
+// pointer makes the normalization impossible to forget at a call site.
+// Error discipline is preserved from the old getCard helper: ErrNotFound→404,
+// ambiguous→*AmbiguousIDError (code "ambiguous", 409), and every OTHER store
+// error stays 500-class (previously all store errors were masked as 404,
+// hiding real failures — do not regress this).
+func (s *Service) resolveForWrite(ctx context.Context, ref *string) (*Card, error) {
+	c, err := s.ResolveCard(ctx, *ref)
 	if err != nil {
-		if errors.Is(err, ErrNotFound) {
-			return nil, NotFound("card " + id)
-		}
-		return nil, Internal("failed to get card: " + err.Error())
+		return nil, err
 	}
+	*ref = c.ID
 	return c, nil
 }
 
@@ -692,7 +696,7 @@ func (s *Service) CreateCard(ctx context.Context, req CreateCardRequest) (*Card,
 
 // PatchCard applies a partial update with optimistic concurrency. SPEC §11.
 func (s *Service) PatchCard(ctx context.Context, id string, req PatchCardRequest) (*Card, error) {
-	current, err := s.getCard(ctx, id)
+	current, err := s.resolveForWrite(ctx, &id)
 	if err != nil {
 		return nil, err
 	}
@@ -846,7 +850,7 @@ func (s *Service) DeleteCard(ctx context.Context, id string, req DeleteCardReque
 	if req.Actor == "" {
 		return nil, ActorRequired()
 	}
-	current, err := s.ResolveCard(ctx, id)
+	current, err := s.resolveForWrite(ctx, &id)
 	if err != nil {
 		return nil, err
 	}
@@ -892,7 +896,7 @@ func (s *Service) UpgradeSchema(ctx context.Context, id string, req UpgradeSchem
 	if req.Actor == "" {
 		return nil, ActorRequired()
 	}
-	current, err := s.getCard(ctx, id)
+	current, err := s.resolveForWrite(ctx, &id)
 	if err != nil {
 		return nil, err
 	}
@@ -977,7 +981,7 @@ func (s *Service) UpgradeSchema(ctx context.Context, id string, req UpgradeSchem
 // Each entry gets a stable server-generated entry_id; entries are addressed
 // by that id thereafter. SPEC §6 D6.
 func (s *Service) AppendEntry(ctx context.Context, id, field string, entry map[string]any, version int) (*Card, error) {
-	current, err := s.getCard(ctx, id)
+	current, err := s.resolveForWrite(ctx, &id)
 	if err != nil {
 		return nil, err
 	}
@@ -1020,7 +1024,7 @@ func (s *Service) AppendEntry(ctx context.Context, id, field string, entry map[s
 
 // UpdateEntry replaces an entry's data (keeping its entry_id). SPEC §11.
 func (s *Service) UpdateEntry(ctx context.Context, id, field, entryID string, entry map[string]any, version int) (*Card, error) {
-	current, err := s.getCard(ctx, id)
+	current, err := s.resolveForWrite(ctx, &id)
 	if err != nil {
 		return nil, err
 	}
@@ -1064,7 +1068,7 @@ func (s *Service) UpdateEntry(ctx context.Context, id, field, entryID string, en
 // supplied (the HTTP handler enforces this via ?version=N) for lost-update
 // protection; a mismatch yields version_conflict.
 func (s *Service) RemoveEntry(ctx context.Context, id, field, entryID string, version int) (*Card, error) {
-	current, err := s.getCard(ctx, id)
+	current, err := s.resolveForWrite(ctx, &id)
 	if err != nil {
 		return nil, err
 	}
@@ -1095,7 +1099,7 @@ func (s *Service) RemoveEntry(ctx context.Context, id, field, entryID string, ve
 // Links are append-only graph state; the request does not carry a version
 // (the store CAS-guards against lost updates), but the card version bumps.
 func (s *Service) AddLink(ctx context.Context, id string, in LinkInput) (*Card, error) {
-	current, err := s.getCard(ctx, id)
+	current, err := s.resolveForWrite(ctx, &id)
 	if err != nil {
 		return nil, err
 	}
@@ -1110,8 +1114,9 @@ func (s *Service) AddLink(ctx context.Context, id string, in LinkInput) (*Card, 
 	if lt == nil {
 		return nil, newUnknownEnum("type_id", in.TypeID, linkTypeIDs(s.ws))
 	}
-	// Target must exist.
-	target, err := s.getCard(ctx, in.Target)
+	// Target must exist. Resolved like the subject: full id or short id, with
+	// in.Target normalized to the full id before it reaches the link row/event.
+	target, err := s.resolveForWrite(ctx, &in.Target)
 	if err != nil {
 		if ce := AsError(err); ce != nil && ce.Code == "not_found" {
 			return nil, newTargetCardMissing(in.Target, lt.TargetTypes...)
@@ -1153,7 +1158,7 @@ func (s *Service) AddLink(ctx context.Context, id string, in LinkInput) (*Card, 
 
 // RemoveLink deletes a link by (type_id, target). SPEC §11.
 func (s *Service) RemoveLink(ctx context.Context, id, typeID, target string) (*Card, error) {
-	current, err := s.getCard(ctx, id)
+	current, err := s.resolveForWrite(ctx, &id)
 	if err != nil {
 		return nil, err
 	}
@@ -1188,7 +1193,7 @@ func (s *Service) RemoveLink(ctx context.Context, id, typeID, target string) (*C
 
 // AddComment adds a comment; returns the updated card. SPEC §11.
 func (s *Service) AddComment(ctx context.Context, id string, body string) (*Card, error) {
-	current, err := s.getCard(ctx, id)
+	current, err := s.resolveForWrite(ctx, &id)
 	if err != nil {
 		return nil, err
 	}
@@ -1225,7 +1230,7 @@ func (s *Service) AddArtifact(ctx context.Context, id, field string, r io.Reader
 	if s.artifacts == nil {
 		return nil, NewValidationError("artifact", "artifact storage is not configured for this workspace")
 	}
-	current, err := s.getCard(ctx, id)
+	current, err := s.resolveForWrite(ctx, &id)
 	if err != nil {
 		return nil, err
 	}
@@ -1277,7 +1282,7 @@ func (s *Service) OpenArtifact(uri string) (io.ReadCloser, error) {
 
 // EditComment updates a comment's body. SPEC §11.
 func (s *Service) EditComment(ctx context.Context, id, commentID, body string) (*Card, error) {
-	current, err := s.getCard(ctx, id)
+	current, err := s.resolveForWrite(ctx, &id)
 	if err != nil {
 		return nil, err
 	}
@@ -1317,7 +1322,7 @@ func (s *Service) EditComment(ctx context.Context, id, commentID, body string) (
 // Claim atomically sets owner (+optional status) via compare-and-set. SPEC §11.
 // Returns version_conflict (409) if the card is already owned by another actor.
 func (s *Service) Claim(ctx context.Context, id string, req ClaimRequest) (*Card, error) {
-	current, err := s.getCard(ctx, id)
+	current, err := s.resolveForWrite(ctx, &id)
 	if err != nil {
 		return nil, err
 	}
@@ -1348,7 +1353,7 @@ func (s *Service) Claim(ctx context.Context, id string, req ClaimRequest) (*Card
 // e.g. moving a deferred card from todo to backlog when the enforced
 // transition graph has no todo→backlog edge.
 func (s *Service) Release(ctx context.Context, id string, req ReleaseRequest) (*Card, error) {
-	current, err := s.getCard(ctx, id)
+	current, err := s.resolveForWrite(ctx, &id)
 	if err != nil {
 		return nil, err
 	}
@@ -1469,8 +1474,10 @@ func (s *Service) ListEventsPage(ctx context.Context, q EventQuery) (*Page[Event
 }
 
 // History renders a resumption-ready timeline for a card. SPEC §8.
+// The reference may be a short id; it is normalized to the full id before the
+// event query (events are keyed by full card id).
 func (s *Service) History(ctx context.Context, id string) ([]HistoryEntry, error) {
-	if _, err := s.getCard(ctx, id); err != nil {
+	if _, err := s.resolveForWrite(ctx, &id); err != nil {
 		return nil, err
 	}
 	evs, err := s.store.List(ctx, EventQuery{CardID: id, Limit: 500})

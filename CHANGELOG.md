@@ -8,6 +8,28 @@ backwards-compatible fixes.
 
 ## [Unreleased]
 
+### Added
+- **Short ids work on every verb.** All mutating commands and endpoints
+  (`patch`, `comment`, `link` — including the link *target* —, `attach`,
+  `claim`, `release`, `delete`, `upgrade-schema`, entry edits, `history`) now
+  accept the 8-char short id anywhere a full `card_…` id was required;
+  previously only reads resolved short ids. References are normalized to the
+  full id before any write, so events, link rows, and comments always record
+  full ids.
+
+### Changed
+- **One `ambiguous` error shape on every transport.** An ambiguous short id
+  now returns the standard structured error (`error: "ambiguous"`, HTTP 409,
+  `candidates` with each match's full id + title, the query in `value`) from
+  HTTP, the CLI (exit code 4, candidates listed), and MCP (structured tool
+  error instead of a bare `-32603`). *Contract note:* `GET /v1/cards/{id}`'s
+  bespoke ambiguous body dropped its `query` field — the short id now rides
+  in the standard `value` field.
+
+### Fixed
+- **Ambiguous short id on `DELETE /v1/cards/{id}` returned a 500.** It now
+  returns the structured 409 like every other verb.
+
 ## [0.1.0] - 2026-07-06
 
 First tagged release. Work Cards is a local-first, single-tenant coordination
