@@ -26,17 +26,18 @@ func TestLoadDemoWorkspace(t *testing.T) {
 	if got := len(r.Workspace.LinkTypes); got != 5 {
 		t.Errorf("link_types = %d, want 5", got)
 	}
-	if got := len(r.CardTypes); got != 3 {
-		t.Fatalf("card types = %d, want 3", got)
+	if got := len(r.CardTypes); got != 7 {
+		t.Fatalf("card types = %d, want 7", got)
 	}
-	if _, ok := r.CardTypes["programming-task"]; !ok {
-		t.Error("missing programming-task type")
+	for _, id := range []string{"programming-task", "research-goal", "task",
+		"api-task", "frontend-task", "infra-task", "data-task"} {
+		if _, ok := r.CardTypes[id]; !ok {
+			t.Errorf("missing %s type", id)
+		}
 	}
-	if _, ok := r.CardTypes["research-goal"]; !ok {
-		t.Error("missing research-goal type")
-	}
-	if _, ok := r.CardTypes["task"]; !ok {
-		t.Error("missing task type")
+	// The granular dev-loop types carry their visual identity in config.
+	if th := r.CardTypes["api-task"].TypeTheme; th.Icon != "target" || th.Accent == "" {
+		t.Errorf("api-task type_theme not loaded: %+v", th)
 	}
 	if got := len(r.Boards); got != 2 {
 		t.Fatalf("boards = %d, want 2", got)

@@ -1,0 +1,33 @@
+{
+  "id": "frontend-task",
+  "name": "Frontend Task",
+  "description": "Change to the web UI — templates, CSS/themes, board/modal behavior. Evidence is visual: a screenshot is part of done.",
+  "schema_version": 1,
+  "type_theme": { "icon": "pen", "accent": "#cf7b00", "muted": "#f6e7cc" },
+  "fields": [
+    { "id": "description", "type": "text", "required": true, "display": "monospace" },
+    { "id": "surface", "type": "enum", "required": true, "default": "board",
+      "options": ["board", "modal", "detail", "theme", "nav", "home"],
+      "description": "Which UI surface this touches" },
+    { "id": "acceptance", "type": "text", "required": false,
+      "description": "Done when — include the interaction states (hover/focus/error/empty), not just the happy path" },
+    { "id": "a11y", "type": "text", "required": false,
+      "description": "Keyboard path / focus order / contrast checked — what was verified, or why n/a" },
+    { "id": "design_ref", "type": "string", "required": false, "display": "monospace",
+      "description": "Anchor into docs/architecture/DESIGN.md (or a mockup link) this implements" },
+    { "id": "branch", "type": "string", "required": false, "display": "badge" },
+    {
+      "id": "work_log", "type": "repeating", "required": false, "display": "feed",
+      "item_fields": [
+        { "id": "commit_hash", "type": "string", "required": true },
+        { "id": "notes", "type": "text", "required": false },
+        { "id": "author", "type": "user", "required": true },
+        { "id": "timestamp", "type": "date", "required": true }
+      ]
+    },
+    { "id": "screenshot", "type": "artifact", "artifact_policy": "local", "required": false,
+      "description": "Before/after capture — reviewers should see the change without running it" }
+  ],
+  "allowed_columns": ["backlog", "todo", "in_progress", "review", "done"],
+  "searchable_fields": ["description", "acceptance", "design_ref"]
+}

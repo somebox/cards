@@ -1,32 +1,93 @@
 {
   "id": "engineering",
   "name": "Engineering",
-  "columns": ["backlog", "todo", "in_progress", "review", "done"],
-  "card_type_ids": ["programming-task", "research-goal"],
-  "settings": { "enforce_transitions": true },
-  "wip_limits": { "in_progress": 3 },
+  "columns": [
+    "backlog",
+    "todo",
+    "in_progress",
+    "review",
+    "done"
+  ],
+  "card_type_ids": [
+    "programming-task",
+    "research-goal",
+    "api-task",
+    "frontend-task",
+    "infra-task",
+    "data-task"
+  ],
+  "settings": {
+    "enforce_transitions": true
+  },
+  "wip_limits": {
+    "in_progress": 3
+  },
   "monitors": {
-    "alert_when_empty": ["todo"],
+    "alert_when_empty": [
+      "todo"
+    ],
     "emit_rejections": true,
-    "max_time_in_status": { "review": "168h" }
+    "max_time_in_status": {
+      "review": "168h"
+    },
+    "idle_after": "336h"
   },
   "transitions": {
-    "backlog": ["todo"],
-    "todo": ["in_progress"],
-    "in_progress": ["review"],
-    "review": ["done", "in_progress"],
+    "backlog": [
+      "todo"
+    ],
+    "todo": [
+      "in_progress"
+    ],
+    "in_progress": [
+      "review"
+    ],
+    "review": [
+      "done",
+      "in_progress"
+    ],
     "done": []
   },
   "presentation": {
     "lane_group_by": "status",
     "card_preview": {
-      "programming-task": ["branch"],
-      "research-goal": ["hypothesis"]
+      "programming-task": [
+        "branch"
+      ],
+      "research-goal": [
+        "hypothesis"
+      ],
+      "api-task": [
+        "endpoint",
+        "branch"
+      ],
+      "frontend-task": [
+        "surface",
+        "branch"
+      ],
+      "infra-task": [
+        "environment",
+        "branch"
+      ],
+      "data-task": [
+        "migration",
+        "branch"
+      ]
     },
     "filters": [
       {
-        "id": "mine-open", "label": "My open",
-        "filter": { "owner": { "$eq": "me" }, "status": { "$nin": ["done"] } }
+        "id": "mine-open",
+        "label": "My open",
+        "filter": {
+          "owner": {
+            "$eq": "me"
+          },
+          "status": {
+            "$nin": [
+              "done"
+            ]
+          }
+        }
       }
     ]
   }
