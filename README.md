@@ -52,25 +52,62 @@ add transition rules such as `todo -> in_progress -> review -> done`. Cards
 live in one workspace, statuses come from the workspace columns, and boards add
 useful constraints without owning a separate copy of the data.
 
-## Quick Start
+## Install
 
-You need Go `1.26.4` or newer as declared in `go.mod`. There is no separate
-database server; the project uses embedded SQLite through `modernc.org/sqlite`.
+There is no separate database server — `cards` is a single self-contained
+binary with embedded SQLite (via the pure-Go `modernc.org/sqlite` driver).
 
-Build, then start your own workspace with zero configuration:
+**Download a prebuilt binary** (no toolchain required) from the
+[latest release](https://github.com/somebox/cards/releases/latest) — pick the
+archive for your platform (`linux`/`darwin`/`windows` × `amd64`/`arm64`;
+Windows ships a `.zip`). For example, on macOS (Apple Silicon):
 
 ```bash
-go build -o cards ./cmd/cards
-./cards version       # print version / commit / build info
-./cards init          # scaffold ./.cards with a welcome board
-./cards serve         # serve the nearest .cards/ (or ~/.cards)
+# replace v0.1.2 with the current release tag
+curl -L -o cards.tar.gz \
+  https://github.com/somebox/cards/releases/download/v0.1.2/cards_v0.1.2_darwin_arm64.tar.gz
+tar -xzf cards.tar.gz && cd cards_v0.1.2_darwin_arm64
+./cards version
+```
+
+On macOS an unsigned download is quarantined by Gatekeeper the first time;
+clear it with `xattr -d com.apple.quarantine ./cards` (or right-click → Open).
+Move `cards` onto your `PATH` (e.g. `sudo mv cards /usr/local/bin/`) to drop
+the `./`.
+
+**Or, with Go `1.26.4`+ installed**, build from source:
+
+```bash
+go install github.com/somebox/cards/cmd/cards@latest   # or @v0.1.2
+# from a checkout: go build -o cards ./cmd/cards
+```
+
+## Quick Start
+
+Scaffold your own workspace and serve it — zero configuration:
+
+```bash
+cards init          # scaffold ./.cards with a starter "welcome" board
+cards serve         # serve it at http://127.0.0.1:8787
 open http://127.0.0.1:8787/ui/boards/welcome
 ```
 
-Or install a released build directly:
+That's the whole system running: one `.cards/` folder holding your board
+definitions and a `work-cards.db` SQLite file, with a web UI, a `/v1` REST
+API, and an MCP (agent) interface over it. Click a card to edit fields inline,
+drag it between columns, or attach a file.
+
+Drive the same board from the command line — point the CLI at the running
+server so its live UI and event stream stay in sync:
 
 ```bash
-go install github.com/somebox/cards/cmd/cards@latest   # or @v0.1.0
+export CARDS_URL=http://127.0.0.1:8787   # target the server (omit to run serverless)
+export CARDS_USER=me                     # actor for writes
+
+cards create --type task --title "My first task" --status todo
+cards list                               # the board as JSON lines
+cards patch <id> --status doing --version 1
+cards comment add <id> --body "on it"
 ```
 
 `cards serve` with no `--workspace` walks up for a `.cards/` workspace like git
@@ -79,7 +116,7 @@ prints usage; run the server explicitly.) To run the bundled demo board (the
 project's own dogfooding backlog) instead, point at it explicitly:
 
 ```bash
-./cards serve --workspace ./examples/demo-workspace --port 8787 --seed
+cards serve --workspace ./examples/demo-workspace --port 8787 --seed
 open http://127.0.0.1:8787/ui/boards/engineering
 ```
 
@@ -257,7 +294,7 @@ reserved for backwards-compatible fixes. Every change is recorded in
 [`CHANGELOG.md`](CHANGELOG.md), and each binary reports its provenance:
 
 ```bash
-cards version         # e.g. "cards v0.1.0 (a1b2c3d4e5f6) built 2026-07-06T…"
+cards version         # e.g. "cards v0.1.2 (a1b2c3d4e5f6) built 2026-07-06T…"
 ```
 
 A working-tree `go build` reports `dev` plus the commit; a tagged release
@@ -270,10 +307,12 @@ build stamps the version via `-ldflags "-X main.version=vX.Y.Z"`.
 git tag vX.Y.Z && git push origin vX.Y.Z
 ```
 
-The [`release` workflow](.github/workflows/release.yml) builds static
-cross-platform binaries (linux/darwin/windows × amd64/arm64) with the version
-stamped in, and publishes a GitHub Release whose notes are that CHANGELOG
-section, with `checksums.txt`.
+The [`release` workflow](.github/workflows/release.yml) builds
+cross-platform binaries (linux/darwin/windows × amd64/arm64, CGO-free via the
+pure-Go SQLite driver) with the version stamped in, packages each as a
+`.tar.gz` (`.zip` for Windows) alongside the README and CHANGELOG, and
+publishes a GitHub Release with auto-generated notes and the archives
+attached.
 
 ## License
 
