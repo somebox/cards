@@ -148,6 +148,31 @@ The field catalog is intentionally small: `string`, `text`, `number`, `date`,
 behavior, such as validating a file path or starting CI, belongs in an extension
 that reads cards and writes results back through the API.
 
+### Syncing a board across machines
+
+`definitions/` is committed; `work-cards.db` (live SQLite state) is **gitignored
+and machine-local**. To move a board between machines, commit a portable
+snapshot of the card state. `cards export --state-only` writes exactly that —
+definitions + current cards, links, and comments — while the mutation log stays
+SQLite-owned (only `card_deleted` tombstones ride along), so the snapshot is
+small and diffs cleanly. `cards import` restores it into a fresh workspace (it
+refuses a non-empty DB — never a silent overwrite). `scripts/board.sh` wraps
+both:
+
+```bash
+scripts/board.sh export            # snapshot the live board -> backlog.jsonl, then: git commit && git push
+# on the other machine:
+git pull
+scripts/board.sh import            # restore backlog.jsonl into a fresh workspace DB
+scripts/board.sh import --force    # re-sync a machine that already has board state (wipes its DB first)
+scripts/board.sh install-hook      # optional: auto-export before every commit so the snapshot never goes stale
+```
+
+Defaults to `examples/demo-workspace`; set `CARDS_WS=<dir>` for another
+workspace. The event journal, condition marks, and any delivery state are *not*
+in the snapshot by design (they are SQLite-owned durable state) — a restore
+rebuilds card state, not history. See `docs/events/EVENTS.md` §8.7.
+
 ## API And Runtime Behavior
 
 All transports use the same service layer. That layer handles schema validation,
