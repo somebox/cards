@@ -8,6 +8,12 @@ backwards-compatible fixes.
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-07-06
+
+The "recommit to the agent loop" sprint: the CLI/HTTP/MCP surfaces become a
+uniform machine contract, the coordination loop works out of the box, and the
+first board-user capability (browser attachment upload) ships.
+
 ### Added
 - **Attach files from the board UI.** A card's artifact field in the modal is
   now an upload control: click-to-browse (a real, keyboard-reachable file
@@ -127,5 +133,6 @@ SSE — to a shippable baseline, and adds the following.
   already fixed); completed review/planning artifacts were archived under
   `docs/archive/`.
 
-[Unreleased]: https://github.com/somebox/cards/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/somebox/cards/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/somebox/cards/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/somebox/cards/releases/tag/v0.1.0
