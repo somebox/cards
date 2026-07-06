@@ -8,6 +8,11 @@ backwards-compatible fixes.
 
 ## [Unreleased]
 
+### Added
+- **Release automation.** Pushing a `v*` tag now builds cross-platform binaries
+  (linux/darwin/windows · amd64/arm64, CGO-free via the pure-Go SQLite driver)
+  and publishes them as a GitHub Release (`.github/workflows/release.yml`).
+
 ## [0.1.1] - 2026-07-06
 
 The "recommit to the agent loop" sprint: the CLI/HTTP/MCP surfaces become a
