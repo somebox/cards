@@ -8,6 +8,8 @@ backwards-compatible fixes.
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-07-06
+
 ### Added
 - **Release automation.** Pushing a `v*` tag now builds cross-platform binaries
   (linux/darwin/windows · amd64/arm64, CGO-free via the pure-Go SQLite driver)
@@ -138,6 +140,7 @@ SSE — to a shippable baseline, and adds the following.
   already fixed); completed review/planning artifacts were archived under
   `docs/archive/`.
 
-[Unreleased]: https://github.com/somebox/cards/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/somebox/cards/compare/v0.1.2...HEAD
+[0.1.2]: https://github.com/somebox/cards/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/somebox/cards/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/somebox/cards/releases/tag/v0.1.0
