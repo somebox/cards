@@ -1,3 +1,5 @@
+# API Surface Specification
+
 ## 5. Schema versioning
 
 Pure **versioned snapshots**. Each `schema_version` is an immutable field list;
@@ -247,7 +249,7 @@ See [`EXTENSIONS.md`](../extensions/EXTENSIONS.md).
 ### Intentionally absent from v1
 - Jira-grade permissions, ACLs, SSO.
 - Built-in automation engine or workflow DSL (use hooks).
-- Graphical schema designer (JSON/YAML in `definitions/`).
+- Graphical schema designer (core JSON definitions; extension YAML where supported).
 - Presence / live cursors.
 - Server-side full jq (use `cards export | jq`).
 - Unlimited event retention (coordination focus, not archive).
@@ -256,6 +258,7 @@ See [`EXTENSIONS.md`](../extensions/EXTENSIONS.md).
 - Structured-payload field types (`json`/`yaml`/`path`/`command`) —
   extension territory; core stores them as `text`/`string`/`artifact`.
 
-**Thesis:** a small typed kernel, SQLite indexing, JSON/YAML definitions,
-event streams for reactions, schema versioning for evolution, views for
-domain-shaped reads — and extensions for everything else.
+**Thesis:** a small typed kernel, SQLite indexing, JSON core definitions (plus
+extension YAML where supported), event streams for reactions, schema versioning
+for evolution, views for domain-shaped reads — and extensions for everything
+else.

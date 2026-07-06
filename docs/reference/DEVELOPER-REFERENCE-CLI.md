@@ -1,4 +1,4 @@
-## 9. CLI (`cards`)
+# Developer Reference — CLI (`cards`)
 
 The binary is **`cards`** (avoids clashing with Unix `wc`). It mirrors the HTTP
 API.

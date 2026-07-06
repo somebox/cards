@@ -53,8 +53,9 @@ For the principles behind these choices, see [`PHILOSOPHY.md`](../concepts/PHILO
 ## 2. Design tensions (and how we resolve them)
 
 ### Flexibility vs. overhead
-Schemas and board definitions live as JSON/YAML in the workspace; the runtime
-is a thin validator plus SQLite for query and FTS. A board can expose one card
+Core schemas and board definitions live as JSON in the workspace; extension
+declarations may use YAML where supported. The runtime is a thin validator plus
+SQLite for query and FTS. A board can expose one card
 type and three columns or many types with enforced transitions — same core.
 
 ### Validation vs. openness

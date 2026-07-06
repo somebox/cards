@@ -115,7 +115,7 @@ type Link struct {
 - **`?blocked=true`** returns cards that have a `blocked-by` or `depends-on` link
   whose **target is not yet `done`**. When every dependency target reaches `done`,
   the card drops out of the blocked set. (The `card_unblocked` push event for this
-  is **[proposed]**, see §4.)
+  is **[built]**, see §4.)
 - Link types are workspace vocabulary (`LinkType`: `directional`|`bidirectional`,
   optional `source_types`/`target_types` constraints). Adding the same
   `(type_id, target)` twice is idempotent.
@@ -487,7 +487,7 @@ never acts on a condition. Out of scope, by design:
   schedulers" are explicitly extension-owned. `take-next` returning `null` is the
   pull signal; the pull *policy* is yours.
 - **No dependency auto-promotion / epic rollups.** The `blocked` query and
-  (proposed) `card_unblocked` event are signals; promoting a ready card is your
+  built `card_unblocked` event are signals; promoting a ready card is your
   policy.
 - **No in-core execution.** The `command` field type and `path`/`json`/`yaml`
   field types were removed; store such content as `string`/`text`/`artifact` and

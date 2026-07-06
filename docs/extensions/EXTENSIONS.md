@@ -26,11 +26,11 @@ not yet implemented. Individual sections are tagged below.
 | Kind | When the core invokes it | Lifetime | Input |
 |------|--------------------------|----------|-------|
 | `hook` | An event matches its filter | One-shot subprocess | Event JSON on stdin |
-| `service` | When started (autostart or manual) | Long-running | Reads its own API/SSE |
+| `service` | When started externally; parsed but not supervised by the core today | Long-running | Reads its own API/SSE |
 | `run` | When called via `cards do <id>` | One-shot subprocess | Args from CLI |
 
 All three communicate with the core via the same HTTP API. Hooks and services
-["can also subscribe to `/v1/events/stream` (with `Last-Event-ID` replay) if they
+can also subscribe to `/v1/events/stream` (with `Last-Event-ID` replay) if they
 want richer event flow than a one-shot subprocess. (The `command` kind was
 renamed to `run` to avoid colliding with the removed `command` field type —
 see `NOTES.md` D2/D18.)
@@ -71,13 +71,14 @@ extensions:
       protocol: http
 ```
 
-The core supervises declared extensions only when asked:
+The core runs declared `hook` and `run` extensions only when asked:
 
 ```bash
 cards run-extensions --workspace ./.work-cards
 ```
 
-Otherwise extensions can be supervised by systemd, docker compose, or by hand.
+Declared `service` entries are parsed but not started or supervised by the
+current core; run long-lived consumers with systemd, docker compose, or by hand.
 The core never requires its own supervisor.
 
 ## Event contract for hooks

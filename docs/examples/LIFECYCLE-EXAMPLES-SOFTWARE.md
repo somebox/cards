@@ -1,4 +1,4 @@
-## Example A — Software delivery board
+# Lifecycle Example — Software Delivery Board
 
 **Domain:** a small feature split across two coding tasks and a doc task on
 board `engineering`. Board `engineering` has `enforce_transitions: true`:
@@ -230,6 +230,7 @@ X-Work-Cards-Actor: coder-agent
 }
 ```
 ```bash
+# illustrative filter-file path; not shipped in examples/demo-workspace
 cards take-next --board engineering --filter-file ./filters/cli-after-api.json \
   --as coder-agent --status in_progress
 ```

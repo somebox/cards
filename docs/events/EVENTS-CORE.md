@@ -1,5 +1,7 @@
 <!-- EVENTS-CORE.md — conceptual reference for the event system.
-     See EVENT.md for the index. -->
+     See EVENTS.md for the index. -->
+
+# Core Event Contract
 
 ## 1) Design goals and non-goals
 
@@ -46,10 +48,10 @@
 ```go
 type Event struct {
 	ID      int64     `json:"id"`                 // monotonic, assigned on append
-	Version int       `json:"version,omitempty"`  // event contract version; v1 default [proposed]
-	Scope   Scope     `json:"scope,omitempty"`    // "card" | "board" [proposed]
+	Version int       `json:"version,omitempty"`  // event contract version; v1 default
+	Scope   Scope     `json:"scope,omitempty"`    // "card" | "board"
 	CardID  string    `json:"card_id,omitempty"`  // required when Scope==card
-	BoardID string    `json:"board_id,omitempty"` // required when Scope==board [proposed]
+	BoardID string    `json:"board_id,omitempty"` // required when Scope==board
 	Type    EventType `json:"type"`
 	Actor   string    `json:"actor"`              // stamped by seam
 	At      time.Time `json:"at"`                 // stamped by seam
@@ -63,7 +65,7 @@ type Event struct {
 
 ```go
 func CardEvent(cardID string, t EventType, diff any) *Event
-func BoardEvent(boardID string, t EventType, diff any) *Event // [proposed]
+func BoardEvent(boardID string, t EventType, diff any) *Event
 ```
 
 - Constructors set identity/scope/type/version/diff fields only.
@@ -396,10 +398,10 @@ an escalated event from a signalled one. This gives integrators an opt-in
 audit/replay trail (each escalated event can become a durable system card on
 their side) without making all conditions durable by default.
 
-### 11.3 Board-scoped facts `[proposed, staged second]`
+### 11.3 Board-scoped facts `[built]`
 
-Add `scope` + `board_id`, keep `card_id` optional by scope. Migration remains
-backward compatible for existing card-event consumers.
+The event envelope includes `scope` + `board_id`, keeping `card_id` optional by
+scope. Existing card-event consumers remain backward compatible.
 
 ---
 

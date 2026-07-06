@@ -1,4 +1,4 @@
-## Example B — Shop floor / CNC board
+# Lifecycle Example — Shop Floor / CNC Board
 
 **Domain:** board `fabrication` with columns `queued` → `printing` → `qa` →
 `done`. Card types: `part-spec`, `printer` (asset), `printer-job`. Link types:

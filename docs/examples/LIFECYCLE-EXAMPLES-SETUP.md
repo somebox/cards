@@ -1,4 +1,4 @@
-## Shared setup (both examples)
+# Lifecycle Examples — Shared Setup
 
 ### Register identities
 

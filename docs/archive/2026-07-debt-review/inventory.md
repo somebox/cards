@@ -59,7 +59,7 @@ Notes on "In docs/README?": "yes" means the file is referenced by `/Users/foz/sr
 
 ## Self-described outdated / superseded
 
-- /Users/foz/src/cards/docs/NOTES.md:3 — "A record of design decisions and why they were made. This is a **historical rationale log**, not a status report — for current implementation status see [`SPEC.md`](spec/SPEC.md) and [`EVENTS.md`](events/EVENTS.md)."
+- /Users/foz/src/cards/docs/NOTES.md:3 — "A record of design decisions and why they were made. This is a **historical rationale log**, not a status report — for current implementation status see `SPEC.md` (`spec/SPEC.md`) and `EVENTS.md` (`events/EVENTS.md`)."
 - /Users/foz/src/cards/docs/NOTES.md:4 — "Other docs cite the D-numbered entries below (D1–D18) for rationale not restated elsewhere; those anchors are stable and must not be renumbered." (Self-described as historical, intentionally retained as decision log.)
 - /Users/foz/src/cards/docs/archive/2026-07-debt-review/issues-docs.md — file lives in `docs/archive/2026-07-debt-review/` (an archive folder); per `reorg-plan.md:119` "Explicitly flagged outdated in inventory.json; most findings resolved in commit `9fe8fb9`". Path itself is the self-description.
 - /Users/foz/src/cards/docs/plans/sprint-2026-07-05.md:1 — "Sprint plan — Events as composition substrate — durable delivery on a verified core, with the human surface in the loop" (working artifact, not user-facing doc; already confined to `docs/plans/`).

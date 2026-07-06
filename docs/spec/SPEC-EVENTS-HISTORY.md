@@ -1,3 +1,5 @@
+# Events and History Specification
+
 ## 8. History, events, and retention
 
 > See §3 Event delivery status note — this section's `history`/feed endpoints
@@ -31,6 +33,7 @@
 | `comment_added` | `{ comment_id }` |
 | `comment_edited` | `{ comment_id, before, after }` |
 | `schema_upgraded` | `{ from, to }` |
+| `card_deleted` | `{ card: { id, type_id, title, status } }` |
 | `artifact_added` | `{ field, uri, sha256 }` *(reserved for when the artifacts subsystem — §6 — is implemented; not currently emitted)* |
 | `definition_reloaded` | `{ kind: "workspace"|"board"|"card_type", id }` *(reserved for when definition reload lands; not currently emitted)* |
 

@@ -18,9 +18,9 @@ To serve static documentation from our structured workspace, we will target a Ma
     - **Specification:** Main Spec (`SPEC.md`), Data Model (`SPEC-DATA-MODEL.md`), API (`SPEC-API-SURFACE.md`), Events (`SPEC-EVENTS-HISTORY.md`), Query DSL (`SPEC-QUERY-DSL.md`), Schemas (`SPEC-CARDTYPE-EXAMPLES.md`).
     - **Architecture:** Go Core & Runtime (`ARCHITECTURE.md`), Styling / Design System (`DESIGN.md`).
     - **Reference:** Workspace Configuration (`DEVELOPER-REFERENCE.md`), Schema Rules (`DEVELOPER-REFERENCE-SCHEMA-AUTHORING.md`), Field Types (`DEVELOPER-REFERENCE-TYPES-EXAMPLES.md`), `cards` CLI (`DEVELOPER-REFERENCE-CLI.md`), Drift Audit (`INTEGRATOR-REFERENCE.md`).
-    - **Events:** Mutation Bus (`EVENTS.md`), SSE Monitors & Conditions (`INTEGRATION.md`).
+    - **Events:** Events Index (`EVENTS.md`), Core Event Contract (`EVENTS-CORE.md`), Rollout History (`EVENTS-ROLLOUT.md`), SSE Monitors & Conditions (`INTEGRATION.md`).
     - **Extensions:** Subprocess Hooks (`EXTENSIONS.md`), Model Context Protocol (`MCP.md`).
-    - **Walkthroughs:** Landing Guide (`LIFECYCLE-EXAMPLES.md`) + Software Delivery (`LIFECYCLE-EXAMPLES-SOFTWARE.md`), Shop Floor (`LIFECYCLE-EXAMPLES-SHOPFLOOR.md`).
+    - **Walkthroughs:** Landing Guide (`LIFECYCLE-EXAMPLES.md`), Shared Setup (`LIFECYCLE-EXAMPLES-SETUP.md`), Software Delivery (`LIFECYCLE-EXAMPLES-SOFTWARE.md`), Shop Floor (`LIFECYCLE-EXAMPLES-SHOPFLOOR.md`).
 - [ ] **Draft the Landing Page (`docs/index.md`)**
   - High-level value propositions (small binary, zero-config launch, SQLite/Git backed, agent-native typed tools).
   - Quick-start guide (installing pre-built binary, executing `cards init`, running UI, connecting an agent).
@@ -87,8 +87,6 @@ The most important reason to build robust import/export adapters for Cards is th
 None of this is built today. The point of this section is to keep the *idea* alive in the docs so that when someone asks "could Cards be the migration target?" or "could we run Cards alongside Jira?" the answer is documented and the path is obvious.
 
 ---
-
-### 1. Obsidian Markdown Integration (`cards` $\leftrightarrow$ Vault)
 
 ### 1. Obsidian Markdown Integration (`cards` $\leftrightarrow$ Vault)
 **Concept:** Since Work Cards workspace configurations, definitions, and outputs are plain files, and Obsidian is a local folders-of-markdown tool, we can easily sync them.

@@ -28,7 +28,9 @@ Welcome to the Work Cards documentation. The files have been organized into topi
 - [INTEGRATOR-REFERENCE.md](./reference/INTEGRATOR-REFERENCE.md) — Drifts, codebase bindings, and type mappings.
 
 ### [Events](./events)
-- [EVENTS.md](./events/EVENTS.md) — Event logs, buses, dispatch seams, and observer queues.
+- [EVENTS.md](./events/EVENTS.md) — Slim overview/index for the event docs.
+- [EVENTS-CORE.md](./events/EVENTS-CORE.md) — Event contract: logs, buses, dispatch seams, observer queues, and built/proposed event types.
+- [EVENTS-ROLLOUT.md](./events/EVENTS-ROLLOUT.md) — Staged rollout history and current implementation status.
 - [INTEGRATION.md](./events/INTEGRATION.md) — Server-Sent Events (SSE), monitors, and conditional business logic.
 
 ### [Extensions](./extensions)

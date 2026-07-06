@@ -1,4 +1,4 @@
-## 6. Field types
+# Card Type Field Catalog and Examples
 
 Core v1 catalog (see [`NOTES.md`](../NOTES.md) D2 for what was trimmed and why):
 

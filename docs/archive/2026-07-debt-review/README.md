@@ -16,4 +16,6 @@ proper, indexed in `docs/README.md` (and `README.md` at the repo root).
 - `link-status.md` — link audit from the 2026-07-04 pipeline run
 - `link-status-v2.md` — link re-verification after the EVENTS.md split
   (Phase 3 of the v2 reorg plan)
+- `link-status-v3.md` — preferred final historical link-audit verdict
+- `reorg-plan-v2.md` — completed root-level reorganization plan archived from the repository root
 - `sprint-2026-07-05.md` — sprint plan from the review

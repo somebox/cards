@@ -17,9 +17,10 @@ extension territory.
 
 ### 2. Files where they help
 
-Definitions are git-backed JSON or YAML. An optional markdown mirror
-keeps cards human-reviewable (**planned, not yet implemented** — see
-SPEC.md §3). Anything authored, reviewed, or versioned by humans
+Core definitions are git-backed JSON; extension declarations may be YAML where
+implemented. An optional markdown mirror keeps cards human-reviewable
+(**planned, not yet implemented** — see SPEC.md §3). Anything authored,
+reviewed, or versioned by humans
 belongs in a file. Anything operational and queried belongs in SQLite.
 
 ### 3. Schemas, not magic

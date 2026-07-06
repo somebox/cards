@@ -53,8 +53,9 @@ is what makes a workspace portable as `definitions/` + a JSONL export (see
 
 A new workspace gets its schema by copying starter definitions in, then editing
 that copy. Customizing a workspace means editing the JSON under its own
-`definitions/` and reloading the server. Reloading definitions does not migrate
-existing cards (see schema versioning in [`SPEC.md`](../spec/SPEC.md)).
+`definitions/` and restarting the server (or using an explicit reload command
+when one exists). Reloading definitions does not migrate existing cards (see
+schema versioning in [`SPEC.md`](../spec/SPEC.md)).
 
 ## Card types
 

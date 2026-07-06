@@ -83,7 +83,7 @@ Actual package boundaries:
 ```text
 cmd/cards/          CLI binary and subcommand wiring (serve, mcp, extensions, do)
 internal/core/      cards, schemas, transitions, validation, events, Store interface
-internal/config/    load/merge/validate JSON/YAML definitions + extensions config
+internal/config/    load/merge/validate JSON core definitions + extension config
 internal/sqlite/    SQLite implementation (FTS5, migrations)
 internal/httpapi/   REST, SSE, and htmx web UI handlers
 internal/mcp/       MCP adapter over core services
@@ -258,19 +258,19 @@ examples.
 ## Event Taxonomy: Mutation vs Condition
 
 Events have two origins. **Mutation events** (`status_changed`, `comment_added`,
-…) are the synchronous consequence of a write and are always card-scoped — this
-is what exists today. **Condition events** (planned) are emitted when a declared
-threshold crosses: instant ones (`wip_exceeded`, `lane_drained`, `card_blocked`,
-`transition_rejected`) evaluated right after the triggering mutation, and
-temporal ones (`status_timeout`, `card_idle`) emitted by a **monitor evaluator**
-goroutine that sits beside the extension supervisor and is driven by a deadline
-min-heap (it sleeps until the next deadline rather than polling on a fixed tick,
-and only schedules deadlines a live consumer is listening for).
+…) are the synchronous consequence of a write and are always card-scoped.
+**Condition events** are emitted when a declared threshold crosses: instant ones
+(`wip_exceeded`, `lane_drained`, `card_blocked`, `transition_rejected`)
+evaluated right after the triggering mutation, and temporal ones
+(`status_timeout`, `card_idle`) emitted by a **monitor evaluator** goroutine
+that is driven by a deadline min-heap (it sleeps until the next deadline rather
+than polling on a fixed tick, and only schedules deadlines a live consumer is
+listening for unless the condition is persisted).
 
 Condition events are declared as `monitors` on a board (data, not code) and
-publish onto the same bus as mutation events, so SSE/webhooks/hooks consume one
-unified stream. Two model changes enable board-level conditions: events gain a
-`scope` (`card` | `board`) with a nullable `card_id` and a recorded `board_id`.
+publish onto the same bus as mutation events, so SSE and hooks consume one
+unified stream. Board-level conditions use event `scope` (`card` | `board`)
+with a nullable `card_id` and a recorded `board_id`.
 Critically, the core only **emits** condition signals — it never acts on them;
 reprioritizing, escalating, and reassigning are the integrator's policy. See
 [`INTEGRATION.md`](../events/INTEGRATION.md) for the full contract.
@@ -380,8 +380,9 @@ Important boundaries:
 
 The core is built in Go, distributed as a self-contained `cards` binary, with
 Python/Node packages planned as thin clients plus launchers. State lives in
-SQLite, definitions in git-backed JSON/YAML, artifacts on disk, and all
-business logic inside the Go service layer.
+SQLite, core definitions are git-backed JSON, extension declarations may be YAML
+or JSON, artifacts live on disk, and all business logic stays inside the Go
+service layer.
 
 This gives agent harnesses a low-friction local dependency while preserving a
 clean API boundary for other applications.

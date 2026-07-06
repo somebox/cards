@@ -1,3 +1,5 @@
+# Data Model Specification
+
 ## 3. Workspace, storage, and deployment
 
 ### One workspace per instance
@@ -41,7 +43,7 @@ pick up definition edits; an explicit reload endpoint is planned — see §11.)
 | Store | Role |
 |-------|------|
 | **SQLite** | Cards (JSON `fields` + denormalized index fields), events, links, comments, users, idempotency keys, FTS5 |
-| **JSON/YAML files** | Source of truth for types, boards, views; loaded and validated at startup |
+| **JSON files** | Source of truth for workspace, types, boards, and views; loaded and validated at startup. Extension declarations may also use YAML. |
 | **Filesystem** | Artifact bytes; cards store `artifact` metadata only |
 
 No separate document DB, broker, or cluster. Single-file DB is sufficient for
@@ -291,7 +293,7 @@ Event {
 `EventType`: `card_created`, `field_updated`, `status_changed`, `owner_changed`,
 `tags_changed`, `item_appended`, `item_updated`, `item_removed`, `link_added`,
 `link_removed`, `comment_added`, `comment_edited`, `schema_upgraded`,
-`artifact_added`, `definition_reloaded`.
+`card_deleted`, `artifact_added`, `definition_reloaded`.
 
 ### CardType (schema)
 

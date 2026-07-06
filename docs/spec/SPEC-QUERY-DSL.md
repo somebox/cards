@@ -1,3 +1,5 @@
+# Query and Filter DSL Specification
+
 ## 9. Query and filter DSL
 
 ### First-class query parameters
@@ -17,21 +19,23 @@
 Pagination: `limit` (default 50, max 500), `cursor` (opaque; keyed to the
 default `updated_at, id` order).
 
-Ordering is **orthogonal to filtering**: filters (the params above and
-`filter=` JSON) select *which* cards; `sort` selects their *order*. `sort`
-takes one key (`created_at`, `updated_at`, `title`, or `fields.<id>`) with an
-optional leading `-` for descending; missing-field cards sort last; an unknown
-key is a `422`. `sort` cannot be combined with `cursor` (the keyset cursor is
-welded to the default order) — a custom sort returns no `next_cursor`.
+Ordering is **orthogonal to filtering**: filters select *which* cards; `sort`
+selects their *order*. `sort` takes one key (`created_at`, `updated_at`,
+`title`, or `fields.<id>`) with an optional leading `-` for descending;
+missing-field cards sort last; an unknown key is a `422`. `sort` cannot be
+combined with `cursor` (the keyset cursor is welded to the default order) — a
+custom sort returns no `next_cursor`.
 
 > **Note:** `updated_before`/`updated_after`/`created_before`/`created_after`
-> are **not implemented as separate query params** on `GET /cards`. For
-> time-range filters use `filter=` JSON with `updated_at`/`created_at`
-> operators (see below).
+> are **not implemented as separate query params** on `GET /cards`. JSON filter
+> DSL is implemented for board `default_filter` and `take-next` / CLI
+> `--filter-file`, but not as a `filter=` query parameter on `GET /cards`.
 
-### Filter JSON (`filter=`)
+### Filter JSON (board defaults and take-next)
 
-jq-*like*, compiled to SQL safely (not full jq):
+jq-*like*, compiled to SQL safely (not full jq). The DSL is used by board
+`default_filter` and by `take-next` / `cards take-next --filter-file`; `GET
+/cards?filter=` is not currently wired:
 
 ```json
 {
@@ -45,8 +49,8 @@ jq-*like*, compiled to SQL safely (not full jq):
 Operators: `$eq`, `$ne`, `$in`, `$nin`, `$gt`, `$gte`, `$lt`, `$lte`,
 `$contains`, `$and`, `$or`. Paths: `fields.<id>` for typed fields; top-level
 keys for `status`, `owner`, `type_id`, `tag`, `updated_at`. CLI:
-`cards list --filter-file q.json`. Power users: `cards export --format jsonl`
-and local jq out of band.
+`cards take-next --filter-file q.json`. Power users: `cards export --format
+jsonl` and local jq out of band.
 
 > **`$contains` semantics:** on a string-valued path it is a
 > case-insensitive substring match (SQLite `LIKE`); on an array-valued path
@@ -55,7 +59,7 @@ and local jq out of band.
 
 ### Recipes
 - **Open assigned to me:** `owner=me&status=todo,in_progress`.
-- **Blocked stale:** `blocked=true` + `filter={"updated_at":{"$lt":"<now-1h>"}}`.
+- **Blocked stale for take-next:** request body `blocked=true` + `filter={"updated_at":{"$lt":"<now-1h>"}}`.
 
 ---
 

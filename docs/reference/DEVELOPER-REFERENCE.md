@@ -92,8 +92,9 @@ watchers:
 Condition events are **ephemeral** (SSE-only) unless the type is listed in
 **`settings.persist_conditions`** in `workspace.json` (e.g.
 `"persist_conditions": ["wip_exceeded"]`), which escalates it to the durable
-event log so it replays from `GET /events` and `cards feed`. Current condition
-state is also queryable on demand via `GET /breaches` / `cards breaches`.
+event log so it replays from `GET /events`. Current instant-condition state is
+also queryable on demand via `GET /breaches`; the current CLI does not expose a
+`cards breaches` command.
 See docs/events/EVENTS.md.
 
 ### View

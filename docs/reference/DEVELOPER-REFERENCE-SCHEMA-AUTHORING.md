@@ -1,3 +1,5 @@
+# Developer Reference — Schema Authoring
+
 ## 1. Is a card schema fully flexible?
 
 **No.** Every card shares a **universal envelope** managed by the runtime.
@@ -50,7 +52,7 @@ field id.
 - Nested `repeating` inside repeating items.
 - Structured-payload field types (`json`/`yaml`/`path`/`command`) — extension
   territory. Store as `text`/`string`/`artifact`; validate via extension.
-- Agents authoring card types (definitions are human/harness-owned JSON/YAML).
+- Agents authoring card types (core definitions are human/harness-owned JSON; extension declarations may use YAML where supported).
 
 ### How workspace, board, and type rules merge
 
@@ -112,8 +114,9 @@ today, reloading definitions means restarting the server. See
 
 ### JSON vs YAML authoring
 
-Both supported. Use one consistently per project. YAML is shorter and allows
-comments; JSON is stricter for machine generation.
+Core workspace, board, and card-type definitions are JSON-only. YAML is accepted
+only for extension declarations (`definitions/extensions.{yaml,yml,json}`), where
+supported; use JSON when machine-generating core definitions.
 
 ---
 

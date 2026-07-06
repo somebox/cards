@@ -85,10 +85,11 @@ es.addEventListener("message", async (e) => {
 });
 ```
 
-Mutation events (above) exist today; **condition events** (`status_timeout`,
-`wip_exceeded`, …) arrive on the *same* stream once implemented, so this consumer
-code does not change. The rest of this document is the design contract; for
-exact request/response wire shapes of every `[built]` endpoint, see
+Mutation events (above) and **condition events** (`status_timeout`,
+`wip_exceeded`, …) arrive on the *same* stream, so this consumer code does not
+change between mutation and condition handling. The rest of this document is the
+design contract; for exact request/response wire shapes of every `[built]`
+endpoint, see
 [`INTEGRATOR-REFERENCE.md`](../reference/INTEGRATOR-REFERENCE.md) §2/§4.
 
 ## Three planes
@@ -232,7 +233,7 @@ persisted, computed only for whoever is watching. This is what makes the lazy
 scheduler above safe — there is no stored stream to fall behind on.
 
 Catch-up therefore splits in two: replay missed *facts* from the feed, and ask
-for *current* conditions via the [breaches query](#current-breaches-catch-up-for-conditions).
+for *current* conditions via the [breaches query](#current-breaches-catch-up-for-conditions-built).
 A breach is itself derivable from the facts — the feed shows a card entered
 `review` at `T` and is still there, so "it's 9h overdue" is computable; the
 condition event is just a convenience signal on top. A monitor may set
@@ -285,11 +286,11 @@ set to that id. No event is lost between the two.
 
 ### Current breaches (catch-up for conditions) **[built]**
 ```
-GET /v1/breaches?board_id=&type=         (or GET /v1/cards?breaching=status_timeout)
+GET /v1/breaches?board_id=&type=
 ```
 Condition events are [ephemeral](#condition-events-are-ephemeral), so you don't replay missed ones —
-you ask the current truth. This computes, on demand, which cards *currently*
-violate which monitors by evaluating thresholds against live state. It's the
+you ask the current truth. This computes, on demand, which instant conditions
+are currently true by evaluating thresholds against live state. It's the
 catch-up path for conditions and doubles as a dashboard's "needs attention"
 panel. A reconnecting integrator does two things: replay missed mutations via
 the feed (`Last-Event-ID`), then query current breaches.

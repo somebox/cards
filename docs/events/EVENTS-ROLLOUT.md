@@ -1,5 +1,9 @@
 <!-- EVENTS-ROLLOUT.md — deployment and rollout for the event system.
-     See EVENT.md for the index. -->
+     See EVENTS.md for the index. -->
+
+# Events Rollout History
+
+Status summary: Steps 1–3 are built and merged as of 2026-07; Step 4 remains a future optional outbox/tailer evolution.
 
 ## 12) Staged implementation plan
 

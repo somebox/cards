@@ -1,4 +1,4 @@
-## 3. Card type schemas
+# Developer Reference — Card Type Schemas and Examples
 
 File: `definitions/card-types/<type_id>.json`
 
@@ -41,7 +41,7 @@ Type-specific options:
 | `artifact` | optional `artifact_policy`: `"local" \| "uri"` |
 
 For the full field-type catalog including validation rules, see
-[`SPEC.md` §6 “Field types”](../spec/SPEC-CARDTYPE-EXAMPLES.md#6-field-types).
+[`SPEC-CARDTYPE-EXAMPLES.md` field catalog](../spec/SPEC-CARDTYPE-EXAMPLES.md#card-type-field-catalog-and-examples).
 
 `text` is rendered as markdown. `string` is single-line.
 
