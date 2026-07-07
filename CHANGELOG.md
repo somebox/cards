@@ -9,6 +9,17 @@ backwards-compatible fixes.
 ## [Unreleased]
 
 ### Added
+- **Create boards from the UI, and reload definitions without a restart.**
+  `POST /v1/workspace/reload` (and `cards reload`) re-runs the definitions
+  loader and atomically swaps the workspace: a load error returns the
+  validation message and the previous definitions keep serving — never a
+  half-loaded state. The SQLite store and the live event bus survive the
+  swap, so SSE streams and hook supervisors stay attached, and open boards
+  refetch on a `definition_reloaded` event. On top of that seam, the nav's
+  "+" opens a create-a-board modal (name, columns, card types, optional WIP
+  limit) that writes `definitions/boards/<id>.json` — a reviewable file,
+  exactly as if hand-written — validates it through the real loader (rolling
+  the file back on failure), and reloads.
 - **Themes are CSS-only now.** The labels theme's special-cased detail header
   was the one place a theme changed markup; the shared header now carries
   stable hooks (type-icon cell, meta key/value items, an id-copy button) that

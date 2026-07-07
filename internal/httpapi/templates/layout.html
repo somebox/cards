@@ -12,7 +12,7 @@
 <body>
   <nav class="app-nav">
     <a class="brand" href="/">▚ WORK&nbsp;CARDS</a>
-    {{range .Boards}}<a href="/ui/boards/{{.ID}}">{{.Name}}</a>{{end}}
+    {{range .Boards}}<a href="/ui/boards/{{.ID}}">{{.Name}}</a>{{end}}<a class="nav-add" href="#" data-create-link="/ui/boards/new/modal" title="New board" aria-label="New board">+</a>
     <a href="/ui/breaches">Breaches</a>
     <span class="spacer"></span>
     <a class="nav-cta" href="/ui/cards/new{{if .Board}}?board={{.Board.ID}}{{end}}" data-create-link="/ui/cards/new/modal{{if .Board}}?board={{.Board.ID}}{{end}}">+ New Card</a>
@@ -60,6 +60,7 @@
     wireComments(modal);
     wireEntryEditors(modal);
     wireCreateModal(modal);
+    wireBoardCreate(modal);
     refreshAgo(); // convert injected <time data-ago> to relative text
   }
   // modalVersion reads the open card's version from the save-form — the same
@@ -486,6 +487,45 @@
           }
         });
       }).catch(function(){ saveBtn.disabled = false; alertEl.hidden = false; alertEl.textContent = 'Create failed (network).'; });
+    });
+  }
+
+  // ---- Create-a-board (UI sprint P4): thin client of POST /v1/boards,
+  // which writes definitions/boards/<id>.json and reloads the workspace. ----
+  function wireBoardCreate(root) {
+    var box = root.querySelector('[data-board-create]');
+    if (!box) return;
+    var alertEl = box.querySelector('[data-board-alert]');
+    function fieldError(name, msg) {
+      var el = box.querySelector('[data-error-for="' + name + '"]');
+      if (el) { el.hidden = false; el.textContent = msg; }
+      else { alertEl.hidden = false; alertEl.textContent = msg; }
+    }
+    box.querySelector('[data-board-save]').addEventListener('click', function(){
+      alertEl.hidden = true;
+      box.querySelectorAll('[data-error-for]').forEach(function(el){ el.hidden = true; });
+      var name = box.querySelector('[data-board-input="name"]').value.trim();
+      var columns = Array.from(box.querySelectorAll('[data-board-columns] input:checked')).map(function(i){ return i.value; });
+      var types = Array.from(box.querySelectorAll('[data-board-types] input:checked')).map(function(i){ return i.value; });
+      if (!name) { fieldError('name', 'required'); return; }
+      if (!columns.length) { fieldError('columns', 'pick at least one'); return; }
+      if (!types.length) { fieldError('card_type_ids', 'pick at least one'); return; }
+      var req = { name: name, columns: columns, card_type_ids: types };
+      var wc = box.querySelector('[data-board-input="wip_column"]').value;
+      var wl = parseInt(box.querySelector('[data-board-input="wip_limit"]').value, 10);
+      if (wc && wl > 0) { req.wip_limits = {}; req.wip_limits[wc] = wl; }
+      fetch('/v1/boards', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json','X-Work-Cards-Actor':CARDS_ACTOR},
+        body: JSON.stringify(req)
+      }).then(function(r){
+        return r.text().then(function(t){
+          var e = {}; try { e = JSON.parse(t); } catch(_){}
+          if (r.ok) { toast('Board created'); window.location.href = '/ui/boards/' + e.id; return; }
+          if (e.field) fieldError(e.field, e.message || 'invalid');
+          else { alertEl.hidden = false; alertEl.textContent = e.message || 'Create failed'; }
+        });
+      }).catch(function(){ alertEl.hidden = false; alertEl.textContent = 'Create failed (network).'; });
     });
   }
 

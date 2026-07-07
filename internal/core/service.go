@@ -70,6 +70,14 @@ func WithClock(c Clock) ServiceOption {
 	return func(s *Service) { s.clock = c }
 }
 
+// WithBus shares an existing event bus with the new Service. The workspace
+// reload seam rebuilds the Service around the SAME bus so live SSE
+// subscribers and the hook supervisor stay attached across definition
+// reloads instead of going silently stale.
+func WithBus(b Bus) ServiceOption {
+	return func(s *Service) { s.bus = b }
+}
+
 // NewService binds loaded config + a Store implementation.
 func NewService(ws *Workspace, types map[string]*CardType, boards map[string]*Board, st Store, opts ...ServiceOption) *Service {
 	bus := NewBus()
@@ -81,7 +89,7 @@ func NewService(ws *Workspace, types map[string]*CardType, boards map[string]*Bo
 	for _, opt := range opts {
 		opt(svc)
 	}
-	svc.emitter = newEmitter(st, bus, svc.clock.Now)
+	svc.emitter = newEmitter(st, svc.bus, svc.clock.Now)
 	// Escalate any condition types the workspace opted into persisting (3b).
 	if len(ws.Settings.PersistConditions) > 0 {
 		esc := make([]EventType, 0, len(ws.Settings.PersistConditions))
@@ -93,8 +101,13 @@ func NewService(ws *Workspace, types map[string]*CardType, boards map[string]*Bo
 	// The deadline scheduler only starts if something actually needs it — a
 	// board declaring a temporal monitor, or a temporal type escalated via
 	// persist_conditions above. (3d/3e)
-	if hasTemporalMonitors(boards) || svc.emitter.IsPersisted(EventStatusTimeout) || svc.emitter.IsPersisted(EventCardIdle) {
-		svc.monitors = NewMonitorScheduler(svc.clock, bus, svc.emitter, st)
+	// The scheduler needs the concrete InProcBus (subscription-change +
+	// interest probes are not part of the Bus interface). Both NewBus and any
+	// bus shared via WithBus are InProcBus today; a foreign implementation
+	// would simply run without temporal monitors.
+	ipb, _ := svc.bus.(*InProcBus)
+	if ipb != nil && (hasTemporalMonitors(boards) || svc.emitter.IsPersisted(EventStatusTimeout) || svc.emitter.IsPersisted(EventCardIdle)) {
+		svc.monitors = NewMonitorScheduler(svc.clock, ipb, svc.emitter, st)
 		svc.monitors.Register(EventStatusTimeout, svc.verifyStatusTimeout, svc.rebuildStatusTimeout)
 		svc.monitors.Register(EventCardIdle, svc.verifyCardIdle, svc.rebuildCardIdle)
 		svc.emitter.Observe(svc.monitorObserver)

@@ -757,6 +757,14 @@ main { padding: var(--s-5); max-width: 100%; }
   font-size: 1rem; line-height: 1; padding: 0 .15rem; opacity: .55;
 }
 .lane__add:hover, .lane__add:focus-visible { opacity: 1; }
+
+/* Create-a-board form (UI sprint P4). */
+.check-grid { display: flex; flex-wrap: wrap; gap: var(--s-2) var(--s-3); }
+.check-item { display: inline-flex; align-items: center; gap: .35em; font-size: var(--t-sm); cursor: pointer; }
+.nav-add {
+  opacity: .55; font-weight: 700; padding: 0 .3rem;
+}
+.nav-add:hover, .nav-add:focus-visible { opacity: 1; }
 .mono { font-family: var(--font-mono); font-size: var(--t-xs); }
 
 /* --- Error / alert ------------------------------------------------------ */

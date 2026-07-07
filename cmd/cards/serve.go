@@ -67,10 +67,14 @@ func serveCmd(args []string) error {
 	if err != nil {
 		return fmt.Errorf("build http server: %w", err)
 	}
+	// The reloadable seam: POST /v1/workspace/reload re-runs the loader and
+	// swaps the composition; POST /v1/boards writes a board definition file
+	// and reloads. Store + bus are shared across generations (reload.go).
+	app := newReloadableApp(abs, st, svc, result, srv.Router())
 	addr := fmt.Sprintf("%s:%d", *host, *port)
 	httpSrv := &http.Server{
 		Addr:              addr,
-		Handler:           srv.Router(),
+		Handler:           app,
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 	log.Printf("work-cards serving http://%s  (workspace: %s)", addr, abs)

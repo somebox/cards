@@ -356,6 +356,9 @@ var boardMutationTypes = []string{
 	"status_changed", "card_created", "field_updated", "owner_changed",
 	"tags_changed", "item_appended", "item_updated", "item_removed",
 	"link_added", "comment_added", "artifact_added",
+	// definitions changed under the server (workspace reload): refetch so
+	// the board renders with the new columns/types/presentation.
+	"definition_reloaded",
 }
 
 // boardSSETypes is the comma-joined event-type filter the board's live stream
@@ -444,6 +447,28 @@ func (s *Server) uiNewCardModal(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if e := s.pages["card_create.html"].ExecuteTemplate(w, "card_create_modal", data); e != nil {
+		http.Error(w, "template error: "+e.Error(), http.StatusInternalServerError)
+	}
+}
+
+// uiNewBoardModal renders the create-a-board fragment (UI sprint P4): name,
+// workspace columns, card types, optional WIP limit. Submission is
+// client-side against POST /v1/boards (the reload seam) — this handler
+// renders, it never writes.
+func (s *Server) uiNewBoardModal(w http.ResponseWriter, r *http.Request) {
+	data := s.baseData("New board")
+	data.Columns = s.ws.Columns
+	data.TypeThemes = s.buildTypeThemes()
+	ids := make([]string, 0, len(s.types))
+	for id := range s.types {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	for _, id := range ids {
+		data.TypeOptions = append(data.TypeOptions, Option{Value: id, Label: s.types[id].Name})
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if e := s.pages["board_create.html"].ExecuteTemplate(w, "board_create_modal", data); e != nil {
 		http.Error(w, "template error: "+e.Error(), http.StatusInternalServerError)
 	}
 }

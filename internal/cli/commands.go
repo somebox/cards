@@ -36,6 +36,7 @@ func Commands() []Command {
 		{Name: "link", Short: "Manage links (add/remove)", Run: cmdLink},
 		{Name: "comment", Short: "Manage comments (add/edit)", Run: cmdComment},
 		{Name: "attach", Short: "Attach a file to an artifact field", Run: cmdAttach},
+		{Name: "reload", Short: "Reload workspace definitions on a running server", Run: cmdReload},
 		{Name: "events", Short: "Show events for a card", Run: cmdEvents},
 		{Name: "feed", Short: "Show the workspace event feed (durable, cursor-paged)", Run: cmdFeed},
 		{Name: "history", Short: "Show resumption history for a card", Run: cmdHistory},
@@ -470,6 +471,25 @@ func cmdComment(c *Client, args []string) error {
 // cmdAttach uploads a local file as the bytes for an artifact field, printing
 // the updated card. The file is sent as the raw request body (the server
 // content-addresses and confines it); works serverless or against a server.
+// cmdReload asks a running server to re-run the definitions loader and swap
+// the workspace (POST /v1/workspace/reload). Server-only by nature: the
+// serverless backend re-loads definitions on every invocation anyway.
+func cmdReload(c *Client, args []string) error {
+	fs := NewFlagSet()
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if c.cfg.URL == "" {
+		return fmt.Errorf("reload needs a running server (set CARDS_URL or --url); serverless runs reload definitions on every invocation")
+	}
+	resp, _, err := c.do("POST", "/workspace/reload", nil)
+	if err != nil {
+		return err
+	}
+	c.Print(resp, false, "reloaded")
+	return nil
+}
+
 func cmdAttach(c *Client, args []string) error {
 	fs := NewFlagSet()
 	version := fs.Int("version", 0) // optional optimistic-concurrency guard (0 = none)

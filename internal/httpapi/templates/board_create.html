@@ -1,0 +1,70 @@
+{{/* board_create_modal — create a board from the UI (UI sprint P4, card
+     f6d2f5ea). The form is deliberately thin: name, columns, card types,
+     optional WIP limit. Submission POSTs /v1/boards (served by the reload
+     seam), which writes definitions/boards/<id>.json — a reviewable file,
+     exactly as if hand-written — validates it through the real loader, and
+     reloads the workspace. Everything richer (transitions, monitors,
+     presentation) is edited in that file. */}}
+{{define "board_create_modal"}}
+<div class="create-modal" data-board-create>
+  <div class="modal__head">
+    <div class="modal__head-main">
+      <span class="card-title__view">New board</span>
+    </div>
+    <button type="button" class="modal__close" onclick="closeModal()" aria-label="close">×</button>
+  </div>
+  <div class="modal__body">
+    <div class="create-form">
+      <div class="create-form__status alert" data-board-alert hidden></div>
+
+      <label class="field">
+        <span class="field__label">Name <span class="req">*</span></span>
+        <input type="text" class="input" data-board-input="name" placeholder="e.g. Design" data-required>
+        <span class="field-error" data-error-for="name" hidden></span>
+      </label>
+
+      <div class="field">
+        <span class="field__label">Columns <span class="req">*</span></span>
+        <div class="check-grid" data-board-columns>
+          {{range .Columns}}
+          <label class="check-item"><input type="checkbox" value="{{.ID}}" checked> {{.Name}}</label>
+          {{end}}
+        </div>
+        <span class="field-error" data-error-for="columns" hidden></span>
+      </div>
+
+      <div class="field">
+        <span class="field__label">Card types <span class="req">*</span></span>
+        <div class="check-grid" data-board-types>
+          {{range .TypeOptions}}
+          {{$th := typeTheme $.TypeThemes .Value}}
+          <label class="check-item"><input type="checkbox" value="{{.Value}}" checked>
+            <span class="card__type-badge" data-type="{{.Value}}"{{if $th.Icon}} data-icon="{{$th.Icon}}"{{end}}
+                  {{- if $th.Accent}} style="--badge-ink:{{$th.Accent}}{{- if $th.Muted}};--badge-wash:{{$th.Muted}}{{end}}"{{end}}>{{.Label}}</span>
+          </label>
+          {{end}}
+        </div>
+        <span class="field-error" data-error-for="card_type_ids" hidden></span>
+      </div>
+
+      <div class="field">
+        <span class="field__label">WIP limit (optional)</span>
+        <div class="row">
+          <select class="select" data-board-input="wip_column">
+            <option value="">— no limit —</option>
+            {{range .Columns}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
+          </select>
+          <input type="number" class="input" data-board-input="wip_limit" min="1" placeholder="max cards" style="max-width:8rem">
+        </div>
+        <span class="muted field-hint">Over the limit fires a wip_exceeded condition (visible on /breaches).</span>
+      </div>
+      <p class="muted field-hint">Creates <code>definitions/boards/&lt;id&gt;.json</code> — transitions, monitors,
+      and presentation are edited there afterwards.</p>
+    </div>
+  </div>
+  <div class="modal__footer">
+    <button type="button" class="btn btn--ghost" onclick="closeModal()">Cancel</button>
+    <button type="button" class="btn btn--primary" data-board-save>Create board</button>
+  </div>
+</div>
+{{end}}
