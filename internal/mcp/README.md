@@ -29,7 +29,12 @@ For each card type `T` defined in the workspace, the MCP server dynamically publ
 - `append_entry` - Typed append to a repeating field (version-checked).
 - `add_link` - Relate two cards.
 - `add_comment` - Append a comment.
+- `attach_artifact` - Store bytes for an artifact field from base64 content; returns the updated card.
+- `get_artifact` - Fetch stored artifact bytes by uri, returned as base64 with size.
 - `history` - Fetch resumption-ready card timeline.
+- `events` - Durable workspace event feed (condition + mutation facts); replay via `since`, filter by types/`board_id`.
+- `breaches` - Current breaching conditions across boards (WIP over limit, drained watched lanes, blocked cards); optional `board_id`/type filter.
+- `workspace` - Introspect the workspace: current card types (fields, enums, tags) + boards.
 
 ## Concurrency, Idempotency, and Errors
 - **Concurrency:** Mutation tools require `version` to prevent write collisions, returning a `version_conflict` error if stale.

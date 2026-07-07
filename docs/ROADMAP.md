@@ -180,8 +180,14 @@ registration must ship with.
   `internal/core` ("read-only in v1") but has **no** `Workspace.Views` field,
   route, CLI verb, or service wiring. Read-only parameterized card views
   (`/views/:id/cards`); a real feature to design or explicitly drop.
-- **Workspace reload** *(proposed, card `4b507da7`)*. `POST /v1/workspace/reload`
-  + `definition_reloaded` event so definition edits apply without a restart.
+- **Workspace reload** — **built** *(shipped in commit `f772951`; enabler card
+  `4b507da7` absorbed)*: `POST /v1/workspace/reload` re-runs the loader and
+  atomically swaps in a new composition generation (store + bus survive), fanning
+  out `definition_reloaded` per affected board so definition edits apply without a
+  restart; a bad load returns `422` and keeps the old generation serving. Sibling
+  write path `POST /v1/boards` (create-a-board) writes a reviewable
+  `definitions/boards/<id>.json`, validates via the loader, and rolls back on
+  failure. See `cmd/cards/reload.go`.
 - **Card delete** — **built** *(card `146260d9`)*: `DELETE /v1/cards/:id` +
   `card_deleted` tombstone event + optional `?version=` guard + idempotency, with
   a `cards delete` CLI verb. Dependent cards are re-evaluated for

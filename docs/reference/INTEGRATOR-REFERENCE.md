@@ -306,9 +306,10 @@ card facts** are `card_created`, `card_deleted`, `field_updated`,
 `item_updated`, `item_removed`, `link_added`, `link_removed`, `comment_added`,
 `comment_edited`, `schema_upgraded`, `artifact_added` — synchronous on a write,
 card-scoped, persisted, replayable. `artifact_added` emits from the attachments
-upload path (`Service.AddArtifact`, **[built]**). The one remaining **[drift]**
-constant is `definition_reloaded` (declared; no reload handler or file watching —
-see §6 below).
+upload path (`Service.AddArtifact`, **[built]**). `definition_reloaded`
+(**[built]**) fans out on `POST /v1/workspace/reload` — it is board-scoped
+(one event per affected board id, `Actor: "system"`), not card-scoped, and
+carries no card fact; see §6 below.
 
 ### Condition events [built] — `internal/core/types.go`, `INTEGRATION.md`
 
@@ -428,12 +429,24 @@ unsupported.*
   target schema, re-validates, emits `schema_upgraded`). It is one-card-at-a-time
   and refuses downgrades; today the target must be the type's currently-loaded
   version.
-- **"Reload definitions" caveat [drift].** A `definition_reloaded` event type and
-  a `POST /v1/workspace/reload` are *specced*, but in the current code only the
-  event constant exists — **there is no reload handler and no file watching**.
-  Definitions are loaded once at process start, so **"reload" in practice means
-  restart the server**. Semantically, reloading definitions never mutates cards
-  (it only rebuilds in-memory config).
+- **"Reload definitions" [built].** `POST /v1/workspace/reload` re-runs the
+  loader and **atomically swaps in a new composition generation**
+  (`cmd/cards/reload.go`: `reloadableApp.reloadLocked`, an
+  `atomic.Pointer[appState]` swap). The `*sqlite.Store` and the `core.Bus` are
+  the only long-lived resources — both are shared across generations, so SQLite
+  state, live SSE subscribers, and the hook supervisor all survive a reload.
+  A **failed load never swaps**: the endpoint returns **`422 validation_failed`**
+  (`hint: "the previous definitions are still being served"`) and the old
+  generation keeps serving. On success it returns `200 {reloaded, types, boards}`
+  and publishes one `definition_reloaded` event per affected board id (old ∪ new
+  board set). There is still **no file watching** — reload is caller-triggered,
+  not automatic. Semantically, reloading definitions never mutates cards (it only
+  rebuilds the in-memory config + router). The sibling write path
+  **`POST /v1/boards`** (create-a-board) writes `definitions/boards/<id>.json`,
+  validates it by running the same loader, **rolls the file back on failure**
+  (`422`), returns `409` if the board id already exists, and `201 {id, path}` on
+  success — verified in `cmd/cards/reload_test.go`
+  (`TestReloadFailureKeepsOldDefinitions`).
 
 ---
 

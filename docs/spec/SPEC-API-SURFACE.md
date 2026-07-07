@@ -58,14 +58,25 @@ implementation — header only.)
 - `GET /workspace/card-types/:type_id?version=` → **not yet implemented**;
   card-type schemas are only available via the `card_types` map in
   `GET /workspace` (current version only).
-- `POST /workspace/reload` → **not yet implemented** as an HTTP route (the
-  `definition_reloaded` event type exists for when reload lands, but there is
-  no trigger endpoint yet).
+- `POST /workspace/reload` → **implemented**. Re-runs the loader and atomically
+  swaps in a new composition generation; the store and event bus survive the
+  swap. Success → `200 {reloaded: true, types, boards}` and one
+  `definition_reloaded` event per affected board id. A failed load does **not**
+  swap → `422 {error: "validation_failed", message, hint}` with the previous
+  definitions still serving. Body is ignored; no request fields. (No file
+  watching — reload is caller-triggered.)
 
 ### Boards and views
 - `GET /boards/:board_id` → **implemented** (see "Workspace and definitions"
   above): one board's definition. Boards are also embedded in the `boards`
   map of `GET /workspace`.
+- `POST /boards` → **implemented** (create-a-board). Body:
+  `{name, columns[], card_type_ids[], wip_limits?}` (`id` optional, else
+  slugified from `name`). Writes a reviewable `definitions/boards/<id>.json`,
+  validates it by running the loader, and reloads. Success → `201 {id, path}`.
+  `409` if the board id already exists; `422 validation_failed` on a bad body or
+  a load failure (the just-written file is rolled back). It writes a file — it
+  does not grow a parallel board store.
 - `GET /views/:id/cards` → **not yet implemented**. Named views
   (`presentation.filters`) are applied by the HTML board UI but have no
   dedicated JSON route.

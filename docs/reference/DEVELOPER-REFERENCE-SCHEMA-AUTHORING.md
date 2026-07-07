@@ -107,10 +107,12 @@ valid set echoed.
 = one workspace). Use export/import to move (new card id, optional
 source-reference link).
 
-Reload **[proposed, not yet implemented]**: a `POST /v1/workspace/reload`
-endpoint and `cards workspace reload` CLI verb are designed but not built;
-today, reloading definitions means restarting the server. See
-[`INTEGRATOR-REFERENCE.md`](../reference/INTEGRATOR-REFERENCE.md) for the drift note.
+Reload **[built]**: `POST /v1/workspace/reload` (and the `cards reload` CLI verb,
+which calls it) re-run the loader and atomically swap in a new composition
+generation on a running server — definition edits apply without a restart, and
+live SSE subscribers survive. A bad load returns `422` and keeps the previous
+definitions serving. There is no file watching: reload is caller-triggered. See
+[`INTEGRATOR-REFERENCE.md`](../reference/INTEGRATOR-REFERENCE.md) §6.
 
 ### JSON vs YAML authoring
 
