@@ -8,6 +8,18 @@ backwards-compatible fixes.
 
 ## [Unreleased]
 
+### Added
+- **Comments and repeating entries are editable from the card modal.** A
+  composer adds comments (⌘/Ctrl-Enter submits, Esc clears) and each comment
+  gains in-place edit; repeating fields (`work_log`, `change_log`, …) get an
+  add/edit/remove editor whose sub-form is rendered from the SAME
+  `item_fields` definition the API validates against — user fields default to
+  the acting user, date fields to today. All of it is a thin client of the
+  existing `/v1` endpoints with the card's version; a stale write renders
+  "card changed — reload" instead of clobbering. Entry feeds got a layout
+  pass: author chip, right-aligned timestamp, aligned key/value grid,
+  hover-revealed actions.
+
 ## [0.1.3] - 2026-07-06
 
 ### Changed

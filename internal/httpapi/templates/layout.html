@@ -58,7 +58,179 @@
     wireDirtySave(modal);
     wireClickToEdit(modal);
     wireArtifactUpload(modal);
+    wireComments(modal);
+    wireEntryEditors(modal);
     refreshAgo(); // convert injected <time data-ago> to relative text
+  }
+  // modalVersion reads the open card's version from the save-form — the same
+  // optimistic-concurrency token every modal mutation sends.
+  function modalVersion() {
+    var form = modal.querySelector('form.save-form');
+    return form ? parseInt(form.getAttribute('data-version'), 10) : 0;
+  }
+  // sayStatus shows an inline status/error line next to the control that
+  // caused it (comments composer, entry form) — errors stay local, not toasts.
+  function sayStatus(el, msg, isErr) {
+    if (!el) { if (isErr) toast(msg, 'err'); return; }
+    el.hidden = !msg;
+    el.textContent = msg || '';
+    el.classList.toggle('is-error', !!isErr);
+  }
+  // apiErrText extracts a human message from a structured /v1 error response.
+  function apiErrText(t, fallback) {
+    try { var e = JSON.parse(t); return (e.message || fallback) + (e.field ? ' (' + e.field + ')' : ''); }
+    catch (_) { return fallback; }
+  }
+  var STALE_MSG = 'This card changed since you opened it — reload it and try again.';
+
+  // ---- Comments: composer + in-place edit (POST/PATCH .../comments) ----
+  function wireComments(root) {
+    var box = root.querySelector('[data-comments]');
+    if (!box) return;
+    var cardID = currentModalCardID();
+    var input = box.querySelector('[data-comment-input]');
+    var status = box.querySelector('[data-comment-status]');
+    function submit() {
+      var body = (input.value || '').trim();
+      if (!body) { sayStatus(status, 'Write something first.', true); return; }
+      sayStatus(status, 'Saving…');
+      fetch('/v1/cards/' + cardID + '/comments', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json','X-Work-Cards-Actor':CARDS_ACTOR},
+        body: JSON.stringify({body: body})
+      }).then(function(r){
+        if (r.ok) { toast('Comment added'); return reloadModal(cardID); }
+        return r.text().then(function(t){ sayStatus(status, apiErrText(t, 'Comment failed'), true); });
+      }).catch(function(){ sayStatus(status, 'Comment failed (network).', true); });
+    }
+    box.querySelector('[data-comment-submit]').addEventListener('click', submit);
+    input.addEventListener('keydown', function(e){
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); input.value = ''; input.blur(); sayStatus(status, ''); }
+      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); submit(); }
+    });
+    // In-place edit: swap the body for a textarea; save PATCHes the comment.
+    box.querySelectorAll('[data-comment-edit]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var entry = btn.closest('[data-comment-id]');
+        var bodyEl = entry.querySelector('[data-comment-body]');
+        if (entry.querySelector('.comment-edit')) return; // already editing
+        var ta = document.createElement('textarea');
+        ta.className = 'textarea comment-edit'; ta.rows = 2; ta.value = bodyEl.textContent;
+        var save = document.createElement('button');
+        save.type = 'button'; save.className = 'btn btn--primary btn--sm'; save.textContent = 'Save';
+        var cancel = document.createElement('button');
+        cancel.type = 'button'; cancel.className = 'btn btn--ghost btn--sm'; cancel.textContent = 'Cancel';
+        var row = document.createElement('div'); row.className = 'row';
+        row.appendChild(save); row.appendChild(cancel);
+        bodyEl.hidden = true; bodyEl.after(ta, row); ta.focus();
+        function done() { ta.remove(); row.remove(); bodyEl.hidden = false; }
+        cancel.addEventListener('click', done);
+        ta.addEventListener('keydown', function(e){
+          if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); done(); }
+        });
+        save.addEventListener('click', function(){
+          fetch('/v1/cards/' + cardID + '/comments/' + entry.getAttribute('data-comment-id'), {
+            method: 'PATCH',
+            headers: {'Content-Type':'application/json','X-Work-Cards-Actor':CARDS_ACTOR},
+            body: JSON.stringify({body: ta.value})
+          }).then(function(r){
+            if (r.ok) { toast('Comment updated'); return reloadModal(cardID); }
+            return r.text().then(function(t){ sayStatus(status, apiErrText(t, 'Edit failed'), true); done(); });
+          }).catch(function(){ sayStatus(status, 'Edit failed (network).', true); done(); });
+        });
+      });
+    });
+  }
+
+  // ---- Repeating entries: schema-driven add/edit + remove. The sub-form is
+  // rendered server-side from the SAME item_fields definition the API
+  // validates against; JS only collects values and routes them. ----
+  function wireEntryEditors(root) {
+    root.querySelectorAll('[data-entry-field]').forEach(function(box){
+      var cardID = currentModalCardID();
+      var field = box.getAttribute('data-entry-field');
+      var form = box.querySelector('[data-entry-form]');
+      if (!form) return;
+      var status = form.querySelector('[data-entry-status]');
+      var editingID = null; // null = add mode, else the entry being edited
+
+      function openForm(prefill) {
+        form.hidden = false;
+        form.querySelectorAll('[data-entry-input]').forEach(function(inp){
+          var k = inp.getAttribute('data-entry-input');
+          var kind = inp.getAttribute('data-kind');
+          var v = prefill ? (prefill[k] || '') : '';
+          if (!prefill) { // sensible add-mode defaults from context
+            if (kind === 'user') v = CARDS_ACTOR;
+            if (kind === 'date') v = new Date().toISOString().slice(0, 10);
+          } else if (kind === 'date' && v) {
+            v = v.slice(0, 10); // RFC3339 → the date input's YYYY-MM-DD
+          }
+          inp.value = v;
+        });
+        sayStatus(status, '');
+        var first = form.querySelector('[data-entry-input]');
+        if (first) first.focus();
+      }
+      function closeForm() { form.hidden = true; editingID = null; }
+
+      box.querySelector('[data-entry-add]').addEventListener('click', function(){
+        editingID = null; openForm(null);
+      });
+      form.querySelector('[data-entry-cancel]').addEventListener('click', closeForm);
+      form.addEventListener('keydown', function(e){
+        if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeForm(); }
+      });
+
+      form.querySelector('[data-entry-save]').addEventListener('click', function(){
+        var entry = {}, missing = [];
+        form.querySelectorAll('[data-entry-input]').forEach(function(inp){
+          var k = inp.getAttribute('data-entry-input');
+          var kind = inp.getAttribute('data-kind');
+          var v = (inp.value || '').trim();
+          if (!v) { if (inp.hasAttribute('data-required')) missing.push(k); return; }
+          entry[k] = (kind === 'number') ? Number(v) : v;
+        });
+        if (missing.length) { sayStatus(status, 'Required: ' + missing.join(', '), true); return; }
+        sayStatus(status, 'Saving…');
+        var url = '/v1/cards/' + cardID + '/fields/' + field + (editingID ? '/' + editingID : '/append');
+        fetch(url, {
+          method: editingID ? 'PATCH' : 'POST',
+          headers: {'Content-Type':'application/json','X-Work-Cards-Actor':CARDS_ACTOR},
+          body: JSON.stringify({entry: entry, version: modalVersion()})
+        }).then(function(r){
+          if (r.ok) { toast(editingID ? 'Entry updated' : 'Entry added'); return reloadModal(cardID); }
+          if (r.status === 409) { sayStatus(status, STALE_MSG, true); return; }
+          return r.text().then(function(t){ sayStatus(status, apiErrText(t, 'Save failed'), true); });
+        }).catch(function(){ sayStatus(status, 'Save failed (network).', true); });
+      });
+
+      box.querySelectorAll('[data-entry-edit]').forEach(function(btn){
+        btn.addEventListener('click', function(){
+          var entry = btn.closest('[data-entry-id]');
+          editingID = entry.getAttribute('data-entry-id');
+          var prefill = {};
+          entry.querySelectorAll('[data-raw-key]').forEach(function(el){
+            prefill[el.getAttribute('data-raw-key')] = el.getAttribute('data-raw-val');
+          });
+          openForm(prefill);
+        });
+      });
+      box.querySelectorAll('[data-entry-remove]').forEach(function(btn){
+        btn.addEventListener('click', function(){
+          var id = btn.closest('[data-entry-id]').getAttribute('data-entry-id');
+          if (!confirm('Remove this entry?')) return;
+          fetch('/v1/cards/' + cardID + '/fields/' + field + '/' + id + '?version=' + modalVersion(), {
+            method: 'DELETE',
+            headers: {'X-Work-Cards-Actor':CARDS_ACTOR}
+          }).then(function(r){
+            if (r.ok) { toast('Entry removed'); return reloadModal(cardID); }
+            if (r.status === 409) { sayStatus(status, STALE_MSG, true); return; }
+            return r.text().then(function(t){ sayStatus(status, apiErrText(t, 'Remove failed'), true); });
+          }).catch(function(){ sayStatus(status, 'Remove failed (network).', true); });
+        });
+      });
+    });
   }
   // currentModalCardID reads the card the open modal is showing, from the
   // save-form's action (/ui/cards/{id}/save). Used to guard async refreshes

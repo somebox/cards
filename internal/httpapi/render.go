@@ -77,6 +77,7 @@ type LinkView struct {
 type PreviewField struct {
 	Label string
 	Value string
+	Kind  string // item-field type (user|date|...) — lets entry layout place chips/timestamps without knowing field ids
 }
 
 // Option is a select option.
@@ -102,11 +103,21 @@ type FieldView struct {
 	Def           *core.FieldDef
 	Value         any
 	ValueStr      string
-	Entries       [][]PreviewField
+	Entries       []EntryView
 	Users         []core.User
 	ValueRendered string
 	Display       string        // UI hint from FieldDef.Display (feed|badge|hidden|link|monospace)
 	Artifact      *ArtifactView // set for artifact fields with stored bytes
+}
+
+// EntryView is one repeating-field entry in the modal/detail view: rendered
+// rows plus what the in-modal entry editor needs — the entry id (for
+// update/remove) and the raw values (for prefill; rendered values may be
+// formatted for display).
+type EntryView struct {
+	ID     string
+	Fields []PreviewField
+	Raw    map[string]string // item-field id → raw value string, editor prefill
 }
 
 // ArtifactView is the rendered metadata of an artifact field, so card_detail can
@@ -566,7 +577,7 @@ func artifactView(v any) *ArtifactView {
 	}
 }
 
-func repeatingEntries(fieldID string, fm map[string]any, itemFields []core.FieldDef) [][]PreviewField {
+func repeatingEntries(fieldID string, fm map[string]any, itemFields []core.FieldDef) []EntryView {
 	if fm == nil {
 		return nil
 	}
@@ -578,18 +589,24 @@ func repeatingEntries(fieldID string, fm map[string]any, itemFields []core.Field
 	if !ok {
 		return nil
 	}
-	out := [][]PreviewField{}
+	out := []EntryView{}
 	for _, e := range arr {
 		em, ok := e.(map[string]any)
 		if !ok {
 			continue
 		}
-		row := []PreviewField{}
+		ev := EntryView{Raw: map[string]string{}}
+		if id, _ := em["entry_id"].(string); id != "" {
+			ev.ID = id
+		}
 		for _, sf := range itemFields {
 			val := em[sf.ID]
-			row = append(row, PreviewField{Label: sf.ID, Value: renderValue(val)})
+			ev.Fields = append(ev.Fields, PreviewField{Label: sf.ID, Value: renderValue(val), Kind: string(sf.Type)})
+			if val != nil {
+				ev.Raw[sf.ID] = fmt.Sprintf("%v", val)
+			}
 		}
-		out = append(out, row)
+		out = append(out, ev)
 	}
 	return out
 }

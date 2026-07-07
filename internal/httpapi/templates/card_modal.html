@@ -127,20 +127,59 @@
     {{$field := .}}
     {{if eq .Display "hidden"}}{{else}}
     {{if eq .Def.Type "repeating"}}
-    {{/* Repeating fields are managed via append/update-entry, not this save-form. Always read-only here. */}}
-    <div class="field" data-field-type="{{.Def.Type}}">
-      <label class="field__label">{{.Def.Label}}</label>
+    {{/* Repeating fields are managed via the entry endpoints (append/update/
+         remove with the card version), never this save-form. The editor is a
+         schema-driven sub-form: item_fields render their own controls, so the
+         form and the API validate against the SAME definition. */}}
+    <div class="field" data-field-type="{{.Def.Type}}" data-entry-field="{{.Def.ID}}">
+      <div class="row between">
+        <label class="field__label">{{.Def.Label}}</label>
+        <button type="button" class="btn btn--ghost btn--sm" data-entry-add>+ add</button>
+      </div>
+      {{/* The add/edit sub-form, hidden until requested. One per field. */}}
+      <div class="entry-form" data-entry-form hidden>
+        {{range .Def.ItemFields}}
+        <label class="entry-form__row">
+          <span class="entry-form__label">{{.ID}}{{if .Required}} <span class="req">*</span>{{end}}</span>
+          {{if eq .Type "text"}}<textarea class="textarea" rows="2" data-entry-input="{{.ID}}" data-kind="text"{{if .Required}} data-required{{end}}></textarea>
+          {{else if eq .Type "enum"}}<select class="select" data-entry-input="{{.ID}}" data-kind="enum"{{if .Required}} data-required{{end}}><option value="">—</option>{{range .Options}}<option value="{{.}}">{{.}}</option>{{end}}</select>
+          {{else if eq .Type "number"}}<input type="number" class="input" data-entry-input="{{.ID}}" data-kind="number"{{if .Required}} data-required{{end}}>
+          {{else if eq .Type "date"}}<input type="date" class="input" data-entry-input="{{.ID}}" data-kind="date"{{if .Required}} data-required{{end}}>
+          {{else if eq .Type "user"}}<input type="text" class="input" data-entry-input="{{.ID}}" data-kind="user" list="user-options"{{if .Required}} data-required{{end}}>
+          {{else}}<input type="text" class="input" data-entry-input="{{.ID}}" data-kind="{{.Type}}"{{if .Required}} data-required{{end}}>
+          {{end}}
+        </label>
+        {{end}}
+        <div class="entry-form__status" data-entry-status role="status" aria-live="polite" hidden></div>
+        <div class="row entry-form__actions">
+          <button type="button" class="btn btn--primary btn--sm" data-entry-save>Save entry</button>
+          <button type="button" class="btn btn--ghost btn--sm" data-entry-cancel>Cancel</button>
+        </div>
+      </div>
       {{if .Entries}}
         <div class="modal__scroll">
           <div class="{{if eq .Display "feed"}}feed{{else}}stack{{end}}">
           {{range .Entries}}
-          <div class="entry">
-            {{range .}}<div><b>{{.Label}}:</b> {{.Value}}</div>{{end}}
+          <div class="entry" data-entry-id="{{.ID}}">
+            {{- range $k, $v := .Raw}}<span hidden data-raw-key="{{$k}}" data-raw-val="{{$v}}"></span>{{end}}
+            <div class="entry__head">
+              {{- range .Fields}}{{if eq .Kind "user"}}{{if .Value}}<span class="chip chip--owner entry__author">{{.Value}}</span>{{end}}{{end}}{{end -}}
+              {{- range .Fields}}{{if eq .Kind "date"}}{{if .Value}}<span class="entry__time mono faint">{{.Value}}</span>{{end}}{{end}}{{end -}}
+              {{if .ID}}
+              <span class="entry__actions">
+                <button type="button" class="entry__act" data-entry-edit title="edit entry">✎</button>
+                <button type="button" class="entry__act" data-entry-remove title="remove entry">×</button>
+              </span>
+              {{end}}
+            </div>
+            <div class="entry__grid">
+              {{range .Fields}}{{if and (ne .Kind "user") (ne .Kind "date")}}{{if .Value}}<span class="entry__key">{{.Label}}</span><span class="entry__val">{{.Value}}</span>{{end}}{{end}}{{end}}
+            </div>
           </div>
           {{end}}
           </div>
         </div>
-      {{else}}<span class="muted">No entries.</span>{{end}}
+      {{else}}<span class="muted" data-entry-empty>No entries yet.</span>{{end}}
     </div>
     {{else if eq .Def.Type "artifact"}}
     <div class="field" data-field-type="{{.Def.Type}}">
@@ -243,23 +282,36 @@
     </div>
     {{end}}
 
-    {{/* --- Comments (read-only feed) --- */}}
-    {{if .Card.Comments}}
-    <div class="field" data-field-type="repeating">
-      <label class="field__label">Comments ({{len .Card.Comments}})</label>
+    {{/* --- Comments: feed + composer. Thin client of POST/PATCH
+         /v1/cards/{id}/comments — comments are version-less by contract. --- */}}
+    <div class="field" data-field-type="repeating" data-comments>
+      <label class="field__label">Comments{{if .Card.Comments}} ({{len .Card.Comments}}){{end}}</label>
+      {{if .Card.Comments}}
       <div class="modal__scroll">
         <div class="stack">
           {{range .Card.Comments}}
-          <div class="entry">
-            <div class="row between"><b>{{.Author}}</b><span class="faint"><time data-ago="{{iso .CreatedAt}}" datetime="{{iso .CreatedAt}}"></time></span></div>
-            <div>{{.Body}}</div>
-            {{if not .EditedAt.IsZero}}<div class="faint">edited {{.EditedAt}}</div>{{end}}
+          <div class="entry" data-comment-id="{{.ID}}">
+            <div class="entry__head">
+              <span class="chip chip--owner entry__author">{{.Author}}</span>
+              <span class="entry__time mono faint"><time data-ago="{{iso .CreatedAt}}" datetime="{{iso .CreatedAt}}"></time>{{if not .EditedAt.IsZero}} · edited{{end}}</span>
+              <span class="entry__actions">
+                <button type="button" class="entry__act" data-comment-edit title="edit comment">✎</button>
+              </span>
+            </div>
+            <div class="entry__body" data-comment-body>{{.Body}}</div>
           </div>
           {{end}}
         </div>
       </div>
+      {{end}}
+      <div class="comment-composer" data-comment-composer>
+        <textarea class="textarea" rows="2" placeholder="Add a comment… (Esc to clear)" data-comment-input aria-label="Add a comment"></textarea>
+        <div class="comment-composer__status" data-comment-status role="status" aria-live="polite" hidden></div>
+        <div class="row">
+          <button type="button" class="btn btn--primary btn--sm" data-comment-submit>Comment</button>
+        </div>
+      </div>
     </div>
-    {{end}}
 
     {{/* Created-by line — the rest of the metadata (id/version/updated) lives in
        the header; created/schema are on the "updated" hover there. */}}
