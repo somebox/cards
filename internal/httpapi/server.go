@@ -23,6 +23,12 @@ import (
 //go:embed templates/*.html templates/*.css
 var templateFS embed.FS
 
+// assetStamp busts the browser's stylesheet cache once per server start —
+// the exact moment new CSS can exist (themes and styles are embedded in the
+// binary). Motivated by a real review stumble: a long-lived tab held the
+// 60s-cached old stylesheet and new UI looked "missing".
+var assetStamp = time.Now().Unix()
+
 // themeFonts is the built-in themes' font manifest: theme name → Google Fonts
 // stylesheet href. Kept as data so templates stay theme-blind; extraction to
 // definitions/themes/<name>.json is THEMES.md step 2.
@@ -52,6 +58,9 @@ func New(svc *core.Service, ws *core.Workspace, types map[string]*core.CardType,
 		// definitions/themes/<name>.json). Data, not template branches: the
 		// layout emits ONE font link block driven by this lookup.
 		"themeFonts": func(name string) string { return themeFonts[name] },
+		// assetStamp versions the stylesheet URL so a restarted server always
+		// serves fresh CSS to returning tabs.
+		"assetStamp": func() int64 { return assetStamp },
 		// shortID returns the leading 8 hex chars of a card id (matches substr(id,6,8) resolution) for compact display;
 		// the full id is kept canonical in store/API JSON and in title="". (1e)
 		"shortID": shortID,
