@@ -789,3 +789,23 @@ func getHTML(t *testing.T, ts *httptest.Server, path string) (*http.Response, st
 	resp.Body.Close()
 	return resp, string(b)
 }
+
+// TestUnknownThemeDegradesToDefault pins theme-contract guarantee 3
+// (docs/design/THEMES.md): selecting a theme that doesn't exist — a typo, a
+// stale cookie, a shared theme not yet installed — renders fine. The unknown
+// name lands on html[data-theme] where it matches no CSS rules, so the
+// default theme's complete base styling applies. A broken theme can at worst
+// mis-style; it can never take the UI down.
+func TestUnknownThemeDegradesToDefault(t *testing.T) {
+	ts, _ := newServer(t)
+	resp, body := doGet(t, ts, "/ui/boards/engineering?theme=definitely-not-installed")
+	if resp.StatusCode != 200 {
+		t.Fatalf("unknown theme: %d (must render, never error)", resp.StatusCode)
+	}
+	if !strings.Contains(body, `data-theme="definitely-not-installed"`) {
+		t.Error("theme name should pass through to html[data-theme] (harmlessly matching no rules)")
+	}
+	if !strings.Contains(body, `class="board`) {
+		t.Error("board did not render under an unknown theme")
+	}
+}

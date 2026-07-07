@@ -55,3 +55,66 @@ func TestTemplatesAreThemeBlind(t *testing.T) {
 		}
 	}
 }
+
+// TestThemeRulesAreScoped pins contract guarantee 2 (THEMES.md): every rule
+// that mentions a named theme is scoped under html[data-theme="<name>"], and
+// base CSS never references a theme name. This is what makes themes safe to
+// add, remove, or change — an unscoped rule would leak a theme's styling
+// into every other theme, including the default.
+func TestThemeRulesAreScoped(t *testing.T) {
+	css := readRepoFile(t, "internal/httpapi/templates/style.css")
+	// Strip comments first — block comments precede most selectors and would
+	// otherwise glue onto them.
+	for {
+		start := strings.Index(css, "/*")
+		if start < 0 {
+			break
+		}
+		end := strings.Index(css[start:], "*/")
+		if end < 0 {
+			css = css[:start]
+			break
+		}
+		css = css[:start] + css[start+end+2:]
+	}
+	// Walk top-level rules; recurse into @media/@supports bodies. Selectors
+	// are everything between a rule boundary and its opening brace.
+	var walk func(body string)
+	walk = func(body string) {
+		i := 0
+		for i < len(body) {
+			open := strings.IndexByte(body[i:], '{')
+			if open < 0 {
+				return
+			}
+			selector := strings.TrimSpace(body[i : i+open])
+			// find the matching close brace
+			depth, j := 1, i+open+1
+			for j < len(body) && depth > 0 {
+				switch body[j] {
+				case '{':
+					depth++
+				case '}':
+					depth--
+				}
+				j++
+			}
+			inner := body[i+open+1 : j-1]
+			if strings.HasPrefix(selector, "@media") || strings.HasPrefix(selector, "@supports") {
+				walk(inner)
+			} else if strings.Contains(selector, "data-theme=") {
+				for _, part := range strings.Split(selector, ",") {
+					part = strings.TrimSpace(part)
+					if part == "" {
+						continue
+					}
+					if strings.Contains(part, "data-theme=") && !strings.HasPrefix(part, `html[data-theme="`) {
+						t.Errorf("theme rule not scoped from the root: %q — every themed selector must start html[data-theme=\"<name>\"]", part)
+					}
+				}
+			}
+			i = j
+		}
+	}
+	walk(css)
+}

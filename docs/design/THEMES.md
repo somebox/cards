@@ -132,6 +132,112 @@ which is the whole point. It is the real modularity unlock — once a theme is
   API; extraction just changes *where* a theme's bytes live, not *what* a
   theme is.
 
+## The theme contract, v1 (2026-07-07)
+
+Step 1 landed (templates are theme-blind, pinned by test), which makes the
+contract the load-bearing artifact: a theme is safe to add, remove, or change
+**only because** the surface it styles is enumerated and stable. This section
+names that surface. `docs/architecture/DESIGN.md` remains the reference for
+tokens and typography roles; this is the catalog of everything else a theme
+may target, grouped by surface.
+
+### Guarantees (what makes themes modular)
+
+1. **The default theme is complete.** Base CSS renders every surface fully
+   with no named theme present. A theme is pure override — deleting every
+   theme file leaves a working UI.
+2. **Themes are scoped.** Every rule in a theme is prefixed
+   `html[data-theme="<name>"]`; base CSS never references a theme name.
+   *Enforced by `TestThemeRulesAreScoped` — an unscoped theme rule fails
+   `go test ./...`.*
+3. **Unknown names degrade to default.** Selecting a theme that doesn't
+   exist (`?theme=nope`, a stale cookie, an uninstalled shared theme) renders
+   the default: `data-theme="nope"` simply matches no rules. *Enforced by
+   render test.*
+4. **Markup is never theme-conditional.** Pinned by
+   `TestTemplatesAreThemeBlind`. A theme that needs new structure is a
+   design-system change first (add a hook to the contract), a theme second.
+5. **CSS stays parseable.** `TestStyleCSSBalanced` (brace balance) — a single
+   dropped brace once silently swallowed a whole theme.
+
+### Element hooks (stable classes + data attributes, by surface)
+
+- **Board**: `.board`, `.lane`, `.lane__head`, `.lane__count`, `.lane__add`,
+  `.lane__body[data-status]`, `.board-controls`, `.filter-chips`,
+  `.chip-filter`.
+- **Board card**: `.card[data-type][data-icon]` (+ inline `--card-stock`,
+  `--card-stock-bg` from the type/option theme), `.card__type-mark`,
+  `.card__title`, `.card__meta`, `.card__preview`, `.card__secondary` +
+  `__secondary-item(--status|--owner|--tag|--preview|--updated)`,
+  `.card__stats` + `.card__stat[data-stat=blocked|comments|out|in]`,
+  `.card__artifacts` (`__artifact-thumb`, `__artifact-file`), `.chip`
+  (`--tag`, `--owner`).
+- **Detail/modal header** (shared by every theme since step 1):
+  `.modal__head[data-type][data-icon]`, `.modal__type-icon`,
+  `.modal__head-main`, `.card-title__view`, `.modal__meta`,
+  `.modal__meta-field` (editable status/owner: `.modal__meta-key` +
+  `.field__view`), `.modal__meta-tail`,
+  `.modal__meta-item[data-meta=id|version|updated]`
+  (`.modal__meta-key`/`.modal__meta-value`), `.id-copy`, `.modal__close`.
+- **Modal body**: `.modal`, `.modal__body`, `.modal__scroll`,
+  `.modal__footer`, `.field` (label|value anatomy: `.field__label` + ONE
+  value child — `.field__view`/`.field__val`/wrapper; themes may grid this),
+  `.alert`, `.req`, `.field-error`, `.field-hint`.
+- **Editing anatomy**: `[data-field]` with `[data-view]`/`[data-edit]`
+  (click-to-edit); `.input`, `.select`, `.textarea`, `.btn`
+  (`--primary|--ghost|--danger|--sm`), `.icon-btn` (+`--primary`) — the ONE
+  style for micro-actions (+ add, ✎ edit, × remove/cancel, ✓ save/submit).
+- **Feeds**: `.entry` (`__head`, `__author`, `__time`, `__actions`,
+  `__grid`, `__key`, `__val`, `__body`), `.feed`, `.stack`,
+  `.entry-form` (`__row`, `__label`, `__actions`, `__status`),
+  `.comment-composer` (`__bar`, `__status`), `.entries-box`,
+  `.comments-box`, `.entries-toolbar`.
+- **Creation modals**: `.create-modal`, `.type-picker` (`__opt`),
+  `.create-form`, `.check-grid`, `.check-item` (board create).
+- **Uploads**: `.artifact-upload` (`__zone`, `__input`, `__cta`, `__hint`,
+  `__status`), `.artifact-thumb`.
+- **Identity**: `[data-type="<id>"]` per card type, `[data-icon="<name>"]`
+  glyphs (`card star bug check flask target code pen wrench` — adding one is
+  a single CSS mask alias), `.card__type-badge`.
+
+### State hooks (what "actions" a theme can style)
+
+- `.artifact-upload[data-state=idle|dragover|uploading|success|error]` — the
+  upload state machine.
+- `.is-invalid` on inputs, `.is-error` on status lines, `.alert` blocks.
+- `.is-dragging` on cards, `.is-drag-over` on lanes (column move).
+- `.entry:hover / :focus-within → .entry__actions` reveal.
+- `.is-empty` on empty field views; `[hidden]` respected everywhere.
+- `data-stat="blocked"` — must remain visibly text, never colour-only.
+- Focus: `:focus-visible` outlines derive from `--c-accent`.
+
+Contract changes are **additive within v1**: hooks may be added; renaming or
+removing one is a v2 and must update every built-in theme in the same change.
+
+## Sharing themes (the GitHub story)
+
+The unit of sharing is deliberately tiny — two files, no packaging:
+
+```
+my-theme.css    # every rule scoped html[data-theme="my-theme"]
+my-theme.json   # {"name":"my-theme","contract":1,"fonts":"https://…",
+                #  "description":"…","source":"https://github.com/…"}
+```
+
+- **Publish**: put them in any repo/gist. A theme *is* its CSS — reviewable
+  at a glance, no build step, nothing executable.
+- **Install**: drop both files into `definitions/themes/` (THEMES.md step 2
+  loads that directory) — by hand, `curl -O`, or a git submodule. A `git
+  pull` of a workspace brings its themes along.
+- **Select**: `?theme=my-theme` to try it (sticky cookie),
+  `settings.theme` to default the workspace, and — new —
+  `board.presentation.theme` to assign it to ONE board:
+  precedence `?theme` cookie → board presentation → workspace settings.
+  "Assign it to a board to try it out" is exactly the middle tier.
+- **Safety**: the manifest's `"contract": 1` lets the loader warn on a theme
+  written against a future contract; an unknown or broken theme file can at
+  worst mis-style — guarantee 3 means it can never take the UI down.
+
 ## Related
 
 - `docs/architecture/DESIGN.md` — theming contract, `--role-*`, stable hooks.
