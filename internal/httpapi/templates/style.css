@@ -685,11 +685,21 @@ main { padding: var(--s-5); max-width: 100%; }
 .entry__time { margin-left: auto; flex: 0 0 auto; white-space: nowrap; }
 .entry__actions { flex: 0 0 auto; display: inline-flex; gap: var(--s-1); opacity: 0; transition: opacity .12s; }
 .entry:hover .entry__actions, .entry:focus-within .entry__actions { opacity: 1; }
-.entry__act {
+/* Icon buttons: ONE style for the modal's micro-actions — + add, ✎ edit,
+   × remove/cancel, ✓ save/submit. Always title + aria-label'd; primary is
+   the ink-filled variant for the committing action. */
+.icon-btn {
   border: 1px solid var(--c-border); background: var(--c-surface); color: var(--c-muted);
-  border-radius: var(--r-sm); font-size: var(--t-xs); line-height: 1; padding: .15rem .35rem; cursor: pointer;
+  border-radius: var(--r-sm); font-size: .8rem; line-height: 1;
+  width: 1.55rem; height: 1.55rem; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
 }
-.entry__act:hover { color: var(--c-ink); border-color: var(--c-border-2); }
+.icon-btn:hover, .icon-btn:focus-visible { color: var(--c-ink); border-color: var(--c-border-2); }
+.icon-btn--primary {
+  background: var(--c-label-bg); color: var(--c-label-fg); border-color: var(--c-label-bg);
+  font-weight: 700;
+}
+.icon-btn--primary:hover, .icon-btn--primary:focus-visible { color: var(--c-label-fg); opacity: .85; }
 .entry__grid {
   display: grid; grid-template-columns: minmax(6rem, max-content) minmax(0, 1fr);
   gap: .15rem var(--s-3); margin-top: .15rem;
@@ -719,7 +729,12 @@ main { padding: var(--s-5); max-width: 100%; }
 }
 .entry-form__status.is-error, .comment-composer__status.is-error { color: var(--c-danger); font-weight: 600; }
 .comment-composer { display: flex; flex-direction: column; gap: var(--s-2); margin-top: var(--s-2); }
-.comment-composer .row { justify-content: flex-end; }
+.comment-composer__bar { display: flex; justify-content: flex-end; gap: var(--s-1); }
+/* Comments/entries live in ONE field__val wrapper so themes that lay .field
+   out as a label|value grid (labels) keep the feed + controls in the value
+   column — a third child would wrap into the label column. */
+.entries-box, .comments-box { min-width: 0; display: flex; flex-direction: column; }
+.entries-toolbar { display: flex; justify-content: flex-end; margin-bottom: var(--s-1); }
 
 /* New-card creation modal (UI sprint P2): type picker + schema-driven form. */
 .type-picker { display: flex; flex-wrap: wrap; gap: var(--s-2); }

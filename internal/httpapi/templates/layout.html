@@ -118,10 +118,12 @@
         var ta = document.createElement('textarea');
         ta.className = 'textarea comment-edit'; ta.rows = 2; ta.value = bodyEl.textContent;
         var save = document.createElement('button');
-        save.type = 'button'; save.className = 'btn btn--primary btn--sm'; save.textContent = 'Save';
+        save.type = 'button'; save.className = 'icon-btn icon-btn--primary';
+        save.textContent = '✓'; save.title = 'Save'; save.setAttribute('aria-label', 'Save comment');
         var cancel = document.createElement('button');
-        cancel.type = 'button'; cancel.className = 'btn btn--ghost btn--sm'; cancel.textContent = 'Cancel';
-        var row = document.createElement('div'); row.className = 'row';
+        cancel.type = 'button'; cancel.className = 'icon-btn';
+        cancel.textContent = '×'; cancel.title = 'Cancel'; cancel.setAttribute('aria-label', 'Cancel edit');
+        var row = document.createElement('div'); row.className = 'row comment-composer__bar';
         row.appendChild(save); row.appendChild(cancel);
         bodyEl.hidden = true; bodyEl.after(ta, row); ta.focus();
         function done() { ta.remove(); row.remove(); bodyEl.hidden = false; }

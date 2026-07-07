@@ -101,6 +101,15 @@ func TestModalRendersComposerAndEntryEditor(t *testing.T) {
 			t.Errorf("modal missing layout role %q", want)
 		}
 	}
+	// Structure guard: comments and entries each live in ONE field__val
+	// wrapper (label | value), so themes that grid .field two-column can
+	// never wrap the composer or the add-toolbar into the label column.
+	// Micro-actions share the icon-btn system.
+	for _, want := range []string{"comments-box", "entries-box", "entries-toolbar", "icon-btn icon-btn--primary"} {
+		if !strings.Contains(html, want) {
+			t.Errorf("modal missing structural role %q", want)
+		}
+	}
 }
 
 func TestModalCommentAndEntryLifecycle(t *testing.T) {
