@@ -6,8 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{.Title}} — Work Cards</title>
   <link rel="stylesheet" href="/ui/style.css">
-  {{if eq .Theme "journal"}}<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;600;700&family=Kalam:wght@400;700&display=swap" rel="stylesheet">{{end}}
-  {{if eq .Theme "labels"}}<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Sono:wght@200;400;600&display=swap" rel="stylesheet">{{end}}
+  {{with themeFonts .Theme}}<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="{{.}}" rel="stylesheet">{{end}}
   <script src="https://unpkg.com/htmx.org@1.9.12"></script>
 </head>
 <body>

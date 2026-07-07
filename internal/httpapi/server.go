@@ -23,6 +23,14 @@ import (
 //go:embed templates/*.html templates/*.css
 var templateFS embed.FS
 
+// themeFonts is the built-in themes' font manifest: theme name → Google Fonts
+// stylesheet href. Kept as data so templates stay theme-blind; extraction to
+// definitions/themes/<name>.json is THEMES.md step 2.
+var themeFonts = map[string]string{
+	"journal": "https://fonts.googleapis.com/css2?family=Caveat:wght@500;600;700&family=Kalam:wght@400;700&display=swap",
+	"labels":  "https://fonts.googleapis.com/css2?family=Sono:wght@200;400;600&display=swap",
+}
+
 // Server is the HTTP/SSE server. Routes mirror SPEC.md §11 plus /ui.
 type Server struct {
 	svc     *core.Service
@@ -39,6 +47,11 @@ type Server struct {
 func New(svc *core.Service, ws *core.Workspace, types map[string]*core.CardType, boards map[string]*core.Board, st core.Store) (*Server, error) {
 	funcMap := template.FuncMap{
 		"join": strings.Join,
+		// themeFonts resolves a theme's web-font stylesheet URL — the interim
+		// manifest for the built-in themes (THEMES.md step 2 moves this to
+		// definitions/themes/<name>.json). Data, not template branches: the
+		// layout emits ONE font link block driven by this lookup.
+		"themeFonts": func(name string) string { return themeFonts[name] },
 		// shortID returns the leading 8 hex chars of a card id (matches substr(id,6,8) resolution) for compact display;
 		// the full id is kept canonical in store/API JSON and in title="". (1e)
 		"shortID": shortID,

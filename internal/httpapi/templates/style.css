@@ -803,6 +803,20 @@ main { padding: var(--s-5); max-width: 100%; }
 .modal__meta-key { text-transform: uppercase; letter-spacing: .05em; color: var(--c-faint); }
 .modal__meta-field .field__view { padding: 0 .15em; font: inherit; font-weight: var(--role-meta-value-weight); color: var(--c-text-2); }
 .modal__meta-tail { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--s-1) var(--s-3); margin-left: auto; }
+/* Meta items (id/version/updated) carry key+value spans for theme layouts;
+   the default theme keeps its classic line: keys hidden except "updated",
+   which reads inline exactly as the old literal text did. */
+/* The type-icon cell is a labels-style hook; the default theme's identity
+   lives in the type badge, so the icon stays hidden here. */
+.modal__type-icon { display: none; }
+.modal__meta-item { display: inline-flex; align-items: baseline; gap: .25em; min-width: 0; }
+.modal__meta-tail .modal__meta-key { display: none; }
+.modal__meta-tail [data-meta="updated"] .modal__meta-key { display: inline; text-transform: none; letter-spacing: 0; color: inherit; }
+.id-copy {
+  border: 0; background: transparent; color: var(--c-faint); cursor: pointer;
+  font-size: .85em; line-height: 1; padding: 0 .1em; opacity: .7;
+}
+.id-copy:hover, .id-copy:focus-visible { color: var(--c-ink); opacity: 1; }
 /* One metadata voice: whatever utility classes (.mono/.faint) or <time> land
    inside the header metadata line inherit its role font wholesale, so short
    id / version / "updated" never drift from status/owner even if a utility
@@ -1188,7 +1202,7 @@ html[data-theme="labels"] .lane__body { gap: .38rem; }
 
 html[data-theme="labels"] .card {
   position: relative; min-height: 3rem; padding: 0; gap: 0;
-  display: grid; grid-template-columns: 1.34rem minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto;
+  display: grid; grid-template-columns: 1.34rem minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto auto;
   background: var(--card-stock-bg, var(--c-surface));
   color: var(--c-text);
   border: 1px solid var(--card-stock, var(--c-ink)); border-radius: 0;
@@ -1196,7 +1210,7 @@ html[data-theme="labels"] .card {
 }
 html[data-theme="labels"] .card:hover { transform: translateY(-1px); box-shadow: var(--sh-hover); }
 html[data-theme="labels"] .card__type-mark {
-  position: static; grid-column: 1; grid-row: 1 / 3;
+  position: static; grid-column: 1; grid-row: 1 / 4;
   width: auto; height: auto; border: 0; border-radius: 0;
   background: var(--card-stock, var(--c-ink)); color: #fffdf5;
 }
@@ -1211,8 +1225,22 @@ html[data-theme="labels"] .card__title a {
   overflow: hidden; color: var(--c-text); font: inherit; letter-spacing: inherit;
 }
 html[data-theme="labels"] .card__meta,
-html[data-theme="labels"] .card__preview,
-html[data-theme="labels"] .card__stats { display: none; }
+html[data-theme="labels"] .card__preview { display: none; }
+/* Stats strip (57db13a6): counts + blocked return in a slim third row —
+   the time stat stays hidden (the secondary row shows updated), and with
+   nothing visible the strip collapses to zero height. Blocked keeps its
+   TEXT badge (never colour-only). */
+html[data-theme="labels"] .card__stats {
+  grid-column: 2; grid-row: 3;
+  display: flex; align-items: center; gap: .5rem;
+  padding: 0 .55rem; margin: 0;
+  font-family: var(--font-mono); font-size: .6rem; color: var(--c-muted);
+}
+html[data-theme="labels"] .card__stats:has(.card__stat:not(.card__stat--time)) { padding-bottom: .35rem; }
+html[data-theme="labels"] .card__stat--time { display: none; }
+html[data-theme="labels"] .card__stat[data-stat="blocked"] {
+  color: #e21f26; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+}
 html[data-theme="labels"] .card__secondary {
   grid-column: 2; grid-row: 2; min-width: 0; overflow: hidden;
   display: flex; align-items: baseline; gap: .38rem;
@@ -1260,79 +1288,81 @@ html[data-theme="labels"] .modal__head[data-type="experiment"] { --card-stock: v
 html[data-theme="labels"] .modal__head[data-type="research-goal"] { --card-stock: var(--type-research-goal); }
 html[data-theme="labels"] .modal__head[data-type="programming-task"] { --card-stock: var(--type-programming-task); }
 
-html[data-theme="labels"] .labels-head__icon {
+html[data-theme="labels"] .modal__type-icon {
   grid-area: icon; align-self: stretch; display: grid; place-items: center;
-  width: 6rem; min-height: 6rem;
+  width: 6rem; min-height: 6rem; position: static;
   background: var(--card-stock, var(--c-accent)); color: #fffdf7;
   border-right: 1px solid var(--labels-rule, rgba(23,26,28,.45));
 }
-html[data-theme="labels"] .labels-head__icon::before {
+html[data-theme="labels"] .modal__type-icon::before {
   content: ""; width: 3.7rem; height: 3.7rem; background: currentColor;
   -webkit-mask: var(--ico) center / contain no-repeat; mask: var(--ico) center / contain no-repeat;
 }
-html[data-theme="labels"] .labels-head__title {
+html[data-theme="labels"] .modal__head-main {
   grid-area: title; align-self: stretch; min-width: 0;
   display: flex; flex-direction: column; justify-content: space-between; gap: 0;
   padding: 0; background: var(--card-stock, var(--c-accent)); color: #fffdf7;
 }
-html[data-theme="labels"] .labels-head__titlefield { padding: .4rem .6rem .3rem; }
-html[data-theme="labels"] .labels-head__title .field__view,
-html[data-theme="labels"] .labels-head__title .card-title__view {
+html[data-theme="labels"] .modal__head-main [data-field="title"] { padding: .4rem .6rem .3rem; }
+html[data-theme="labels"] .modal__head-main .field__view,
+html[data-theme="labels"] .modal__head-main .card-title__view {
   padding: 0; background: transparent; border: 0; color: #fffdf7;
 }
-html[data-theme="labels"] .labels-head__title .field__edit .input {
+html[data-theme="labels"] .modal__head-main .field__edit .input {
   font-family: var(--role-title-detail-font); font-size: var(--role-title-detail-size);
   font-weight: var(--role-title-detail-weight); line-height: var(--role-title-detail-leading);
   background: rgba(255,253,247,.94); color: var(--card-stock, var(--c-accent));
   border: 1px solid rgba(23,26,28,.4); padding: 0 .3rem;
 }
-html[data-theme="labels"] .labels-head__actions {
-  grid-area: actions; align-self: stretch; min-width: 0; width: min-content;
-  display: flex; flex-direction: column; justify-content: flex-start; align-items: stretch;
+html[data-theme="labels"] .modal__head > .modal__close {
+  grid-area: actions; align-self: stretch;
   background: var(--card-stock, var(--c-accent)); color: #fffdf7;
-  border-left: 1px solid var(--labels-rule, rgba(23,26,28,.45));
-}
-html[data-theme="labels"] .labels-head__close {
-  align-self: flex-end; background: transparent; color: #fffdf7;
-  border: 0; border-bottom: 1px solid var(--labels-rule, rgba(23,26,28,.45));
+  border: 0; border-left: 1px solid var(--labels-rule, rgba(23,26,28,.45));
   font-size: 1.4rem; line-height: 1; padding: .25rem .55rem; cursor: pointer; opacity: .92;
 }
-html[data-theme="labels"] .labels-head__close:hover { opacity: 1; }
+html[data-theme="labels"] .modal__head > .modal__close:hover { opacity: 1; }
 
-/* Attribute cells (live inside the title cell, bottom-aligned): label (dark
-   grey/white) + value (white/black). The meta block is flush with the title
-   cell's frame (no inset padding) so it lines up with the header edges. */
-html[data-theme="labels"] .labels-head__meta {
+/* Attribute cells: the SAME meta anatomy every theme gets (type badge +
+   editable status/owner fields + id/version/updated items) laid out as the
+   label|value cell strip. display:contents flattens the tail wrapper so its
+   items grid as siblings; the badge hides (the icon cell owns type identity). */
+html[data-theme="labels"] .modal__meta {
   display: grid; grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0; margin: 0; padding: 0;
   border-top: 1px solid var(--labels-rule, rgba(23,26,28,.45));
-  padding: 0; margin: 0;
 }
-html[data-theme="labels"] .labels-meta-cell {
+html[data-theme="labels"] .modal__meta > .card__type-badge { display: none; }
+html[data-theme="labels"] .modal__meta-tail { display: contents; }
+html[data-theme="labels"] .modal__meta-field,
+html[data-theme="labels"] .modal__meta-item {
   display: grid; grid-template-columns: auto minmax(0, 1fr);
+  align-items: stretch; gap: 0; min-width: 0;
   border-right: 1px solid var(--labels-rule, rgba(23,26,28,.45));
 }
-html[data-theme="labels"] .labels-meta-cell:last-child { border-right: 0; }
-html[data-theme="labels"] .labels-meta-label {
-  padding: .22rem .38rem; background: var(--labels-ink, rgba(74,82,90,.82)); color: #fffdf7;
+html[data-theme="labels"] .modal__meta-item[data-meta="updated"] { border-right: 0; }
+html[data-theme="labels"] .modal__meta-key,
+html[data-theme="labels"] .modal__meta-tail .modal__meta-key {
+  display: inline-block; padding: .22rem .38rem;
+  background: var(--labels-ink, rgba(74,82,90,.82)); color: #fffdf7;
   font-family: var(--font-mono); font-size: .56rem; font-weight: 600;
   text-transform: uppercase; letter-spacing: .06em; line-height: 1.1; white-space: nowrap;
 }
-html[data-theme="labels"] .labels-meta-value {
-  padding: .22rem .38rem; background: rgba(255,253,247,.5); color: #171a1c;
+html[data-theme="labels"] .modal__meta-field .field__view,
+html[data-theme="labels"] .modal__meta-value {
+  display: block; padding: .22rem .38rem; margin: 0;
+  background: rgba(255,253,247,.5); color: #171a1c;
   font-family: var(--font-mono); font-size: .66rem; font-weight: 400;
   line-height: 1.1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-html[data-theme="labels"] .labels-meta-value--id {
-  display: inline-flex; align-items: center; gap: .3rem;
-  overflow: hidden;
+html[data-theme="labels"] .modal__meta-item[data-meta="id"] {
+  grid-template-columns: auto minmax(0, 1fr) auto;
 }
-html[data-theme="labels"] .labels-id-value { font-size: .66rem; color: #171a1c; }
-html[data-theme="labels"] .labels-id-copy {
-  flex: none; background: transparent; color: #171a1c; opacity: .45;
-  border: 0; border-radius: 0; font-size: .78rem; line-height: 1;
-  padding: 0 .12rem; cursor: pointer;
+html[data-theme="labels"] .id-copy {
+  background: rgba(255,253,247,.5); color: #171a1c; opacity: .45;
+  border: 0; border-radius: 0; font-size: .78rem; line-height: 1.1;
+  padding: .22rem .3rem; cursor: pointer;
 }
-html[data-theme="labels"] .labels-id-copy:hover { opacity: 1; }
+html[data-theme="labels"] .id-copy:hover { opacity: 1; }
 html[data-theme="labels"] .card__type-badge {
   background: rgba(255,253,247,.92); color: var(--card-stock, var(--badge-ink, var(--c-ink)));
   border-color: rgba(255,253,247,.95); font-weight: var(--role-heading-weight); font-size: .72rem;
@@ -1383,6 +1413,6 @@ html[data-theme="labels"] .save-form.detail .modal__footer { background-color: t
   html[data-theme="labels"] .lane { min-width: 240px; flex-basis: 260px; }
   html[data-theme="labels"] .card { grid-template-columns: 1.2rem minmax(0, 1fr); }
   html[data-theme="labels"] .card__type-mark::before { width: .82rem; height: .82rem; }
-  html[data-theme="labels"] .labels-head__meta { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  html[data-theme="labels"] .modal__meta { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   html[data-theme="labels"] .modal__body .field { grid-template-columns: 1fr; gap: var(--s-1); }
 }

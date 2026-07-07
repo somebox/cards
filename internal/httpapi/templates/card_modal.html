@@ -1,9 +1,15 @@
-{{/* card_head: default-theme detail header (icon + editable title + meta line).
-     The labels theme uses labels_card_head instead — see card_body. */}}
+{{/* card_head: THE detail header, every theme (THEMES.md step 1 — themes are
+     CSS-only). Stable hooks: .modal__type-icon, .modal__head-main, .modal__meta,
+     .modal__meta-field (editable status/owner: key + field__view value),
+     .modal__meta-item[data-meta=id|version|updated] (key + value + id-copy).
+     The default theme renders the classic single meta line (keys hidden except
+     "updated"); the labels theme grids the same anatomy into its two-row
+     attribute-cell header. */}}
 {{define "card_head"}}
   {{$th := typeTheme .TypeThemes .Card.TypeID}}
   <div class="modal__head" data-type="{{.Card.TypeID}}"{{if $th.Icon}} data-icon="{{$th.Icon}}"{{end}}
        {{- if $th.Accent}} style="--card-stock:{{$th.Accent}}{{- if $th.Muted}};--card-stock-bg:{{$th.Muted}}{{end}}"{{end -}}>
+    <span class="modal__type-icon" aria-hidden="true"></span>
     <div class="modal__head-main">
       <div class="field field--editable" data-field="title">
         <span class="field__view card-title__view{{if not .Card.Title}} is-empty{{end}}" tabindex="0" data-view title="{{.Card.Title}}">{{if .Card.Title}}{{.Card.Title}}{{else}}Untitled{{end}}</span>
@@ -37,75 +43,14 @@
           </span>
         </span>
         <span class="modal__meta-tail mono faint">
-          <span title="{{.Card.ID}}">#{{shortID .Card.ID}}</span>
-          <span>v{{.Card.Version}}</span>
-          <span title="Created {{iso .Card.CreatedAt}} · Updated {{iso .Card.UpdatedAt}} · schema v{{.Card.SchemaVersion}}">updated <time data-ago="{{iso .Card.UpdatedAt}}" datetime="{{iso .Card.UpdatedAt}}"></time></span>
+          <span class="modal__meta-item" data-meta="id" title="{{.Card.ID}}"><span class="modal__meta-key">id</span><span class="modal__meta-value">#{{shortID .Card.ID}}</span><button type="button" class="id-copy" data-copy-id="{{.Card.ID}}" title="Copy id · {{.Card.ID}}" aria-label="Copy card id">⧉</button></span>
+          <span class="modal__meta-item" data-meta="version"><span class="modal__meta-key">version</span><span class="modal__meta-value">v{{.Card.Version}}</span></span>
+          <span class="modal__meta-item" data-meta="updated" title="Created {{iso .Card.CreatedAt}} · Updated {{iso .Card.UpdatedAt}} · schema v{{.Card.SchemaVersion}}"><span class="modal__meta-key">updated</span><span class="modal__meta-value"><time data-ago="{{iso .Card.UpdatedAt}}" datetime="{{iso .Card.UpdatedAt}}"></time></span></span>
         </span>
       </div>
     </div>
     <button type="button" class="modal__close" onclick="closeModal()" aria-label="close">×</button>
   </div>
-{{end}}
-
-{{/* labels_card_head: icon | title (title top + meta bottom) | actions (close + ID). */}}
-{{define "labels_card_head"}}
-  {{$th := typeTheme .TypeThemes .Card.TypeID}}
-  <div class="modal__head labels-head" data-type="{{.Card.TypeID}}"{{if $th.Icon}} data-icon="{{$th.Icon}}"{{end}}
-       {{- if $th.Accent}} style="--card-stock:{{$th.Accent}}{{- if $th.Muted}};--card-stock-bg:{{$th.Muted}}{{end}}"{{end -}}>
-    <span class="labels-head__icon" aria-hidden="true"></span>
-    <div class="labels-head__title">
-      <div class="field field--editable labels-head__titlefield" data-field="title">
-        <span class="field__view card-title__view{{if not .Card.Title}} is-empty{{end}}" tabindex="0" data-view title="{{.Card.Title}}">{{if .Card.Title}}{{.Card.Title}}{{else}}Untitled{{end}}</span>
-        <span class="field__edit card-title__edit" data-edit hidden>
-          <input type="text" class="input" name="title" value="{{.Card.Title}}">
-        </span>
-      </div>
-      <div class="labels-head__meta">
-        <div class="labels-meta-cell"><span class="labels-meta-label">Status</span><span class="labels-meta-value">{{columnName .Card.Status}}</span></div>
-        <div class="labels-meta-cell"><span class="labels-meta-label">Owner</span><span class="labels-meta-value">{{if .Card.Owner}}{{.Card.Owner}}{{else}}unassigned{{end}}</span></div>
-        <div class="labels-meta-cell"><span class="labels-meta-label">Updated</span><span class="labels-meta-value"><time data-ago="{{iso .Card.UpdatedAt}}" datetime="{{iso .Card.UpdatedAt}}"></time></span></div>
-        <div class="labels-meta-cell"><span class="labels-meta-label">Version</span><span class="labels-meta-value">v{{.Card.Version}}</span></div>
-        <div class="labels-meta-cell labels-meta-cell--id">
-          <span class="labels-meta-label">ID</span>
-          <span class="labels-meta-value labels-meta-value--id">
-            <span class="labels-id-value" title="{{.Card.ID}}">{{shortID .Card.ID}}</span>
-            <button type="button" class="labels-id-copy" data-copy-id="{{.Card.ID}}" title="Copy link · {{.Card.ID}}" aria-label="Copy link">⧉</button>
-          </span>
-        </div>
-      </div>
-    </div>
-    <div class="labels-head__actions">
-      <button type="button" class="labels-head__close" onclick="closeModal()" aria-label="close">×</button>
-    </div>
-  </div>
-{{end}}
-
-{{/* labels_meta_fields: editable status/owner + read-only type, shown in the
-     body so the header stays a compact display table. Type is immutable
-     (schema differs per type) so it is read-only. */}}
-{{define "labels_meta_fields"}}
-    <div class="field field--editable" data-field="status" data-field-type="enum">
-      <label class="field__label">Status</label>
-      <div class="field__view" tabindex="0" data-view>{{columnName .Card.Status}}</div>
-      <div class="field__edit" data-edit hidden>
-        <select class="select" name="status">
-          {{range .MoveOptions}}
-            <option value="{{.Value}}" {{if .Disabled}}disabled{{end}} {{if .Selected}}selected{{end}}>{{.Label}}</option>
-          {{end}}
-        </select>
-      </div>
-    </div>
-    <div class="field field--editable" data-field="owner" data-field-type="string">
-      <label class="field__label">Owner</label>
-      <div class="field__view{{if not .Card.Owner}} is-empty{{end}}" tabindex="0" data-view>{{if .Card.Owner}}{{.Card.Owner}}{{else}}unassigned{{end}}</div>
-      <div class="field__edit" data-edit hidden>
-        <input type="text" class="input" name="owner" value="{{.Card.Owner}}" placeholder="unassigned">
-      </div>
-    </div>
-    <div class="field" data-field-type="string">
-      <label class="field__label">Type</label>
-      <div class="field__view">{{.CardType.Name}}</div>
-    </div>
 {{end}}
 
 {{/* card_body_fields: the shared, theme-independent field list (tags, typed
@@ -324,22 +269,13 @@
     </div>
 {{end}}
 
-{{/* card_body: picks the header + body assembly per theme. The labels theme
-     gets its two-row attribute-table header and moves status/owner/type into
-     the body as editable fields; every other theme uses the shared header. */}}
+{{/* card_body: one assembly for every theme — the shared header's stable
+     hooks carry each theme's layout (THEMES.md: a theme is CSS, not markup). */}}
 {{define "card_body"}}
-  {{if eq $.Theme "labels"}}
-    {{template "labels_card_head" .}}
-    <div class="modal__body">
-      {{template "labels_meta_fields" .}}
-      {{template "card_body_fields" .}}
-    </div>
-  {{else}}
-    {{template "card_head" .}}
-    <div class="modal__body">
-      {{template "card_body_fields" .}}
-    </div>
-  {{end}}
+  {{template "card_head" .}}
+  <div class="modal__body">
+    {{template "card_body_fields" .}}
+  </div>
 {{end}}
 
 {{define "card_modal"}}

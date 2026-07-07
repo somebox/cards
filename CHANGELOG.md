@@ -9,6 +9,18 @@ backwards-compatible fixes.
 ## [Unreleased]
 
 ### Added
+- **Themes are CSS-only now.** The labels theme's special-cased detail header
+  was the one place a theme changed markup; the shared header now carries
+  stable hooks (type-icon cell, meta key/value items, an id-copy button) that
+  every theme lays out its own way — the labels two-row attribute header is
+  reproduced purely in CSS, and the default theme keeps its classic meta line
+  (plus a subtle copy-id affordance). Theme web-fonts moved from template
+  conditionals to a data manifest. Two new `go test`-run guards: templates may
+  not branch on the theme name, and `style.css` braces must balance (a single
+  dropped brace once silently swallowed a whole theme).
+- **Labels theme: comment/link counts and the blocked badge are back** on
+  board cards, in a slim third row that collapses when empty — blocked stays
+  a text badge, never colour-only.
 - **Create cards from the board.** "+ New Card" (nav) and a per-lane "+" open
   an in-board creation modal: pick the card type (the workspace's types with
   their icons/colors), then fill a form generated from that type's schema —
