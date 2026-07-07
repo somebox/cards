@@ -9,6 +9,14 @@ backwards-compatible fixes.
 ## [Unreleased]
 
 ### Added
+- **Create cards from the board.** "+ New Card" (nav) and a per-lane "+" open
+  an in-board creation modal: pick the card type (the workspace's types with
+  their icons/colors), then fill a form generated from that type's schema —
+  required marks, enum defaults pre-selected, disallowed columns disabled with
+  a reason, per-field validation errors from the structured API error. A
+  lane's "+" pre-sets the status so cards land where you created them; a
+  per-form Idempotency-Key makes double-submit safe. The old full-page
+  `/ui/cards/new` form is replaced by a redirect into the modal flow.
 - **Comments and repeating entries are editable from the card modal.** A
   composer adds comments (⌘/Ctrl-Enter submits, Esc clears) and each comment
   gains in-place edit; repeating fields (`work_log`, `change_log`, …) get an

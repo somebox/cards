@@ -99,7 +99,7 @@ func New(svc *core.Service, ws *core.Workspace, types map[string]*core.CardType,
 		"breaches.html":       {"templates/breaches.html"},
 		"card_ambiguous.html": {"templates/card_ambiguous.html"},
 		"card_detail.html":    {"templates/card_detail.html", "templates/card_modal.html"},
-		"card_form.html":      {"templates/card_form.html"},
+		"card_create.html":    {"templates/card_create.html"},
 		"card_modal.html":     {"templates/card_modal.html"},
 		"home.html":           {"templates/home.html", "templates/search_form.html"},
 		"search_results.html": {"templates/search_results.html", "templates/card_partial.html", "templates/search_form.html"},
@@ -162,8 +162,8 @@ func (s *Server) Router() http.Handler {
 	r.Get("/ui/style.css", s.uiStylesheet)
 	r.Get("/ui/boards/{id}", s.uiBoard)
 	r.Get("/ui/breaches", s.uiBreaches)
-	r.Get("/ui/cards/new", s.uiNewCardForm)
-	r.Post("/ui/cards", s.uiCreateCard)
+	r.Get("/ui/cards/new", s.uiNewCardRedirect)
+	r.Get("/ui/cards/new/modal", s.uiNewCardModal)
 	r.Get("/ui/cards/{id}", s.uiCardDetail)
 	r.Get("/ui/cards/{id}/modal", s.uiCardModal)
 	r.Post("/ui/cards/{id}/save", s.uiSaveCard)

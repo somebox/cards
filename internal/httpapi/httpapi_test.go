@@ -458,25 +458,11 @@ func TestUIBreachesPage(t *testing.T) {
 	}
 }
 
-func TestUICreateCardValidationReRendersForm(t *testing.T) {
-	ts, _ := newServer(t)
-	form := strings.NewReader("type_id=programming-task&board_id=engineering&title=Bad&status=todo&field:branch=b")
-	req, _ := http.NewRequest("POST", ts.URL+"/ui/cards", form)
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != 200 {
-		t.Fatalf("status %d (want 200 re-rendered form)", resp.StatusCode)
-	}
-	buf := new(bytes.Buffer)
-	buf.ReadFrom(resp.Body)
-	if !strings.Contains(buf.String(), "validation_failed") {
-		t.Error("re-rendered form should contain validation_failed error")
-	}
-}
+// TestUICreateCardValidationReRendersForm was retired with the full-page
+// create form (UI sprint P2): creation is now the in-board modal, a thin
+// client of POST /v1/cards. Its validation concern lives on in
+// TestCreateViaAPI_PerFieldErrorAndIdempotency (card_create_test.go), which
+// pins the structured per-field error the modal renders.
 
 func doGet(t *testing.T, ts *httptest.Server, path string) (*http.Response, string) {
 	t.Helper()

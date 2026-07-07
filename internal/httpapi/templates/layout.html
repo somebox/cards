@@ -16,7 +16,7 @@
     {{range .Boards}}<a href="/ui/boards/{{.ID}}">{{.Name}}</a>{{end}}
     <a href="/ui/breaches">Breaches</a>
     <span class="spacer"></span>
-    <a class="nav-cta" href="/ui/cards/new?type=programming-task">+ New Card</a>
+    <a class="nav-cta" href="/ui/cards/new{{if .Board}}?board={{.Board.ID}}{{end}}" data-create-link="/ui/cards/new/modal{{if .Board}}?board={{.Board.ID}}{{end}}">+ New Card</a>
   </nav>
   <main>
     {{block "content" .}}{{end}}
@@ -60,6 +60,7 @@
     wireArtifactUpload(modal);
     wireComments(modal);
     wireEntryEditors(modal);
+    wireCreateModal(modal);
     refreshAgo(); // convert injected <time data-ago> to relative text
   }
   // modalVersion reads the open card's version from the save-form — the same
@@ -383,8 +384,11 @@
   // intentionally not a role=button/tabindex so it doesn't nest interactive
   // descendants (the title link + the owner unclaim button).
   document.body.addEventListener('click', function(e){
-    var a = e.target.closest('[data-card-link]');
-    if (a) { e.preventDefault(); loadModal(a.getAttribute('data-card-link')); }
+    var a = e.target.closest('[data-card-link],[data-create-link]');
+    if (a) {
+      e.preventDefault();
+      loadModal(a.getAttribute('data-card-link') || a.getAttribute('data-create-link'));
+    }
   });
   function loadModal(url) {
     var modal = document.getElementById('card-modal');
@@ -396,9 +400,99 @@
       .catch(function(){ modal.innerHTML = '<div class="modal__error">Failed to load card.</div>'; });
   }
 
+  // ---- New-card creation (UI sprint P2): type picker + schema-driven form,
+  // a thin client of POST /v1/cards. Per-field errors render from the
+  // structured core.Error; the Idempotency-Key is minted once per form
+  // instance so a double-click cannot create two cards. ----
+  function wireCreateModal(root) {
+    var box = root.querySelector('[data-create-modal]');
+    if (!box) return;
+    var board = box.getAttribute('data-board') || '';
+    var status = box.getAttribute('data-status') || '';
+    function fragURL(extra) {
+      var q = [];
+      if (board) q.push('board=' + encodeURIComponent(board));
+      if (status) q.push('status=' + encodeURIComponent(status));
+      if (extra) q.push(extra);
+      return '/ui/cards/new/modal' + (q.length ? '?' + q.join('&') : '');
+    }
+    // Mode 1: picking a type swaps in that type's form.
+    box.querySelectorAll('[data-create-type]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        loadModal(fragURL('type=' + encodeURIComponent(btn.getAttribute('data-create-type'))));
+      });
+    });
+    // Mode 2: the form.
+    var form = box.querySelector('[data-create-form]');
+    if (!form) return;
+    if (!form.dataset.idemKey) {
+      form.dataset.idemKey = 'ui-create-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
+    }
+    var alertEl = box.querySelector('[data-create-alert]');
+    function clearErrors() {
+      alertEl.hidden = true; alertEl.textContent = '';
+      box.querySelectorAll('[data-error-for]').forEach(function(el){ el.hidden = true; el.textContent = ''; });
+      box.querySelectorAll('.is-invalid').forEach(function(el){ el.classList.remove('is-invalid'); });
+    }
+    function fieldError(name, msg) {
+      var el = box.querySelector('[data-error-for="' + name + '"]');
+      var inp = box.querySelector('[data-create-input="' + name + '"]');
+      if (el) { el.hidden = false; el.textContent = msg; }
+      if (inp) { inp.classList.add('is-invalid'); inp.focus(); }
+      if (!el && !inp) { alertEl.hidden = false; alertEl.textContent = msg; }
+    }
+    var saveBtn = box.querySelector('[data-create-save]');
+    saveBtn.addEventListener('click', function(){
+      clearErrors();
+      var req = { type_id: form.getAttribute('data-type-id'), fields: {} };
+      var missing = [];
+      form.querySelectorAll('[data-create-input]').forEach(function(inp){
+        var name = inp.getAttribute('data-create-input');
+        var kind = inp.getAttribute('data-kind');
+        var v = (inp.value || '').trim();
+        if (!v) { if (inp.hasAttribute('data-required')) missing.push(name); return; }
+        if (name === 'title') req.title = v;
+        else if (name === 'status') req.status = v;
+        else if (name === 'tags') req.tags = v.split(',').map(function(s){ return s.trim(); }).filter(Boolean);
+        else if (name.indexOf('field:') === 0) {
+          req.fields[name.slice(6)] = (kind === 'number') ? Number(v) : v;
+        }
+      });
+      if (missing.length) {
+        missing.forEach(function(n){ fieldError(n, 'required'); });
+        return;
+      }
+      saveBtn.disabled = true;
+      fetch('/v1/cards', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json','X-Work-Cards-Actor':CARDS_ACTOR,
+                  'Idempotency-Key': form.dataset.idemKey},
+        body: JSON.stringify(req)
+      }).then(function(r){
+        if (r.ok) { toast('Card created'); closeModal(); return; }
+        return r.text().then(function(t){
+          saveBtn.disabled = false;
+          var e = {}; try { e = JSON.parse(t); } catch(_){}
+          var msg = e.message || 'Create failed';
+          if (e.valid_options) msg += ' (valid: ' + e.valid_options.join(', ') + ')';
+          if (e.field) {
+            // service errors name the FIELD ID; form inputs use field:<id>
+            var name = (e.field === 'title' || e.field === 'status' || e.field === 'tags')
+              ? e.field : 'field:' + e.field;
+            fieldError(name, msg);
+          } else {
+            alertEl.hidden = false; alertEl.textContent = msg;
+          }
+        });
+      }).catch(function(){ saveBtn.disabled = false; alertEl.hidden = false; alertEl.textContent = 'Create failed (network).'; });
+    });
+  }
+
   // ---- Dirty-save: activate the Save button only when a field changes ----
   function wireDirtySave(root) {
-    var bar = root.querySelector('.modal__footer button.btn--primary');
+    // Scoped to the edit modal's save-form: the CREATE modal has its own
+    // primary button + handler (wireCreateModal) and must not be dirty-gated.
+    var bar = root.querySelector('form.save-form .modal__footer button.btn--primary');
     if (!bar) return;
     bar.disabled = true;
     root.querySelectorAll('[data-field] .input, [data-field] .select, [data-field] .textarea').forEach(function(el){

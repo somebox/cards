@@ -33,7 +33,7 @@
 <div class="board" id="board">
   {{range $col := .Columns}}
   <section class="lane">
-    <div class="lane__head"><span>{{$col.Name}}</span><span class="lane__count">{{len (index $.CardsByColumn $col.ID)}}</span></div>
+    <div class="lane__head"><span>{{$col.Name}}</span><span class="lane__head-tail"><span class="lane__count">{{len (index $.CardsByColumn $col.ID)}}</span><button type="button" class="lane__add" data-create-link="/ui/cards/new/modal?board={{$.Board.ID}}&status={{$col.ID}}" aria-label="New card in {{$col.Name}}" title="New card in {{$col.Name}}">+</button></span></div>
     <div class="lane__body" id="col-{{$col.ID}}" data-status="{{$col.ID}}">
       {{range (index $.CardsByColumn $col.ID)}}
         {{template "card_partial" .}}
@@ -69,6 +69,19 @@
       .catch(function(){});
   }
   es.onerror = function() { es.close(); };
+})();
+// Deep-link creation (P2): /ui/cards/new 303s here with ?new=1(&type&status);
+// open the create modal once, then strip the params so refresh doesn't re-open.
+(function () {
+  var p = new URLSearchParams(window.location.search);
+  if (p.get('new') !== '1') return;
+  var q = ['board={{.Board.ID}}'];
+  if (p.get('type')) q.push('type=' + encodeURIComponent(p.get('type')));
+  if (p.get('status')) q.push('status=' + encodeURIComponent(p.get('status')));
+  loadModal('/ui/cards/new/modal?' + q.join('&'));
+  p.delete('new'); p.delete('type'); p.delete('status');
+  var rest = p.toString();
+  history.replaceState(null, '', window.location.pathname + (rest ? '?' + rest : ''));
 })();
 </script>
 {{end}}

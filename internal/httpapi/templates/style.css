@@ -720,6 +720,28 @@ main { padding: var(--s-5); max-width: 100%; }
 .entry-form__status.is-error, .comment-composer__status.is-error { color: var(--c-danger); font-weight: 600; }
 .comment-composer { display: flex; flex-direction: column; gap: var(--s-2); margin-top: var(--s-2); }
 .comment-composer .row { justify-content: flex-end; }
+
+/* New-card creation modal (UI sprint P2): type picker + schema-driven form. */
+.type-picker { display: flex; flex-wrap: wrap; gap: var(--s-2); }
+.type-picker__opt {
+  border: 1px solid var(--c-border); background: var(--c-surface); cursor: pointer;
+  padding: var(--s-2) var(--s-3); border-radius: var(--r-md);
+}
+.type-picker__opt:hover { border-color: var(--c-border-2); transform: translateY(-1px); }
+.type-picker__opt .card__type-badge { font-size: var(--t-sm); padding: .4em .6em; }
+.create-form { display: flex; flex-direction: column; gap: var(--s-3); }
+.create-form .field { display: flex; flex-direction: column; gap: .3rem; }
+.field-error { color: var(--c-danger); font-family: var(--font-mono); font-size: var(--t-xs); font-weight: 600; }
+.field-hint { font-size: var(--t-xs); }
+.input.is-invalid, .select.is-invalid, .textarea.is-invalid { border-color: var(--c-danger); outline: 1px solid var(--c-danger); }
+
+/* Per-lane "+" (creation lands in that column). */
+.lane__head-tail { display: inline-flex; align-items: center; gap: var(--s-1); }
+.lane__add {
+  border: 0; background: transparent; color: inherit; cursor: pointer;
+  font-size: 1rem; line-height: 1; padding: 0 .15rem; opacity: .55;
+}
+.lane__add:hover, .lane__add:focus-visible { opacity: 1; }
 .mono { font-family: var(--font-mono); font-size: var(--t-xs); }
 
 /* --- Error / alert ------------------------------------------------------ */

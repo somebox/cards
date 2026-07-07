@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -369,110 +371,81 @@ func boardSSETypes() string {
 	return strings.Join(types, ",")
 }
 
-func (s *Server) uiNewCardForm(w http.ResponseWriter, r *http.Request) {
-	typeID := r.URL.Query().Get("type")
-	if typeID == "" {
-		// pick first type
-		for id := range s.types {
-			typeID = id
-			break
-		}
+// uiNewCardRedirect keeps the old /ui/cards/new URL working: it 303s to the
+// target board with ?new=1 (+ type/status), where the board page opens the
+// in-board creation modal (P2). The full-page form it used to serve is gone —
+// one schema-driven renderer, one flow.
+func (s *Server) uiNewCardRedirect(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	boardID := q.Get("board")
+	if _, ok := s.boards[boardID]; !ok {
+		boardID = ""
 	}
-	ct, ok := s.types[typeID]
-	if !ok {
-		http.NotFound(w, r)
-		return
-	}
-	boardID := r.URL.Query().Get("board")
 	if boardID == "" {
+		ids := make([]string, 0, len(s.boards))
 		for id := range s.boards {
-			if containsStr(s.boards[id].CardTypeIDs, typeID) {
-				boardID = id
-				break
-			}
+			ids = append(ids, id)
+		}
+		sort.Strings(ids)
+		if len(ids) > 0 {
+			boardID = ids[0]
 		}
 	}
-	b := s.boards[boardID]
-	users := s.listUsersBestEffort(r)
-	data := s.baseData("New " + ct.Name)
-	data.CardType = ct
-	data.Board = b
-	data.Fields = fieldViews(ct, nil, users)
-	data.StatusOptions = s.statusOptions(ct, b, "")
-	data.Users = users
-	data.TagSet = s.ws.TagSet
-	data.FormTitle = ""
-	data.FormTags = ""
-	s.renderPage(w, r, "card_form.html", data)
+	target := "/ui/boards/" + boardID + "?new=1"
+	if t := q.Get("type"); t != "" {
+		target += "&type=" + url.QueryEscape(t)
+	}
+	if st := q.Get("status"); st != "" {
+		target += "&status=" + url.QueryEscape(st)
+	}
+	http.Redirect(w, r, target, http.StatusSeeOther)
 }
 
-func (s *Server) uiCreateCard(w http.ResponseWriter, r *http.Request) {
-	if err := r.ParseForm(); err != nil {
-		http.Error(w, "bad form", http.StatusBadRequest)
-		return
-	}
-	typeID := r.FormValue("type_id")
-	boardID := r.FormValue("board_id")
-	ct, ok := s.types[typeID]
-	if !ok {
-		http.Error(w, "unknown card type: "+typeID, http.StatusBadRequest)
-		return
-	}
-	b := s.boards[boardID]
+// uiNewCardModal renders the in-board creation fragment (UI sprint P2):
+// with no ?type a picker of the board's card types (icons/accents from
+// type_theme); with ?type the schema-driven creation form. Submission is
+// client-side against POST /v1/cards — this handler renders, it never writes.
+func (s *Server) uiNewCardModal(w http.ResponseWriter, r *http.Request) {
+	typeID := r.URL.Query().Get("type")
+	boardID := r.URL.Query().Get("board")
+	b := s.boards[boardID] // nil is fine: picker shows all types
+	data := s.baseData("New card")
+	data.Board = b
+	data.CreateStatus = r.URL.Query().Get("status")
+	data.TypeThemes = s.buildTypeThemes()
 
-	fields := map[string]any{}
-	for k := range r.Form {
-		if strings.HasPrefix(k, "field:") {
-			fid := strings.TrimPrefix(k, "field:")
-			val := r.FormValue(k)
-			if val == "" {
-				continue
+	if typeID == "" {
+		var ids []string
+		if b != nil && len(b.CardTypeIDs) > 0 {
+			ids = b.CardTypeIDs
+		} else {
+			for id := range s.types {
+				ids = append(ids, id)
 			}
-			if ct != nil {
-				for _, f := range ct.Fields {
-					if f.ID == fid {
-						if f.Type == core.FieldNumber {
-							if n, err := strconv.ParseFloat(val, 64); err == nil {
-								fields[fid] = n
-							}
-						} else {
-							fields[fid] = val
-						}
-						break
-					}
-				}
-			} else {
-				fields[fid] = val
+			sort.Strings(ids)
+		}
+		for _, id := range ids {
+			if ct := s.types[id]; ct != nil {
+				data.TypeOptions = append(data.TypeOptions, Option{Value: id, Label: ct.Name})
 			}
 		}
-	}
-	tags := parseTags(r.FormValue("tags"))
-	req := core.CreateCardRequest{
-		TypeID: typeID,
-		Title:  r.FormValue("title"),
-		Status: r.FormValue("status"),
-		Fields: fields,
-		Tags:   tags,
-		Actor:  s.ws.Settings.DefaultUser,
-	}
-	_, err := s.svc.CreateCard(r.Context(), req)
-	if err != nil {
-		// Re-render form with error.
+	} else {
+		ct, ok := s.types[typeID]
+		if !ok {
+			http.NotFound(w, r)
+			return
+		}
 		users := s.listUsersBestEffort(r)
-		data := s.baseData("New " + ct.Name)
 		data.CardType = ct
-		data.Board = b
-		data.Fields = fieldViews(ct, fields, users)
-		data.StatusOptions = s.statusOptions(ct, b, req.Status)
+		data.Fields = fieldViews(ct, nil, users)
+		data.StatusOptions = s.statusOptions(ct, b, data.CreateStatus)
 		data.Users = users
 		data.TagSet = s.ws.TagSet
-		data.FormTitle = req.Title
-		data.FormTags = r.FormValue("tags")
-		data.Error = core.AsError(err)
-		s.renderPage(w, r, "card_form.html", data)
-		return
 	}
-	http.Redirect(w, r, "/ui/boards/"+boardID, http.StatusSeeOther)
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if e := s.pages["card_create.html"].ExecuteTemplate(w, "card_create_modal", data); e != nil {
+		http.Error(w, "template error: "+e.Error(), http.StatusInternalServerError)
+	}
 }
 
 func (s *Server) uiCardDetail(w http.ResponseWriter, r *http.Request) {

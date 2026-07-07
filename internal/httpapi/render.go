@@ -184,6 +184,8 @@ type ViewData struct {
 	// MaxArtifactBytes is the server's per-upload cap, surfaced so the card
 	// modal's file input can reject an oversize file client-side before POST.
 	MaxArtifactBytes int64
+	// CreateStatus is the lane a "+ in this column" creation pre-selects (P2).
+	CreateStatus string
 }
 
 func (s *Server) baseData(title string) ViewData {
@@ -470,35 +472,40 @@ func (s *Server) moveOptions(b *core.Board, current string) []Option {
 	return opts
 }
 
+// statusOptions builds the create-modal's status select: every column of the
+// board (or workspace, if boardless) in board order, with columns the type's
+// allowed_columns forbids DISABLED rather than hidden — so the board's shape
+// stays visible and the constraint is explainable, not mysterious. The
+// selection is the preset lane when allowed, else the first allowed column.
 func (s *Server) statusOptions(ct *core.CardType, b *core.Board, selected string) []Option {
-	cols := ct.AllowedColumns
-	if len(cols) == 0 {
-		cols = []string{}
+	var cols []string
+	if b != nil {
+		cols = b.Columns
+	} else {
 		for _, c := range s.ws.Columns {
 			cols = append(cols, c.ID)
 		}
 	}
-	if b != nil {
-		// restrict to board columns
-		boardCols := map[string]bool{}
-		for _, c := range b.Columns {
-			boardCols[c] = true
-		}
-		filtered := []string{}
-		for _, c := range cols {
-			if boardCols[c] {
-				filtered = append(filtered, c)
-			}
-		}
-		cols = filtered
+	allowed := func(cid string) bool {
+		return len(ct.AllowedColumns) == 0 || containsStr(ct.AllowedColumns, cid)
 	}
 	def := selected
-	if def == "" && len(cols) > 0 {
-		def = cols[0]
+	if def == "" || !allowed(def) {
+		def = ""
+		for _, cid := range cols {
+			if allowed(cid) {
+				def = cid
+				break
+			}
+		}
 	}
 	opts := []Option{}
 	for _, cid := range cols {
-		opts = append(opts, Option{Value: cid, Label: s.columnName(cid), Selected: cid == def})
+		opts = append(opts, Option{
+			Value: cid, Label: s.columnName(cid),
+			Selected: cid == def,
+			Disabled: !allowed(cid),
+		})
 	}
 	return opts
 }

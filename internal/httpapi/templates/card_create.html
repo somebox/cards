@@ -1,0 +1,85 @@
+{{/* card_create_modal — in-board card creation (UI sprint P2, card adb1ebcf).
+     Two modes on one fragment: with no ?type, a type PICKER (the workspace's
+     card types with their icons/accents, filtered to the board's types);
+     with ?type, a creation form generated from that type's schema — the same
+     definition the API validates, so the form cannot fork the contract.
+     Submission is a thin JS client of POST /v1/cards (Idempotency-Key per
+     modal instance); per-field errors render from the structured core.Error. */}}
+{{define "card_create_modal"}}
+<div class="create-modal" data-create-modal
+     data-board="{{if .Board}}{{.Board.ID}}{{end}}" data-status="{{.CreateStatus}}">
+  <div class="modal__head">
+    <div class="modal__head-main">
+      <span class="card-title__view">{{if .CardType}}New {{.CardType.Name}}{{else}}New card{{end}}</span>
+    </div>
+    <button type="button" class="modal__close" onclick="closeModal()" aria-label="close">×</button>
+  </div>
+  <div class="modal__body">
+    {{if not .CardType}}
+    {{/* --- Mode 1: pick a type --- */}}
+    <p class="muted">What kind of card is this?</p>
+    <div class="type-picker">
+      {{range .TypeOptions}}
+      {{$th := typeTheme $.TypeThemes .Value}}
+      <button type="button" class="type-picker__opt" data-create-type="{{.Value}}">
+        <span class="card__type-badge" data-type="{{.Value}}"{{if $th.Icon}} data-icon="{{$th.Icon}}"{{end}}
+              {{- if $th.Accent}} style="--badge-ink:{{$th.Accent}}{{- if $th.Muted}};--badge-wash:{{$th.Muted}}{{end}}"{{end}}>{{.Label}}</span>
+      </button>
+      {{end}}
+    </div>
+    {{else}}
+    {{/* --- Mode 2: the schema-driven creation form --- */}}
+    <div class="create-form" data-create-form data-type-id="{{.CardType.ID}}">
+      <div class="create-form__status alert" data-create-alert hidden></div>
+
+      <label class="field">
+        <span class="field__label">Title <span class="req">*</span></span>
+        <input type="text" class="input" data-create-input="title" data-kind="string" data-required
+               placeholder="What needs doing?">
+        <span class="field-error" data-error-for="title" hidden></span>
+      </label>
+
+      <label class="field">
+        <span class="field__label">Status</span>
+        <select class="select" data-create-input="status" data-kind="enum">
+          {{range .StatusOptions}}
+          <option value="{{.Value}}"{{if .Selected}} selected{{end}}{{if .Disabled}} disabled title="not allowed for this card type"{{end}}>{{.Label}}</option>
+          {{end}}
+        </select>
+        <span class="field-error" data-error-for="status" hidden></span>
+      </label>
+
+      <label class="field">
+        <span class="field__label">Tags</span>
+        <input type="text" class="input" data-create-input="tags" data-kind="tags" list="tag-options" placeholder="comma, separated">
+        {{if .TagSet}}<datalist id="tag-options">{{range .TagSet}}<option value="{{.}}">{{end}}</datalist>{{end}}
+        <span class="field-error" data-error-for="tags" hidden></span>
+      </label>
+
+      {{range .Fields}}
+      {{if or (eq .Def.Type "repeating") (eq .Def.Type "artifact") (eq .Def.Type "card_link") (eq .Def.Type "tags")}}
+      {{/* post-creation surfaces: entries/uploads/links happen on the card */}}
+      {{else}}
+      <label class="field">
+        <span class="field__label">{{.Def.ID}}{{if .Def.Required}} <span class="req">*</span>{{end}}</span>
+        {{if eq .Def.Type "text"}}<textarea class="textarea" rows="3" data-create-input="field:{{.Def.ID}}" data-kind="text"{{if .Def.Required}} data-required{{end}}></textarea>
+        {{else if eq .Def.Type "enum"}}<select class="select" data-create-input="field:{{.Def.ID}}" data-kind="enum"{{if .Def.Required}} data-required{{end}}>{{$def := .Def.Default}}{{if not .Def.Required}}<option value="">—</option>{{end}}{{range .Def.Options}}<option value="{{.}}"{{if eq . $def}} selected{{end}}>{{.}}</option>{{end}}</select>
+        {{else if eq .Def.Type "number"}}<input type="number" class="input" data-create-input="field:{{.Def.ID}}" data-kind="number"{{if .Def.Required}} data-required{{end}}>
+        {{else if eq .Def.Type "date"}}<input type="date" class="input" data-create-input="field:{{.Def.ID}}" data-kind="date"{{if .Def.Required}} data-required{{end}}>
+        {{else if eq .Def.Type "user"}}<select class="select" data-create-input="field:{{.Def.ID}}" data-kind="user"{{if .Def.Required}} data-required{{end}}><option value="">—</option>{{range $.Users}}<option value="{{.ID}}">{{.ID}}</option>{{end}}</select>
+        {{else}}<input type="text" class="input" data-create-input="field:{{.Def.ID}}" data-kind="{{.Def.Type}}"{{if .Def.Required}} data-required{{end}}>
+        {{end}}
+        {{if .Def.Description}}<span class="muted field-hint">{{.Def.Description}}</span>{{end}}
+        <span class="field-error" data-error-for="field:{{.Def.ID}}" hidden></span>
+      </label>
+      {{end}}
+      {{end}}
+    </div>
+    {{end}}
+  </div>
+  <div class="modal__footer">
+    <button type="button" class="btn btn--ghost" onclick="closeModal()">Cancel</button>
+    {{if .CardType}}<button type="button" class="btn btn--primary" data-create-save>Create card</button>{{end}}
+  </div>
+</div>
+{{end}}
