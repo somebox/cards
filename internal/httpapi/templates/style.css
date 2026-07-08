@@ -722,6 +722,12 @@ main { padding: var(--s-5); max-width: 100%; }
   font-weight: 700;
 }
 .icon-btn--primary:hover, .icon-btn--primary:focus-visible { color: var(--c-label-fg); opacity: .85; }
+/* Disabled icon buttons (e.g. the add-comment ✓ with an empty composer): muted,
+   flat, not clickable — no hover response. */
+.icon-btn:disabled, .icon-btn:disabled:hover {
+  opacity: .4; cursor: not-allowed;
+  color: var(--c-faint); border-color: var(--c-border); background: var(--c-surface-2);
+}
 .entry__grid {
   display: grid; grid-template-columns: minmax(6rem, max-content) minmax(0, 1fr);
   gap: .15rem var(--s-3); margin-top: .15rem;
@@ -908,6 +914,21 @@ main { padding: var(--s-5); max-width: 100%; }
 .search { display: flex; gap: var(--s-2); align-items: stretch; margin: var(--s-3) 0 var(--s-5); }
 .search__input { flex: 1; max-width: 32rem; min-height: 2.1rem; }
 .search .btn { min-height: 2.1rem; }
+/* Search input + inline clear "×". The box is the flex child; the input fills
+   it and leaves room on the right for the reset control (shown only when the
+   field has a query). */
+.search__box { position: relative; display: flex; flex: 1; }
+.search .search__box { max-width: 32rem; }
+.board-controls .search__box { max-width: 24rem; }
+.search__box .search__input { flex: 1; max-width: none; padding-right: 1.9rem; }
+.search__clear {
+  position: absolute; right: .4rem; top: 50%; transform: translateY(-50%);
+  width: 1.3rem; height: 1.3rem; padding: 0; border: 0; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: transparent; color: var(--c-faint); cursor: pointer;
+  font-size: 1.15rem; line-height: 1; text-decoration: none;
+}
+.search__clear:hover, .search__clear:focus-visible { color: var(--c-ink); background: var(--c-surface-2); }
 
 /* --- Home page ---------------------------------------------------------- */
 .home { max-width: 980px; }

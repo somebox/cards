@@ -12,7 +12,10 @@
 {{end}}
 <form class="board-controls" method="get" action="/ui/boards/{{.Board.ID}}">
   {{if .ActiveFilter}}<input type="hidden" name="filter" value="{{.ActiveFilter}}">{{end}}
-  <input class="search__input input" type="search" name="q" value="{{.Query}}" placeholder="Search this board…" aria-label="Search board">
+  <span class="search__box">
+    <input class="search__input input" type="search" name="q" value="{{.Query}}" placeholder="Search this board…" aria-label="Search board">
+    {{if .Query}}<button type="button" class="search__clear" title="Clear search" aria-label="Clear search" onclick="this.previousElementSibling.value='';this.closest('form').submit();">×</button>{{end}}
+  </span>
   <label class="control"><span class="control__label">Owner</span>
     <select class="select" name="owner" onchange="this.form.submit()">
       {{range .OwnerOptions}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>{{end}}

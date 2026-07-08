@@ -1,10 +1,14 @@
 {{define "search_form"}}
 {{/* Plain GET navigation: on a board it reloads /ui/boards/{id}?q=… (filtered
-   board); on home it goes to /ui/search?q=… (results page). type=search gives
-   the native clear affordance, so no separate clear button. */}}
+   board); on home it goes to /ui/search?q=… (results page). An explicit clear
+   "×" resets the search — the native type=search clear is browser-dependent and
+   only empties the field without re-submitting. */}}
 <form class="search" action="{{.Action}}" method="get">
-  <input class="search__input input" type="search" name="q" value="{{.Query}}"
-         placeholder="Search by title or short id…" aria-label="Search">
+  <span class="search__box">
+    <input class="search__input input" type="search" name="q" value="{{.Query}}"
+           placeholder="Search by title or short id…" aria-label="Search">
+    {{if .Query}}<a class="search__clear" href="{{.Action}}" title="Clear search" aria-label="Clear search">×</a>{{end}}
+  </span>
   <button class="btn btn--primary" type="submit">Search</button>
 </form>
 {{end}}
