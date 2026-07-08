@@ -23,12 +23,6 @@ import (
 //go:embed templates/*.html templates/*.css
 var templateFS embed.FS
 
-// assetStamp busts the browser's stylesheet cache once per server start —
-// the exact moment new CSS can exist (themes and styles are embedded in the
-// binary). Motivated by a real review stumble: a long-lived tab held the
-// 60s-cached old stylesheet and new UI looked "missing".
-var assetStamp = time.Now().Unix()
-
 // themeFonts is the built-in themes' font manifest: theme name → Google Fonts
 // stylesheet href. Kept as data so templates stay theme-blind; extraction to
 // definitions/themes/<name>.json is THEMES.md step 2.
@@ -47,10 +41,22 @@ type Server struct {
 	base    *template.Template            // layout + FuncMap, cloned per render
 	pages   map[string]*template.Template // pre-parsed page sets (layout+page+partials)
 	envUser string
+	// assetStamp busts the browser's stylesheet cache. It is per-Server (per
+	// composition generation), NOT per-process: each New() — including every
+	// workspace reload, which builds a fresh Server — mints a new stamp, so the
+	// /ui/style.css?v=<stamp> URL rotates on reload. That rotation is what makes
+	// file-loaded workspace themes (THEMES.md step 2) safe to cache for 24h: a
+	// reload that changes the served CSS also changes the URL, so returning tabs
+	// refetch instead of holding stale CSS. UnixNano (not Unix) guarantees two
+	// reloads within the same second still produce distinct stamps.
+	assetStamp int64
 }
 
 // New constructs the Server, parsing embedded templates into per-page sets.
 func New(svc *core.Service, ws *core.Workspace, types map[string]*core.CardType, boards map[string]*core.Board, st core.Store) (*Server, error) {
+	// One stamp per composition generation; the funcMap closure below captures
+	// it and the Server stores it. See the assetStamp field comment.
+	assetStamp := time.Now().UnixNano()
 	funcMap := template.FuncMap{
 		"join": strings.Join,
 		// themeFonts resolves a theme's web-font stylesheet URL — the interim
@@ -58,8 +64,9 @@ func New(svc *core.Service, ws *core.Workspace, types map[string]*core.CardType,
 		// definitions/themes/<name>.json). Data, not template branches: the
 		// layout emits ONE font link block driven by this lookup.
 		"themeFonts": func(name string) string { return themeFonts[name] },
-		// assetStamp versions the stylesheet URL so a restarted server always
-		// serves fresh CSS to returning tabs.
+		// assetStamp versions the stylesheet URL so a restarted server OR a
+		// workspace reload (each a new Server generation) serves fresh CSS to
+		// returning tabs. Captures this generation's stamp.
 		"assetStamp": func() int64 { return assetStamp },
 		// shortID returns the leading 8 hex chars of a card id (matches substr(id,6,8) resolution) for compact display;
 		// the full id is kept canonical in store/API JSON and in title="". (1e)
@@ -142,6 +149,7 @@ func New(svc *core.Service, ws *core.Workspace, types map[string]*core.CardType,
 	return &Server{
 		svc: svc, ws: ws, types: types, boards: boards, store: st,
 		base: base, pages: pages, envUser: os.Getenv("CARDS_USER"),
+		assetStamp: assetStamp,
 	}, nil
 }
 

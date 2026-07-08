@@ -115,8 +115,9 @@ func (s *Server) uiStylesheet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "text/css; charset=utf-8")
-	// The link URL carries ?v=<server-start stamp>, so long caching is safe:
-	// a new binary/restart mints a new URL and old tabs refetch on navigation.
+	// The link URL carries ?v=<per-generation stamp>, so long caching is safe:
+	// a new binary/restart OR a workspace reload mints a new Server (new stamp,
+	// new URL) and old tabs refetch on navigation.
 	w.Header().Set("Cache-Control", "public, max-age=86400")
 	w.Write(data)
 }

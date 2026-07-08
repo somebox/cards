@@ -13,11 +13,63 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
 	"github.com/somebox/cards/internal/httpapi"
 )
+
+// stylesheetStamp fetches an HTML page and extracts the ?v=<stamp> the layout
+// puts on the /ui/style.css link.
+var stylesheetStampRe = regexp.MustCompile(`style\.css\?v=(\d+)`)
+
+func stylesheetStamp(t *testing.T, url string) string {
+	t.Helper()
+	resp, err := http.Get(url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		t.Fatalf("GET %s: %d", url, resp.StatusCode)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	m := stylesheetStampRe.FindSubmatch(body)
+	if m == nil {
+		t.Fatalf("no style.css?v= stamp in %s", url)
+	}
+	return string(m[1])
+}
+
+// TestReloadRotatesStylesheetStamp pins the P3 stamp seam: because assetStamp
+// is per-Server (per composition generation) and reload builds a fresh Server,
+// the /ui/style.css?v=<stamp> URL must change across a reload. Without this,
+// a reload that changes the served CSS (e.g. file-loaded workspace themes)
+// would be masked by the 24h Cache-Control on the unchanged URL. This lives in
+// cmd/cards, not httpapi, because only the reloadable composition swaps
+// generations — an httpapi unit test holds one Server and cannot observe it.
+func TestReloadRotatesStylesheetStamp(t *testing.T) {
+	ts, _ := newTestApp(t)
+
+	ids := boardsServed(t, ts.URL)
+	if len(ids) == 0 {
+		t.Fatal("scaffolded workspace served no boards")
+	}
+	pageURL := ts.URL + "/ui/boards/" + ids[0]
+
+	before := stylesheetStamp(t, pageURL)
+
+	if code, out := appDo(t, "POST", ts.URL+"/v1/workspace/reload", ""); code != 200 {
+		t.Fatalf("reload: %d %v", code, out)
+	}
+
+	after := stylesheetStamp(t, pageURL)
+	if after == before {
+		t.Errorf("stylesheet stamp did not rotate across reload: before=%s after=%s "+
+			"(assetStamp is not per-generation)", before, after)
+	}
+}
 
 // newTestApp scaffolds a fresh workspace in t.TempDir and mounts the
 // reloadable composition around it — the same wiring `cards serve` uses.

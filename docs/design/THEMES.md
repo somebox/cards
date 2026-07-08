@@ -127,10 +127,106 @@ which is the whole point. It is the real modularity unlock — once a theme is
   workspace content, exactly like a declared hook command
   (`extensions.json`). CSS-as-text can't execute; the risk is styling only.
 - **Boring tech.** Read CSS files, concatenate, set `text/css`. No new
-  protocol, no parser, no build step.
+  protocol, no build step. The one addition is a *minimal* contract-checking
+  scanner (`internal/themecss`, ~200 LOC, brace-match + scope + `@import`/remote-
+  `url()` checks) — deliberately not a full CSS parser; see "Load-time contract"
+  below.
 - **Stable contract preserved.** `--role-*` + stable hooks are the public
   API; extraction just changes *where* a theme's bytes live, not *what* a
   theme is.
+
+## Load-time contract (step 2 precursors — landed ahead of the loader)
+
+Two precursors ship before the loader itself so step 2 is a small, safe wiring
+change rather than a redesign:
+
+**1. Per-generation stylesheet stamp (`httpapi.Server.assetStamp`).** The
+`/ui/style.css?v=<stamp>` cache-buster is now instance state minted once per
+`httpapi.New()` — and reload builds a fresh `Server` — so the URL rotates on
+every reload while staying `Cache-Control: public, max-age=86400`. This is what
+makes install-by-reload safe: dropping a theme file and calling
+`POST /v1/workspace/reload` changes the served CSS *and* its URL, so returning
+tabs refetch instead of holding stale bytes. (Pinned by
+`cmd/cards` `TestReloadRotatesStylesheetStamp`.)
+
+**2. The validator (`internal/themecss.Validate`).** Every workspace theme file
+is checked at load time against the guarantees below; the built-ins pass the
+same checks. See the package doc for the full threat model — in short, it is a
+*contract* check, not a security sandbox (theme files are operator-trusted,
+git-backed definitions), and it enforces:
+
+- **Braces balance** — an unterminated rule swallows every later rule.
+- **Every rule is scoped** under `html[data-theme="<name>"]` — including
+  catching a balanced scope-escape (`html[data-theme="x"]{…}` followed by an
+  unscoped `body{…}`). `@media`/`@supports` wrappers are transparent; their
+  inner rules must also be scoped.
+- **No `@import`** (pulls unbounded external CSS at load).
+- **No remote `url()`** (`http:`, `https:`, protocol-relative `//`). Relative
+  and `data:` URLs pass.
+
+A theme that fails validation is **rejected, not served**: the reload returns
+`422` whose body names `{theme, file, line, rule, message}` for each violation,
+and the rest of the workspace keeps serving (contract guarantee 3 — a broken
+theme degrades to "absent," never to "error page").
+
+### Theme resolution & precedence (target chain for step 2)
+
+Today `httpapi.resolveTheme` resolves, highest first:
+
+1. `?theme=<name>` — explicit, persisted in the `wc_theme` cookie so it sticks
+   across navigation; `?theme=default` clears it.
+2. the `wc_theme` cookie.
+3. `settings.theme` (workspace default).
+
+Step 2 inserts **board-presentation theme** between the cookie and the
+workspace default, so the chain becomes:
+
+> `?theme=` (sticky cookie) → `wc_theme` cookie → **`board.presentation.theme`**
+> → `settings.theme` → built-in default
+
+Rationale: "assign a theme to a board to try it out" — a board can adopt a theme
+without changing the workspace default or requiring every visitor to pass
+`?theme=`. An explicit `?theme=` still wins (an operator overriding to compare),
+and a per-visitor cookie still beats a board default.
+
+### `Board.Theme` layering (two distinct hooks — keep them separate)
+
+There are two board-level theming hooks and they do **not** collide:
+
+- **`[data-board="<id>"]` inline tokens** (existing). `board.Theme` is a
+  whitelist of hue tokens emitted as inline custom properties on the board
+  wrapper (`boardStyle`). It *tweaks tokens* within whatever named theme is
+  active — it is not a theme and never emits rules.
+- **`board.presentation.theme`** (step 2). Names a full theme that sets
+  `html[data-theme]` for that board via the precedence chain above.
+
+They compose: the named theme sets the token baseline; the board's inline
+tokens override specific hues on top. Neither requires markup changes.
+
+### Back-compat (non-negotiable)
+
+- The embedded `journal`/`labels` themes keep working unchanged; extraction to
+  files (step 2) keeps them embedded as defaults so a bare `cards init` still
+  has them.
+- `?theme=` and the `wc_theme` cookie are unchanged.
+- An unknown theme name still passes through to `html[data-theme]` and
+  harmlessly matches no CSS (already pinned by an httpapi test) — a stale cookie
+  or a not-yet-installed shared theme never errors.
+
+### Workspace-font policy
+
+The validator forbids remote `url()` *inside* theme CSS, but themes still need
+web fonts. The reconciliation: a theme declares fonts **only** in its `.json`
+manifest (`fonts` → a stylesheet href), the same reviewed, explicit channel the
+built-ins use today (`themeFonts`). The manifest URL is an intentional,
+git-reviewed declaration; an inline `url()` buried in CSS is not. So:
+
+- **Allowed:** `fonts` href in the theme manifest (e.g. a Google Fonts URL),
+  and `data:`/relative `url()` in the CSS.
+- **Rejected:** any remote `url()` in the CSS body.
+
+This keeps "where does this theme fetch from" answerable by reading one
+manifest field, not by scanning stylesheet bytes.
 
 ## The theme contract, v1 (2026-07-07)
 
