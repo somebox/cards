@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "cards-serve",
+      "runtimeExecutable": "./cards",
+      "runtimeArgs": ["serve", "--workspace", "examples/demo-workspace", "--port", "8788"],
+      "port": 8788
+    }
+  ]
+}
