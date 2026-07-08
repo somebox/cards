@@ -71,6 +71,119 @@ func TestReloadRotatesStylesheetStamp(t *testing.T) {
 	}
 }
 
+// getText GETs url and returns status + body as a string.
+func getText(t *testing.T, url string) (int, string) {
+	t.Helper()
+	resp, err := http.Get(url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	b, _ := io.ReadAll(resp.Body)
+	return resp.StatusCode, string(b)
+}
+
+// writeWorkspaceTheme drops a theme css (+ optional json) into the workspace.
+func writeWorkspaceTheme(t *testing.T, dir, name, css, manifest string) {
+	t.Helper()
+	td := filepath.Join(dir, "definitions", "themes")
+	if err := os.MkdirAll(td, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(td, name+".css"), []byte(css), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if manifest != "" {
+		if err := os.WriteFile(filepath.Join(td, name+".json"), []byte(manifest), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+// TestReloadInstallsWorkspaceTheme is the P4 end-to-end: drop a theme file into
+// the workspace, reload, and it is (a) served concatenated into /ui/style.css,
+// (b) offered in the nav theme picker, and (c) applied when selected via
+// ?theme=. This is "install by file drop + reload," no rebuild.
+func TestReloadInstallsWorkspaceTheme(t *testing.T) {
+	ts, dir := newTestApp(t)
+
+	// Not present before install.
+	_, cssBefore := getText(t, ts.URL+"/ui/style.css")
+	if strings.Contains(cssBefore, "data-theme=\"sunset\"") {
+		t.Fatal("sunset theme present before it was installed")
+	}
+
+	writeWorkspaceTheme(t, dir, "sunset",
+		"html[data-theme=\"sunset\"] { --c-accent: #e0662c; }\n"+
+			"html[data-theme=\"sunset\"] .card { border-radius: 10px; }",
+		`{"name":"Sunset","description":"warm dusk"}`)
+
+	if code, out := appDo(t, "POST", ts.URL+"/v1/workspace/reload", ""); code != 200 {
+		t.Fatalf("reload: %d %v", code, out)
+	} else if n, _ := out["themes"].(float64); n != 1 {
+		t.Errorf("reload reported %v themes, want 1", out["themes"])
+	}
+
+	// (a) served in the concatenated stylesheet
+	_, css := getText(t, ts.URL+"/ui/style.css")
+	if !strings.Contains(css, `html[data-theme="sunset"]`) || !strings.Contains(css, "#e0662c") {
+		t.Error("installed theme CSS not served in /ui/style.css")
+	}
+
+	// (b) offered in the nav picker on an HTML page
+	ids := boardsServed(t, ts.URL)
+	_, page := getText(t, ts.URL+"/ui/boards/"+ids[0])
+	if !strings.Contains(page, "?theme=sunset") {
+		t.Error("installed theme not offered in the nav theme picker")
+	}
+
+	// (c) applied when selected
+	_, themed := getText(t, ts.URL+"/ui/boards/"+ids[0]+"?theme=sunset")
+	if !strings.Contains(themed, `data-theme="sunset"`) {
+		t.Error("?theme=sunset did not set html[data-theme]")
+	}
+}
+
+// TestReloadRejectsBrokenThemeButKeepsServing pins THEMES.md guarantee 3: a
+// theme that violates the contract is SKIPPED with a warning naming the
+// file/line/rule — the reload still succeeds (200), the bad theme is absent,
+// and the rest of the workspace keeps serving. It is never a hard error.
+func TestReloadRejectsBrokenThemeButKeepsServing(t *testing.T) {
+	ts, dir := newTestApp(t)
+
+	// A balanced-but-scope-escaping theme: the trailing rule is unscoped.
+	writeWorkspaceTheme(t, dir, "leaky",
+		"html[data-theme=\"leaky\"] { color: red }\nbody { color: blue }", "")
+
+	code, out := appDo(t, "POST", ts.URL+"/v1/workspace/reload", "")
+	if code != 200 {
+		t.Fatalf("reload with a broken theme must still be 200 (guarantee 3), got %d %v", code, out)
+	}
+	if n, _ := out["themes"].(float64); n != 0 {
+		t.Errorf("broken theme should not be counted as loaded; themes=%v", out["themes"])
+	}
+	warnings, ok := out["warnings"].([]any)
+	if !ok || len(warnings) == 0 {
+		t.Fatalf("expected warnings naming the rejected theme; got %v", out["warnings"])
+	}
+	joined := ""
+	for _, w := range warnings {
+		joined += w.(string) + "\n"
+	}
+	if !strings.Contains(joined, "leaky") || !strings.Contains(joined, "not scoped") {
+		t.Errorf("warning should name the theme and the scope violation; got %q", joined)
+	}
+
+	// The bad theme is NOT served, and the workspace is still up.
+	_, css := getText(t, ts.URL+"/ui/style.css")
+	if strings.Contains(css, "data-theme=\"leaky\"") {
+		t.Error("rejected theme leaked into the served stylesheet")
+	}
+	if ids := boardsServed(t, ts.URL); len(ids) == 0 {
+		t.Error("workspace stopped serving after a broken theme was dropped in")
+	}
+}
+
 // newTestApp scaffolds a fresh workspace in t.TempDir and mounts the
 // reloadable composition around it — the same wiring `cards serve` uses.
 func newTestApp(t *testing.T) (*httptest.Server, string) {
@@ -84,7 +197,7 @@ func newTestApp(t *testing.T) (*httptest.Server, string) {
 		t.Fatalf("open workspace: %v", err)
 	}
 	t.Cleanup(func() { svc.Close(); st.Close() })
-	srv, err := httpapi.New(svc, result.Workspace, result.CardTypes, result.Boards, st)
+	srv, err := httpapi.New(svc, result.Workspace, result.CardTypes, result.Boards, result.Themes, st)
 	if err != nil {
 		t.Fatalf("http server: %v", err)
 	}

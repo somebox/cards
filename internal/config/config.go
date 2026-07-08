@@ -32,6 +32,10 @@ type Result struct {
 	CardTypes  map[string]*core.CardType
 	Boards     map[string]*core.Board
 	Extensions []Extension
+	// Themes are workspace-loaded UI themes (definitions/themes/<name>.{css,json}),
+	// validated at load time; a rejected theme is absent here and reported in
+	// Warnings. Built-in themes are embedded in style.css, not here.
+	Themes map[string]*core.Theme
 	// Warnings are non-fatal load-time findings (e.g. an unrecognized
 	// settings.persist_conditions entry) — surfaced by the caller (cmd/cards
 	// logs them to stderr), never blocking Load. See EVENTS.md §12 Step 3
@@ -58,6 +62,10 @@ func (l *Loader) Load() (*Result, error) {
 	if err != nil {
 		return nil, fmt.Errorf("load extensions: %w", err)
 	}
+	themes, themeWarnings, err := loadThemes(l.workspaceDir)
+	if err != nil {
+		return nil, fmt.Errorf("load themes: %w", err)
+	}
 	// Seed users from settings.default_user if users list is empty.
 	if len(ws.Users) == 0 && ws.Settings.DefaultUser != "" {
 		ws.Users = []core.User{
@@ -66,7 +74,8 @@ func (l *Loader) Load() (*Result, error) {
 	}
 	return &Result{
 		Workspace: ws, CardTypes: types, Boards: boards, Extensions: exts,
-		Warnings: validatePersistConditions(ws),
+		Themes:   themes,
+		Warnings: append(validatePersistConditions(ws), themeWarnings...),
 	}, nil
 }
 

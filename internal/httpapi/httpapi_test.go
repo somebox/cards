@@ -36,7 +36,7 @@ func newServer(t *testing.T) (*httptest.Server, *core.Service) {
 	if err := seed.IfEmpty(context.Background(), st, svc, r.Workspace); err != nil {
 		t.Fatalf("seed: %v", err)
 	}
-	srv, err := httpapi.New(svc, r.Workspace, r.CardTypes, r.Boards, st)
+	srv, err := httpapi.New(svc, r.Workspace, r.CardTypes, r.Boards, r.Themes, st)
 	if err != nil {
 		t.Fatalf("new http server: %v", err)
 	}
@@ -688,7 +688,7 @@ func newServerStore(t *testing.T) (*httptest.Server, *core.Service, *sqlite.Stor
 	}
 	t.Cleanup(func() { st.Close() })
 	svc := core.NewService(r.Workspace, r.CardTypes, r.Boards, st)
-	srv, err := httpapi.New(svc, r.Workspace, r.CardTypes, r.Boards, st)
+	srv, err := httpapi.New(svc, r.Workspace, r.CardTypes, r.Boards, r.Themes, st)
 	if err != nil {
 		t.Fatalf("new http server: %v", err)
 	}

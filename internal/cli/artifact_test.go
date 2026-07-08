@@ -49,7 +49,7 @@ func TestAttachCommand(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	srv, err := httpapi.New(svc, ws, types, boards, st)
+	srv, err := httpapi.New(svc, ws, types, boards, nil, st)
 	if err != nil {
 		t.Fatal(err)
 	}

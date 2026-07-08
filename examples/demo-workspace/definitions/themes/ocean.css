@@ -1,0 +1,29 @@
+/* ocean — an example WORKSPACE theme, loaded from definitions/themes/ (not
+   embedded in style.css). A cool, high-contrast deep-water palette. Every rule
+   is scoped under html[data-theme="ocean"] so it can be added/removed without
+   touching any other theme (THEMES.md contract). Validated at load time by
+   internal/themecss. */
+
+html[data-theme="ocean"] {
+  --c-accent: #1c7ed6;
+  --c-accent-ink: #0b4a86;
+  --c-flat: #dbeafe;
+  --c-surface: #f2f8fd;
+  --c-page: #eaf3fb;
+  --type-task: #1c7ed6;
+  --link-depends-on: #0891b2;
+  --link-blocked-by: #b45309;
+}
+
+html[data-theme="ocean"] .card {
+  border-radius: 10px;
+  box-shadow: 0 1px 0 rgba(11, 74, 134, 0.10), 0 6px 18px rgba(11, 74, 134, 0.08);
+}
+
+html[data-theme="ocean"] .card:hover {
+  box-shadow: 0 2px 0 rgba(11, 74, 134, 0.14), 0 10px 26px rgba(11, 74, 134, 0.12);
+}
+
+html[data-theme="ocean"] .app-nav {
+  background: linear-gradient(90deg, #0b4a86, #1c7ed6);
+}

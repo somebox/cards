@@ -329,7 +329,7 @@ func (s *Server) renderCardDetail(w http.ResponseWriter, r *http.Request, c *cor
 	data.Error = err
 	data.TypeThemes = s.buildTypeThemes()
 	data.OutLinks, data.InLinks = s.cardRelations(r.Context(), c)
-	data.Theme = s.resolveTheme(w, r)
+	data.Theme = s.resolveTheme(w, r, b)
 	if wantsPartial(r) {
 		s.renderPartial(w, "card_detail.html", data)
 	} else {
@@ -358,7 +358,7 @@ func (s *Server) uiCardModal(w http.ResponseWriter, r *http.Request) {
 	data.TagSet = s.ws.TagSet
 	data.TypeThemes = s.buildTypeThemes()
 	data.OutLinks, data.InLinks = s.cardRelations(r.Context(), c)
-	data.Theme = s.resolveTheme(w, r)
+	data.Theme = s.resolveTheme(w, r, b)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if e := s.pages["card_modal.html"].ExecuteTemplate(w, "card_modal", data); e != nil {
 		http.Error(w, "template error: "+e.Error(), http.StatusInternalServerError)
@@ -660,18 +660,19 @@ func renderValue(v any) string {
 // --- render helpers ---
 
 func (s *Server) renderPage(w http.ResponseWriter, r *http.Request, name string, data ViewData) {
-	data.Theme = s.resolveTheme(w, r)
+	data.Theme = s.resolveTheme(w, r, data.Board)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := s.pages[name].ExecuteTemplate(w, "layout", data); err != nil {
 		http.Error(w, "template error: "+err.Error(), http.StatusInternalServerError)
 	}
 }
 
-// resolveTheme picks the active UI theme for html[data-theme]. Precedence:
-// an explicit ?theme= (persisted in a cookie so it sticks across navigation;
-// ?theme=default clears it), else the cookie, else the workspace default.
-// Empty string = the built-in default theme.
-func (s *Server) resolveTheme(w http.ResponseWriter, r *http.Request) string {
+// resolveTheme picks the active UI theme for html[data-theme]. Precedence,
+// highest first: an explicit ?theme= (persisted in a cookie so it sticks across
+// navigation; ?theme=default clears it), else the cookie, else the board's
+// presentation.theme (board may be nil), else the workspace default. Empty
+// string = the built-in default theme. See docs/design/THEMES.md.
+func (s *Server) resolveTheme(w http.ResponseWriter, r *http.Request, board *core.Board) string {
 	if t := r.URL.Query().Get("theme"); t != "" {
 		if t == "default" {
 			t = ""
@@ -681,6 +682,9 @@ func (s *Server) resolveTheme(w http.ResponseWriter, r *http.Request) string {
 	}
 	if c, err := r.Cookie("wc_theme"); err == nil && c.Value != "" {
 		return c.Value
+	}
+	if board != nil && board.Presentation != nil && board.Presentation.Theme != "" {
+		return board.Presentation.Theme
 	}
 	return s.ws.Settings.Theme
 }

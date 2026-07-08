@@ -12,6 +12,7 @@ import (
 	"html/template"
 	"net/http"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -23,10 +24,12 @@ import (
 //go:embed templates/*.html templates/*.css
 var templateFS embed.FS
 
-// themeFonts is the built-in themes' font manifest: theme name → Google Fonts
-// stylesheet href. Kept as data so templates stay theme-blind; extraction to
-// definitions/themes/<name>.json is THEMES.md step 2.
-var themeFonts = map[string]string{
+// builtinThemeFonts is the EMBEDDED themes' font manifest: theme name → Google
+// Fonts stylesheet href. Immutable data for the themes compiled into style.css.
+// Workspace-loaded themes carry their own font href in their manifest and are
+// merged over this per-Server in New() — the resolved lookup is instance state,
+// not a package var, so a reload picks up a new theme's fonts.
+var builtinThemeFonts = map[string]string{
 	"journal": "https://fonts.googleapis.com/css2?family=Caveat:wght@500;600;700&family=Kalam:wght@400;700&display=swap",
 	"labels":  "https://fonts.googleapis.com/css2?family=Sono:wght@200;400;600&display=swap",
 }
@@ -41,6 +44,10 @@ type Server struct {
 	base    *template.Template            // layout + FuncMap, cloned per render
 	pages   map[string]*template.Template // pre-parsed page sets (layout+page+partials)
 	envUser string
+	// themes are the workspace-loaded UI themes (name → validated CSS + font
+	// manifest), served concatenated after the base stylesheet and offered in
+	// the theme picker. Built-in themes live in style.css, not here.
+	themes map[string]*core.Theme
 	// assetStamp busts the browser's stylesheet cache. It is per-Server (per
 	// composition generation), NOT per-process: each New() — including every
 	// workspace reload, which builds a fresh Server — mints a new stamp, so the
@@ -52,18 +59,54 @@ type Server struct {
 	assetStamp int64
 }
 
+// sortedThemeNames returns the embedded theme names unioned with the loaded
+// ones, deduped and sorted — the selectable set for the theme picker.
+func sortedThemeNames(loaded map[string]*core.Theme) []string {
+	set := map[string]bool{}
+	for name := range builtinThemeFonts {
+		set[name] = true
+	}
+	for name := range loaded {
+		set[name] = true
+	}
+	names := make([]string, 0, len(set))
+	for name := range set {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
+
 // New constructs the Server, parsing embedded templates into per-page sets.
-func New(svc *core.Service, ws *core.Workspace, types map[string]*core.CardType, boards map[string]*core.Board, st core.Store) (*Server, error) {
+// themes are the workspace-loaded themes (config.Result.Themes); nil is fine
+// (only the embedded themes are then available).
+func New(svc *core.Service, ws *core.Workspace, types map[string]*core.CardType, boards map[string]*core.Board, themes map[string]*core.Theme, st core.Store) (*Server, error) {
 	// One stamp per composition generation; the funcMap closure below captures
 	// it and the Server stores it. See the assetStamp field comment.
 	assetStamp := time.Now().UnixNano()
+	// Resolved font lookup is per-Server: embedded defaults overlaid with each
+	// loaded theme's manifest font. Instance state, not a package var.
+	themeFonts := map[string]string{}
+	for name, href := range builtinThemeFonts {
+		themeFonts[name] = href
+	}
+	for name, th := range themes {
+		if th.Fonts != "" {
+			themeFonts[name] = th.Fonts
+		}
+	}
+	// themeNames is the sorted, deduped set offered in the theme picker: the
+	// embedded themes plus every loaded one. Built once per generation.
+	themeNames := sortedThemeNames(themes)
 	funcMap := template.FuncMap{
 		"join": strings.Join,
-		// themeFonts resolves a theme's web-font stylesheet URL — the interim
-		// manifest for the built-in themes (THEMES.md step 2 moves this to
-		// definitions/themes/<name>.json). Data, not template branches: the
-		// layout emits ONE font link block driven by this lookup.
+		// themeFonts resolves a theme's web-font stylesheet URL from the resolved
+		// per-Server manifest (embedded defaults + loaded themes). Data, not
+		// template branches: the layout emits ONE font link block driven by it.
 		"themeFonts": func(name string) string { return themeFonts[name] },
+		// allThemes lists the selectable theme names (embedded + loaded), sorted,
+		// for the nav theme picker.
+		"allThemes": func() []string { return themeNames },
 		// assetStamp versions the stylesheet URL so a restarted server OR a
 		// workspace reload (each a new Server generation) serves fresh CSS to
 		// returning tabs. Captures this generation's stamp.
@@ -149,6 +192,7 @@ func New(svc *core.Service, ws *core.Workspace, types map[string]*core.CardType,
 	return &Server{
 		svc: svc, ws: ws, types: types, boards: boards, store: st,
 		base: base, pages: pages, envUser: os.Getenv("CARDS_USER"),
+		themes:     themes,
 		assetStamp: assetStamp,
 	}, nil
 }

@@ -276,6 +276,28 @@ a:hover { text-decoration: underline; }
   padding: var(--s-1) var(--s-3); border-radius: var(--r-md); font-weight: 600;
 }
 .app-nav .nav-cta:hover { background: #fff; text-decoration: none; }
+/* Theme picker — a pure-HTML <details> menu on the ink bar. No theme names
+   referenced here; the options are generated from the loaded theme set. */
+.theme-picker { position: relative; }
+.theme-picker > summary {
+  list-style: none; cursor: pointer; color: rgba(246,247,248,.72);
+  font-family: var(--font-mono); font-size: var(--t-sm); user-select: none;
+}
+.theme-picker > summary::-webkit-details-marker { display: none; }
+.theme-picker[open] > summary, .theme-picker > summary:hover { color: #fff; }
+.theme-picker .theme-menu {
+  position: absolute; right: 0; top: calc(100% + var(--s-2));
+  background: var(--c-nav-bg); border: var(--edge) solid rgba(246,247,248,.16);
+  border-radius: var(--r-md); box-shadow: var(--sh-md);
+  display: flex; flex-direction: column; min-width: 9rem; padding: var(--s-1);
+  z-index: 6;
+}
+.theme-picker .theme-menu a {
+  padding: var(--s-1) var(--s-3); border-radius: var(--r-sm);
+  text-transform: capitalize;
+}
+.theme-picker .theme-menu a:hover { background: rgba(246,247,248,.10); color: #fff; }
+.theme-picker .theme-menu a[aria-current="true"] { color: #fff; font-weight: 600; }
 
 main { padding: var(--s-5); max-width: 100%; }
 .page-title { font-size: var(--t-xl); margin-bottom: var(--s-4); letter-spacing: -.02em; }
