@@ -237,6 +237,19 @@ story. Select it with `?theme=<name>` (sticky) or a workspace `settings.theme`
 default; the conditional web-font `<link>` for a theme lives in `layout.html`
 keyed on `.Theme`.
 
+> **Workspace-loaded themes.** A named theme need not be embedded in
+> `style.css` — it can be loaded from `definitions/themes/<name>.{css,json}` and
+> concatenated after the base stylesheet. Loaded themes are validated at load
+> time by `internal/themecss` (braces balance · every rule scoped under
+> `html[data-theme="<name>"]` · no `@import` · no remote `url()`), and a failing
+> theme is rejected with a `422` (naming theme/file/line/rule) rather than
+> served — a broken theme degrades to "absent," never to an error. The
+> resolution precedence, `board.presentation.theme` layering, back-compat, and
+> the font-manifest policy are specified in
+> [`docs/design/THEMES.md`](../design/THEMES.md) → "Load-time contract". The
+> `/ui/style.css?v=<stamp>` cache-buster is per-composition-generation, so a
+> reload that changes the served CSS also rotates the URL.
+
 The worked reference is **`journal`** (`?theme=journal`): a hand-kept
 meeting-notes look — warm paper desk, pastel sticky-note cards scattered at a
 slight rotation with varied shadow depth, handwritten type (Caveat/Kalam),
