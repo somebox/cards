@@ -98,6 +98,10 @@
     var cardID = currentModalCardID();
     var input = box.querySelector('[data-comment-input]');
     var status = box.querySelector('[data-comment-status]');
+    var submitBtn = box.querySelector('[data-comment-submit]');
+    // The add-comment button is disabled while the composer is empty
+    // (whitespace-only counts as empty) — nothing to submit, so no live button.
+    function syncSubmit() { submitBtn.disabled = !(input.value || '').trim(); }
     function submit() {
       var body = (input.value || '').trim();
       if (!body) { sayStatus(status, 'Write something first.', true); return; }
@@ -111,9 +115,11 @@
         return r.text().then(function(t){ sayStatus(status, apiErrText(t, 'Comment failed'), true); });
       }).catch(function(){ sayStatus(status, 'Comment failed (network).', true); });
     }
-    box.querySelector('[data-comment-submit]').addEventListener('click', submit);
+    submitBtn.addEventListener('click', submit);
+    input.addEventListener('input', syncSubmit);
+    syncSubmit(); // start disabled: the composer opens empty
     input.addEventListener('keydown', function(e){
-      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); input.value = ''; input.blur(); sayStatus(status, ''); }
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); input.value = ''; input.blur(); sayStatus(status, ''); syncSubmit(); }
       if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); submit(); }
     });
     // In-place edit: swap the body for a textarea; save PATCHes the comment.
