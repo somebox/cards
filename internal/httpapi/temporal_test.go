@@ -59,7 +59,7 @@ func newTemporalServer(t *testing.T) (*httptest.Server, *clocktest.Fake) {
 	fake := clocktest.New(time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC))
 	svc := core.NewService(ws, types, boards, st, core.WithClock(fake))
 	t.Cleanup(svc.Close)
-	srv, err := httpapi.New(svc, ws, types, boards, st)
+	srv, err := httpapi.New(svc, ws, types, boards, nil, st)
 	if err != nil {
 		t.Fatalf("new server: %v", err)
 	}

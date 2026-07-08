@@ -167,6 +167,26 @@ type BoardPresentation struct {
 	DetailSections  []DetailSection     `json:"detail_sections,omitempty"`   // ordered sections for the detail/modal view
 	Filters         []BoardFilter       `json:"filters,omitempty"`
 	LaneSort        string              `json:"lane_sort,omitempty"` // default within-lane order (ParseSort grammar, e.g. "-fields.priority")
+	// Theme names the html[data-theme] theme applied to this board — a full
+	// named theme ("assign it to a board to try it out"), distinct from
+	// Board.Theme (a map of inline hue tokens). It sits between the visitor's
+	// ?theme cookie and the workspace default in the resolution chain (see
+	// httpapi.resolveTheme, docs/design/THEMES.md).
+	Theme string `json:"theme,omitempty"`
+}
+
+// Theme is a loaded UI theme: a scoped, validated CSS block (concatenated after
+// the base stylesheet) plus its font/metadata manifest. Built-in themes are
+// embedded in style.css; workspace themes are loaded from
+// definitions/themes/<name>.{css,json} by internal/config and validated by
+// internal/themecss. See docs/design/THEMES.md.
+type Theme struct {
+	Name        string `json:"name"`
+	CSS         string `json:"-"`                     // scoped theme CSS; served, not JSON-marshaled
+	Fonts       string `json:"fonts,omitempty"`       // optional web-font stylesheet href
+	Description string `json:"description,omitempty"` // one-line, shown in the theme picker
+	Source      string `json:"source,omitempty"`      // provenance URL (where it was shared from)
+	Contract    int    `json:"contract,omitempty"`    // theme-contract version the file targets
 }
 
 // DetailSection is an ordered group of fields in the card detail/modal view.

@@ -64,7 +64,7 @@ func newTestClientStore(t *testing.T, cfg Config) (*Client, *sqlite.Store) {
 	if err := seed.IfEmpty(context.Background(), st, svc, r.Workspace); err != nil {
 		t.Fatalf("seed: %v", err)
 	}
-	srv, err := httpapi.New(svc, r.Workspace, r.CardTypes, r.Boards, st)
+	srv, err := httpapi.New(svc, r.Workspace, r.CardTypes, r.Boards, r.Themes, st)
 	if err != nil {
 		t.Fatalf("new server: %v", err)
 	}

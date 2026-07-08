@@ -51,7 +51,7 @@ func newArtifactServer(t *testing.T) (*httptest.Server, string) {
 		t.Fatalf("artifacts: %v", err)
 	}
 	svc.SetArtifacts(am)
-	srv, err := httpapi.New(svc, ws, types, boards, st)
+	srv, err := httpapi.New(svc, ws, types, boards, nil, st)
 	if err != nil {
 		t.Fatalf("server: %v", err)
 	}

@@ -107,9 +107,12 @@ func (s *Server) uiSearch(w http.ResponseWriter, r *http.Request) {
 	s.renderPage(w, r, "search_results.html", data)
 }
 
-// uiStylesheet serves the embedded design-system CSS.
+// uiStylesheet serves the embedded design-system CSS followed by every loaded
+// workspace theme's CSS, concatenated. Each loaded theme is already validated
+// to be scoped under html[data-theme="<name>"] (internal/themecss), so appending
+// it after the base cannot affect the default or any other theme.
 func (s *Server) uiStylesheet(w http.ResponseWriter, r *http.Request) {
-	data, err := templateFS.ReadFile("templates/style.css")
+	base, err := templateFS.ReadFile("templates/style.css")
 	if err != nil {
 		http.NotFound(w, r)
 		return
@@ -119,7 +122,17 @@ func (s *Server) uiStylesheet(w http.ResponseWriter, r *http.Request) {
 	// a new binary/restart OR a workspace reload mints a new Server (new stamp,
 	// new URL) and old tabs refetch on navigation.
 	w.Header().Set("Cache-Control", "public, max-age=86400")
-	w.Write(data)
+	w.Write(base)
+	// Append loaded themes in a stable order (deterministic bytes → stable
+	// caching). Names not in builtinThemeFonts are the loaded ones.
+	for _, name := range sortedThemeNames(s.themes) {
+		th := s.themes[name]
+		if th == nil || th.CSS == "" {
+			continue // embedded theme, or nothing to append
+		}
+		w.Write([]byte("\n/* workspace theme: " + name + " */\n"))
+		w.Write([]byte(th.CSS))
+	}
 }
 
 func (s *Server) uiBoard(w http.ResponseWriter, r *http.Request) {

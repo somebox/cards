@@ -74,7 +74,7 @@ func newDirectBackend(workspaceOverride string) (directBackend, error) {
 	if err != nil {
 		return directBackend{}, fmt.Errorf("workspace %s: %w", dir, err)
 	}
-	srv, err := httpapi.New(svc, result.Workspace, result.CardTypes, result.Boards, st)
+	srv, err := httpapi.New(svc, result.Workspace, result.CardTypes, result.Boards, result.Themes, st)
 	if err != nil {
 		st.Close()
 		return directBackend{}, fmt.Errorf("build router: %w", err)

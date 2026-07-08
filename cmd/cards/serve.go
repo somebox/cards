@@ -63,7 +63,7 @@ func serveCmd(args []string) error {
 		}
 		cancel()
 	}
-	srv, err := httpapi.New(svc, result.Workspace, result.CardTypes, result.Boards, st)
+	srv, err := httpapi.New(svc, result.Workspace, result.CardTypes, result.Boards, result.Themes, st)
 	if err != nil {
 		return fmt.Errorf("build http server: %w", err)
 	}

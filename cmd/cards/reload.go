@@ -96,7 +96,7 @@ func (a *reloadableApp) reloadLocked() (*config.Result, error) {
 		return nil, fmt.Errorf("artifacts root: %w", err)
 	}
 	svc.SetArtifacts(am)
-	srv, err := httpapi.New(svc, result.Workspace, result.CardTypes, result.Boards, a.st)
+	srv, err := httpapi.New(svc, result.Workspace, result.CardTypes, result.Boards, result.Themes, a.st)
 	if err != nil {
 		svc.Close()
 		return nil, fmt.Errorf("build http server: %w", err)
@@ -134,11 +134,19 @@ func (a *reloadableApp) handleReload(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	appWriteJSON(w, 200, map[string]any{
+	body := map[string]any{
 		"reloaded": true,
 		"types":    len(result.CardTypes),
 		"boards":   len(result.Boards),
-	})
+		"themes":   len(result.Themes),
+	}
+	// Surface load-time warnings — notably a rejected theme, which is skipped
+	// (not fatal, per THEMES.md guarantee 3) but must still tell the author
+	// which file/line/rule failed so a broken theme isn't a silent no-op.
+	if len(result.Warnings) > 0 {
+		body["warnings"] = result.Warnings
+	}
+	appWriteJSON(w, 200, body)
 }
 
 // createBoardRequest is the thin create-a-board write: everything else about
