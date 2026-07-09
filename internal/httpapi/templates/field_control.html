@@ -38,12 +38,21 @@
     </select>
   {{- end}}
   {{- else}}
-  {{- if eq $ctx "create"}}<select class="select" data-create-input="field:{{$d.ID}}" data-kind="enum"{{if $d.Required}} data-required{{end}}>{{$def := $d.Default}}{{if not $d.Required}}<option value="">—</option>{{end}}{{range $d.Options}}<option value="{{.}}"{{if eq . $def}} selected{{end}}>{{.}}</option>{{end}}</select>
-  {{- else if eq $ctx "entry"}}<select class="select" data-entry-input="{{$d.ID}}" data-kind="enum"{{if $d.Required}} data-required{{end}}><option value="">—</option>{{range $d.Options}}<option value="{{.}}">{{.}}</option>{{end}}</select>
-  {{- else}}<select class="select" name="field:{{$d.ID}}">
+  {{- if eq $ctx "create"}}<div class="combobox" x-data="combobox()" @click.outside="close()">
+    <select class="select" data-create-input="field:{{$d.ID}}" data-kind="enum"{{if $d.Required}} data-required{{end}} x-show="!ready">{{$def := $d.Default}}{{if not $d.Required}}<option value="">—</option>{{end}}{{range $d.Options}}<option value="{{.}}"{{if eq . $def}} selected{{end}}>{{.}}</option>{{end}}</select>
+    {{template "combobox_ui" (dict "Options" $d.Options "Empty" (not $d.Required))}}
+  </div>
+  {{- else if eq $ctx "entry"}}<div class="combobox" x-data="combobox()" @click.outside="close()">
+    <select class="select" data-entry-input="{{$d.ID}}" data-kind="enum"{{if $d.Required}} data-required{{end}} x-show="!ready"><option value="">—</option>{{range $d.Options}}<option value="{{.}}">{{.}}</option>{{end}}</select>
+    {{template "combobox_ui" (dict "Options" $d.Options "Empty" true)}}
+  </div>
+  {{- else}}<div class="combobox" x-data="combobox()" @click.outside="close()">
+    <select class="select" name="field:{{$d.ID}}" x-show="!ready">
       <option value="">—</option>
       {{range $d.Options}}<option value="{{.}}" {{if eq . $val}}selected{{end}}>{{.}}</option>{{end}}
     </select>
+    {{template "combobox_ui" (dict "Options" $d.Options "Empty" true)}}
+  </div>
   {{- end}}
   {{- end}}
 {{- else if eq $d.Type "number"}}
@@ -67,12 +76,23 @@
     </select>
   {{- end}}
   {{- else}}
-  {{- if eq $ctx "create"}}<select class="select" data-create-input="field:{{$d.ID}}" data-kind="user"{{if $d.Required}} data-required{{end}}><option value="">—</option>{{range $users}}<option value="{{.ID}}">{{.ID}}</option>{{end}}</select>
-  {{- else if eq $ctx "entry"}}<input type="text" class="input" data-entry-input="{{$d.ID}}" data-kind="user" list="user-options"{{if $d.Required}} data-required{{end}}>
-  {{- else}}<select class="select" name="field:{{$d.ID}}">
+  {{- if eq $ctx "create"}}<div class="combobox" x-data="combobox()" data-free="1" @click.outside="close()">
+    <select class="select" data-create-input="field:{{$d.ID}}" data-kind="user"{{if $d.Required}} data-required{{end}} x-show="!ready"><option value="">—</option>{{range $users}}<option value="{{.ID}}">{{.ID}}</option>{{end}}</select>
+    {{template "combobox_ui" (dict "Options" (userIDs $users) "Empty" true "Free" true)}}
+  </div>
+  {{- else if eq $ctx "entry"}}<div class="combobox" x-data="combobox()" data-free="1" @click.outside="close()">
+    {{/* was a bare text+datalist — normalized to the same select+combobox as
+         every other user control (P5 3b; free-add preserved via data-free) */}}
+    <select class="select" data-entry-input="{{$d.ID}}" data-kind="user"{{if $d.Required}} data-required{{end}} x-show="!ready"><option value="">—</option>{{range $users}}<option value="{{.ID}}">{{.ID}}</option>{{end}}</select>
+    {{template "combobox_ui" (dict "Options" (userIDs $users) "Empty" true "Free" true)}}
+  </div>
+  {{- else}}<div class="combobox" x-data="combobox()" data-free="1" @click.outside="close()">
+    <select class="select" name="field:{{$d.ID}}" x-show="!ready">
       <option value="">—</option>
       {{range $users}}<option value="{{.ID}}" {{if eq .ID $val}}selected{{end}}>{{.ID}}</option>{{end}}
     </select>
+    {{template "combobox_ui" (dict "Options" (userIDs $users) "Empty" true "Free" true)}}
+  </div>
   {{- end}}
   {{- end}}
 {{- else}}
@@ -82,3 +102,36 @@
   {{- end}}
 {{- end}}
 {{- end}}
+
+{{/* combobox_ui — the shared filter-as-you-type shell (rebuild P5) rendered
+     AFTER a native single <select> inside a .combobox wrapper. The wrapper
+     carries x-data="combobox()" (+ data-free="1" for free-add on user
+     fields). All options are server-rendered <li>s; Alpine only toggles
+     visibility (division of labor — the client never re-renders server
+     lists; Go already did). The native
+     select stays the submitted control; this shell is hidden until Alpine
+     boots (x-cloak) and the native hides only once it has (x-show on it). */}}
+{{define "combobox_ui"}}
+<button type="button" class="select combobox__control" x-cloak x-show="ready"
+        @click="toggle()" @keydown.arrow-down.prevent="openMenu()"
+        aria-haspopup="listbox" :aria-expanded="open">
+  <span :class="{'is-placeholder': isEmpty}" x-text="label">—</span>
+</button>
+<div class="combobox__menu" x-cloak x-show="open" @keydown.escape.prevent.stop="close()">
+  <input type="text" class="combobox__filter" x-model="q" placeholder="Type to filter…"
+         aria-label="Filter options"
+         @keydown.arrow-down.prevent="move(1)" @keydown.arrow-up.prevent="move(-1)"
+         @keydown.enter.prevent="enter()">
+  <ul class="combobox__list" role="listbox">
+    {{if .Empty}}<li class="combobox__option" role="option" data-value="" x-show="match($el)"
+        :class="{'is-active': active === ''}" @click="pick($event)">—</li>{{end}}
+    {{range .Options}}<li class="combobox__option" role="option" data-value="{{.}}" x-show="match($el)"
+        :class="{'is-active': active === '{{.}}', 'is-selected': current === '{{.}}'}"
+        @click="pick($event)">{{.}}</li>
+    {{end}}
+    {{if .Free}}<li class="combobox__option combobox__option--free" role="option" x-show="freeVisible()"
+        @click="pickFree()">Use “<span x-text="q.trim()"></span>”</li>{{end}}
+    <li class="combobox__empty" x-show="noneVisible()">No matches</li>
+  </ul>
+</div>
+{{end}}

@@ -89,7 +89,16 @@ document.addEventListener('alpine:init', function () {
           } else if (kind === 'date' && v) {
             v = v.slice(0, 10); // RFC3339 → the date input's YYYY-MM-DD
           }
+          // Selects (enum/user controls since P5): a historical value that is
+          // no longer among the options (or a free-added user) must survive
+          // prefill — synthesize its option rather than silently blanking.
+          if (inp.tagName === 'SELECT' && v && !Array.prototype.some.call(inp.options, function (o) { return o.value === v; })) {
+            var opt = document.createElement('option');
+            opt.value = v; opt.textContent = v;
+            inp.appendChild(opt);
+          }
           inp.value = v;
+          inp.dispatchEvent(new Event('change', { bubbles: true })); // combobox label resync
           if (!first) first = inp;
         });
         if (first) { this.$nextTick(function () { first.focus(); }); }
@@ -133,6 +142,97 @@ document.addEventListener('alpine:init', function () {
             if (res.ok) { toast('Entry removed'); refreshCardSurface(cfg.cardId, self.$root); return; }
             self.say(res.message || 'Remove failed', true);
           });
+      }
+    };
+  });
+
+  // ---- Combobox (rebuild P5): filter-as-you-type enhancement over a native
+  // single <select> for enum/user fields. The native select STAYS in the DOM
+  // as the synced source of truth — forms, the create collector, and the
+  // entry editor all read it; the component only mirrors picks into it (and
+  // dispatches 'change' so dirty-tracking fires). Options are SERVER-RENDERED
+  // <li> elements (division of labor: no x-for over server data); filtering
+  // toggles their visibility via comboMatch. If Alpine never boots, ready
+  // stays false and the native select remains the working control. ----
+  Alpine.data('combobox', function () {
+    return {
+      ready: false, open: false, q: '', active: '', label: '', isEmpty: true,
+      current: '', allowFree: false, native: null,
+      init: function () {
+        this.native = this.$root.querySelector('select');
+        if (!this.native) return;
+        this.allowFree = this.$root.getAttribute('data-free') === '1';
+        var self = this;
+        // Stay truthful when anyone sets the native value programmatically
+        // (entry-editor prefill, Escape-revert, another component).
+        this.native.addEventListener('change', function () { self.syncLabel(); });
+        this.syncLabel();
+        this.ready = true;
+      },
+      syncLabel: function () {
+        var opt = this.native.selectedOptions && this.native.selectedOptions[0];
+        var text = opt ? opt.textContent.trim() : '';
+        this.current = this.native.value;
+        this.isEmpty = !this.current;
+        this.label = this.isEmpty ? '—' : text;
+      },
+      options: function () {
+        return Array.prototype.slice.call(this.$root.querySelectorAll('.combobox__option[data-value]'));
+      },
+      visible: function () {
+        var q = this.q, self = this;
+        return this.options().filter(function (el) { return comboMatch(el.textContent, q) || el.getAttribute('data-value') === '' && !q; });
+      },
+      match: function (el) {
+        if (el.getAttribute('data-value') === '') return !this.q; // "—" only when unfiltered
+        return comboMatch(el.textContent, this.q);
+      },
+      // free-add (user fields): offer the typed text as a pickable value when
+      // it matches no existing option exactly.
+      freeVisible: function () {
+        if (!this.allowFree || !this.q.trim()) return false;
+        var q = this.q.trim().toLowerCase();
+        return !this.options().some(function (el) { return el.textContent.trim().toLowerCase() === q; });
+      },
+      noneVisible: function () { return this.visible().length === 0 && !this.freeVisible(); },
+      openMenu: function () {
+        this.q = ''; this.active = this.native.value || ''; this.open = true;
+        var self = this;
+        this.$nextTick(function () {
+          var f = self.$root.querySelector('.combobox__filter');
+          if (f) f.focus();
+        });
+      },
+      toggle: function () { this.open ? this.close() : this.openMenu(); },
+      close: function () { this.open = false; },
+      pickValue: function (v) {
+        if (v !== '' && !Array.prototype.some.call(this.native.options, function (o) { return o.value === v; })) {
+          var o = document.createElement('option');
+          o.value = v; o.textContent = v;
+          this.native.appendChild(o); // free-add: the native select must carry it to submit it
+        }
+        this.native.value = v;
+        this.native.dispatchEvent(new Event('change', { bubbles: true }));
+        this.syncLabel(); this.close();
+      },
+      pick: function (ev) { this.pickValue(ev.target.closest('[data-value]').getAttribute('data-value')); },
+      pickFree: function () { if (this.freeVisible()) this.pickValue(this.q.trim()); },
+      move: function (dir) {
+        var vis = this.visible();
+        if (!vis.length) return;
+        var idx = -1, self = this;
+        vis.forEach(function (el, i) { if (el.getAttribute('data-value') === self.active) idx = i; });
+        var next = idx + dir;
+        if (next < 0) next = vis.length - 1;
+        if (next >= vis.length) next = 0;
+        this.active = vis[next].getAttribute('data-value');
+        vis[next].scrollIntoView({ block: 'nearest' });
+      },
+      enter: function () {
+        var vis = this.visible(), self = this;
+        var hit = vis.filter(function (el) { return el.getAttribute('data-value') === self.active; })[0] || vis[0];
+        if (hit) { this.pickValue(hit.getAttribute('data-value')); return; }
+        this.pickFree();
       }
     };
   });

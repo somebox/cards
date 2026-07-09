@@ -23,7 +23,15 @@ function ago(iso, now) {
   return Math.floor(s / 86400) + 'd ago';
 }
 
+// comboMatch: does an option label match the typed filter? Case-insensitive
+// substring — the combobox's one matching rule (rebuild P5). Empty query
+// matches everything.
+function comboMatch(label, q) {
+  if (!q) return true;
+  return String(label).toLowerCase().indexOf(String(q).toLowerCase()) !== -1;
+}
+
 // Node test-runner hook (no-op in the browser).
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { apiErrText: apiErrText, ago: ago };
+  module.exports = { apiErrText: apiErrText, ago: ago, comboMatch: comboMatch };
 }
