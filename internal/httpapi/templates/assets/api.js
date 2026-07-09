@@ -16,12 +16,13 @@ var cardsAPI = (function () {
   // parseErrorBody extracts {message, field, validOptions} from a structured
   // core.Error JSON body; non-JSON bodies fall back to the given message.
   function parseErrorBody(text, fallback) {
-    var out = { message: fallback, field: '', validOptions: null };
+    var out = { message: fallback, field: '', value: '', validOptions: null };
     try {
       var e = JSON.parse(text);
       if (e && typeof e === 'object') {
         if (e.message) out.message = e.message;
         if (e.field) out.field = e.field;
+        if (e.value !== undefined && e.value !== null) out.value = e.value; // per-chip mirror (P6)
         if (e.valid_options) out.validOptions = e.valid_options;
       }
     } catch (_) {}
@@ -56,7 +57,7 @@ var cardsAPI = (function () {
             return { ok: false, status: 413, tooLarge: true, message: 'The server rejected the file as too large.' };
           }
           var e = parseErrorBody(t, 'Request failed');
-          return { ok: false, status: r.status, message: e.message, field: e.field, validOptions: e.validOptions };
+          return { ok: false, status: r.status, message: e.message, field: e.field, value: e.value, validOptions: e.validOptions };
         });
       })
       .catch(function () {

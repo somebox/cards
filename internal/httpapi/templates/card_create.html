@@ -7,7 +7,7 @@
      modal instance); per-field errors render from the structured core.Error. */}}
 {{define "card_create_modal"}}
 <div class="create-modal" data-create-modal
-     data-board="{{if .Board}}{{.Board.ID}}{{end}}" data-status="{{.CreateStatus}}">
+     x-data="createModal({board: '{{if .Board}}{{.Board.ID}}{{end}}', status: '{{.CreateStatus}}'})">
   <div class="modal__head">
     <div class="modal__head-main">
       <span class="card-title__view">{{if .CardType}}New {{.CardType.Name}}{{else}}New card{{end}}</span>
@@ -21,7 +21,7 @@
     <div class="type-picker">
       {{range .TypeOptions}}
       {{$th := typeTheme $.TypeThemes .Value}}
-      <button type="button" class="type-picker__opt" data-create-type="{{.Value}}">
+      <button type="button" class="type-picker__opt" data-create-type="{{.Value}}" @click="pickType">
         <span class="card__type-badge" data-type="{{.Value}}"{{if $th.Icon}} data-icon="{{$th.Icon}}"{{end}}
               {{- if $th.Accent}} style="--badge-ink:{{$th.Accent}}{{- if $th.Muted}};--badge-wash:{{$th.Muted}}{{end}}"{{end}}>{{.Label}}</span>
       </button>
@@ -30,7 +30,7 @@
     {{else}}
     {{/* --- Mode 2: the schema-driven creation form --- */}}
     <div class="create-form" data-create-form data-type-id="{{.CardType.ID}}">
-      <div class="create-form__status alert" data-create-alert hidden></div>
+      <div class="create-form__status alert" data-create-alert x-cloak x-show="alert" x-text="alert"></div>
 
       <label class="field">
         <span class="field__label">Title <span class="req">*</span></span>
@@ -73,7 +73,7 @@
   </div>
   <div class="modal__footer">
     <button type="button" class="btn btn--ghost" onclick="closeModal()">Cancel</button>
-    {{if .CardType}}<button type="button" class="btn btn--primary" data-create-save>Create card</button>{{end}}
+    {{if .CardType}}<button type="button" class="btn btn--primary" data-create-save :disabled="saving" @click="submit()">Create card</button>{{end}}
   </div>
 </div>
 {{end}}

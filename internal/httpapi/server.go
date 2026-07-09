@@ -8,6 +8,7 @@ package httpapi
 
 import (
 	"embed"
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"net/http"
@@ -128,6 +129,19 @@ func New(svc *core.Service, ws *core.Workspace, types map[string]*core.CardType,
 				}
 			}
 			return id
+		},
+		// jsonAttr marshals a value as JSON for use inside an Alpine x-data
+		// attribute. The call site wraps it in SINGLE quotes (x-data='…'),
+		// so raw double-quoted JSON is attribute-safe. template.JS bypasses
+		// html/template's context-aware escaping (which would otherwise
+		// HTML-encode the quotes and break Alpine's parser). Values are
+		// server-controlled ids, so injection is not a concern here.
+		"jsonAttr": func(v any) template.JS {
+			b, err := json.Marshal(v)
+			if err != nil {
+				return template.JS("null")
+			}
+			return template.JS(b)
 		},
 		// userIDs projects []core.User to their ids — the option list the
 		// combobox shell shares with enum options (one template, one shape).
