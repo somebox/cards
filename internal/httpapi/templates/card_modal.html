@@ -75,24 +75,26 @@
          remove with the card version), never this save-form. The editor is a
          schema-driven sub-form: item_fields render their own controls, so the
          form and the API validate against the SAME definition. */}}
-    <div class="field" data-field-type="{{.Def.Type}}" data-entry-field="{{.Def.ID}}">
+    <div class="field" data-field-type="{{.Def.Type}}" data-entry-field="{{.Def.ID}}"
+         x-data="entryEditor({cardId: '{{$.Card.ID}}', field: '{{.Def.ID}}', version: {{$.Card.Version}}})">
       <label class="field__label">{{.Def.Label}}</label>
       <div class="field__val entries-box">
       <div class="entries-toolbar">
-        <button type="button" class="icon-btn" data-entry-add title="Add entry" aria-label="Add {{.Def.Label}} entry">+</button>
+        <button type="button" class="icon-btn" data-entry-add title="Add entry" aria-label="Add {{.Def.Label}} entry" @click="openAdd()">+</button>
       </div>
       {{/* The add/edit sub-form, hidden until requested. One per field. */}}
-      <div class="entry-form" data-entry-form hidden>
+      <div class="entry-form" data-entry-form x-cloak x-show="open" @keydown.escape.prevent.stop="close()">
         {{range .Def.ItemFields}}
         <label class="entry-form__row">
           <span class="entry-form__label">{{.ID}}{{if .Required}} <span class="req">*</span>{{end}}</span>
           {{template "field_control" (dict "Def" . "Ctx" "entry")}}
         </label>
         {{end}}
-        <div class="entry-form__status" data-entry-status role="status" aria-live="polite" hidden></div>
+        <div class="entry-form__status" data-entry-status role="status" aria-live="polite"
+             x-cloak x-show="status" x-text="status" :class="{'is-error': isErr}"></div>
         <div class="row entry-form__actions">
-          <button type="button" class="icon-btn icon-btn--primary" data-entry-save title="Save entry" aria-label="Save entry">✓</button>
-          <button type="button" class="icon-btn" data-entry-cancel title="Cancel" aria-label="Cancel">×</button>
+          <button type="button" class="icon-btn icon-btn--primary" data-entry-save title="Save entry" aria-label="Save entry" @click="save()">✓</button>
+          <button type="button" class="icon-btn" data-entry-cancel title="Cancel" aria-label="Cancel" @click="close()">×</button>
         </div>
       </div>
       {{if .Entries}}
@@ -106,8 +108,8 @@
               {{- range .Fields}}{{if eq .Kind "date"}}{{if .Value}}<span class="entry__time mono faint">{{.Value}}</span>{{end}}{{end}}{{end -}}
               {{if .ID}}
               <span class="entry__actions">
-                <button type="button" class="icon-btn" data-entry-edit title="Edit entry" aria-label="Edit entry">✎</button>
-                <button type="button" class="icon-btn" data-entry-remove title="Remove entry" aria-label="Remove entry">×</button>
+                <button type="button" class="icon-btn" data-entry-edit title="Edit entry" aria-label="Edit entry" @click="openEdit($event)">✎</button>
+                <button type="button" class="icon-btn" data-entry-remove title="Remove entry" aria-label="Remove entry" @click="remove($event)">×</button>
               </span>
               {{end}}
             </div>
@@ -140,17 +142,18 @@
            keyboard-reachable control; the surrounding zone accepts a drag-drop
            as an enhancement, scoped to this modal only so it can never collide
            with the board's column-move drag gesture. */}}
-      <div class="artifact-upload" data-artifact-upload
-           data-card-id="{{$.Card.ID}}" data-field="{{.Def.ID}}"
-           data-version="{{$.Card.Version}}" data-max-bytes="{{$.MaxArtifactBytes}}"
-           data-state="idle">
-        <label class="artifact-upload__zone" data-drop>
-          <input type="file" class="artifact-upload__input" data-input
+      <div class="artifact-upload" data-artifact-upload data-state="idle" :data-state="state"
+           x-data="artifactZone({cardId: '{{$.Card.ID}}', field: '{{.Def.ID}}', version: {{$.Card.Version}}, maxBytes: {{$.MaxArtifactBytes}}})">
+        <label class="artifact-upload__zone" data-drop
+               @dragenter="dragover($event)" @dragover="dragover($event)"
+               @dragleave="dragleave($event)" @drop="drop($event)">
+          <input type="file" class="artifact-upload__input" data-input @change="pick($event)"
                  aria-label="{{if .Artifact}}Replace{{else}}Upload{{end}} {{.Def.Label}}">
           <span class="artifact-upload__cta">{{if .Artifact}}Replace file…{{else}}Choose a file…{{end}}</span>
           <span class="artifact-upload__hint">or drop one here</span>
         </label>
-        <div class="artifact-upload__status" data-status role="status" aria-live="polite" hidden></div>
+        <div class="artifact-upload__status" data-status role="status" aria-live="polite"
+             x-cloak x-show="message" x-text="message" :class="{'is-error': kind === 'error'}"></div>
       </div>
       {{end}}
     </div>
@@ -213,25 +216,35 @@
       <div class="modal__scroll">
         <div class="stack">
           {{range .Card.Comments}}
-          <div class="entry" data-comment-id="{{.ID}}">
+          <div class="entry" data-comment-id="{{.ID}}" x-data="commentRow({cardId: '{{$.Card.ID}}', commentId: '{{.ID}}'})">
             <div class="entry__head">
               <span class="chip chip--owner entry__author">{{.Author}}</span>
               <span class="entry__time mono faint"><time data-ago="{{iso .CreatedAt}}" datetime="{{iso .CreatedAt}}"></time>{{if not .EditedAt.IsZero}} · edited{{end}}</span>
               <span class="entry__actions">
-                <button type="button" class="icon-btn" data-comment-edit title="Edit comment" aria-label="Edit comment">✎</button>
+                <button type="button" class="icon-btn" data-comment-edit title="Edit comment" aria-label="Edit comment" @click="start()">✎</button>
               </span>
             </div>
-            <div class="entry__body" data-comment-body>{{.Body}}</div>
+            <div class="entry__body" data-comment-body x-ref="body" x-show="!editing">{{.Body}}</div>
+            <textarea class="textarea comment-edit" rows="2" x-cloak x-show="editing" x-model="draft" x-ref="ta"
+                      @keydown.escape.prevent.stop="cancel()" aria-label="Edit comment text"></textarea>
+            <div class="row comment-composer__bar" x-cloak x-show="editing">
+              <button type="button" class="icon-btn icon-btn--primary" :disabled="saving" @click="save()" title="Save" aria-label="Save comment">✓</button>
+              <button type="button" class="icon-btn" @click="cancel()" title="Cancel" aria-label="Cancel edit">×</button>
+            </div>
           </div>
           {{end}}
         </div>
       </div>
       {{end}}
-      <div class="comment-composer" data-comment-composer>
-        <textarea class="textarea" rows="2" placeholder="Add a comment… (Esc to clear, ⌘↵ to send)" data-comment-input aria-label="Add a comment"></textarea>
-        <div class="comment-composer__status" data-comment-status role="status" aria-live="polite" hidden></div>
+      <div class="comment-composer" data-comment-composer x-data="commentComposer({cardId: '{{$.Card.ID}}'})">
+        <textarea class="textarea" rows="2" placeholder="Add a comment… (Esc to clear, ⌘↵ to send)" data-comment-input aria-label="Add a comment"
+                  x-model="text" @keydown.escape.prevent.stop="clear(); $event.target.blur()"
+                  @keydown.meta.enter.prevent="submit()" @keydown.ctrl.enter.prevent="submit()"></textarea>
+        <div class="comment-composer__status" data-comment-status role="status" aria-live="polite"
+             x-cloak x-show="status" x-text="status" :class="{'is-error': isErr}"></div>
         <div class="comment-composer__bar">
-          <button type="button" class="icon-btn icon-btn--primary" data-comment-submit title="Add comment (⌘↵)" aria-label="Add comment">✓</button>
+          <button type="button" class="icon-btn icon-btn--primary" data-comment-submit title="Add comment (⌘↵)" aria-label="Add comment"
+                  disabled :disabled="!canSubmit" @click="submit()">✓</button>
         </div>
       </div>
       </div>
