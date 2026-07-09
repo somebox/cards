@@ -2,13 +2,18 @@
 
 Welcome to the Work Cards documentation. The files have been organized into topical folders to assist developers, integrators, and agents.
 
+For repository-wide code quality, style, and review expectations, see
+[`../CONTRIBUTING.md`](../CONTRIBUTING.md).
+
 ## Directory Structure
 
 ### [Concepts](./concepts)
+
 - [CONCEPTS.md](./concepts/CONCEPTS.md) — Vocabulary (workspaces, boards, card types) and use case configurations.
 - [PHILOSOPHY.md](./concepts/PHILOSOPHY.md) — Core principles and design constraints behind keeping the system small.
 
 ### [Specification](./spec)
+
 - [SPEC.md](./spec/SPEC.md) — Main design specification, index, and principles of the Work Cards contract.
 - [SPEC-DATA-MODEL.md](./spec/SPEC-DATA-MODEL.md) — Storage layouts and core data structures.
 - [SPEC-API-SURFACE.md](./spec/SPEC-API-SURFACE.md) — Endpoint routers, client ergonomics, and boundaries.
@@ -17,10 +22,12 @@ Welcome to the Work Cards documentation. The files have been organized into topi
 - [SPEC-CARDTYPE-EXAMPLES.md](./spec/SPEC-CARDTYPE-EXAMPLES.md) — Schemas and schema example sets.
 
 ### [Architecture](./architecture)
+
 - [ARCHITECTURE.md](./architecture/ARCHITECTURE.md) — Platform views, thread safety, deployment, and supervisory seams.
 - [DESIGN.md](./architecture/DESIGN.md) — Web UI design tokens, component architecture, and CSS variables.
 
 ### [Reference](./reference)
+
 - [DEVELOPER-REFERENCE.md](./reference/DEVELOPER-REFERENCE.md) — Workspace configuration guide and Board/View landing indices.
 - [DEVELOPER-REFERENCE-SCHEMA-AUTHORING.md](./reference/DEVELOPER-REFERENCE-SCHEMA-AUTHORING.md) — Workspace schemas and version control rules.
 - [DEVELOPER-REFERENCE-TYPES-EXAMPLES.md](./reference/DEVELOPER-REFERENCE-TYPES-EXAMPLES.md) — Card Type definitions and validation.
@@ -28,16 +35,19 @@ Welcome to the Work Cards documentation. The files have been organized into topi
 - [INTEGRATOR-REFERENCE.md](./reference/INTEGRATOR-REFERENCE.md) — Drifts, codebase bindings, and type mappings.
 
 ### [Events](./events)
+
 - [EVENTS.md](./events/EVENTS.md) — Slim overview/index for the event docs.
 - [EVENTS-CORE.md](./events/EVENTS-CORE.md) — Event contract: logs, buses, dispatch seams, observer queues, and built/proposed event types.
 - [EVENTS-ROLLOUT.md](./events/EVENTS-ROLLOUT.md) — Staged rollout history and current implementation status.
 - [INTEGRATION.md](./events/INTEGRATION.md) — Server-Sent Events (SSE), monitors, and conditional business logic.
 
 ### [Extensions](./extensions)
+
 - [EXTENSIONS.md](./extensions/EXTENSIONS.md) — Execution pipelines, hook declarations, and local automation policies.
 - [MCP.md](./extensions/MCP.md) — Model Context Protocol architecture, agent tool bindings, and anti-hallucination signatures.
 
 ### [Examples](./examples)
+
 - [LIFECYCLE-EXAMPLES.md](./examples/LIFECYCLE-EXAMPLES.md) — Landing index for worked scenarios.
 - [LIFECYCLE-EXAMPLES-SETUP.md](./examples/LIFECYCLE-EXAMPLES-SETUP.md) — Common environment details.
 - [LIFECYCLE-EXAMPLES-SOFTWARE.md](./examples/LIFECYCLE-EXAMPLES-SOFTWARE.md) — End-to-end walkthrough for software engineering lines.
@@ -46,6 +56,7 @@ Welcome to the Work Cards documentation. The files have been organized into topi
 ---
 
 ### Flat Reference Files at Docs Root
+
 - [ROADMAP.md](./ROADMAP.md) — Forward-looking work relocated from the board backlog (auth, storage, attachments, events, API, extensions).
 - [NOTES.md](./NOTES.md) — Historical rationale and stable design decisions (D1–D18).
 - [GH-PAGES-TODO.md](./GH-PAGES-TODO.md) — Roadmap and plan for building GitHub Pages & integrations.
