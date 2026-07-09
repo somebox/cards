@@ -225,7 +225,7 @@ func TestVendoredAlpinePresent(t *testing.T) {
 	if !strings.Contains(layout, `/ui/assets/alpine.min.js?v={{assetStamp}}`) {
 		t.Error("layout.html does not load the self-hosted Alpine with the assetStamp cache-buster")
 	}
-	for _, asset := range []string{"helpers.js", "ui.js"} {
+	for _, asset := range []string{"helpers.js", "api.js", "ui.js", "components.js"} {
 		if !strings.Contains(layout, "/ui/assets/"+asset+"?v={{assetStamp}}") {
 			t.Errorf("layout.html does not load %s with the assetStamp cache-buster", asset)
 		}
