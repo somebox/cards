@@ -69,7 +69,6 @@
     </div>
 
     {{range .Fields}}
-    {{$field := .}}
     {{if eq .Display "hidden"}}{{else}}
     {{if eq .Def.Type "repeating"}}
     {{/* Repeating fields are managed via the entry endpoints (append/update/
@@ -87,13 +86,7 @@
         {{range .Def.ItemFields}}
         <label class="entry-form__row">
           <span class="entry-form__label">{{.ID}}{{if .Required}} <span class="req">*</span>{{end}}</span>
-          {{if eq .Type "text"}}<textarea class="textarea" rows="2" data-entry-input="{{.ID}}" data-kind="text"{{if .Required}} data-required{{end}}></textarea>
-          {{else if eq .Type "enum"}}<select class="select" data-entry-input="{{.ID}}" data-kind="enum"{{if .Required}} data-required{{end}}><option value="">—</option>{{range .Options}}<option value="{{.}}">{{.}}</option>{{end}}</select>
-          {{else if eq .Type "number"}}<input type="number" class="input" data-entry-input="{{.ID}}" data-kind="number"{{if .Required}} data-required{{end}}>
-          {{else if eq .Type "date"}}<input type="date" class="input" data-entry-input="{{.ID}}" data-kind="date"{{if .Required}} data-required{{end}}>
-          {{else if eq .Type "user"}}<input type="text" class="input" data-entry-input="{{.ID}}" data-kind="user" list="user-options"{{if .Required}} data-required{{end}}>
-          {{else}}<input type="text" class="input" data-entry-input="{{.ID}}" data-kind="{{.Type}}"{{if .Required}} data-required{{end}}>
-          {{end}}
+          {{template "field_control" (dict "Def" . "Ctx" "entry")}}
         </label>
         {{end}}
         <div class="entry-form__status" data-entry-status role="status" aria-live="polite" hidden></div>
@@ -180,25 +173,7 @@
       </div>
 
       <div class="field__edit" data-edit hidden>
-        {{if eq .Def.Type "text"}}
-          <textarea class="textarea{{if eq .Display "monospace"}} mono{{end}}" name="field:{{.Def.ID}}">{{.ValueStr}}</textarea>
-        {{else if eq .Def.Type "enum"}}
-          <select class="select" name="field:{{.Def.ID}}">
-            <option value="">—</option>
-            {{range .Def.Options}}<option value="{{.}}" {{if eq . $field.ValueStr}}selected{{end}}>{{.}}</option>{{end}}
-          </select>
-        {{else if eq .Def.Type "number"}}
-          <input type="number" class="input" name="field:{{.Def.ID}}" value="{{.ValueStr}}">
-        {{else if eq .Def.Type "date"}}
-          <input type="date" class="input" name="field:{{.Def.ID}}" value="{{.ValueStr}}">
-        {{else if eq .Def.Type "user"}}
-          <select class="select" name="field:{{.Def.ID}}">
-            <option value="">—</option>
-            {{range .Users}}<option value="{{.ID}}" {{if eq .ID $field.ValueStr}}selected{{end}}>{{.ID}}</option>{{end}}
-          </select>
-        {{else}}
-          <input type="text" class="input" name="field:{{.Def.ID}}" value="{{.ValueStr}}">
-        {{end}}
+        {{template "field_control" (dict "Def" .Def "Ctx" "edit" "Value" .ValueStr "Display" .Display "Users" .Users)}}
       </div>
     </div>
     {{end}}
