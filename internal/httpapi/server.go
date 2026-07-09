@@ -21,7 +21,7 @@ import (
 	"github.com/somebox/cards/internal/core"
 )
 
-//go:embed templates/*.html templates/*.css
+//go:embed templates/*.html templates/*.css templates/assets/*
 var templateFS embed.FS
 
 // builtinThemeFonts is the EMBEDDED themes' font manifest: theme name → Google
@@ -235,6 +235,7 @@ func (s *Server) Router() http.Handler {
 	r.Get("/", s.uiIndex)
 	r.Get("/ui/search", s.uiSearch)
 	r.Get("/ui/style.css", s.uiStylesheet)
+	r.Get("/ui/assets/{name}", s.uiAsset)
 	r.Get("/ui/boards/{id}", s.uiBoard)
 	r.Get("/ui/breaches", s.uiBreaches)
 	r.Get("/ui/cards/new", s.uiNewCardRedirect)

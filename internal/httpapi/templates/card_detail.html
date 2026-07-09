@@ -16,5 +16,12 @@
     <button type="submit" class="btn btn--primary" disabled>Save</button>
   </div>
 </form>
-<script>wireDirtySave(document.getElementById("detail-form")); wireClickToEdit(document.getElementById("detail-form"));</script>
+<script>
+// Deferred: ui.js loads at the end of <body>, AFTER this content block, so a
+// direct call here would hit undefined functions (latent bug, now fixed).
+document.addEventListener('DOMContentLoaded', function () {
+  wireDirtySave(document.getElementById("detail-form"));
+  wireClickToEdit(document.getElementById("detail-form"));
+});
+</script>
 {{end}}

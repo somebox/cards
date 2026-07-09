@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"path"
 	"sort"
 	"strconv"
 	"strings"
@@ -105,6 +106,30 @@ func (s *Server) uiSearch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.renderPage(w, r, "search_results.html", data)
+}
+
+// uiAsset serves an embedded static asset (JS) from templates/assets/. The
+// {name} param is flattened through path.Base so traversal can't escape the
+// embedded dir; unknown names 404. Long caching is safe for the same reason
+// as the stylesheet: every <script src> URL carries ?v=<assetStamp>, which
+// rotates per composition generation.
+func (s *Server) uiAsset(w http.ResponseWriter, r *http.Request) {
+	name := path.Base(chi.URLParam(r, "name"))
+	data, err := templateFS.ReadFile("templates/assets/" + name)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	switch path.Ext(name) {
+	case ".js":
+		w.Header().Set("Content-Type", "text/javascript; charset=utf-8")
+	case ".css":
+		w.Header().Set("Content-Type", "text/css; charset=utf-8")
+	default:
+		w.Header().Set("Content-Type", "application/octet-stream")
+	}
+	w.Header().Set("Cache-Control", "public, max-age=86400")
+	w.Write(data)
 }
 
 // uiStylesheet serves the embedded design-system CSS followed by every loaded

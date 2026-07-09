@@ -60,3 +60,30 @@ jobs:
           version: v2.12.2
           install-mode: goinstall
           args: --timeout=5m
+
+  frontend:
+    # JS syntax + unit tests via Node's built-in runner — no npm, no deps, no
+    # build step (frontend-rebuild Phase 0). The CSS/JS *contract* guards
+    # (swapHTML seam, x-for division-of-labor, token-drift ratchets) are Go
+    # tests in internal/docaudit and already run in the `test` job; this job
+    # covers what Go can't: JS syntax and the pure-helper unit tests.
+    name: Frontend (JS)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Syntax-check our JS assets (vendored files excluded)
+        run: |
+          for f in internal/httpapi/templates/assets/*.js; do
+            case "$(basename "$f")" in alpine.min.js) continue ;; esac
+            echo "node --check $f"
+            node --check "$f"
+          done
+
+      - name: JS unit tests (node:test)
+        run: node --test "tests/js/*.test.cjs"
