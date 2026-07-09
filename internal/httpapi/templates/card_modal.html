@@ -63,8 +63,30 @@
       <div class="field__view{{if not .Card.Tags}} is-empty{{end}}" tabindex="0" data-view>{{- if .Card.Tags}}{{range .Card.Tags}}<span class="chip chip--tag">{{.}}</span> {{end}}{{else}}Add tags…{{end -}}
       </div>
       <div class="field__edit" data-edit hidden>
-        <input type="text" class="input" name="tags" value="{{join .Card.Tags ", "}}" list="tag-options" placeholder="Add tags…">
-        {{if .TagSet}}<datalist id="tag-options">{{range .TagSet}}<option value="{{.}}">{{end}}</datalist>{{end}}
+        <div class="multiselect" x-data="tagChips({policy: '{{$.TagPolicy}}'})" @click.outside="open = false">
+          {{/* the comma-joined input the server already expects: submitted
+               control + no-JS fallback; hidden once the chip editor boots */}}
+          <input type="text" class="input" name="tags" value="{{join .Card.Tags ", "}}" placeholder="Add tags…" x-show="!ready">
+          <div class="multiselect__chips" x-cloak x-show="ready" @click="open = true; $refs.taginput.focus()">
+            {{/* chips mirror the LIVE edit state of the input above (the one
+                 sanctioned x-for: ephemeral user-typed values, never API data —
+                 first paint and no-JS are the server-rendered view + input) */}}
+            <template x-for="v in values" :key="v">
+              <span class="chip chip--tag" :class="{'is-invalid': invalid === v}"><span x-text="v"></span><button type="button" class="chip__x" @click.stop="removeTag(v)" :aria-label="'Remove ' + v">×</button></span>
+            </template>
+            <input type="text" class="multiselect__input" x-ref="taginput" x-model="q" placeholder="Add tags…"
+                   aria-label="Add tag" @focus="open = true"
+                   @keydown.enter.prevent="submit()" @keydown.,.prevent="submit()"
+                   @keydown.backspace="backspace()" @keydown.escape.prevent.stop="open = false">
+          </div>
+          <div class="combobox__menu" x-cloak x-show="open">
+            <ul class="combobox__list" role="listbox">
+              {{range $.TagSet}}<li class="combobox__option" role="option" data-value="{{.}}" x-show="match($el)" @click="pick($event)">{{.}}</li>
+              {{end}}
+              <li class="combobox__empty" x-show="!canFree()" x-text="invalid ? ('“' + invalid + '” is not in the workspace tag set') : 'Workspace tags only'"></li>
+            </ul>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -170,7 +192,9 @@
     <div class="field field--editable" data-field="field:{{.Def.ID}}" data-field-type="{{.Def.Type}}">
       <label class="field__label">{{.Def.Label}}{{if .Def.Required}} <span class="req">*</span>{{end}}</label>
 
-      <div class="field__view{{if not .ValueStr}} is-empty{{end}}{{if eq .Display "monospace"}} mono{{end}}" tabindex="0" data-view>{{- if eq .Display "badge" -}}
+      <div class="field__view{{if not .ValueStr}} is-empty{{end}}{{if eq .Display "monospace"}} mono{{end}}" tabindex="0" data-view>{{- if .Def.Multiple -}}
+          {{- if .ValueStr}}<span class="chip-cluster">{{range .Value}}<span class="chip chip--tag">{{.}}</span>{{end}}</span>{{else}}Not set{{end -}}
+        {{- else if eq .Display "badge" -}}
           {{- if .ValueStr}}<span class="chip chip--tag">{{.ValueStr}}</span>{{else}}Not set{{end -}}
         {{- else if .ValueStr}}{{.ValueStr}}{{else}}Not set{{end -}}
       </div>

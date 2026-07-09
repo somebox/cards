@@ -229,6 +229,15 @@ function swapHTML(container, html) {
             var name = (e.field === 'title' || e.field === 'status' || e.field === 'tags')
               ? e.field : 'field:' + e.field;
             fieldError(name, msg);
+            // per-chip mirror (P6): a structured error that names the offending
+            // VALUE marks that chip .is-invalid on chip controls.
+            if (e.value) {
+              var inp = form.querySelector('[data-create-input="' + name + '"]');
+              var wrap = inp && inp.closest('.multiselect');
+              if (wrap && window.Alpine && Alpine.$data(wrap) && Alpine.$data(wrap).markInvalid) {
+                Alpine.$data(wrap).markInvalid(e.value);
+              }
+            }
           } else {
             alertEl.hidden = false; alertEl.textContent = msg;
           }

@@ -186,10 +186,14 @@ type ViewData struct {
 	MaxArtifactBytes int64
 	// CreateStatus is the lane a "+ in this column" creation pre-selects (P2).
 	CreateStatus string
+	// TagPolicy is workspace settings.tag_policy — the tags chip editor allows
+	// free-add under open/propose and restricts to tag_set otherwise (P6).
+	TagPolicy string
 }
 
 func (s *Server) baseData(title string) ViewData {
-	return ViewData{Title: title, Boards: s.boards, Actor: s.uiActor(), MaxArtifactBytes: maxArtifactBytes}
+	return ViewData{Title: title, Boards: s.boards, Actor: s.uiActor(), MaxArtifactBytes: maxArtifactBytes,
+		TagPolicy: s.ws.Settings.TagPolicy}
 }
 
 // uiActor is the identity the server-rendered UI acts as: CARDS_USER if set,

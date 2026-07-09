@@ -237,6 +237,128 @@ document.addEventListener('alpine:init', function () {
     };
   });
 
+  // ---- Multiselect (rebuild P6): chip control over a native
+  // <select multiple> for multiple:true enum/user fields. Same architecture
+  // as the combobox: the native select stays the submitted control and the
+  // no-JS fallback; every option's chip AND menu row are SERVER-RENDERED,
+  // and this component only toggles selection state + visibility. Explicit
+  // clear-all works because the edit form carries a hidden "" sentinel input
+  // (field_control), so an empty selection posts and unsets server-side. ----
+  Alpine.data('multiSelect', function () {
+    return {
+      ready: false, open: false, q: '', sel: [],
+      native: null,
+      init: function () {
+        this.native = this.$root.querySelector('select[multiple]');
+        if (!this.native) return;
+        this.syncFromNative();
+        var self = this;
+        this.native.addEventListener('change', function () { self.syncFromNative(); });
+        this.ready = true;
+      },
+      syncFromNative: function () {
+        this.sel = Array.prototype.map.call(this.native.selectedOptions, function (o) { return o.value; });
+      },
+      has: function (v) { return this.sel.indexOf(v) !== -1; },
+      commit: function () {
+        // sel → native option.selected, then a change event for dirty-tracking
+        // (guard: change also triggers syncFromNative, which is a no-op here).
+        var sel = this.sel;
+        Array.prototype.forEach.call(this.native.options, function (o) { o.selected = sel.indexOf(o.value) !== -1; });
+        this.native.dispatchEvent(new Event('change', { bubbles: true }));
+      },
+      add: function (v) {
+        if (this.has(v)) return;
+        this.sel = this.sel.concat([v]);
+        this.commit(); this.q = '';
+        this.markInvalid(null);
+      },
+      removeValue: function (v) {
+        this.sel = this.sel.filter(function (x) { return x !== v; });
+        this.commit();
+      },
+      backspace: function () {
+        // Backspace in the empty filter removes the last chip.
+        if (!this.q && this.sel.length) this.removeValue(this.sel[this.sel.length - 1]);
+      },
+      match: function (el) {
+        var v = el.getAttribute('data-value');
+        return !this.has(v) && comboMatch(el.textContent, this.q);
+      },
+      anyMenu: function () {
+        var self = this;
+        return Array.prototype.some.call(this.$root.querySelectorAll('.combobox__option[data-value]'), function (el) { return self.match(el); });
+      },
+      pick: function (ev) { this.add(ev.target.closest('[data-value]').getAttribute('data-value')); },
+      enter: function () {
+        // Enter picks the first visible menu option.
+        var self = this;
+        var first = Array.prototype.filter.call(this.$root.querySelectorAll('.combobox__option[data-value]'), function (el) { return self.match(el); })[0];
+        if (first) this.add(first.getAttribute('data-value'));
+      },
+      openMenu: function () { this.open = true; },
+      close: function () { this.open = false; },
+      // per-chip structured-error mirror: fieldError (create path) calls this
+      // with the offending value; any edit clears it.
+      invalid: '',
+      markInvalid: function (v) { this.invalid = v || ''; }
+    };
+  });
+
+  // ---- Tag chips (rebuild P6): policy-aware, free-add-first tag editor over
+  // the comma-joined input the server already expects (name="tags" stays the
+  // submitted control + no-JS fallback). tag_set suggestions are
+  // server-rendered menu rows; chips for the CURRENT value are the one
+  // sanctioned x-for — they mirror the live edit state of the input the user
+  // is typing into (ephemeral), never API data (first paint is the
+  // server-rendered view cluster + input). Under 'propose' (default) Enter/
+  // comma chips arbitrary text; other policies restrict to tag_set. ----
+  Alpine.data('tagChips', function (cfg) {
+    return {
+      ready: false, open: false, q: '', values: [], invalid: '',
+      input: null,
+      init: function () {
+        this.input = this.$root.querySelector('input[name="tags"]');
+        if (!this.input) return;
+        this.values = (this.input.value || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+        this.ready = true;
+      },
+      commit: function () {
+        this.input.value = this.values.join(', ');
+        this.input.dispatchEvent(new Event('change', { bubbles: true }));
+      },
+      canFree: function () { return cfg.policy === 'propose' || cfg.policy === 'open'; },
+      inSet: function (v) {
+        return Array.prototype.some.call(this.$root.querySelectorAll('.combobox__option[data-value]'), function (el) {
+          return el.getAttribute('data-value') === v;
+        });
+      },
+      addTag: function (v) {
+        v = (v || '').trim().replace(/,+$/, '');
+        if (!v || this.values.indexOf(v) !== -1) { this.q = ''; return; }
+        if (!this.canFree() && !this.inSet(v)) { this.invalid = v; return; } // locked policy: tag_set only
+        this.values = this.values.concat([v]);
+        this.invalid = '';
+        this.commit(); this.q = '';
+      },
+      submit: function () { this.addTag(this.q); },
+      removeTag: function (v) {
+        this.values = this.values.filter(function (x) { return x !== v; });
+        if (this.invalid === v) this.invalid = '';
+        this.commit();
+      },
+      backspace: function () {
+        if (!this.q && this.values.length) this.removeTag(this.values[this.values.length - 1]);
+      },
+      match: function (el) {
+        var v = el.getAttribute('data-value');
+        return this.values.indexOf(v) === -1 && comboMatch(el.textContent, this.q);
+      },
+      pick: function (ev) { this.addTag(ev.target.closest('[data-value]').getAttribute('data-value')); },
+      markInvalid: function (v) { this.invalid = v || ''; }
+    };
+  });
+
   // ---- Artifact upload: click-to-browse (primary, keyboard-reachable) +
   // zone-scoped drag-drop (never document/board — cannot collide with the
   // column-move gesture). States: idle / dragover / uploading / success /

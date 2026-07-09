@@ -388,6 +388,33 @@ main { padding: var(--s-5); max-width: 100%; }
 .combobox__option.is-selected { font-weight: var(--role-strong-weight); }
 .combobox__option--free { color: var(--c-accent); font-style: italic; }
 .combobox__empty { padding: var(--s-1) var(--s-3); color: var(--c-faint); font-style: italic; }
+/* Multiselect (rebuild P6): chip control over a native <select multiple>
+   (enum/user) or the tags comma input. STABLE THEME HOOKS: .multiselect /
+   .multiselect__chips / .multiselect__input / .chip__x; the dropdown reuses
+   the .combobox__menu/__option hooks (one menu language). Chips are .chip —
+   the SAME sizing tokens as the read-only view cluster, so view↔edit keeps
+   chip geometry (WYSIWYG). Token discipline: neutral/role tokens only. */
+.multiselect { position: relative; display: block; }
+.multiselect__chips {
+  display: flex; flex-wrap: wrap; gap: var(--s-1); align-items: center;
+  min-height: 2.1rem; padding: var(--s-1);
+  border: var(--edge) solid var(--c-border); border-radius: var(--r-md);
+  background: var(--c-surface); cursor: text;
+}
+.multiselect__chips:focus-within { border-color: var(--c-accent); box-shadow: 0 0 0 3px var(--c-accent-soft); }
+.multiselect__input {
+  flex: 1; min-width: 6rem; border: 0; padding: var(--s-1);
+  font: inherit; background: transparent; color: var(--c-text);
+}
+.multiselect__input:focus { outline: none; }
+.chip__x {
+  border: 0; background: transparent; padding: 0 0 0 2px; cursor: pointer;
+  color: inherit; opacity: .55; font-size: inherit; line-height: 1;
+}
+.chip__x:hover, .chip__x:focus-visible { opacity: 1; }
+.chip.is-invalid { border-color: var(--c-danger); color: var(--c-danger); background: var(--c-danger-soft); }
+/* view-mode value cluster for multi fields: chips wrap like the edit control */
+.chip-cluster { display: inline-flex; flex-wrap: wrap; gap: var(--s-1); }
 .input::placeholder, .textarea::placeholder { color: var(--c-faint); }
 
 /* Select — restyled to the design language: appearance:none drops the native
