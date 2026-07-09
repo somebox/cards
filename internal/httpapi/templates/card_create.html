@@ -62,13 +62,7 @@
       {{else}}
       <label class="field">
         <span class="field__label">{{.Def.ID}}{{if .Def.Required}} <span class="req">*</span>{{end}}</span>
-        {{if eq .Def.Type "text"}}<textarea class="textarea" rows="3" data-create-input="field:{{.Def.ID}}" data-kind="text"{{if .Def.Required}} data-required{{end}}></textarea>
-        {{else if eq .Def.Type "enum"}}<select class="select" data-create-input="field:{{.Def.ID}}" data-kind="enum"{{if .Def.Required}} data-required{{end}}>{{$def := .Def.Default}}{{if not .Def.Required}}<option value="">—</option>{{end}}{{range .Def.Options}}<option value="{{.}}"{{if eq . $def}} selected{{end}}>{{.}}</option>{{end}}</select>
-        {{else if eq .Def.Type "number"}}<input type="number" class="input" data-create-input="field:{{.Def.ID}}" data-kind="number"{{if .Def.Required}} data-required{{end}}>
-        {{else if eq .Def.Type "date"}}<input type="date" class="input" data-create-input="field:{{.Def.ID}}" data-kind="date"{{if .Def.Required}} data-required{{end}}>
-        {{else if eq .Def.Type "user"}}<select class="select" data-create-input="field:{{.Def.ID}}" data-kind="user"{{if .Def.Required}} data-required{{end}}><option value="">—</option>{{range $.Users}}<option value="{{.ID}}">{{.ID}}</option>{{end}}</select>
-        {{else}}<input type="text" class="input" data-create-input="field:{{.Def.ID}}" data-kind="{{.Def.Type}}"{{if .Def.Required}} data-required{{end}}>
-        {{end}}
+        {{template "field_control" (dict "Def" .Def "Ctx" "create" "Users" $.Users)}}
         {{if .Def.Description}}<span class="muted field-hint">{{.Def.Description}}</span>{{end}}
         <span class="field-error" data-error-for="field:{{.Def.ID}}" hidden></span>
       </label>

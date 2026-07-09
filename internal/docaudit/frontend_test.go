@@ -141,6 +141,25 @@ func TestInlineScriptBudget(t *testing.T) {
 	}
 }
 
+// TestFieldControlIsTheOnlySwitch (Phase 1): the scalar type→control mapping
+// lives in field_control.html and nowhere else. Structural branches
+// (repeating / artifact / card_link / tags sections) are fine; branching on a
+// SCALAR field type to emit an input outside the partial recreates the
+// three-way drift this consolidation removed.
+func TestFieldControlIsTheOnlySwitch(t *testing.T) {
+	scalarBranch := regexp.MustCompile(`eq \.(Def\.)?Type "(text|enum|number|date|user|string)"`)
+	for name, src := range templateFiles(t) {
+		if name == "field_control.html" {
+			continue
+		}
+		for _, m := range scalarBranch.FindAllStringIndex(src, -1) {
+			line := 1 + strings.Count(src[:m[0]], "\n")
+			t.Errorf("%s:%d branches on a scalar field type — render the control via "+
+				`{{template "field_control" (dict ...)}} instead (the one canonical switch)`, name, line)
+		}
+	}
+}
+
 // TestCSSTypeNeverSizedInPxOrViewport pins DESIGN.md's unit rule: rem for
 // font-size; never px (breaks zoom) and never vw/vh (renders a different px
 // size per window).
