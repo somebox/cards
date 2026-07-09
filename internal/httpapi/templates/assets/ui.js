@@ -135,96 +135,8 @@ function swapHTML(container, html) {
   // in components.js as of rebuild Phase 7; board-create is boardCreate.
 
 
-  // ---- Drag-and-drop status changes ----
-  document.addEventListener('dragstart', function(e){
-    var card = e.target.closest('.card');
-    if (!card) return;
-    e.dataTransfer.setData('text/plain', card.getAttribute('data-card-id'));
-    e.dataTransfer.effectAllowed = 'move';
-    card.classList.add('is-dragging');
-  });
-  document.addEventListener('dragend', function(e){
-    var card = e.target.closest('.card');
-    if (card) card.classList.remove('is-dragging');
-  });
-  document.addEventListener('dragover', function(e){
-    var col = e.target.closest('.lane__body');
-    if (!col) return;
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    col.classList.add('is-drag-over');
-  });
-  document.addEventListener('dragleave', function(e){
-    var col = e.target.closest('.lane__body');
-    if (col && !col.contains(e.relatedTarget)) col.classList.remove('is-drag-over');
-  });
-  document.addEventListener('drop', function(e){
-    var col = e.target.closest('.lane__body');
-    if (!col) return;
-    e.preventDefault();
-    col.classList.remove('is-drag-over');
-    var cardID = e.dataTransfer.getData('text/plain');
-    var status = col.getAttribute('data-status');
-    moveCard(cardID, status);
-  });
-  function moveCard(cardID, status) {
-    fetch('/v1/cards/' + cardID, {headers:{'Accept':'application/json'}})
-      .then(function(r){ return r.json(); })
-      .then(function(c){
-        // Try a normal move first. If the transition is illegal (enforced
-        // board), retry with force=true after a confirm (force-move).
-        return fetch('/v1/cards/' + cardID, {
-          method:'PATCH',
-          headers:{'Content-Type':'application/json','X-Work-Cards-Actor':CARDS_ACTOR,'Idempotency-Key':'move-'+cardID+'-to-'+status},
-          body: JSON.stringify({version: c.version, status: status})
-        }).then(function(r){
-          if (r.status === 422) {
-            // transition_illegal — offer force-move.
-            return r.json().then(function(e){
-              if (e.error === 'transition_illegal' && confirm('Move to "'+status+'" is not an allowed transition. Force-move anyway?')) {
-                return fetch('/v1/cards/' + cardID, {headers:{'Accept':'application/json'}})
-                  .then(function(r2){ return r2.json(); })
-                  .then(function(c2){
-                    return fetch('/v1/cards/' + cardID, {
-                      method:'PATCH',
-                      headers:{'Content-Type':'application/json','X-Work-Cards-Actor':CARDS_ACTOR,'Idempotency-Key':'force-'+cardID+'-to-'+status},
-                      body: JSON.stringify({version: c2.version, status: status, force: true})
-                    });
-                  });
-              }
-              throw {message: e.message || 'Move failed'};
-            });
-          }
-          if (!r.ok) throw r;
-          return r;
-        });
-      })
-      .then(function(r){ if(!r.ok) throw r; return r.json(); })
-      .then(function(){ /* SSE will re-render the board */ })
-      .catch(function(r){
-        var msg = (r && r.message) || 'Move failed';
-        if (r && r.text) { r.text().then(function(t){ var m='Move failed'; try{m=JSON.parse(t).message||m;}catch(_){} toast(m,'err'); }); return; }
-        toast(msg,'err');
-      });
-  }
-  // releaseCard clears a card's owner (unclaim). Called when clicking the
-  // owner chip on a board card.
-  function releaseCard(cardID, ev) {
-    ev.stopPropagation(); ev.preventDefault();
-    if (!confirm('Unclaim this card?')) return;
-    fetch('/v1/cards/' + cardID, {headers:{'Accept':'application/json'}})
-      .then(function(r){ return r.json(); })
-      .then(function(c){
-        return fetch('/v1/cards/' + cardID + '/release', {
-          method:'POST',
-          headers:{'Content-Type':'application/json','X-Work-Cards-Actor':CARDS_ACTOR,'Idempotency-Key':'release-'+cardID},
-          body: JSON.stringify({version: c.version})
-        });
-      })
-      .then(function(r){ if(!r.ok) throw r; return r.json(); })
-      .then(function(){ /* SSE will re-render */ })
-      .catch(function(r){ r.text().then(function(t){ var m='Release failed'; try{m=JSON.parse(t).message||m;}catch(_){} toast(m,'err'); }); });
-  }
+  // Drag-drop (rebuild P9): reactive, owned by the boardPage Alpine
+  // component in components.js. No document-level listeners remain.
 
   // ---- relative time ----
   function refreshAgo(){ document.querySelectorAll('[data-ago]').forEach(function(el){ el.textContent = ago(el.getAttribute('data-ago')); }); }
@@ -233,23 +145,6 @@ function swapHTML(container, html) {
   // ---- Board live updates (moved from board.html's inline script) ----
   // Subscribe to the board's event stream; on a mutation event re-fetch the
   // board HTML and swap #board so the card lands in the right column.
-  function wireBoardLive(boardId, types) {
-    var board = document.getElementById('board');
-    if (!board || typeof EventSource === 'undefined') return;
-    var es = new EventSource('/v1/events/stream?board_id=' + encodeURIComponent(boardId) + '&types=' + types);
-    types.split(',').forEach(function(t){ es.addEventListener(t, handle); });
-    function handle() {
-      fetch(window.location.href, {headers: {'X-Cards-Partial':'true'}})
-        .then(function(r){ return r.text(); })
-        .then(function(html){
-          var doc = new DOMParser().parseFromString(html, 'text/html');
-          var fresh = doc.querySelector('.board');
-          if (fresh) swapHTML(board, fresh.innerHTML);
-        })
-        .catch(function(){});
-    }
-    es.onerror = function() { es.close(); };
-  }
 
   // Deep-link creation (P2): /ui/cards/new 303s to the board with ?new=1
   // (&type&status); open the create modal once, then strip the params so a

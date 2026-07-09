@@ -172,6 +172,17 @@ func (s *Server) uiBoard(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "failed to load board", http.StatusInternalServerError)
 		return
 	}
+	// Fragment mode (rebuild P9): X-Cards-Partial requests get the lanes-only
+	// board_fragment for in-place swap by the boardPage Alpine component (no
+	// header re-render, EventSource untouched). GET requests without the
+	// header still get the whole page — no-JS + first paint unchanged.
+	if wantsPartial(r) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		if err := s.pages["board.html"].ExecuteTemplate(w, "board_fragment", data); err != nil {
+			http.Error(w, "template error: "+err.Error(), http.StatusInternalServerError)
+		}
+		return
+	}
 	s.renderPage(w, r, "board.html", data)
 }
 

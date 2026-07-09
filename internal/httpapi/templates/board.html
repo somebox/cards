@@ -1,7 +1,14 @@
 {{define "content"}}
 {{/* Board-scoped theming: custom-property overrides on data-board inherit to
-   every lane/card/chip inside, so a board can carry its own palette. */}}
-<div class="board-view" data-board="{{.Board.ID}}"{{with boardStyle .Board}} style="{{.}}"{{end}}>
+   every lane/card/chip inside, so a board can carry its own palette. The
+   boardPage Alpine component (rebuild P9) owns filter interception,
+   fragment swap, drag-drop, and the debounced SSE-driven refresh; the
+   persistent EventSource lives in $store.live for the whole page lifetime.
+   No-JS: the plain <form method=get> still submits the filter change (full
+   page reload), so degradation is honest. */}}
+<div class="board-view" data-board="{{.Board.ID}}"{{with boardStyle .Board}} style="{{.}}"{{end}}
+     x-data="boardPage({boardId: '{{.Board.ID}}', sseTypes: '{{.SSETypes}}'})"
+     @dragstart="dragStart($event)" @dragend="dragEnd()">
 <h1 class="page-title">{{.Board.Name}}</h1>
 {{if .Board.Description}}<p class="muted">{{.Board.Description}}</p>{{end}}
 {{if .SavedFilters}}
@@ -10,34 +17,52 @@
   {{range .SavedFilters}}<a class="chip-filter{{if .Selected}} is-active{{end}}" href="/ui/boards/{{$.Board.ID}}?filter={{.Value}}&sort={{$.ActiveSort}}">{{.Label}}</a>{{end}}
 </div>
 {{end}}
-<form class="board-controls" method="get" action="/ui/boards/{{.Board.ID}}">
+<form class="board-controls" method="get" action="/ui/boards/{{.Board.ID}}" @submit.prevent="applyFilters()">
   {{if .ActiveFilter}}<input type="hidden" name="filter" value="{{.ActiveFilter}}">{{end}}
   <span class="search__box">
     <input class="search__input input" type="search" name="q" value="{{.Query}}" placeholder="Search this board…" aria-label="Search board">
-    {{if .Query}}<button type="button" class="search__clear" title="Clear search" aria-label="Clear search" onclick="this.previousElementSibling.value='';this.closest('form').submit();">×</button>{{end}}
+    {{if .Query}}<button type="button" class="search__clear" title="Clear search" aria-label="Clear search" @click="clearSearch()">×</button>{{end}}
   </span>
   <label class="control"><span class="control__label">Owner</span>
-    <select class="select" name="owner" onchange="this.form.submit()">
+    <select class="select" name="owner" @change="applyFilters()">
       {{range .OwnerOptions}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>{{end}}
     </select>
   </label>
   <label class="control"><span class="control__label">Type</span>
-    <select class="select" name="type" onchange="this.form.submit()">
+    <select class="select" name="type" @change="applyFilters()">
       {{range .TypeOptions}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>{{end}}
     </select>
   </label>
   <label class="control"><span class="control__label">Sort</span>
-    <select class="select" name="sort" onchange="this.form.submit()">
+    <select class="select" name="sort" @change="applyFilters()">
       {{range .SortOptions}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>{{end}}
     </select>
   </label>
   <button class="btn" type="submit">Apply</button>
 </form>
-<div class="board" id="board">
+{{template "board_fragment" .}}
+</div>
+<script>
+// Deep-link creation: /ui/cards/new 303s here with ?new=1(&type&status);
+// boardDeepLinkCreate opens the create modal once and strips the params.
+document.addEventListener('DOMContentLoaded', function () {
+  boardDeepLinkCreate('{{.Board.ID}}');
+});
+</script>
+{{end}}
+
+{{/* board_fragment (rebuild P9): the lanes region alone. Served whole from
+     uiBoard on X-Cards-Partial requests so the Alpine board component can
+     swap lanes without disturbing the persistent EventSource, the filter
+     header, or the .board-view root Alpine is bound to. */}}
+{{define "board_fragment"}}
+<div class="board" id="board" data-sse-types="{{.SSETypes}}">
   {{range $col := .Columns}}
   <section class="lane">
     <div class="lane__head"><span>{{$col.Name}}</span><span class="lane__head-tail"><span class="lane__count">{{len (index $.CardsByColumn $col.ID)}}</span><button type="button" class="lane__add" data-create-link="/ui/cards/new/modal?board={{$.Board.ID}}&status={{$col.ID}}" aria-label="New card in {{$col.Name}}" title="New card in {{$col.Name}}">+</button></span></div>
-    <div class="lane__body" id="col-{{$col.ID}}" data-status="{{$col.ID}}">
+    <div class="lane__body" id="col-{{$col.ID}}" data-status="{{$col.ID}}"
+         :class="{'is-drag-over': dragOverColumn === '{{$col.ID}}'}"
+         @dragover="dragOver($event)" @dragleave="dragLeave($event)" @drop="drop($event)">
       {{range (index $.CardsByColumn $col.ID)}}
         {{template "card_partial" .}}
       {{end}}
@@ -45,15 +70,4 @@
   </section>
   {{end}}
 </div>
-</div>
-<script>
-// Behavior lives in ui.js (wireBoardLive / boardDeepLinkCreate); this block
-// only hands over the template-injected parameters. DOMContentLoaded defers
-// the calls until ui.js (loaded at the end of <body>) has defined them —
-// content scripts parse BEFORE the layout's script tags.
-document.addEventListener('DOMContentLoaded', function () {
-  wireBoardLive('{{.Board.ID}}', '{{.SSETypes}}');
-  boardDeepLinkCreate('{{.Board.ID}}');
-});
-</script>
 {{end}}

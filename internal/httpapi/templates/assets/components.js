@@ -114,6 +114,235 @@ document.addEventListener('alpine:init', function () {
     };
   });
 
+  // ---- $store.live (rebuild P9): ONE persistent EventSource per page,
+  // decoupled from filter changes. Fixes the filter-stall connection
+  // exhaustion bug (card_60f2e6a8) — filters no longer open/close SSE
+  // connections, and a keepalive (server) + broken-pipe reconnect (client)
+  // shrink the "recovers after time" tail on any real disconnect.
+  //
+  // Contract: consumers register on() listeners; the store publishes events
+  // via CustomEvent 'live' on window as well so plain code can listen too.
+  // Records lastEventId on EVERY message; on error, exponential backoff
+  // (500ms → 8s cap) reopens with ?since=<lastId>. status: open|reconnecting|down. ----
+  Alpine.store('live', (function () {
+    return {
+      es: null, status: 'down', lastId: 0, backoff: 500,
+      boardId: '', types: '',
+      handlers: [],
+      on: function (fn) { this.handlers.push(fn); },
+      start: function (boardId, types) {
+        if (typeof EventSource === 'undefined') return;
+        // Same (boardId, types) as an open connection? Do nothing —
+        // idempotent across boardPage re-inits after a fragment swap.
+        if (this.es && this.boardId === boardId && this.types === types && this.status !== 'down') return;
+        this.stop();
+        this.boardId = boardId; this.types = types;
+        this.open();
+      },
+      open: function () {
+        var self = this;
+        var url = '/v1/events/stream?board_id=' + encodeURIComponent(this.boardId)
+                + '&types=' + encodeURIComponent(this.types)
+                + (this.lastId ? '&since=' + encodeURIComponent(this.lastId) : '');
+        var es = new EventSource(url);
+        this.es = es;
+        this.status = 'open'; this.backoff = 500;
+        // Named handlers per type — the server does not send a default
+        // "message" event; it uses the event: line.
+        this.types.split(',').forEach(function (t) {
+          if (!t) return;
+          es.addEventListener(t, function (ev) { self._deliver(ev); });
+        });
+        es.onerror = function () {
+          // The browser will retry EventSource on transport error; we still
+          // treat it as a reconnect and rearm with backoff, so a server
+          // ':dropped' or a broken pipe (post-keepalive) both surface as one
+          // clear path.
+          if (self.status === 'down') return;
+          self.status = 'reconnecting';
+          try { es.close(); } catch (_) {}
+          setTimeout(function () { self.open(); }, self.backoff);
+          self.backoff = Math.min(self.backoff * 2, 8000);
+        };
+      },
+      _deliver: function (ev) {
+        // Record the last SSE id so a reconnect resumes with ?since=.
+        if (ev.lastEventId) {
+          var n = parseInt(ev.lastEventId, 10);
+          if (!isNaN(n) && n > this.lastId) this.lastId = n;
+        }
+        this.handlers.forEach(function (fn) { try { fn(ev); } catch (_) {} });
+        window.dispatchEvent(new CustomEvent('live', { detail: { type: ev.type, id: ev.lastEventId, data: ev.data } }));
+      },
+      stop: function () {
+        if (this.es) { try { this.es.close(); } catch (_) {} }
+        this.es = null; this.status = 'down'; this.handlers = [];
+      }
+    };
+  })());
+
+  // ---- boardPage (rebuild P9): the .board-view root component. Owns
+  // filter interception + fragment swap, drag-drop reactivity, and the
+  // debounced live-event refresh. Filter changes NEVER touch the
+  // EventSource — that's what fixes the connection-exhaustion bug. ----
+  Alpine.data('boardPage', function (cfg) {
+    return {
+      boardId: cfg.boardId,
+      draggingId: '', dragOverColumn: '',
+      swapping: false, swapTimer: null,
+      init: function () {
+        // ONE EventSource for the page lifetime; the store is idempotent so
+        // subsequent boardPage inits after a fragment swap are no-ops.
+        var boardEl = this.$root.querySelector('#board');
+        var types = (boardEl && boardEl.getAttribute('data-sse-types')) || cfg.sseTypes || '';
+        Alpine.store('live').start(this.boardId, types);
+        var self = this;
+        Alpine.store('live').on(function () { self.debouncedSwap(); });
+        // Popstate: Back/Forward re-runs the URL through swapBoard so the
+        // filter state matches the address bar.
+        window.addEventListener('popstate', function () { self.swapBoard(); });
+      },
+      applyFilters: function (ev) {
+        // Called from @change on the owner/type/sort selects and the search
+        // form submit. Compose a fresh URL from the entire board-controls
+        // form (keeps hidden filter= etc.) and swap.
+        var form = this.$root.querySelector('.board-controls');
+        if (!form) return;
+        if (ev) ev.preventDefault();
+        var params = new URLSearchParams(new FormData(form));
+        var qs = params.toString();
+        var url = '/ui/boards/' + this.boardId + (qs ? '?' + qs : '');
+        history.pushState(null, '', url);
+        this.swapBoard();
+      },
+      clearSearch: function () {
+        var form = this.$root.querySelector('.board-controls');
+        var q = form && form.querySelector('input[name="q"]');
+        if (q) q.value = '';
+        this.applyFilters();
+      },
+      debouncedSwap: function () {
+        var self = this;
+        clearTimeout(this.swapTimer);
+        this.swapTimer = setTimeout(function () { self.swapBoard(); }, 150);
+      },
+      swapBoard: function () {
+        if (this.swapping) return;
+        this.swapping = true;
+        var self = this;
+        var board = this.$root.querySelector('#board');
+        var url = window.location.pathname + window.location.search;
+        cardsAPI.send({ method: 'GET', url: url, headers: { 'X-Cards-Partial': 'true' } })
+          .then(function (res) {
+            self.swapping = false;
+            if (!res.ok || !res.body) return;
+            var doc = new DOMParser().parseFromString(res.body, 'text/html');
+            var fresh = doc.querySelector('#board');
+            if (!fresh) return;
+            // Lane-level replace: swap each .lane__body's innerHTML (Alpine
+            // initTree runs on each swapped body only — never the persistent
+            // .board-view root, which would double-bind boardPage itself).
+            var freshBodies = fresh.querySelectorAll('.lane__body');
+            freshBodies.forEach(function (nb) {
+              var id = nb.getAttribute('id');
+              var cur = board.querySelector('#' + id);
+              if (cur) swapHTML(cur, nb.innerHTML);
+            });
+            // Lane count badges live in the header — sync them too.
+            var freshCounts = fresh.querySelectorAll('.lane__count');
+            var curCounts = board.querySelectorAll('.lane__count');
+            for (var i = 0; i < freshCounts.length && i < curCounts.length; i++) {
+              curCounts[i].textContent = freshCounts[i].textContent;
+            }
+            if (typeof refreshAgo === 'function') refreshAgo();
+          });
+      },
+      // ---- Drag-and-drop (reactive; no document listeners; scoped to
+      // this component; :class bindings drive .is-dragging / .is-drag-over). ----
+      dragStart: function (ev) {
+        var card = ev.target.closest('.card');
+        if (!card) return;
+        var id = card.getAttribute('data-card-id');
+        this.draggingId = id;
+        ev.dataTransfer.setData('text/plain', id);
+        ev.dataTransfer.effectAllowed = 'move';
+      },
+      dragEnd: function () { this.draggingId = ''; this.dragOverColumn = ''; },
+      dragOver: function (ev) {
+        var col = ev.target.closest('.lane__body');
+        if (!col) return;
+        ev.preventDefault();
+        ev.dataTransfer.dropEffect = 'move';
+        this.dragOverColumn = col.getAttribute('data-status');
+      },
+      dragLeave: function (ev) {
+        var col = ev.target.closest('.lane__body');
+        if (col && !col.contains(ev.relatedTarget)) {
+          if (this.dragOverColumn === col.getAttribute('data-status')) this.dragOverColumn = '';
+        }
+      },
+      drop: function (ev) {
+        var col = ev.target.closest('.lane__body');
+        if (!col) return;
+        ev.preventDefault();
+        var status = col.getAttribute('data-status');
+        var cardID = ev.dataTransfer.getData('text/plain');
+        this.dragOverColumn = ''; this.draggingId = '';
+        this.moveCard(cardID, status);
+      },
+      moveCard: function (cardID, status) {
+        // GET current version → PATCH; on 422 transition_illegal, offer
+        // force-move via confirm(); on any failure, toast + let swapBoard
+        // reconcile (any stranded card ends up back where it belongs).
+        var self = this;
+        cardsAPI.send({ method: 'GET', url: '/v1/cards/' + cardID }).then(function (res) {
+          if (!res.ok) { toast(res.message || 'Move failed', 'err'); self.swapBoard(); return; }
+          var version = res.data.version;
+          cardsAPI.send({
+            method: 'PATCH', url: '/v1/cards/' + cardID,
+            body: { version: version, status: status },
+            headers: { 'Idempotency-Key': 'move-' + cardID + '-to-' + status }
+          }).then(function (r2) {
+            if (r2.ok) return; // SSE + debouncedSwap will reconcile
+            if (r2.status === 422 && (r2.message || '').indexOf('transition') !== -1) {
+              if (!confirm('Move to "' + status + '" is not an allowed transition. Force-move anyway?')) { self.swapBoard(); return; }
+              cardsAPI.send({ method: 'GET', url: '/v1/cards/' + cardID }).then(function (r3) {
+                if (!r3.ok) { toast('Force move failed', 'err'); self.swapBoard(); return; }
+                cardsAPI.send({
+                  method: 'PATCH', url: '/v1/cards/' + cardID,
+                  body: { version: r3.data.version, status: status, force: true },
+                  headers: { 'Idempotency-Key': 'force-' + cardID + '-to-' + status }
+                }).then(function (r4) {
+                  if (!r4.ok) toast(r4.message || 'Force move failed', 'err');
+                  self.swapBoard();
+                });
+              });
+              return;
+            }
+            toast(r2.message || 'Move failed', 'err');
+            self.swapBoard();
+          });
+        });
+      },
+      releaseCard: function (cardID, ev) {
+        if (ev) { ev.stopPropagation(); ev.preventDefault(); }
+        if (!confirm('Unclaim this card?')) return;
+        var self = this;
+        cardsAPI.send({ method: 'GET', url: '/v1/cards/' + cardID }).then(function (res) {
+          if (!res.ok) { toast('Release failed', 'err'); return; }
+          cardsAPI.send({
+            method: 'POST', url: '/v1/cards/' + cardID + '/release',
+            body: { version: res.data.version },
+            headers: { 'Idempotency-Key': 'release-' + cardID }
+          }).then(function (r2) {
+            if (!r2.ok) toast(r2.message || 'Release failed', 'err');
+            self.swapBoard();
+          });
+        });
+      }
+    };
+  });
+
   // ---- Comments: composer (add) ----
   Alpine.data('commentComposer', function (cfg) {
     return {

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/somebox/cards/internal/core"
+	"github.com/somebox/cards/internal/httpapi"
 )
 
 // readSSEEvents reads text/event-stream lines until n data lines arrive or timeout.
@@ -211,3 +212,44 @@ func TestRemoveEntry_RequiresVersion(t *testing.T) {
 	}
 }
 var _ = context.Background
+
+// TestSSEKeepalive (rebuild P9): the stream carries a ':keepalive' comment
+// past the interval — proving the single-writer discipline holds even
+// under the added ticker case (no interleaved corruption, both live events
+// and keepalives interleave through the same select).
+// httpapiSetKeepalive dials the SSE keepalive interval for the duration of a test.
+func httpapiSetKeepalive(d time.Duration) func() { return httpapi.SetSSEKeepaliveForTest(d) }
+
+func TestSSEKeepalive(t *testing.T) {
+	// Dial the interval WAY down so the test finishes quickly.
+	prev := httpapiSetKeepalive(80 * time.Millisecond)
+	defer prev()
+
+	ts, _ := newServer(t)
+	req, _ := http.NewRequest("GET", ts.URL+"/v1/events/stream", nil)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	scanner := bufio.NewScanner(resp.Body)
+	deadline := time.Now().Add(2 * time.Second)
+	sawKeepalive := false
+	for scanner.Scan() && time.Now().Before(deadline) {
+		line := scanner.Text()
+		if strings.HasPrefix(line, ": keepalive") {
+			sawKeepalive = true
+			break
+		}
+		// Any malformed prefix would mean writes interleaved from a second
+		// goroutine — the specific corruption we're guarding against.
+		if line != "" && !strings.HasPrefix(line, ":") &&
+			!strings.HasPrefix(line, "id: ") && !strings.HasPrefix(line, "event: ") && !strings.HasPrefix(line, "data: ") {
+			t.Fatalf("interleaved / corrupt SSE line: %q", line)
+		}
+	}
+	if !sawKeepalive {
+		t.Fatal("no ':keepalive' frame within 2s of a >=80ms interval — ticker case missing")
+	}
+}

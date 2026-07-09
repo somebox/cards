@@ -7,9 +7,16 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/somebox/cards/internal/core"
 )
+
+// sseKeepaliveInterval is the cadence of ':keepalive' comments written into
+// every SSE stream. Short enough to fail fast on a dead client (frees the
+// bus subscription slot promptly) but well under proxy idle-drop timers
+// (~60s is typical). Package-level so tests can dial it down.
+var sseKeepaliveInterval = 20 * time.Second
 
 // Supports Last-Event-ID (and since=) for resumable replay. SPEC §3/§11 D11.
 func (s *Server) apiEventStream(w http.ResponseWriter, r *http.Request) {
@@ -74,10 +81,24 @@ func (s *Server) apiEventStream(w http.ResponseWriter, r *http.Request) {
 	defer s.svc.Bus().Unsubscribe(sub.ID)
 
 	ctx := r.Context()
+	// Keepalive: a ticker case in the SAME select — never a second goroutine,
+	// which would interleave writes and corrupt the byte stream for every
+	// client sharing this handler. A dead peer's next keepalive write fails
+	// fast (broken pipe), context cancels, and the bus slot frees promptly.
+	// This shrinks the "recovers after time" tail on the filter-stall bug
+	// (frontend-rebuild card_60f2e6a8) — dead SSE connections no longer sit
+	// on the 6-per-origin cap waiting for real data before the OS notices.
+	ticker := time.NewTicker(sseKeepaliveInterval)
+	defer ticker.Stop()
 	for {
 		select {
 		case <-ctx.Done():
 			return
+		case <-ticker.C:
+			if _, err := w.Write([]byte(": keepalive\n\n")); err != nil {
+				return // dead peer — return frees the bus subscription
+			}
+			flusher.Flush()
 		case e, ok := <-sub.Ch:
 			if !ok {
 				// Dropped (slow consumer). Send a comment and resubscribe so the
