@@ -508,6 +508,13 @@ func (s *Server) uiNewBoardModal(w http.ResponseWriter, r *http.Request) {
 	for _, id := range ids {
 		data.TypeOptions = append(data.TypeOptions, Option{Value: id, Label: s.types[id].Name})
 	}
+	// Alpine boardCreate seeds (P7): every offered column/type is checked by
+	// default, matching the server-rendered <input checked>.
+	data.AllTypeIDs = append([]string(nil), ids...)
+	data.AllColumnIDs = make([]string, 0, len(s.ws.Columns))
+	for _, c := range s.ws.Columns {
+		data.AllColumnIDs = append(data.AllColumnIDs, c.ID)
+	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if e := s.pages["board_create.html"].ExecuteTemplate(w, "board_create_modal", data); e != nil {
 		http.Error(w, "template error: "+e.Error(), http.StatusInternalServerError)

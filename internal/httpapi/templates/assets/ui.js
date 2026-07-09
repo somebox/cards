@@ -34,8 +34,6 @@ function swapHTML(container, html) {
     if (!modal.open) modal.showModal();
     wireDirtySave(modal);
     wireClickToEdit(modal);
-    wireCreateModal(modal);
-    wireBoardCreate(modal);
     refreshAgo(); // convert injected <time data-ago> to relative text
   }
   // Comments, repeating entries, and artifact upload are Alpine components
@@ -140,155 +138,15 @@ function swapHTML(container, html) {
       .catch(function(){ swapHTML(modal, '<div class="modal__error">Failed to load card.</div>'); });
   }
 
-  // ---- New-card creation (UI sprint P2): type picker + schema-driven form,
-  // a thin client of POST /v1/cards. Per-field errors render from the
-  // structured core.Error; the Idempotency-Key is minted once per form
-  // instance so a double-click cannot create two cards. ----
-  function wireCreateModal(root) {
-    var box = root.querySelector('[data-create-modal]');
-    if (!box) return;
-    var board = box.getAttribute('data-board') || '';
-    var status = box.getAttribute('data-status') || '';
-    function fragURL(extra) {
-      var q = [];
-      if (board) q.push('board=' + encodeURIComponent(board));
-      if (status) q.push('status=' + encodeURIComponent(status));
-      if (extra) q.push(extra);
-      return '/ui/cards/new/modal' + (q.length ? '?' + q.join('&') : '');
-    }
-    // Mode 1: picking a type swaps in that type's form.
-    box.querySelectorAll('[data-create-type]').forEach(function(btn){
-      btn.addEventListener('click', function(){
-        loadModal(fragURL('type=' + encodeURIComponent(btn.getAttribute('data-create-type'))));
-      });
-    });
-    // Mode 2: the form.
-    var form = box.querySelector('[data-create-form]');
-    if (!form) return;
-    if (!form.dataset.idemKey) {
-      form.dataset.idemKey = 'ui-create-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
-    }
-    var alertEl = box.querySelector('[data-create-alert]');
-    function clearErrors() {
-      alertEl.hidden = true; alertEl.textContent = '';
-      box.querySelectorAll('[data-error-for]').forEach(function(el){ el.hidden = true; el.textContent = ''; });
-      box.querySelectorAll('.is-invalid').forEach(function(el){ el.classList.remove('is-invalid'); });
-    }
-    function fieldError(name, msg) {
-      var el = box.querySelector('[data-error-for="' + name + '"]');
-      var inp = box.querySelector('[data-create-input="' + name + '"]');
-      if (el) { el.hidden = false; el.textContent = msg; }
-      if (inp) { inp.classList.add('is-invalid'); inp.focus(); }
-      if (!el && !inp) { alertEl.hidden = false; alertEl.textContent = msg; }
-    }
-    var saveBtn = box.querySelector('[data-create-save]');
-    saveBtn.addEventListener('click', function(){
-      clearErrors();
-      var req = { type_id: form.getAttribute('data-type-id'), fields: {} };
-      var missing = [];
-      form.querySelectorAll('[data-create-input]').forEach(function(inp){
-        var name = inp.getAttribute('data-create-input');
-        var kind = inp.getAttribute('data-kind');
-        // Multi-value fields (native <select multiple>): always an array on
-        // the wire; nothing selected = the field stays ABSENT (never null or
-        // [] — the unset contract), unless it's required.
-        if (kind === 'multi-enum' || kind === 'multi-user') {
-          var vals = Array.prototype.slice.call(inp.selectedOptions || []).map(function(o){ return o.value; }).filter(Boolean);
-          if (!vals.length) { if (inp.hasAttribute('data-required')) missing.push(name); return; }
-          if (name.indexOf('field:') === 0) req.fields[name.slice(6)] = vals;
-          return;
-        }
-        var v = (inp.value || '').trim();
-        if (!v) { if (inp.hasAttribute('data-required')) missing.push(name); return; }
-        if (name === 'title') req.title = v;
-        else if (name === 'status') req.status = v;
-        else if (name === 'tags') req.tags = v.split(',').map(function(s){ return s.trim(); }).filter(Boolean);
-        else if (name.indexOf('field:') === 0) {
-          req.fields[name.slice(6)] = (kind === 'number') ? Number(v) : v;
-        }
-      });
-      if (missing.length) {
-        missing.forEach(function(n){ fieldError(n, 'required'); });
-        return;
-      }
-      saveBtn.disabled = true;
-      fetch('/v1/cards', {
-        method: 'POST',
-        headers: {'Content-Type':'application/json','X-Work-Cards-Actor':CARDS_ACTOR,
-                  'Idempotency-Key': form.dataset.idemKey},
-        body: JSON.stringify(req)
-      }).then(function(r){
-        if (r.ok) { toast('Card created'); closeModal(); return; }
-        return r.text().then(function(t){
-          saveBtn.disabled = false;
-          var e = {}; try { e = JSON.parse(t); } catch(_){}
-          var msg = e.message || 'Create failed';
-          if (e.valid_options) msg += ' (valid: ' + e.valid_options.join(', ') + ')';
-          if (e.field) {
-            // service errors name the FIELD ID; form inputs use field:<id>
-            var name = (e.field === 'title' || e.field === 'status' || e.field === 'tags')
-              ? e.field : 'field:' + e.field;
-            fieldError(name, msg);
-            // per-chip mirror (P6): a structured error that names the offending
-            // VALUE marks that chip .is-invalid on chip controls.
-            if (e.value) {
-              var inp = form.querySelector('[data-create-input="' + name + '"]');
-              var wrap = inp && inp.closest('.multiselect');
-              if (wrap && window.Alpine && Alpine.$data(wrap) && Alpine.$data(wrap).markInvalid) {
-                Alpine.$data(wrap).markInvalid(e.value);
-              }
-            }
-          } else {
-            alertEl.hidden = false; alertEl.textContent = msg;
-          }
-        });
-      }).catch(function(){ saveBtn.disabled = false; alertEl.hidden = false; alertEl.textContent = 'Create failed (network).'; });
-    });
-  }
+  // New-card creation (UI sprint P2) is the createModal Alpine component
+  // in components.js as of rebuild Phase 7; board-create is boardCreate.
 
-  // ---- Create-a-board (UI sprint P4): thin client of POST /v1/boards,
-  // which writes definitions/boards/<id>.json and reloads the workspace. ----
-  function wireBoardCreate(root) {
-    var box = root.querySelector('[data-board-create]');
-    if (!box) return;
-    var alertEl = box.querySelector('[data-board-alert]');
-    function fieldError(name, msg) {
-      var el = box.querySelector('[data-error-for="' + name + '"]');
-      if (el) { el.hidden = false; el.textContent = msg; }
-      else { alertEl.hidden = false; alertEl.textContent = msg; }
-    }
-    box.querySelector('[data-board-save]').addEventListener('click', function(){
-      alertEl.hidden = true;
-      box.querySelectorAll('[data-error-for]').forEach(function(el){ el.hidden = true; });
-      var name = box.querySelector('[data-board-input="name"]').value.trim();
-      var columns = Array.from(box.querySelectorAll('[data-board-columns] input:checked')).map(function(i){ return i.value; });
-      var types = Array.from(box.querySelectorAll('[data-board-types] input:checked')).map(function(i){ return i.value; });
-      if (!name) { fieldError('name', 'required'); return; }
-      if (!columns.length) { fieldError('columns', 'pick at least one'); return; }
-      if (!types.length) { fieldError('card_type_ids', 'pick at least one'); return; }
-      var req = { name: name, columns: columns, card_type_ids: types };
-      var wc = box.querySelector('[data-board-input="wip_column"]').value;
-      var wl = parseInt(box.querySelector('[data-board-input="wip_limit"]').value, 10);
-      if (wc && wl > 0) { req.wip_limits = {}; req.wip_limits[wc] = wl; }
-      fetch('/v1/boards', {
-        method: 'POST',
-        headers: {'Content-Type':'application/json','X-Work-Cards-Actor':CARDS_ACTOR},
-        body: JSON.stringify(req)
-      }).then(function(r){
-        return r.text().then(function(t){
-          var e = {}; try { e = JSON.parse(t); } catch(_){}
-          if (r.ok) { toast('Board created'); window.location.href = '/ui/boards/' + e.id; return; }
-          if (e.field) fieldError(e.field, e.message || 'invalid');
-          else { alertEl.hidden = false; alertEl.textContent = e.message || 'Create failed'; }
-        });
-      }).catch(function(){ alertEl.hidden = false; alertEl.textContent = 'Create failed (network).'; });
-    });
-  }
 
   // ---- Dirty-save: activate the Save button only when a field changes ----
   function wireDirtySave(root) {
-    // Scoped to the edit modal's save-form: the CREATE modal has its own
-    // primary button + handler (wireCreateModal) and must not be dirty-gated.
+    // Scoped to the edit modal's save-form: the CREATE modal is an Alpine
+    // component (createModal in components.js) with its own primary button
+    // and saving guard, and must not be dirty-gated here.
     var bar = root.querySelector('form.save-form .modal__footer button.btn--primary');
     if (!bar) return;
     bar.disabled = true;

@@ -146,6 +146,137 @@ document.addEventListener('alpine:init', function () {
     };
   });
 
+  // ---- Create card (rebuild P7): the two-mode create modal (type picker +
+  // schema-driven form) as one Alpine component. The FORM keeps every
+  // preserved contract from the vanilla wireCreateModal: the same title/
+  // status/tags/field:<id> DOM mapping, number/tags coercion, multi-value
+  // handling, Idempotency-Key minted once per instance (so a double-click
+  // cannot create two cards), and structured error → per-field
+  // [data-error-for] + .is-invalid + per-chip .is-invalid for multiselects. ----
+  Alpine.data('createModal', function (cfg) {
+    return {
+      board: cfg.board || '', status: cfg.status || '',
+      alert: '', saving: false,
+      idemKey: 'ui-create-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10),
+      fragURL: function (extra) {
+        var q = [];
+        if (this.board) q.push('board=' + encodeURIComponent(this.board));
+        if (this.status) q.push('status=' + encodeURIComponent(this.status));
+        if (extra) q.push(extra);
+        return '/ui/cards/new/modal' + (q.length ? '?' + q.join('&') : '');
+      },
+      pickType: function (ev) {
+        var t = ev.currentTarget.getAttribute('data-create-type');
+        loadModal(this.fragURL('type=' + encodeURIComponent(t)));
+      },
+      clearErrors: function () {
+        this.alert = '';
+        this.$root.querySelectorAll('[data-error-for]').forEach(function (el) { el.hidden = true; el.textContent = ''; });
+        this.$root.querySelectorAll('.is-invalid').forEach(function (el) { el.classList.remove('is-invalid'); });
+      },
+      fieldError: function (name, msg) {
+        var el = this.$root.querySelector('[data-error-for="' + name + '"]');
+        var inp = this.$root.querySelector('[data-create-input="' + name + '"]');
+        if (el) { el.hidden = false; el.textContent = msg; }
+        if (inp) { inp.classList.add('is-invalid'); inp.focus(); }
+        if (!el && !inp) { this.alert = msg; }
+      },
+      collect: function () {
+        var form = this.$root.querySelector('[data-create-form]');
+        var req = { type_id: form.getAttribute('data-type-id'), fields: {} };
+        var missing = [];
+        form.querySelectorAll('[data-create-input]').forEach(function (inp) {
+          var name = inp.getAttribute('data-create-input');
+          var kind = inp.getAttribute('data-kind');
+          // Multi-value fields (native <select multiple>): always an array on
+          // the wire; nothing selected = ABSENT (unset contract).
+          if (kind === 'multi-enum' || kind === 'multi-user') {
+            var vals = Array.prototype.slice.call(inp.selectedOptions || []).map(function (o) { return o.value; }).filter(Boolean);
+            if (!vals.length) { if (inp.hasAttribute('data-required')) missing.push(name); return; }
+            if (name.indexOf('field:') === 0) req.fields[name.slice(6)] = vals;
+            return;
+          }
+          var v = (inp.value || '').trim();
+          if (!v) { if (inp.hasAttribute('data-required')) missing.push(name); return; }
+          if (name === 'title') req.title = v;
+          else if (name === 'status') req.status = v;
+          else if (name === 'tags') req.tags = v.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+          else if (name.indexOf('field:') === 0) {
+            req.fields[name.slice(6)] = (kind === 'number') ? Number(v) : v;
+          }
+        });
+        return { req: req, missing: missing };
+      },
+      submit: function () {
+        if (this.saving) return; // guards a double-click
+        this.clearErrors();
+        var c = this.collect();
+        if (c.missing.length) { var self = this; c.missing.forEach(function (n) { self.fieldError(n, 'required'); }); return; }
+        this.saving = true;
+        var self = this;
+        cardsAPI.send({
+          method: 'POST', url: '/v1/cards', body: c.req,
+          headers: { 'Idempotency-Key': this.idemKey }
+        }).then(function (res) {
+          if (res.ok) { toast('Card created'); closeModal(); return; }
+          self.saving = false;
+          var msg = res.message || 'Create failed';
+          if (res.validOptions) msg += ' (valid: ' + res.validOptions.join(', ') + ')';
+          if (res.field) {
+            var name = (res.field === 'title' || res.field === 'status' || res.field === 'tags')
+              ? res.field : 'field:' + res.field;
+            self.fieldError(name, msg);
+            // per-chip mirror (P6): a structured error that names the VALUE
+            // marks that chip .is-invalid on chip controls.
+            if (res.value) {
+              var inp = self.$root.querySelector('[data-create-input="' + name + '"]');
+              var wrap = inp && inp.closest('.multiselect');
+              if (wrap && window.Alpine && Alpine.$data(wrap) && Alpine.$data(wrap).markInvalid) {
+                Alpine.$data(wrap).markInvalid(res.value);
+              }
+            }
+          } else {
+            self.alert = msg;
+          }
+        });
+      }
+    };
+  });
+
+  // ---- Create board (rebuild P7): the checkbox-driven board create form.
+  // cfg.columns/types are the SERVER-provided initial selections (Alpine
+  // x-model on a checkbox array is authoritative: it unchecks anything the
+  // array does not contain at init, so the array must arrive already
+  // populated). ----
+  Alpine.data('boardCreate', function (cfg) {
+    return {
+      name: '',
+      columns: (cfg && cfg.columns) ? cfg.columns.slice() : [],
+      types: (cfg && cfg.types) ? cfg.types.slice() : [],
+      wipColumn: '', wipLimit: 0,
+      alert: '', errors: {}, saving: false,
+      err: function (name, msg) { this.errors[name] = msg; },
+      submit: function () {
+        if (this.saving) return;
+        this.errors = {}; this.alert = '';
+        if (!this.name.trim()) { this.err('name', 'required'); return; }
+        if (!this.columns.length) { this.err('columns', 'pick at least one'); return; }
+        if (!this.types.length) { this.err('card_type_ids', 'pick at least one'); return; }
+        var req = { name: this.name.trim(), columns: this.columns.slice(), card_type_ids: this.types.slice() };
+        if (this.wipColumn && this.wipLimit > 0) { req.wip_limits = {}; req.wip_limits[this.wipColumn] = this.wipLimit; }
+        this.saving = true;
+        var self = this;
+        cardsAPI.send({ method: 'POST', url: '/v1/boards', body: req })
+          .then(function (res) {
+            if (res.ok) { toast('Board created'); window.location.href = '/ui/boards/' + res.data.id; return; }
+            self.saving = false;
+            if (res.field) self.err(res.field, res.message || 'invalid');
+            else self.alert = res.message || 'Create failed';
+          });
+      }
+    };
+  });
+
   // ---- Combobox (rebuild P5): filter-as-you-type enhancement over a native
   // single <select> for enum/user fields. The native select STAYS in the DOM
   // as the synced source of truth — forms, the create collector, and the

@@ -6,7 +6,12 @@
      reloads the workspace. Everything richer (transitions, monitors,
      presentation) is edited in that file. */}}
 {{define "board_create_modal"}}
-<div class="create-modal" data-board-create>
+{{/* All columns/types default to selected (matching the server-rendered
+     initial checkbox state); Alpine's x-model on checkbox arrays is
+     authoritative, so we hand it the seed list rather than having init()
+     read the DOM (which x-model has already overridden by then). */}}
+<div class="create-modal" data-board-create
+     x-data='boardCreate({columns: {{jsonAttr .AllColumnIDs}}, types: {{jsonAttr .AllTypeIDs}}})'>
   <div class="modal__head">
     <div class="modal__head-main">
       <span class="card-title__view">New board</span>
@@ -15,22 +20,23 @@
   </div>
   <div class="modal__body">
     <div class="create-form">
-      <div class="create-form__status alert" data-board-alert hidden></div>
+      <div class="create-form__status alert" data-board-alert x-cloak x-show="alert" x-text="alert"></div>
 
       <label class="field">
         <span class="field__label">Name <span class="req">*</span></span>
-        <input type="text" class="input" data-board-input="name" placeholder="e.g. Design" data-required>
-        <span class="field-error" data-error-for="name" hidden></span>
+        <input type="text" class="input" data-board-input="name" placeholder="e.g. Design" data-required
+               x-model="name" :class="{'is-invalid': errors.name}">
+        <span class="field-error" data-error-for="name" x-cloak x-show="errors.name" x-text="errors.name"></span>
       </label>
 
       <div class="field">
         <span class="field__label">Columns <span class="req">*</span></span>
         <div class="check-grid" data-board-columns>
           {{range .Columns}}
-          <label class="check-item"><input type="checkbox" value="{{.ID}}" checked> {{.Name}}</label>
+          <label class="check-item"><input type="checkbox" value="{{.ID}}" x-model="columns"> {{.Name}}</label>
           {{end}}
         </div>
-        <span class="field-error" data-error-for="columns" hidden></span>
+        <span class="field-error" data-error-for="columns" x-cloak x-show="errors.columns" x-text="errors.columns"></span>
       </div>
 
       <div class="field">
@@ -38,23 +44,24 @@
         <div class="check-grid" data-board-types>
           {{range .TypeOptions}}
           {{$th := typeTheme $.TypeThemes .Value}}
-          <label class="check-item"><input type="checkbox" value="{{.Value}}" checked>
+          <label class="check-item"><input type="checkbox" value="{{.Value}}" x-model="types">
             <span class="card__type-badge" data-type="{{.Value}}"{{if $th.Icon}} data-icon="{{$th.Icon}}"{{end}}
                   {{- if $th.Accent}} style="--badge-ink:{{$th.Accent}}{{- if $th.Muted}};--badge-wash:{{$th.Muted}}{{end}}"{{end}}>{{.Label}}</span>
           </label>
           {{end}}
         </div>
-        <span class="field-error" data-error-for="card_type_ids" hidden></span>
+        <span class="field-error" data-error-for="card_type_ids" x-cloak x-show="errors.card_type_ids" x-text="errors.card_type_ids"></span>
       </div>
 
       <div class="field">
         <span class="field__label">WIP limit (optional)</span>
         <div class="row">
-          <select class="select" data-board-input="wip_column">
+          <select class="select" data-board-input="wip_column" x-model="wipColumn">
             <option value="">— no limit —</option>
             {{range .Columns}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
           </select>
-          <input type="number" class="input" data-board-input="wip_limit" min="1" placeholder="max cards" style="max-width:8rem">
+          <input type="number" class="input" data-board-input="wip_limit" min="1" placeholder="max cards" style="max-width:8rem"
+                 x-model.number="wipLimit">
         </div>
         <span class="muted field-hint">Over the limit fires a wip_exceeded condition (visible on /breaches).</span>
       </div>
@@ -64,7 +71,7 @@
   </div>
   <div class="modal__footer">
     <button type="button" class="btn btn--ghost" onclick="closeModal()">Cancel</button>
-    <button type="button" class="btn btn--primary" data-board-save>Create board</button>
+    <button type="button" class="btn btn--primary" data-board-save :disabled="saving" @click="submit()">Create board</button>
   </div>
 </div>
 {{end}}

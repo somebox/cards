@@ -189,6 +189,12 @@ type ViewData struct {
 	// TagPolicy is workspace settings.tag_policy — the tags chip editor allows
 	// free-add under open/propose and restricts to tag_set otherwise (P6).
 	TagPolicy string
+	// AllColumnIDs / AllTypeIDs pre-project every workspace column / offered
+	// type id into a slice so the board-create form can seed its Alpine
+	// checkbox arrays (x-model on a checkbox array is authoritative — it
+	// unchecks anything the array does not contain at init).
+	AllColumnIDs []string
+	AllTypeIDs   []string
 }
 
 func (s *Server) baseData(title string) ViewData {
