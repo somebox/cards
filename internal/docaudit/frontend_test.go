@@ -188,6 +188,31 @@ func TestCSSHexLiteralRatchet(t *testing.T) {
 	}
 }
 
+// TestNoHTMXResidue (Phase 2): htmx was removed — it was loaded but issued
+// zero requests (no hx-* attribute ever existed). Nothing may reference it,
+// and the partial-fragment header is ours (X-Cards-Partial), not HX-Request.
+// The direct toast() path must keep existing — it is the only error surface.
+func TestNoHTMXResidue(t *testing.T) {
+	for name, src := range templateFiles(t) {
+		lower := strings.ToLower(src)
+		if strings.Contains(lower, "htmx") || strings.Contains(lower, "hx-request") {
+			t.Errorf("%s references htmx — the dependency was removed in rebuild Phase 2", name)
+		}
+	}
+	for name, src := range jsAssets(t) {
+		if strings.Contains(src, "htmx") || strings.Contains(src, "HX-Request") {
+			t.Errorf("%s references htmx/HX-Request — use X-Cards-Partial and direct toast() calls", name)
+		}
+	}
+	ui := readRepoFile(t, "internal/httpapi/templates/assets/ui.js")
+	if !strings.Contains(ui, "function toast(") {
+		t.Error("ui.js lost the direct toast() error path — it is the only error-toast surface")
+	}
+	if !strings.Contains(ui, "'X-Cards-Partial'") {
+		t.Error("ui.js no longer sends X-Cards-Partial — partial rendering (wantsPartial) would silently break")
+	}
+}
+
 // TestVendoredAlpinePresent: the self-hosted Alpine build is embedded and the
 // layout loads it (with the cache-busting stamp) — a missing or renamed asset
 // would otherwise fail only at runtime in the browser.

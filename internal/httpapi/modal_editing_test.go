@@ -24,7 +24,7 @@ import (
 func modalHTML(t *testing.T, tsURL, cardID string) string {
 	t.Helper()
 	req, _ := http.NewRequest("GET", tsURL+"/ui/cards/"+cardID+"/modal", nil)
-	req.Header.Set("X-Modal", "true")
+	req.Header.Set("X-Cards-Partial", "true")
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatalf("modal: %v", err)

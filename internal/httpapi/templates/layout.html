@@ -7,11 +7,11 @@
   <title>{{.Title}} — Work Cards</title>
   <link rel="stylesheet" href="/ui/style.css?v={{assetStamp}}">
   {{with themeFonts .Theme}}<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="{{.}}" rel="stylesheet">{{end}}
-  <script src="https://unpkg.com/htmx.org@1.9.12" integrity="sha384-ujb1lZYygJmzgSwoxRggbCHcjc0rB2XoQrxeTUQyRjrOnlCoYta87iKBWq3EsdM2" crossorigin="anonymous"></script>
   {{/* Alpine.js 3.15.0, self-hosted + embedded (single-binary ethos; survives
        a future CSP; cache-busted like the stylesheet). defer: executes after
        the document is parsed — i.e. after ui.js has defined swapHTML — so the
-       seam and Alpine are always paired. Removal of htmx is Phase 2. */}}
+       seam and Alpine are always paired. The old CDN request library was
+       removed in rebuild Phase 2: it was loaded but issued zero requests. */}}
   <script defer src="/ui/assets/alpine.min.js?v={{assetStamp}}"></script>
 </head>
 <body>

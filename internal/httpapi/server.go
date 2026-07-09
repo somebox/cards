@@ -1,6 +1,6 @@
 // Package httpapi exposes the core service over REST (/v1) and SSE.
 // Handlers are thin; all rules live in internal/core. The same Server also
-// serves a lightweight server-rendered htmx UI under /ui.
+// serves a lightweight server-rendered web UI (Go templates + Alpine) under /ui.
 //
 // See docs/SPEC.md (§11 API surface) and docs/ARCHITECTURE.md (Core Service
 // Boundary). UI is a reference consumer, not part of the kernel.

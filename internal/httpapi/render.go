@@ -696,6 +696,11 @@ func (s *Server) renderPartial(w http.ResponseWriter, name string, data ViewData
 	}
 }
 
+// wantsPartial reports whether the client asked for an HTML fragment (no
+// layout shell) — set by ui.js on modal loads, in-place saves, and the SSE
+// board refetch. Renamed from htmx's HX-Request when the unused htmx
+// dependency was removed (frontend-rebuild Phase 2); the semantics are ours,
+// so the header is too.
 func wantsPartial(r *http.Request) bool {
-	return r.Header.Get("HX-Request") == "true"
+	return r.Header.Get("X-Cards-Partial") == "true"
 }
