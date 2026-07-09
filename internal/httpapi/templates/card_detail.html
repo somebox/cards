@@ -2,8 +2,15 @@
 <div class="actions">
   {{if .Board}}<a href="/ui/boards/{{.Board.ID}}" class="btn btn--ghost btn--sm">← {{.Board.Name}}</a>{{else}}<a href="/" class="btn btn--ghost btn--sm">← Home</a>{{end}}
 </div>
+{{/* Detail page: same editForm component as the modal (P10 finale — the
+     P8 wire cleanup removed wireDirtySave/wireClickToEdit but this page
+     still called them). editField per-[data-field] lives inside card_body
+     already; editForm dirty-gates + submits via cardsAPI. On success we
+     reload the page; native <form method=POST> still submits without JS. */}}
 <form class="save-form detail" id="detail-form" action="/ui/cards/{{.Card.ID}}/save" method="POST"
-      enctype="multipart/form-data" data-version="{{.Card.Version}}">
+      enctype="multipart/form-data" data-version="{{.Card.Version}}"
+      x-data="editForm({cardId: '{{.Card.ID}}', version: {{.Card.Version}}})"
+      @field-dirty="onDirty()" @submit.prevent="submit()">
   <input type="hidden" name="from" value="detail">
   {{/* native submit carries no JS-appended version — send it so uiSaveCard's
      optimistic-concurrency (CAS) check isn't silently bypassed on this page. */}}
@@ -13,15 +20,7 @@
   </div>
   <div class="modal__footer detail__footer">
     {{if .Board}}<a class="btn btn--ghost" href="/ui/boards/{{.Board.ID}}">Cancel</a>{{else}}<a class="btn btn--ghost" href="/">Cancel</a>{{end}}
-    <button type="submit" class="btn btn--primary" disabled>Save</button>
+    <button type="submit" class="btn btn--primary" disabled :disabled="!dirty || saving">Save</button>
   </div>
 </form>
-<script>
-// Deferred: ui.js loads at the end of <body>, AFTER this content block, so a
-// direct call here would hit undefined functions (latent bug, now fixed).
-document.addEventListener('DOMContentLoaded', function () {
-  wireDirtySave(document.getElementById("detail-form"));
-  wireClickToEdit(document.getElementById("detail-form"));
-});
-</script>
 {{end}}

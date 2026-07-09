@@ -88,6 +88,13 @@ document.addEventListener('alpine:init', function () {
         if (!this.dirty || this.saving) return;
         var form = this.$root;
         var self = this;
+        // Detect the render surface: the form lives inside <dialog> when
+        // opened as a modal, and directly on the page for /ui/cards/{id}
+        // (rebuild P10 — the detail page's save was broken by the P8 wire
+        // cleanup; giving editForm this fallback keeps it working with the
+        // native <form method=POST enctype=multipart/form-data> so no-JS
+        // detail-page save still works too).
+        var inModal = !!form.closest('dialog');
         this.saving = true;
         var fd = new FormData(form);
         fd.append('version', Alpine.store('card').version); // AT SUBMIT TIME
@@ -98,16 +105,26 @@ document.addEventListener('alpine:init', function () {
           self.saving = false;
           if (res.ok) {
             toast('Saved');
-            // openModal() re-inits Alpine on the fresh fragment; the new
-            // editForm's init() republishes cardId + version into the store.
-            openModal(res.body);
+            if (inModal) {
+              // openModal() re-inits Alpine on the fresh fragment; the new
+              // editForm's init() republishes cardId+version into the store.
+              openModal(res.body);
+            } else {
+              // Detail page: reload to render the fresh full page (server
+              // returned only the modal fragment on partial). This surfaces
+              // the updated state uniformly with the no-JS submit path.
+              window.location.reload();
+            }
             return;
           }
-          // Honest 4xx now (P8): server re-rendered the modal WITH an alert
-          // and returned the real status. Swap the fragment so the user sees
-          // the inline error + current server state, and toast the reason —
-          // 409 uses the canonical STALE_MSG, others use the server's msg.
-          if (res.body) openModal(res.body);
+          // Honest 4xx (P8): swap the fragment so the user sees the inline
+          // alert + current server state, and toast the reason — 409 uses
+          // the canonical STALE_MSG, others use the server's message.
+          if (inModal && res.body) openModal(res.body);
+          if (!inModal) {
+            // On the detail page, the fragment isn't a page; toast is
+            // enough. A reload would clobber the user's in-progress edits.
+          }
           toast(res.stale ? res.message : (res.message || 'Save failed'), 'err');
         });
       }
@@ -339,6 +356,41 @@ document.addEventListener('alpine:init', function () {
             self.swapBoard();
           });
         });
+      }
+    };
+  });
+
+  // ---- breachesPage (rebuild P10): proves $store.live generalizes beyond
+  // the board. Subscribes to all condition events; on any of them, swap the
+  // breaches-list fragment in place. Debounced so a burst collapses to one
+  // refresh. The store is idempotent, so re-inits after a swap are safe. ----
+  Alpine.data('breachesPage', function () {
+    return {
+      swapTimer: null,
+      init: function () {
+        var self = this;
+        // Every current condition event type (see breaches.go / EVENTS-CORE).
+        var types = 'wip_exceeded,wip_cleared,lane_drained,lane_refilled,card_blocked,card_unblocked,status_timeout,card_idle';
+        Alpine.store('live').start('', types); // no board scope; workspace-wide
+        Alpine.store('live').on(function () { self.debouncedRefresh(); });
+      },
+      debouncedRefresh: function () {
+        var self = this;
+        clearTimeout(this.swapTimer);
+        this.swapTimer = setTimeout(function () { self.refresh(); }, 250);
+      },
+      refresh: function () {
+        var list = this.$root.querySelector('#breaches-list');
+        if (!list) return;
+        cardsAPI.send({ method: 'GET', url: '/ui/breaches', headers: { 'X-Cards-Partial': 'true' } })
+          .then(function (res) {
+            if (!res.ok || !res.body) return;
+            swapHTML(list, res.body);
+            // "as of" timestamp inside the header — refresh in place from
+            // the server's clock (Alpine mutation, no format re-derivation).
+            var asOf = document.querySelector('[data-as-of]');
+            if (asOf) asOf.textContent = new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
+          });
       }
     };
   });

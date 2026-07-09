@@ -224,6 +224,16 @@ func (s *Server) uiBreaches(w http.ResponseWriter, r *http.Request) {
 	data := s.baseData("Breaches")
 	data.Breaches = rows
 	data.BreachAsOf = report.AsOf.Format("2006-01-02 15:04:05 MST")
+	// Fragment mode (rebuild P10): X-Cards-Partial returns only the
+	// breaches list so the breachesPage Alpine component can swap in place
+	// on a condition event (proves $store.live generalizes beyond the board).
+	if wantsPartial(r) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		if err := s.pages["breaches.html"].ExecuteTemplate(w, "breaches_fragment", data); err != nil {
+			http.Error(w, "template error: "+err.Error(), http.StatusInternalServerError)
+		}
+		return
+	}
 	s.renderPage(w, r, "breaches.html", data)
 }
 

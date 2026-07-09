@@ -16,7 +16,7 @@
     <div class="modal__head-main">
       <span class="card-title__view">New board</span>
     </div>
-    <button type="button" class="modal__close" onclick="closeModal()" aria-label="close">×</button>
+    <button type="button" class="modal__close" @click="closeModal()" aria-label="close">×</button>
   </div>
   <div class="modal__body">
     <div class="create-form">
@@ -70,7 +70,7 @@
     </div>
   </div>
   <div class="modal__footer">
-    <button type="button" class="btn btn--ghost" onclick="closeModal()">Cancel</button>
+    <button type="button" class="btn btn--ghost" @click="closeModal()">Cancel</button>
     <button type="button" class="btn btn--primary" data-board-save :disabled="saving" @click="submit()">Create board</button>
   </div>
 </div>

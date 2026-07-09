@@ -87,3 +87,9 @@ test('FormData is passed through untouched (no JSON stringify, no Content-Type)'
   assert.equal(cap.opts.body, fd); // same instance passed through
   assert.equal(cap.opts.headers['Content-Type'], undefined); // fetch handles the boundary
 });
+
+test('parseErrorBody: JSON without message uses fallback but keeps field', () => {
+  const e = cardsAPI.parseErrorBody(JSON.stringify({ field: 'tags' }), 'Save failed');
+  assert.equal(e.message, 'Save failed');
+  assert.equal(e.field, 'tags');
+});

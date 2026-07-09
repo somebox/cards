@@ -12,7 +12,7 @@
     <div class="modal__head-main">
       <span class="card-title__view">{{if .CardType}}New {{.CardType.Name}}{{else}}New card{{end}}</span>
     </div>
-    <button type="button" class="modal__close" onclick="closeModal()" aria-label="close">×</button>
+    <button type="button" class="modal__close" @click="closeModal()" aria-label="close">×</button>
   </div>
   <div class="modal__body">
     {{if not .CardType}}
@@ -72,7 +72,7 @@
     {{end}}
   </div>
   <div class="modal__footer">
-    <button type="button" class="btn btn--ghost" onclick="closeModal()">Cancel</button>
+    <button type="button" class="btn btn--ghost" @click="closeModal()">Cancel</button>
     {{if .CardType}}<button type="button" class="btn btn--primary" data-create-save :disabled="saving" @click="submit()">Create card</button>{{end}}
   </div>
 </div>
