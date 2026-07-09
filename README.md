@@ -282,12 +282,13 @@ Work Cards is in beta. The core service, HTTP API, CLI, MCP server, web UI, and
 hook system are implemented, but the API should still be treated as
 project-local unless a release notes otherwise.
 
-PRs and issue reports are welcome. For local development, build with
-`go build ./cmd/cards`, run the demo workspace, and use the docs above as the
-current contract for changes. UI templates and CSS are embedded in the Go
-binary, so edit/review loops need a rebuild; `scripts/dev-server.sh` automates
-that by rebuilding and restarting the demo server on source/template/config
-changes:
+PRs and issue reports are welcome. Start with
+[`CONTRIBUTING.md`](CONTRIBUTING.md) for code quality and style standards. For
+local development, build with `go build ./cmd/cards`, run the demo workspace,
+and use the docs above as the current contract for changes. UI templates and
+CSS are embedded in the Go binary, so edit/review loops need a rebuild;
+`scripts/dev-server.sh` automates that by rebuilding and restarting the demo
+server on source/template/config changes:
 
 ```bash
 scripts/dev-server.sh
