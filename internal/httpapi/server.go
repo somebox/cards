@@ -129,6 +129,26 @@ func New(svc *core.Service, ws *core.Workspace, types map[string]*core.CardType,
 			}
 			return id
 		},
+		// inList reports whether s is an element of v (a []any or []string —
+		// the runtime shapes of a multiple field's value or default). Used by
+		// field_control to mark <option selected> in multi-selects; nil → false.
+		"inList": func(v any, s string) bool {
+			switch t := v.(type) {
+			case []any:
+				for _, e := range t {
+					if str, ok := e.(string); ok && str == s {
+						return true
+					}
+				}
+			case []string:
+				for _, e := range t {
+					if e == s {
+						return true
+					}
+				}
+			}
+			return false
+		},
 		// boardStyle renders a board's Theme as a safe inline custom-property
 		// string for the board wrapper. Only whitelisted hue tokens with simple
 		// color values are emitted (prevents CSS injection / breaking dark mode).

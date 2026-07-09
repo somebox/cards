@@ -37,6 +37,13 @@ type FieldDef struct {
 	Default        any        `json:"default,omitempty"`
 	Description    string     `json:"description,omitempty"`
 	Options        []string   `json:"options,omitempty"`         // enum
+	// Multiple makes an enum or user field hold a JSON array of values
+	// instead of one scalar (v1 scope: enum + user only; card_link multiple
+	// is a documented fast-follow). Contract: an unset optional multiple
+	// field is ABSENT from fields — never null, never [] — and a present one
+	// is always an array; writes of null/[] unset the key (normalized in
+	// validate.go/PatchCard). Filter by membership with the $has operator.
+	Multiple       bool       `json:"multiple,omitempty"`
 	Min            *float64   `json:"min,omitempty"`             // number/date
 	Max            *float64   `json:"max,omitempty"`             // number/date
 	TargetType     string     `json:"target_type,omitempty"`     // card_link

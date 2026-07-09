@@ -47,8 +47,8 @@ jq-*like*, compiled to SQL safely (not full jq). The DSL is used by board
 }
 ```
 Operators: `$eq`, `$ne`, `$in`, `$nin`, `$gt`, `$gte`, `$lt`, `$lte`,
-`$contains`, `$and`, `$or`. Paths: `fields.<id>` for typed fields; top-level
-keys for `status`, `owner`, `type_id`, `tag`, `updated_at`. CLI:
+`$contains`, `$has`, `$and`, `$or`. Paths: `fields.<id>` for typed fields;
+top-level keys for `status`, `owner`, `type_id`, `tag`, `updated_at`. CLI:
 `cards take-next --filter-file q.json`. Power users: `cards export --format
 jsonl` and local jq out of band.
 
@@ -56,6 +56,15 @@ jsonl` and local jq out of band.
 > case-insensitive substring match (SQLite `LIKE`); on an array-valued path
 > (e.g. `tags`) it is an exact membership test (case-sensitive `=`). `$eq`/
 > `$in` string comparisons are case-sensitive (`=`).
+
+> **`$has` semantics (multi-value fields) [built]:** exact membership over a
+> `fields.<id>` path — `{"fields.platforms": {"$has": "mobile"}}` matches
+> cards whose array contains the value (case-sensitive `=`, via `json_each`).
+> On a scalar-valued field it degrades to equality; an absent key never
+> matches. Valid only on `fields.<id>` paths (core columns are never arrays —
+> `$has` there is a loud error). This is the v1 filtering story for
+> `multiple: true` fields: `$eq` on an array compares the whole JSON blob and
+> is almost never what you want.
 
 ### Recipes
 - **Open assigned to me:** `owner=me&status=todo,in_progress`.

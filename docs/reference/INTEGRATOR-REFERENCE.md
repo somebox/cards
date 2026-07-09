@@ -124,15 +124,30 @@ type Link struct {
 
 Ten field types: `string`, `text`, `number`, `date`, `enum`, `tags`, `user`,
 `card_link`, `repeating`, `artifact`. A `FieldDef` carries `id`, `type`,
-`required`, `default`, `options` (enum), `min`/`max` (number/date),
-`target_type`/`link_type` (card_link), `item_fields` (repeating),
-`artifact_policy`, and a UI `display` hint (`feed|badge|hidden|link|monospace`).
+`required`, `default`, `options` (enum), `multiple` (enum/user — see below),
+`min`/`max` (number/date), `target_type`/`link_type` (card_link),
+`item_fields` (repeating), `artifact_policy`, and a UI `display` hint
+(`feed|badge|hidden|link|monospace`).
 
 Validation: `required` enforced at create; `enum` values checked against
 `options`; `card_link` targets must exist and match `target_type`; **`repeating`
 fields are NOT patchable via `PATCH`** — use the append/update/remove API (§2).
 With workspace `strict_fields: true`, unknown field keys are rejected
 (`unknown_field`); with it false, they pass through and are stored.
+
+**Multi-value fields [built]** — `"multiple": true` on `enum`/`user` (v1 scope;
+rejected on other types and inside `item_fields` at definition load): the value
+is always a JSON **array of strings**; an unset optional multiple field is
+**absent** from `fields` (never `null`, never `[]` — writing either unsets the
+key; normalized in `internal/core/validate.go` + `PatchCard`). Duplicates and
+out-of-set elements are rejected with structured errors. Filter by membership
+with **`$has`** (`internal/sqlite/filter.go`, `json_each`; scalar fields
+degrade to equality). MCP create/update tools introspect the field as
+`{type:"array", items:{type:"string", enum:[...]}}`. CLI: pass a JSON array —
+`--field 'platforms=["desktop","mobile"]'`. `card_link` multiple is a
+documented fast-follow, not built. (Note: the HTTP `filter=` list param is
+still unwired — a pre-existing gap tracked on the board; `$has` works through
+board saved filters, `take-next`, and MCP `list_cards`.)
 
 ---
 

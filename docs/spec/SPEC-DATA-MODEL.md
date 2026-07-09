@@ -314,6 +314,25 @@ CardType {
 Versioned files (convention): `programming-task.json` (current),
 `programming-task.v1.json` (immutable snapshot for old pins).
 
+### Multi-value fields (`multiple: true`) **[built]**
+
+An `enum` or `user` field may declare `"multiple": true`, making its value a
+JSON **array of strings** instead of one scalar (v1 scope: enum + user only;
+`card_link` multiple is a documented fast-follow). Normative contract:
+
+- **A present multiple field is always a JSON array** — each element validated
+  as the scalar would be (enum membership with `valid_options` on rejection;
+  duplicates rejected loudly, never silently deduped). A scalar value for a
+  multiple field (and an array for a single-value field) is a validation error.
+- **An unset optional multiple field is ABSENT on the wire** — the key does not
+  appear in `fields`; it is never `null` and never `[]`. Writing `null` or `[]`
+  **unsets** the key (normalized once, in core, so every transport inherits
+  it). `required: true` therefore means present **and** non-empty.
+- A `default` for a multiple field must itself be a non-empty string array
+  (elements checked against `options` for enums) — enforced at definition load.
+- `multiple` is not supported inside repeating `item_fields` (v1).
+- Filter by **membership** with the `$has` operator (see the query DSL §9).
+
 ### Card
 
 ```

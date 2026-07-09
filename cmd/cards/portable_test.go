@@ -272,3 +272,54 @@ func TestImportDuplicateCardFailsLoudly(t *testing.T) {
 		t.Fatal("expected duplicate card id to error, got nil")
 	}
 }
+
+// TestExportImportMultiValueField pins the portable-snapshot contract for
+// multiple fields (frontend-rebuild Phase 3): a JSON-array field value
+// survives export → import byte-for-byte (as []any), and a card with the
+// field unset stays unset (key absent) — never null, never [].
+func TestExportImportMultiValueField(t *testing.T) {
+	ctx := context.Background()
+	src, ws := newStore(t)
+	now := time.Now().UTC()
+	withMulti := &core.Card{
+		ID: "card_mv1", WorkspaceID: "demo", TypeID: "task", SchemaVersion: 1,
+		Title: "multi", Status: "todo", Version: 1, CreatedBy: "u",
+		CreatedAt: now, UpdatedAt: now,
+		Fields: map[string]any{"platforms": []any{"desktop", "mobile"}},
+	}
+	without := &core.Card{
+		ID: "card_mv2", WorkspaceID: "demo", TypeID: "task", SchemaVersion: 1,
+		Title: "plain", Status: "todo", Version: 1, CreatedBy: "u",
+		CreatedAt: now, UpdatedAt: now, Fields: map[string]any{},
+	}
+	for _, c := range []*core.Card{withMulti, without} {
+		if err := src.InsertCard(ctx, c, nil); err != nil {
+			t.Fatalf("insert %s: %v", c.ID, err)
+		}
+	}
+
+	var buf bytes.Buffer
+	if _, err := exportJSONL(ctx, src, &buf, ws, false); err != nil {
+		t.Fatalf("export: %v", err)
+	}
+	dst, _ := newStore(t)
+	if _, err := importJSONL(ctx, dst, bytes.NewReader(buf.Bytes())); err != nil {
+		t.Fatalf("import: %v", err)
+	}
+
+	got, err := dst.GetCard(ctx, "card_mv1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	arr, ok := got.Fields.(map[string]any)["platforms"].([]any)
+	if !ok || len(arr) != 2 || arr[0] != "desktop" || arr[1] != "mobile" {
+		t.Fatalf("platforms after round-trip = %#v, want [desktop mobile]", got.Fields)
+	}
+	plain, err := dst.GetCard(ctx, "card_mv2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, present := plain.Fields.(map[string]any)["platforms"]; present {
+		t.Fatal("unset multiple field appeared after round-trip — must stay absent")
+	}
+}

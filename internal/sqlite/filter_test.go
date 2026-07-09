@@ -107,3 +107,62 @@ func TestFilterDSLMalformedIsValidationError(t *testing.T) {
 		t.Errorf("ClaimAtomic with bad filter: got %v, want validation error", err)
 	}
 }
+
+// TestFilterHasMembership pins the $has operator (frontend-rebuild Phase 3):
+// membership over a multi-value field's array via json_each — which also
+// degrades to equality on a scalar field and matches nothing when the key is
+// absent. Without $has, filters on multiple fields compile to a scalar
+// json_extract comparison that silently never matches an array.
+func TestFilterHasMembership(t *testing.T) {
+	st, _ := testStore(t)
+	ctx := context.Background()
+	cards := []*core.Card{
+		{ID: "card_multi1", Title: "M1", Status: "todo",
+			Fields: map[string]any{"platforms": []any{"desktop", "mobile"}}},
+		{ID: "card_multi2", Title: "M2", Status: "todo",
+			Fields: map[string]any{"platforms": []any{"tablet"}}},
+		{ID: "card_scalar", Title: "S", Status: "todo",
+			Fields: map[string]any{"platforms": "desktop"}}, // scalar degenerate
+		{ID: "card_absent", Title: "X", Status: "todo",
+			Fields: map[string]any{}},
+	}
+	for _, c := range cards {
+		c.WorkspaceID, c.TypeID, c.SchemaVersion, c.Version, c.CreatedBy = "t", "task", 1, 1, "u"
+		c.CreatedAt, c.UpdatedAt = time.Now().UTC(), time.Now().UTC()
+		if err := st.InsertCard(ctx, c, nil); err != nil {
+			t.Fatalf("insert %s: %v", c.ID, err)
+		}
+	}
+
+	cases := []struct {
+		name   string
+		filter map[string]any
+		want   map[string]bool
+	}{
+		{"array membership", map[string]any{"fields.platforms": map[string]any{"$has": "desktop"}},
+			map[string]bool{"card_multi1": true, "card_scalar": true}},
+		{"array membership second element", map[string]any{"fields.platforms": map[string]any{"$has": "mobile"}},
+			map[string]bool{"card_multi1": true}},
+		{"no match", map[string]any{"fields.platforms": map[string]any{"$has": "watch"}},
+			map[string]bool{}},
+		{"absent key never matches", map[string]any{"fields.platforms": map[string]any{"$has": "tablet"}},
+			map[string]bool{"card_multi2": true}},
+	}
+	for _, tc := range cases {
+		ids := listIDs(t, st, tc.filter)
+		if len(ids) != len(tc.want) {
+			t.Errorf("%s: got %v, want %d matches %v", tc.name, ids, len(tc.want), tc.want)
+			continue
+		}
+		for _, id := range ids {
+			if !tc.want[id] {
+				t.Errorf("%s: unexpected match %s", tc.name, id)
+			}
+		}
+	}
+
+	// $has on a non-field column is a loud error, not silence.
+	if _, err := st.ListCards(ctx, core.CardQuery{Filter: map[string]any{"status": map[string]any{"$has": "todo"}}, Limit: 10}); err == nil {
+		t.Error("$has on a core column should error (only fields.<id> paths are arrays)")
+	}
+}

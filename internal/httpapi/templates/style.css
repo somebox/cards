@@ -343,6 +343,11 @@ main { padding: var(--s-5); max-width: 100%; }
   border-color: var(--c-accent); box-shadow: 0 0 0 3px var(--c-accent-soft); outline: none;
 }
 .textarea { min-height: 5rem; resize: vertical; }
+/* Native multi-select (multiple enum/user fields): a listbox, not a dropdown.
+   size= is set from the option count; this caps the tall case. The Phase-6
+   chip control progressively enhances this exact element. */
+.select--multi { height: auto; max-height: 9rem; overflow-y: auto; padding: var(--s-1); }
+.select--multi option { padding: var(--s-1) var(--s-2); border-radius: var(--r-sm); }
 .input::placeholder, .textarea::placeholder { color: var(--c-faint); }
 
 /* Select — restyled to the design language: appearance:none drops the native

@@ -811,6 +811,18 @@ func (s *Service) PatchCard(ctx context.Context, id string, req PatchCardRequest
 		changed := []fieldChange{}
 		for k, v := range req.Fields {
 			before := base[k]
+			// Multi-value unset contract: patching a multiple field to null or
+			// [] removes the key (absent on the wire, never null/[]), recorded
+			// as a change to nil. Scalar fields are untouched by this.
+			if def := fieldDef(ct, k); def != nil {
+				if _, unset := normalizeMultiple(def, v); unset {
+					if _, had := merged[k]; had {
+						delete(merged, k)
+						changed = append(changed, fieldChange{field: k, before: before, after: nil})
+					}
+					continue
+				}
+			}
 			if err := s.validateOneField(ctx, ct, k, v); err != nil {
 				return nil, err
 			}

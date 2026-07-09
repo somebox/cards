@@ -27,12 +27,24 @@
   {{- else}}<textarea class="textarea{{if eq $display "monospace"}} mono{{end}}" name="field:{{$d.ID}}">{{$val}}</textarea>
   {{- end}}
 {{- else if eq $d.Type "enum"}}
+  {{- if $d.Multiple}}
+  {{- /* multiple enum: a native <select multiple> — always an array on the
+        wire; no "—" empty option (unset = select nothing). The Phase-6 chip
+        control progressively enhances this exact element. */}}
+  {{- if eq $ctx "create"}}<select class="select select--multi" multiple size="{{len $d.Options}}" data-create-input="field:{{$d.ID}}" data-kind="multi-enum"{{if $d.Required}} data-required{{end}}>{{$def := $d.Default}}{{range $d.Options}}<option value="{{.}}"{{if inList $def .}} selected{{end}}>{{.}}</option>{{end}}</select>
+  {{- else if eq $ctx "entry"}}{{/* multiple is rejected on item_fields at load (config.validateField) */}}
+  {{- else}}<select class="select select--multi" multiple size="{{len $d.Options}}" name="field:{{$d.ID}}">
+      {{range $d.Options}}<option value="{{.}}"{{if inList $.Raw .}} selected{{end}}>{{.}}</option>{{end}}
+    </select>
+  {{- end}}
+  {{- else}}
   {{- if eq $ctx "create"}}<select class="select" data-create-input="field:{{$d.ID}}" data-kind="enum"{{if $d.Required}} data-required{{end}}>{{$def := $d.Default}}{{if not $d.Required}}<option value="">—</option>{{end}}{{range $d.Options}}<option value="{{.}}"{{if eq . $def}} selected{{end}}>{{.}}</option>{{end}}</select>
   {{- else if eq $ctx "entry"}}<select class="select" data-entry-input="{{$d.ID}}" data-kind="enum"{{if $d.Required}} data-required{{end}}><option value="">—</option>{{range $d.Options}}<option value="{{.}}">{{.}}</option>{{end}}</select>
   {{- else}}<select class="select" name="field:{{$d.ID}}">
       <option value="">—</option>
       {{range $d.Options}}<option value="{{.}}" {{if eq . $val}}selected{{end}}>{{.}}</option>{{end}}
     </select>
+  {{- end}}
   {{- end}}
 {{- else if eq $d.Type "number"}}
   {{- if eq $ctx "create"}}<input type="number" class="input" data-create-input="field:{{$d.ID}}" data-kind="number"{{if $d.Required}} data-required{{end}}>
@@ -45,12 +57,23 @@
   {{- else}}<input type="date" class="input" name="field:{{$d.ID}}" value="{{$val}}">
   {{- end}}
 {{- else if eq $d.Type "user"}}
+  {{- if $d.Multiple}}
+  {{- /* multiple user: native <select multiple> over the registered users;
+        same wire contract as multiple enum. */}}
+  {{- if eq $ctx "create"}}<select class="select select--multi" multiple size="{{len $users}}" data-create-input="field:{{$d.ID}}" data-kind="multi-user"{{if $d.Required}} data-required{{end}}>{{range $users}}<option value="{{.ID}}">{{.ID}}</option>{{end}}</select>
+  {{- else if eq $ctx "entry"}}{{/* multiple is rejected on item_fields at load (config.validateField) */}}
+  {{- else}}<select class="select select--multi" multiple size="{{len $users}}" name="field:{{$d.ID}}">
+      {{range $users}}<option value="{{.ID}}"{{if inList $.Raw .ID}} selected{{end}}>{{.ID}}</option>{{end}}
+    </select>
+  {{- end}}
+  {{- else}}
   {{- if eq $ctx "create"}}<select class="select" data-create-input="field:{{$d.ID}}" data-kind="user"{{if $d.Required}} data-required{{end}}><option value="">—</option>{{range $users}}<option value="{{.ID}}">{{.ID}}</option>{{end}}</select>
   {{- else if eq $ctx "entry"}}<input type="text" class="input" data-entry-input="{{$d.ID}}" data-kind="user" list="user-options"{{if $d.Required}} data-required{{end}}>
   {{- else}}<select class="select" name="field:{{$d.ID}}">
       <option value="">—</option>
       {{range $users}}<option value="{{.ID}}" {{if eq .ID $val}}selected{{end}}>{{.ID}}</option>{{end}}
     </select>
+  {{- end}}
   {{- end}}
 {{- else}}
   {{- if eq $ctx "create"}}<input type="text" class="input" data-create-input="field:{{$d.ID}}" data-kind="{{$d.Type}}"{{if $d.Required}} data-required{{end}}>

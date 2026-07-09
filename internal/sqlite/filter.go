@@ -72,14 +72,14 @@ func compileFilterNode(node map[string]any) (string, []any, error) {
 }
 
 func compileFieldOp(key string, opMap map[string]any) (string, []any, error) {
-	expr, tagMode, err := columnExpr(key)
+	expr, tagMode, jsonPath, err := columnExpr(key)
 	if err != nil {
 		return "", nil, err
 	}
 	var parts []string
 	var args []any
 	for op, val := range opMap {
-		p, a, err := compileOp(expr, tagMode, op, val)
+		p, a, err := compileOp(expr, tagMode, jsonPath, op, val)
 		if err != nil {
 			return "", nil, err
 		}
@@ -89,30 +89,42 @@ func compileFieldOp(key string, opMap map[string]any) (string, []any, error) {
 	return strings.Join(parts, " AND "), args, nil
 }
 
-// columnExpr returns the SQL expression for a filter key and whether it's the
-// tags array (which needs json_each).
-func columnExpr(key string) (expr string, tagMode bool, err error) {
+// columnExpr returns the SQL expression for a filter key, whether it's the
+// tags array (which needs json_each), and — for typed-field paths — the raw
+// JSON path ("$.<id>") that array-aware operators like $has need.
+func columnExpr(key string) (expr string, tagMode bool, jsonPath string, err error) {
 	switch key {
 	case "status", "owner", "type_id", "created_by":
-		return key, false, nil
+		return key, false, "", nil
 	case "updated_at", "created_at":
-		return key, false, nil
+		return key, false, "", nil
 	case "tag", "tags":
-		return "tags", true, nil
+		return "tags", true, "", nil
 	default:
 		if strings.HasPrefix(key, "fields.") {
-			return "json_extract(fields, '$." + strings.TrimPrefix(key, "fields.") + "')", false, nil
+			path := "$." + strings.TrimPrefix(key, "fields.")
+			return "json_extract(fields, '" + path + "')", false, path, nil
 		}
 		// Unknown top-level key → treat as a typed field path.
-		return "json_extract(fields, '$." + key + "')", false, nil
+		return "json_extract(fields, '$." + key + "')", false, "$." + key, nil
 	}
 }
 
-func compileOp(expr string, tagMode bool, op string, val any) (string, []any, error) {
+func compileOp(expr string, tagMode bool, jsonPath string, op string, val any) (string, []any, error) {
 	if tagMode {
 		return compileTagOp(op, val)
 	}
 	switch op {
+	case "$has":
+		// Membership for multi-value fields (SPEC-QUERY-DSL): json_each over
+		// the field's own path iterates array elements — and yields the value
+		// itself for a scalar field, so $has degrades to equality there. An
+		// absent key yields no rows (no match). Only meaningful on field
+		// paths; core columns are never arrays.
+		if jsonPath == "" {
+			return "", nil, fmt.Errorf("$has is only supported on fields.<id> paths")
+		}
+		return "EXISTS (SELECT 1 FROM json_each(fields, '" + jsonPath + "') WHERE json_each.value = ?)", []any{val}, nil
 	case "$eq":
 		if val == nil {
 			return expr + " IS NULL", nil, nil

@@ -458,13 +458,23 @@ func fieldSchema(f core.FieldDef, required bool) map[string]any {
 	case core.FieldDate:
 		m["type"] = "string"
 	case core.FieldEnum:
-		m["type"] = "string"
-		m["enum"] = f.Options
+		if f.Multiple {
+			m["type"] = "array"
+			m["items"] = map[string]any{"type": "string", "enum": f.Options}
+		} else {
+			m["type"] = "string"
+			m["enum"] = f.Options
+		}
 	case core.FieldTags:
 		m["type"] = "array"
 		m["items"] = map[string]any{"type": "string"}
 	case core.FieldUser:
-		m["type"] = "string"
+		if f.Multiple {
+			m["type"] = "array"
+			m["items"] = map[string]any{"type": "string"}
+		} else {
+			m["type"] = "string"
+		}
 	case core.FieldCardLink:
 		m["type"] = "string"
 	case core.FieldRepeating:

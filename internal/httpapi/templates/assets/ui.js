@@ -432,6 +432,15 @@ function swapHTML(container, html) {
       form.querySelectorAll('[data-create-input]').forEach(function(inp){
         var name = inp.getAttribute('data-create-input');
         var kind = inp.getAttribute('data-kind');
+        // Multi-value fields (native <select multiple>): always an array on
+        // the wire; nothing selected = the field stays ABSENT (never null or
+        // [] — the unset contract), unless it's required.
+        if (kind === 'multi-enum' || kind === 'multi-user') {
+          var vals = Array.prototype.slice.call(inp.selectedOptions || []).map(function(o){ return o.value; }).filter(Boolean);
+          if (!vals.length) { if (inp.hasAttribute('data-required')) missing.push(name); return; }
+          if (name.indexOf('field:') === 0) req.fields[name.slice(6)] = vals;
+          return;
+        }
         var v = (inp.value || '').trim();
         if (!v) { if (inp.hasAttribute('data-required')) missing.push(name); return; }
         if (name === 'title') req.title = v;

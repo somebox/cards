@@ -698,13 +698,24 @@ func cmdBoards(c *Client, args []string) error {
 
 // --- helpers ---
 
-// parseFields turns ["k=v","k2=v2"] into a map, coercing numeric values.
+// parseFields turns ["k=v","k2=v2"] into a map, coercing numeric values. A
+// value that looks like a JSON array is decoded as one — the shape multi-value
+// (multiple:true) fields expect: --field 'platforms=["desktop","mobile"]'.
+// An empty array unsets the field (the multi-value unset contract).
 func parseFields(pairs []string) (map[string]any, error) {
 	m := map[string]any{}
 	for _, p := range pairs {
 		k, v, ok := strings.Cut(p, "=")
 		if !ok {
 			return nil, fmt.Errorf("bad --field %q (want key=value)", p)
+		}
+		if strings.HasPrefix(strings.TrimSpace(v), "[") {
+			var arr []any
+			if err := json.Unmarshal([]byte(v), &arr); err != nil {
+				return nil, fmt.Errorf("bad --field %q: value looks like a JSON array but does not parse: %v", k, err)
+			}
+			m[k] = arr
+			continue
 		}
 		if n, err := strconv.ParseFloat(v, 64); err == nil {
 			m[k] = n
