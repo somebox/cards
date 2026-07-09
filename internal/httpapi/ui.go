@@ -217,7 +217,7 @@ func (s *Server) uiBreaches(w http.ResponseWriter, r *http.Request) {
 }
 
 // boardData builds the ViewData for a board page (cards grouped by column).
-// Reused by uiBoard and the htmx move handler so a move re-renders the whole
+// Reused by uiBoard and the move handler so a move re-renders the whole
 // board with the card in its new column. Errors on the card queries — the
 // board's primary content — so a failing store never renders as empty columns.
 func (s *Server) boardData(r *http.Request, b *core.Board) (ViewData, error) {

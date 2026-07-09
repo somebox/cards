@@ -26,18 +26,6 @@ function swapHTML(container, html) {
     c.appendChild(t);
     setTimeout(function(){ if (t.parentNode) t.remove(); }, 6000);
   }
-  document.body.addEventListener('htmx:responseError', function(e){
-    var msg = 'Request failed';
-    try { msg = JSON.parse(e.detail.xhr.responseText).message || msg; } catch(_){}
-    toast(msg, 'err');
-  });
-  document.body.addEventListener('htmx:afterRequest', function(e){
-    if (e.detail.failed && e.detail.xhr && e.detail.xhr.status >= 400) {
-      var msg = 'Error ' + e.detail.xhr.status;
-      try { msg = JSON.parse(e.detail.xhr.responseText).message || msg; } catch(_){}
-      toast(msg, 'err');
-    }
-  });
 
   // ---- Modal ----
   var modal = document.getElementById('card-modal');
@@ -244,7 +232,7 @@ function swapHTML(container, html) {
   // we do NOT clobber it, and a failed refetch surfaces an error and keeps the
   // (now-stale) modal rather than blanking it or pretending it is current.
   function reloadModal(cardID) {
-    return fetch('/ui/cards/' + cardID + '/modal', {headers:{'HX-Request':'true','X-Modal':'true'}})
+    return fetch('/ui/cards/' + cardID + '/modal', {headers:{'X-Cards-Partial':'true'}})
       .then(function(r){ if (!r.ok) throw new Error(''+r.status); return r.text(); })
       .then(function(html){
         if (!modal.open || currentModalCardID() !== cardID) return; // superseded — leave it
@@ -389,7 +377,7 @@ function swapHTML(container, html) {
     var modal = document.getElementById('card-modal');
     swapHTML(modal, '<div class="modal__loading"><div class="skel-line"></div><div class="skel-line"></div><div class="skel-line"></div></div>');
     if (!modal.open) modal.showModal();
-    fetch(url, {headers:{'HX-Request':'true','X-Modal':'true'}})
+    fetch(url, {headers:{'X-Cards-Partial':'true'}})
       .then(function(r){ if (!r.ok) throw new Error(''+r.status); return r.text(); })
       .then(function(html){ openModal(html); })
       .catch(function(){ swapHTML(modal, '<div class="modal__error">Failed to load card.</div>'); });
@@ -541,7 +529,7 @@ function swapHTML(container, html) {
       // current value of every field — dirty or not — with no extra work.
       var fd = new FormData(form);
       fd.append('version', form.getAttribute('data-version'));
-      fetch(form.action, {method:'POST', body:fd, headers:{'HX-Request':'true'}})
+      fetch(form.action, {method:'POST', body:fd, headers:{'X-Cards-Partial':'true'}})
         .then(function(r){ if (!r.ok) throw r; return r.text(); })
         .then(function(html){ openModal(html); toast('Saved'); })
         .catch(function(r){ r.text().then(function(t){
@@ -687,7 +675,6 @@ function swapHTML(container, html) {
   // ---- relative time ----
   function refreshAgo(){ document.querySelectorAll('[data-ago]').forEach(function(el){ el.textContent = ago(el.getAttribute('data-ago')); }); }
   document.addEventListener('DOMContentLoaded', refreshAgo);
-  document.addEventListener('htmx:afterSettle', refreshAgo);
 
   // ---- Board live updates (moved from board.html's inline script) ----
   // Subscribe to the board's event stream; on a mutation event re-fetch the
@@ -698,7 +685,7 @@ function swapHTML(container, html) {
     var es = new EventSource('/v1/events/stream?board_id=' + encodeURIComponent(boardId) + '&types=' + types);
     types.split(',').forEach(function(t){ es.addEventListener(t, handle); });
     function handle() {
-      fetch(window.location.href, {headers: {'HX-Request':'true'}})
+      fetch(window.location.href, {headers: {'X-Cards-Partial':'true'}})
         .then(function(r){ return r.text(); })
         .then(function(html){
           var doc = new DOMParser().parseFromString(html, 'text/html');

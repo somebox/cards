@@ -1,5 +1,5 @@
 // Command cards — serve subcommand. Loads one workspace, opens SQLite,
-// optionally seeds, and serves the /v1 REST API + /ui htmx web UI.
+// optionally seeds, and serves the /v1 REST API + /ui web UI.
 package main
 
 import (
