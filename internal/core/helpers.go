@@ -82,6 +82,20 @@ func contains(s []string, v string) bool {
 	return false
 }
 
+// fieldDef returns the FieldDef with the given id, or nil (unknown field ids
+// are possible under strict_fields:false).
+func fieldDef(ct *CardType, id string) *FieldDef {
+	if ct == nil {
+		return nil
+	}
+	for i := range ct.Fields {
+		if ct.Fields[i].ID == id {
+			return &ct.Fields[i]
+		}
+	}
+	return nil
+}
+
 func fieldIDs(ct *CardType) []string {
 	out := make([]string, 0, len(ct.Fields))
 	for _, f := range ct.Fields {

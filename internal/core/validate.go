@@ -40,6 +40,14 @@ func (s *Service) validateFields(ctx context.Context, ct *CardType, in map[strin
 	out := map[string]any{}
 	for _, f := range ct.Fields {
 		v, present := in[f.ID]
+		if present {
+			// Multi-value unset contract: null / [] mean "absent" — fall
+			// through to the default/required handling below, and never store
+			// an empty array or null under the key.
+			if _, unset := normalizeMultiple(&f, v); unset {
+				present, v = false, nil
+			}
+		}
 		if !present || v == nil {
 			if f.Default != nil {
 				out[f.ID] = f.Default
@@ -156,6 +164,18 @@ func validateValue(f *FieldDef, v any) error {
 			}
 		}
 	case FieldEnum:
+		if f.Multiple {
+			vals, err := multiValues(f, v)
+			if err != nil {
+				return err
+			}
+			for _, str := range vals {
+				if !contains(f.Options, str) {
+					return newUnknownEnum(f.ID, str, f.Options)
+				}
+			}
+			return nil
+		}
 		str, ok := v.(string)
 		if !ok {
 			return NewValidationError(f.ID, fmt.Sprintf("field %q expects a string", f.ID))
@@ -164,6 +184,12 @@ func validateValue(f *FieldDef, v any) error {
 			return newUnknownEnum(f.ID, str, f.Options)
 		}
 	case FieldUser:
+		if f.Multiple {
+			// Shape/type check only — same depth as the single-user case below
+			// (existence is checked at card level for owner, not field values).
+			_, err := multiValues(f, v)
+			return err
+		}
 		str, ok := v.(string)
 		if !ok {
 			return NewValidationError(f.ID, fmt.Sprintf("field %q expects a user id string", f.ID))
@@ -173,6 +199,66 @@ func validateValue(f *FieldDef, v any) error {
 		// tags validated at card level against tag_set; artifact stored as-is.
 	}
 	return nil
+}
+
+// multiValues coerces a multiple-field value into its element strings,
+// rejecting scalars (a multiple field is ALWAYS an array on the wire) and
+// non-string elements with structured errors. Duplicate elements are
+// rejected loudly rather than silently deduped (no behind-the-scenes
+// mutation). Empty arrays never reach validation — normalizeMultiple unsets
+// them first.
+func multiValues(f *FieldDef, v any) ([]string, error) {
+	var arr []any
+	switch t := v.(type) {
+	case []any:
+		arr = t
+	case []string:
+		arr = make([]any, len(t))
+		for i, s := range t {
+			arr[i] = s
+		}
+	default:
+		return nil, NewValidationError(f.ID, fmt.Sprintf("field %q is multiple: it expects an array of strings, not a single value", f.ID))
+	}
+	out := make([]string, 0, len(arr))
+	seen := map[string]bool{}
+	for i, e := range arr {
+		str, ok := e.(string)
+		if !ok {
+			return nil, NewValidationError(f.ID, fmt.Sprintf("field %q element %d is not a string", f.ID, i))
+		}
+		if seen[str] {
+			return nil, NewValidationError(f.ID, fmt.Sprintf("field %q has duplicate value %q", f.ID, str))
+		}
+		seen[str] = true
+		out = append(out, str)
+	}
+	return out, nil
+}
+
+// normalizeMultiple applies the multi-value unset contract at the write seam:
+// for a multiple field, nil and [] both mean "unset" — the key must be ABSENT
+// from stored fields, never null and never an empty array. Returns the value
+// to store and whether the key should instead be removed. Non-multiple fields
+// pass through untouched. (SPEC-DATA-MODEL "Multi-value fields".)
+func normalizeMultiple(f *FieldDef, v any) (any, bool) {
+	if f == nil || !f.Multiple {
+		return v, false
+	}
+	if v == nil {
+		return nil, true
+	}
+	switch t := v.(type) {
+	case []any:
+		if len(t) == 0 {
+			return nil, true
+		}
+	case []string:
+		if len(t) == 0 {
+			return nil, true
+		}
+	}
+	return v, false
 }
 
 // validateEntry validates a repeating entry against item_fields. The reserved

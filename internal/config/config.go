@@ -228,6 +228,9 @@ func validateField(f *core.FieldDef) error {
 			if seen[sf.ID] {
 				return fmt.Errorf("duplicate item_field id %q", sf.ID)
 			}
+			if sf.Multiple {
+				return fmt.Errorf("item_field %q: multiple is not supported inside repeating fields (v1)", sf.ID)
+			}
 			seen[sf.ID] = true
 		}
 	case core.FieldString, core.FieldText, core.FieldNumber, core.FieldDate,
@@ -235,6 +238,40 @@ func validateField(f *core.FieldDef) error {
 		// ok
 	default:
 		return fmt.Errorf("unknown field type %q", f.Type)
+	}
+	if f.Multiple {
+		// v1 scope: enum + user only. card_link multiple is a documented
+		// fast-follow (SPEC-DATA-MODEL "Multi-value fields"), not shipped.
+		if f.Type != core.FieldEnum && f.Type != core.FieldUser {
+			return fmt.Errorf("field %q: multiple is only supported on enum and user fields (v1), not %q", f.ID, f.Type)
+		}
+		// A default for a multiple field must itself be a non-empty array of
+		// strings (each checked against options for enums) — a scalar default
+		// would violate the always-an-array wire contract.
+		if f.Default != nil {
+			arr, ok := f.Default.([]any)
+			if !ok || len(arr) == 0 {
+				return fmt.Errorf("field %q: default for a multiple field must be a non-empty array", f.ID)
+			}
+			for _, e := range arr {
+				s, ok := e.(string)
+				if !ok {
+					return fmt.Errorf("field %q: default array elements must be strings", f.ID)
+				}
+				if f.Type == core.FieldEnum {
+					found := false
+					for _, o := range f.Options {
+						if o == s {
+							found = true
+							break
+						}
+					}
+					if !found {
+						return fmt.Errorf("field %q: default value %q is not in options", f.ID, s)
+					}
+				}
+			}
+		}
 	}
 	return nil
 }

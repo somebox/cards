@@ -41,6 +41,12 @@ field id.
 ### Flexibility you get
 
 - Any number of custom fields and repeating sequences.
+- **Multi-value enum/user fields**: `"multiple": true` makes the value an
+  array of strings — always an array when present, absent when unset (never
+  `null`/`[]`; writing either unsets it). `default` must then be a non-empty
+  array; `required` means non-empty. Filter with `$has` membership. Not
+  supported inside repeating `item_fields` or on other types (v1); see
+  SPEC-DATA-MODEL "Multi-value fields".
 - Per-type column subset (`allowed_columns`).
 - Per-board or per-type transition graphs (optional; `transitions`).
 - Board-specific presentation without changing types.

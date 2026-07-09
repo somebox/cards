@@ -586,17 +586,34 @@ func (s *Server) uiSaveCard(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(k, "field:") {
 			fid := strings.TrimPrefix(k, "field:")
 			val := r.FormValue(k)
-			// Coerce numbers if the field is numeric.
+			// Coerce numbers if the field is numeric; collect a multi-value
+			// field's repeated form entries (a native <select multiple> posts
+			// one entry per selection) into a JSON array. Note: a form can
+			// only clear a multiple field down to one value today — a fully
+			// deselected control posts NO entries, which PATCH reads as
+			// "don't touch" (the clear-all affordance lands with the Phase-6
+			// chip control and its explicit unset).
 			if ct := s.types[c.TypeID]; ct != nil {
 				for _, f := range ct.Fields {
-					if f.ID == fid && f.Type == core.FieldNumber {
+					if f.ID != fid {
+						continue
+					}
+					if f.Multiple {
+						vals := []any{}
+						for _, v := range r.Form[k] {
+							if v != "" {
+								vals = append(vals, v)
+							}
+						}
+						req.Fields[fid] = vals // [] normalizes to unset in core
+					} else if f.Type == core.FieldNumber {
 						if n, err := strconv.ParseFloat(val, 64); err == nil {
 							req.Fields[fid] = n
 						} else {
 							req.Fields[fid] = val
 						}
-						break
 					}
+					break
 				}
 				if _, set := req.Fields[fid]; !set {
 					req.Fields[fid] = val

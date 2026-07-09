@@ -206,3 +206,40 @@ func TestMCPInitialize(t *testing.T) {
 		t.Error("missing protocolVersion")
 	}
 }
+
+// TestMCPMultiValueFieldSchema pins the array schema for multiple fields
+// (frontend-rebuild Phase 3): a multiple enum introspects as
+// {type:"array", items:{type:"string", enum:[...]}} so agents send arrays,
+// not scalars. Uses the real demo workspace's frontend-task.platforms field.
+func TestMCPMultiValueFieldSchema(t *testing.T) {
+	srv := newMCPServer(t)
+	resp := call(t, srv, `{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}`)
+	res := resp["result"].(map[string]any)
+	for _, tl := range res["tools"].([]any) {
+		tool := tl.(map[string]any)
+		if tool["name"] != "create_frontend-task" {
+			continue
+		}
+		props := tool["inputSchema"].(map[string]any)["properties"].(map[string]any)
+		p, ok := props["platforms"].(map[string]any)
+		if !ok {
+			t.Fatalf("create_frontend-task schema has no platforms property: %v", props)
+		}
+		if p["type"] != "array" {
+			t.Fatalf("platforms schema type = %v, want array (multiple:true)", p["type"])
+		}
+		items, ok := p["items"].(map[string]any)
+		if !ok || items["type"] != "string" {
+			t.Fatalf("platforms items schema wrong: %v", p["items"])
+		}
+		if opts, ok := items["enum"].([]any); !ok || len(opts) != 3 {
+			t.Fatalf("platforms items enum = %v, want the 3 options", items["enum"])
+		}
+		// And the single-value enum next to it stays scalar (regression).
+		if s, ok := props["surface"].(map[string]any); !ok || s["type"] != "string" {
+			t.Fatalf("surface (single enum) schema changed: %v", props["surface"])
+		}
+		return
+	}
+	t.Fatal("create_frontend-task tool not found")
+}
