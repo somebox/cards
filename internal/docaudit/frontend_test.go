@@ -101,7 +101,11 @@ func TestSwapSeamIsTheOnlyInnerHTMLWrite(t *testing.T) {
 // from the API.
 func TestTemplatesServerDataStaysServerRendered(t *testing.T) {
 	xForAllowlist := map[string]bool{
-		// (empty — nothing legitimately x-fors yet)
+		// tagChips (rebuild P6): the chip cluster mirrors the LIVE edit state
+		// of the tags comma input the user is typing into — ephemeral values,
+		// never API data. First paint and no-JS remain the server-rendered
+		// view cluster + input.
+		"card_modal.html": true,
 	}
 	for name, src := range templateFiles(t) {
 		if strings.Contains(src, "x-for") && !xForAllowlist[name] {

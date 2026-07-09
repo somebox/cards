@@ -31,11 +31,21 @@
   {{- /* multiple enum: a native <select multiple> — always an array on the
         wire; no "—" empty option (unset = select nothing). The Phase-6 chip
         control progressively enhances this exact element. */}}
-  {{- if eq $ctx "create"}}<select class="select select--multi" multiple size="{{len $d.Options}}" data-create-input="field:{{$d.ID}}" data-kind="multi-enum"{{if $d.Required}} data-required{{end}}>{{$def := $d.Default}}{{range $d.Options}}<option value="{{.}}"{{if inList $def .}} selected{{end}}>{{.}}</option>{{end}}</select>
+  {{- if eq $ctx "create"}}<div class="multiselect" x-data="multiSelect()" @click.outside="close()">
+    <select class="select select--multi" multiple size="{{len $d.Options}}" data-create-input="field:{{$d.ID}}" data-kind="multi-enum"{{if $d.Required}} data-required{{end}} x-show="!ready">{{$def := $d.Default}}{{range $d.Options}}<option value="{{.}}"{{if inList $def .}} selected{{end}}>{{.}}</option>{{end}}</select>
+    {{template "multiselect_ui" (dict "Options" $d.Options)}}
+  </div>
   {{- else if eq $ctx "entry"}}{{/* multiple is rejected on item_fields at load (config.validateField) */}}
-  {{- else}}<select class="select select--multi" multiple size="{{len $d.Options}}" name="field:{{$d.ID}}">
+  {{- else}}<div class="multiselect" x-data="multiSelect()" @click.outside="close()">
+    {{- /* "" sentinel: a fully-deselected control still posts one (filtered)
+          entry, so clear-all reaches the server and unsets the key — with or
+          without JS (fixes the P3 can't-clear form gap). */}}
+    <input type="hidden" name="field:{{$d.ID}}" value="">
+    <select class="select select--multi" multiple size="{{len $d.Options}}" name="field:{{$d.ID}}" x-show="!ready">
       {{range $d.Options}}<option value="{{.}}"{{if inList $.Raw .}} selected{{end}}>{{.}}</option>{{end}}
     </select>
+    {{template "multiselect_ui" (dict "Options" $d.Options)}}
+  </div>
   {{- end}}
   {{- else}}
   {{- if eq $ctx "create"}}<div class="combobox" x-data="combobox()" @click.outside="close()">
@@ -69,11 +79,18 @@
   {{- if $d.Multiple}}
   {{- /* multiple user: native <select multiple> over the registered users;
         same wire contract as multiple enum. */}}
-  {{- if eq $ctx "create"}}<select class="select select--multi" multiple size="{{len $users}}" data-create-input="field:{{$d.ID}}" data-kind="multi-user"{{if $d.Required}} data-required{{end}}>{{range $users}}<option value="{{.ID}}">{{.ID}}</option>{{end}}</select>
+  {{- if eq $ctx "create"}}<div class="multiselect" x-data="multiSelect()" @click.outside="close()">
+    <select class="select select--multi" multiple size="{{len $users}}" data-create-input="field:{{$d.ID}}" data-kind="multi-user"{{if $d.Required}} data-required{{end}} x-show="!ready">{{range $users}}<option value="{{.ID}}">{{.ID}}</option>{{end}}</select>
+    {{template "multiselect_ui" (dict "Options" (userIDs $users))}}
+  </div>
   {{- else if eq $ctx "entry"}}{{/* multiple is rejected on item_fields at load (config.validateField) */}}
-  {{- else}}<select class="select select--multi" multiple size="{{len $users}}" name="field:{{$d.ID}}">
+  {{- else}}<div class="multiselect" x-data="multiSelect()" @click.outside="close()">
+    <input type="hidden" name="field:{{$d.ID}}" value="">
+    <select class="select select--multi" multiple size="{{len $users}}" name="field:{{$d.ID}}" x-show="!ready">
       {{range $users}}<option value="{{.ID}}"{{if inList $.Raw .ID}} selected{{end}}>{{.ID}}</option>{{end}}
     </select>
+    {{template "multiselect_ui" (dict "Options" (userIDs $users))}}
+  </div>
   {{- end}}
   {{- else}}
   {{- if eq $ctx "create"}}<div class="combobox" x-data="combobox()" data-free="1" @click.outside="close()">
@@ -132,6 +149,27 @@
     {{if .Free}}<li class="combobox__option combobox__option--free" role="option" x-show="freeVisible()"
         @click="pickFree()">Use “<span x-text="q.trim()"></span>”</li>{{end}}
     <li class="combobox__empty" x-show="noneVisible()">No matches</li>
+  </ul>
+</div>
+{{end}}
+
+{{/* multiselect_ui — the chip shell (rebuild P6) rendered AFTER a native
+     <select multiple> inside a .multiselect wrapper carrying
+     x-data="multiSelect()". Every option's chip and menu row are
+     server-rendered; the component toggles selection/visibility only. The
+     dropdown reuses the combobox menu hooks (one menu language). */}}
+{{define "multiselect_ui"}}
+<div class="multiselect__chips" x-cloak x-show="ready" @click="openMenu(); $refs.msinput.focus()">
+  {{range .Options}}<span class="chip chip--tag" data-value="{{.}}" x-show="has('{{.}}')" :class="{'is-invalid': invalid === '{{.}}'}">{{.}}<button type="button" class="chip__x" @click.stop="removeValue('{{.}}')" aria-label="Remove {{.}}">×</button></span>{{end}}
+  <input type="text" class="multiselect__input" x-ref="msinput" x-model="q" placeholder="Add…"
+         aria-label="Add value" @focus="openMenu()"
+         @keydown.enter.prevent="enter()" @keydown.backspace="backspace()"
+         @keydown.escape.prevent.stop="close()">
+</div>
+<div class="combobox__menu" x-cloak x-show="open && anyMenu()">
+  <ul class="combobox__list" role="listbox">
+    {{range .Options}}<li class="combobox__option" role="option" data-value="{{.}}" x-show="match($el)" @click="pick($event)">{{.}}</li>
+    {{end}}
   </ul>
 </div>
 {{end}}

@@ -179,6 +179,17 @@ never `--type-*` hues (board inline styles override those); pinned by a
 docaudit test. The native select stays in the DOM as the submitted control
 and the no-JS fallback.
 
+**Multiselect** (rebuild P6) — the chip control over a native
+`<select multiple>` (multiple enum/user) or the tags comma input:
+`.multiselect` / `.multiselect__chips` / `.multiselect__input` / `.chip__x` /
+`.chip.is-invalid` / `.chip-cluster` (read-only view wrapper). The dropdown
+reuses the `.combobox__menu/__option` hooks — one menu language. **Stable
+theme hooks — renames are breaking.** Chips are `.chip`, so the view cluster
+and the edit control share sizing tokens (WYSIWYG). The edit form carries a
+hidden `""` sentinel input so clear-all posts and unsets server-side, JS or
+no JS. Tags chips are policy-aware: free-add under `open`/`propose` (the
+default), `tag_set`-only otherwise.
+
 **Icons** are monochromatic `currentColor` mask-images (data-URI SVG) keyed by
 `[data-type]`, optional config-emitted `[data-icon]`, and `[data-stat]` — one
 colour, consistent size, no emoji. `data-icon` wins over type defaults so users

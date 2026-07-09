@@ -7,6 +7,7 @@ package httpapi_test
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -56,4 +57,67 @@ func TestUISaveMultiValueField(t *testing.T) {
 	if got.Fields.(map[string]any)["surface"] != "board" {
 		t.Fatalf("surface = %#v, want scalar \"board\"", got.Fields.(map[string]any)["surface"])
 	}
+}
+
+// TestUISaveMultiValueClearAll (rebuild P6): the edit form renders a hidden
+// "" sentinel input alongside the native <select multiple>, so a fully
+// deselected control still posts one (filtered-out) entry and the save
+// UNSETS the field — with or without JS. This closes the P3 gap where
+// deselect-all posted nothing and PATCH read it as "don't touch".
+func TestUISaveMultiValueClearAll(t *testing.T) {
+	ts, svc := newServer(t)
+	ctx := context.Background()
+
+	c, err := svc.CreateCard(ctx, core.CreateCardRequest{
+		TypeID: "frontend-task", Title: "clear", Status: "backlog", Actor: "local-dev",
+		Fields: map[string]any{"description": "d", "surface": "board", "platforms": []any{"desktop", "mobile"}},
+	})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	// The modal markup carries the sentinel (no-JS honesty check).
+	html := modalFor(t, ts.URL, c.ID)
+	if !strings.Contains(html, `<input type="hidden" name="field:platforms" value="">`) {
+		t.Fatal("edit form is missing the clear-all sentinel input")
+	}
+
+	// A no-JS clear-all posts ONLY the sentinel for the field.
+	form := url.Values{}
+	form.Set("title", c.Title)
+	form.Set("version", "1")
+	form.Add("field:platforms", "") // the sentinel — nothing selected
+	req, _ := http.NewRequest("POST", ts.URL+"/ui/cards/"+c.ID+"/save", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("X-Cards-Partial", "true")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+
+	got, err := svc.GetCard(ctx, c.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, present := got.Fields.(map[string]any)["platforms"]; present {
+		t.Fatalf("platforms still present after sentinel-only save: %#v", got.Fields)
+	}
+}
+
+// modalFor fetches the rendered modal fragment.
+func modalFor(t *testing.T, tsURL, id string) string {
+	t.Helper()
+	req, _ := http.NewRequest("GET", tsURL+"/ui/cards/"+id+"/modal", nil)
+	req.Header.Set("X-Cards-Partial", "true")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	b := new(strings.Builder)
+	if _, err := io.Copy(b, resp.Body); err != nil {
+		t.Fatal(err)
+	}
+	return b.String()
 }
