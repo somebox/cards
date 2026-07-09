@@ -69,3 +69,21 @@ test('parseErrorBody: non-JSON falls back verbatim', () => {
   const e = cardsAPI.parseErrorBody('<html>502</html>', 'Upload failed');
   assert.equal(e.message, 'Upload failed');
 });
+
+test('body: raw text is exposed on both ok and !ok paths (for HTML fragments)', async () => {
+  stubFetch(200, '<div>fragment</div>');
+  const ok = await cardsAPI.send({ method: 'POST', url: '/ui/x/save', body: new FormData() });
+  assert.equal(ok.ok, true); assert.equal(ok.body, '<div>fragment</div>');
+  stubFetch(409, '<div>fragment with error</div>');
+  const stale = await cardsAPI.send({ method: 'POST', url: '/ui/x/save' });
+  assert.equal(stale.stale, true); assert.equal(stale.body, '<div>fragment with error</div>');
+});
+
+test('FormData is passed through untouched (no JSON stringify, no Content-Type)', async () => {
+  const cap = {};
+  stubFetch(200, '<fragment/>', cap);
+  const fd = new FormData(); fd.append('title', 'x');
+  await cardsAPI.send({ method: 'POST', url: '/ui/x/save', body: fd });
+  assert.equal(cap.opts.body, fd); // same instance passed through
+  assert.equal(cap.opts.headers['Content-Type'], undefined); // fetch handles the boundary
+});

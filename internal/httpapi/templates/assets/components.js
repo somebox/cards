@@ -18,6 +18,102 @@ function refreshCardSurface(cardID, el) {
 
 document.addEventListener('alpine:init', function () {
 
+  // $store.card carries the OPEN modal's identity (id + version) — the
+  // single seam every open-modal component reads. Set by editForm.init()
+  // and by loadModal()/openModal() (ui.js) whenever the swapped fragment
+  // carries a save-form; cleared on close. Replaces the old
+  // currentModalCardID() regex on form.action + modalVersion() getter.
+  Alpine.store('card', { id: null, version: 0 });
+
+  // ---- Click-to-edit: each [data-field] on a save-form is an Alpine
+  // component (rebuild P8). Local state: {editing, dirty}. Clicking or
+  // pressing Enter/Space on the view swaps to the edit control; blurring
+  // without a change reverts; a real change marks the field dirty +
+  // bubbles a 'field-dirty' event so editForm ungates Save. WYSIWYG
+  // stays CSS-owned: x-show toggles which control is visible, never
+  // geometry. ----
+  Alpine.data('editField', function () {
+    return {
+      editing: false, dirty: false,
+      // Server-rendered visibility contract preserved for docaudit + tests:
+      // [data-view] starts visible; [data-edit] carries `hidden` in the
+      // first-paint HTML. Once Alpine binds, x-show wins.
+      activate: function () {
+        this.editing = true;
+        var self = this;
+        this.$nextTick(function () {
+          var ctl = self.$refs.edit && self.$refs.edit.querySelector('.input, .select, .textarea');
+          if (ctl) { ctl.focus(); if (ctl.select) ctl.select(); }
+        });
+      },
+      onKeydown: function (ev) {
+        if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); this.activate(); }
+      },
+      // Any real input/change on any control inside [data-edit] marks the
+      // field dirty and bubbles to editForm.
+      onInput: function () {
+        this.dirty = true;
+        this.$dispatch('field-dirty');
+      },
+      // Only revert if the field was never marked dirty — a dirty field
+      // stays open so Save/Cancel remain meaningful and visible.
+      onBlur: function () {
+        var self = this;
+        setTimeout(function () { if (!self.dirty) self.editing = false; }, 0);
+      },
+      // Escape while a control inside this edit box is focused — reverts
+      // even if dirty (matches the pre-Alpine revertField behavior).
+      revert: function () { this.editing = false; this.dirty = false; }
+    };
+  });
+
+  // ---- editForm: the save-form's Save button + dirty-gate + submit
+  // (rebuild P8). It hears field-dirty events bubbling from editField
+  // children; the version travels via $store.card so it is read AT SUBMIT
+  // TIME (not captured at init) — which finally closes the "Saved-toast-on-
+  // conflict" bug: a 409 becomes an inline error toast, not a green
+  // "Saved". FormData(form) still carries every field regardless of
+  // view/edit mode. ----
+  Alpine.data('editForm', function (cfg) {
+    return {
+      dirty: false, saving: false,
+      init: function () {
+        // Publish this modal's identity into the shared store for the rest
+        // of the modal to read.
+        Alpine.store('card').id = cfg.cardId;
+        Alpine.store('card').version = cfg.version;
+      },
+      onDirty: function () { this.dirty = true; },
+      submit: function () {
+        if (!this.dirty || this.saving) return;
+        var form = this.$root;
+        var self = this;
+        this.saving = true;
+        var fd = new FormData(form);
+        fd.append('version', Alpine.store('card').version); // AT SUBMIT TIME
+        cardsAPI.send({
+          method: 'POST', url: form.action, body: fd,
+          headers: { 'X-Cards-Partial': 'true' }
+        }).then(function (res) {
+          self.saving = false;
+          if (res.ok) {
+            toast('Saved');
+            // openModal() re-inits Alpine on the fresh fragment; the new
+            // editForm's init() republishes cardId + version into the store.
+            openModal(res.body);
+            return;
+          }
+          // Honest 4xx now (P8): server re-rendered the modal WITH an alert
+          // and returned the real status. Swap the fragment so the user sees
+          // the inline error + current server state, and toast the reason —
+          // 409 uses the canonical STALE_MSG, others use the server's msg.
+          if (res.body) openModal(res.body);
+          toast(res.stale ? res.message : (res.message || 'Save failed'), 'err');
+        });
+      }
+    };
+  });
+
   // ---- Comments: composer (add) ----
   Alpine.data('commentComposer', function (cfg) {
     return {

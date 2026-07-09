@@ -340,6 +340,17 @@ func (s *Server) renderCardDetail(w http.ResponseWriter, r *http.Request, c *cor
 	data.TypeThemes = s.buildTypeThemes()
 	data.OutLinks, data.InLinks = s.cardRelations(r.Context(), c)
 	data.Theme = s.resolveTheme(w, r, b)
+	// Honest HTTP status on the save-error path (rebuild P8): a stale save
+	// or a validation failure re-renders the detail page WITH the alert,
+	// but returns the real 4xx so the client (cardsAPI) can tell success
+	// from failure without inspecting the body.
+	if err != nil {
+		status := err.HTTPStatus
+		if status == 0 {
+			status = http.StatusUnprocessableEntity
+		}
+		w.WriteHeader(status)
+	}
 	if wantsPartial(r) {
 		s.renderPartial(w, "card_detail.html", data)
 	} else {

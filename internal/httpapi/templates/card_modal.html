@@ -11,9 +11,11 @@
        {{- if $th.Accent}} style="--card-stock:{{$th.Accent}}{{- if $th.Muted}};--card-stock-bg:{{$th.Muted}}{{end}}"{{end -}}>
     <span class="modal__type-icon" aria-hidden="true"></span>
     <div class="modal__head-main">
-      <div class="field field--editable" data-field="title">
-        <span class="field__view card-title__view{{if not .Card.Title}} is-empty{{end}}" tabindex="0" data-view title="{{.Card.Title}}">{{if .Card.Title}}{{.Card.Title}}{{else}}Untitled{{end}}</span>
-        <span class="field__edit card-title__edit" data-edit hidden>
+      <div class="field field--editable" data-field="title" x-data="editField()"
+           @focusout.capture="onBlur()" @keydown.escape.prevent.stop="revert()">
+        <span class="field__view card-title__view{{if not .Card.Title}} is-empty{{end}}" tabindex="0" data-view
+              x-show="!editing" @click="activate()" @keydown="onKeydown($event)" title="{{.Card.Title}}">{{if .Card.Title}}{{.Card.Title}}{{else}}Untitled{{end}}</span>
+        <span class="field__edit card-title__edit" data-edit x-ref="edit" x-cloak x-show="editing" @input="onInput()" @change="onInput()">
           <input type="text" class="input" name="title" value="{{.Card.Title}}">
         </span>
       </div>
@@ -23,10 +25,11 @@
               title="{{.Card.TypeID}}">
           {{.CardType.Name}}
         </span>
-        <span class="field field--editable modal__meta-field" data-field="status">
+        <span class="field field--editable modal__meta-field" data-field="status" x-data="editField()"
+              @focusout.capture="onBlur()" @keydown.escape.prevent.stop="revert()">
           <span class="modal__meta-key">status</span>
-          <span class="field__view" tabindex="0" data-view>{{columnName .Card.Status}}</span>
-          <span class="field__edit" data-edit hidden>
+          <span class="field__view" tabindex="0" data-view x-show="!editing" @click="activate()" @keydown="onKeydown($event)">{{columnName .Card.Status}}</span>
+          <span class="field__edit" data-edit x-ref="edit" x-cloak x-show="editing" @input="onInput()" @change="onInput()">
             <select class="select" name="status">
               {{range .MoveOptions}}
                 <option value="{{.Value}}" {{if .Disabled}}disabled{{end}} {{if .Selected}}selected{{end}}>{{.Label}}</option>
@@ -34,10 +37,12 @@
             </select>
           </span>
         </span>
-        <span class="field field--editable modal__meta-field" data-field="owner">
+        <span class="field field--editable modal__meta-field" data-field="owner" x-data="editField()"
+              @focusout.capture="onBlur()" @keydown.escape.prevent.stop="revert()">
           <span class="modal__meta-key">owner</span>
-          <span class="field__view{{if not .Card.Owner}} is-empty{{end}}" tabindex="0" data-view>{{if .Card.Owner}}{{.Card.Owner}}{{else}}unassigned{{end}}</span>
-          <span class="field__edit" data-edit hidden>
+          <span class="field__view{{if not .Card.Owner}} is-empty{{end}}" tabindex="0" data-view
+                x-show="!editing" @click="activate()" @keydown="onKeydown($event)">{{if .Card.Owner}}{{.Card.Owner}}{{else}}unassigned{{end}}</span>
+          <span class="field__edit" data-edit x-ref="edit" x-cloak x-show="editing" @input="onInput()" @change="onInput()">
             <input type="text" class="input" name="owner" value="{{.Card.Owner}}"
                    placeholder="unassigned" size="{{if .Card.Owner}}{{len .Card.Owner}}{{else}}8{{end}}">
           </span>
@@ -58,11 +63,13 @@
 {{define "card_body_fields"}}
     {{if .Error}}<div class="alert"><span class="alert__code">{{.Error.Code}}:</span> {{.Error.Message}}{{if .Error.ValidOptions}} (valid: {{join .Error.ValidOptions ", "}}){{end}}</div>{{end}}
 
-    <div class="field field--editable" data-field="tags" data-field-type="tags">
+    <div class="field field--editable" data-field="tags" data-field-type="tags" x-data="editField()"
+         @focusout.capture="onBlur()" @keydown.escape.prevent.stop="revert()">
       <label class="field__label">Tags</label>
-      <div class="field__view{{if not .Card.Tags}} is-empty{{end}}" tabindex="0" data-view>{{- if .Card.Tags}}{{range .Card.Tags}}<span class="chip chip--tag">{{.}}</span> {{end}}{{else}}Add tags…{{end -}}
+      <div class="field__view{{if not .Card.Tags}} is-empty{{end}}" tabindex="0" data-view
+           x-show="!editing" @click="activate()" @keydown="onKeydown($event)">{{- if .Card.Tags}}{{range .Card.Tags}}<span class="chip chip--tag">{{.}}</span> {{end}}{{else}}Add tags…{{end -}}
       </div>
-      <div class="field__edit" data-edit hidden>
+      <div class="field__edit" data-edit x-ref="edit" x-cloak x-show="editing" @input="onInput()" @change="onInput()">
         <div class="multiselect" x-data="tagChips({policy: '{{$.TagPolicy}}'})" @click.outside="open = false">
           {{/* the comma-joined input the server already expects: submitted
                control + no-JS fallback; hidden once the chip editor boots */}}
@@ -189,17 +196,19 @@
     </div>
     {{else}}
     {{/* Editable scalar fields: click the rendered value to edit in place. */}}
-    <div class="field field--editable" data-field="field:{{.Def.ID}}" data-field-type="{{.Def.Type}}">
+    <div class="field field--editable" data-field="field:{{.Def.ID}}" data-field-type="{{.Def.Type}}" x-data="editField()"
+         @focusout.capture="onBlur()" @keydown.escape.prevent.stop="revert()">
       <label class="field__label">{{.Def.Label}}{{if .Def.Required}} <span class="req">*</span>{{end}}</label>
 
-      <div class="field__view{{if not .ValueStr}} is-empty{{end}}{{if eq .Display "monospace"}} mono{{end}}" tabindex="0" data-view>{{- if .Def.Multiple -}}
+      <div class="field__view{{if not .ValueStr}} is-empty{{end}}{{if eq .Display "monospace"}} mono{{end}}" tabindex="0" data-view
+           x-show="!editing" @click="activate()" @keydown="onKeydown($event)">{{- if .Def.Multiple -}}
           {{- if .ValueStr}}<span class="chip-cluster">{{range .Value}}<span class="chip chip--tag">{{.}}</span>{{end}}</span>{{else}}Not set{{end -}}
         {{- else if eq .Display "badge" -}}
           {{- if .ValueStr}}<span class="chip chip--tag">{{.ValueStr}}</span>{{else}}Not set{{end -}}
         {{- else if .ValueStr}}{{.ValueStr}}{{else}}Not set{{end -}}
       </div>
 
-      <div class="field__edit" data-edit hidden>
+      <div class="field__edit" data-edit x-ref="edit" x-cloak x-show="editing" @input="onInput()" @change="onInput()">
         {{template "field_control" (dict "Def" .Def "Ctx" "edit" "Value" .ValueStr "Raw" .Value "Display" .Display "Users" .Users)}}
       </div>
     </div>
@@ -291,11 +300,12 @@
 {{end}}
 
 {{define "card_modal"}}
-<form class="save-form" action="/ui/cards/{{.Card.ID}}/save" method="POST" data-version="{{.Card.Version}}">
+<form class="save-form" action="/ui/cards/{{.Card.ID}}/save" method="POST" data-version="{{.Card.Version}}"
+      x-data="editForm({cardId: '{{.Card.ID}}', version: {{.Card.Version}}})" @field-dirty="onDirty()">
   {{template "card_body" .}}
   <div class="modal__footer">
     <button type="button" class="btn btn--ghost" onclick="closeModal()">Cancel</button>
-    <button type="button" class="btn btn--primary" disabled>Save</button>
+    <button type="button" class="btn btn--primary" :disabled="!dirty || saving" @click="submit()">Save</button>
   </div>
 </form>
 {{end}}

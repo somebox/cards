@@ -651,7 +651,13 @@ func (s *Server) uiSaveCard(w http.ResponseWriter, r *http.Request) {
 	s.uiCardModal(w, r)
 }
 
-// renderCardModalErr re-renders the modal with an error attached.
+// renderCardModalErr re-renders the modal with an error attached and returns
+// the REAL 4xx status (rebuild P8, closing bug card_096261c37): the pre-P8
+// path returned HTTP 200 with the error embedded inline, so the client
+// couldn't distinguish success from failure and would toast "Saved" while
+// silently dropping the write. The client now sees the honest status through
+// cardsAPI: a version_conflict → 409 → stale toast; validation → 422 → error
+// toast; either way the swapped-in modal fragment still carries the alert.
 func (s *Server) renderCardModalErr(w http.ResponseWriter, r *http.Request, c *core.Card, err *core.Error) {
 	ct := s.types[c.TypeID]
 	b := s.boardForCard(c)
@@ -667,6 +673,11 @@ func (s *Server) renderCardModalErr(w http.ResponseWriter, r *http.Request, c *c
 	data.Error = err
 	data.TypeThemes = s.buildTypeThemes()
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err != nil && err.HTTPStatus > 0 {
+		w.WriteHeader(err.HTTPStatus)
+	} else {
+		w.WriteHeader(http.StatusUnprocessableEntity)
+	}
 	// The response is already streaming; a mid-render template error can only
 	// be logged, not turned into a different status.
 	if terr := s.pages["card_modal.html"].ExecuteTemplate(w, "card_modal", data); terr != nil {
