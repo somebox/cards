@@ -1,6 +1,7 @@
 {{define "card_partial"}}
 <div class="card" id="card-{{.Card.ID}}" data-card-id="{{.Card.ID}}" data-type="{{.Card.TypeID}}"{{if .TypeIcon}} data-icon="{{.TypeIcon}}"{{end}}
      draggable="true" data-card-link="/ui/cards/{{.Card.ID}}/modal"
+     :class="{'is-dragging': draggingId === '{{.Card.ID}}'}"
      {{if .TypeAccent}}style="--card-stock:{{.TypeAccent}}{{if .TypeMuted}};--card-stock-bg:{{.TypeMuted}}{{end}}" {{end}}title="{{.TypeLabel}} · {{.Card.Title}}">
   {{/* Minimal corner type indicator: colour-stock tab + icon, no text label
        (the constant black border is the "printing", the corner is the "stock").
@@ -11,7 +12,7 @@
     <a href="/ui/cards/{{.Card.ID}}" data-card-link="/ui/cards/{{.Card.ID}}/modal">{{.Card.Title}}</a>
   </div>
   {{if .Card.Owner}}<div class="card__meta">
-    <button class="chip chip--owner" title="click to unclaim" onclick="releaseCard('{{.Card.ID}}',event)">{{.Card.Owner}}</button>
+    <button class="chip chip--owner" title="click to unclaim" @click="releaseCard('{{.Card.ID}}', $event)">{{.Card.Owner}}</button>
   </div>{{end}}
   {{if .PreviewFields}}
   <div class="card__preview">
