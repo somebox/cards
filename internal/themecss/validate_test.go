@@ -161,3 +161,16 @@ func TestViolationStringNamesThemeFileLine(t *testing.T) {
 		}
 	}
 }
+
+func TestThemeMayStyleComboboxHooks(t *testing.T) {
+	// The combobox hooks (DESIGN.md stable list, rebuild P5) are themable like
+	// any component: a scoped block over them must pass the contract check.
+	css := `
+html[data-theme="mine"] .combobox__menu { background: #101418; border-color: #333; }
+html[data-theme="mine"] .combobox__option.is-active { background: #1c2530; }
+html[data-theme="mine"] .combobox__filter { color: #e0e6ec; }
+`
+	if vs := Validate("mine", "mine.css", css); len(vs) != 0 {
+		t.Fatalf("theme styling combobox hooks flagged: %v", vs)
+	}
+}

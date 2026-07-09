@@ -231,3 +231,26 @@ func TestVendoredAlpinePresent(t *testing.T) {
 		}
 	}
 }
+
+// TestComboboxBlockIsTokenOnly (rebuild P5): the combobox rules read neutral +
+// role tokens only — never --type-* hues (board inline styles override those
+// and would render un-dark-adapted inside a themed board) and no raw hex
+// (the global ratchet also covers this, but the message here is targeted).
+func TestComboboxBlockIsTokenOnly(t *testing.T) {
+	css := readRepoFile(t, "internal/httpapi/templates/style.css")
+	start := strings.Index(css, ".combobox {")
+	if start < 0 {
+		t.Fatal("combobox block not found in style.css")
+	}
+	end := strings.Index(css[start:], ".combobox__empty")
+	if end < 0 {
+		t.Fatal("combobox block end marker not found")
+	}
+	block := css[start : start+end]
+	if strings.Contains(block, "--type-") {
+		t.Error("combobox rules reference --type-* hues — use neutral/role tokens (DESIGN.md)")
+	}
+	if m := regexp.MustCompile(`#[0-9a-fA-F]{3,8}\b`).FindString(block); m != "" {
+		t.Errorf("combobox rules contain a raw hex literal (%s) — use tokens", m)
+	}
+}

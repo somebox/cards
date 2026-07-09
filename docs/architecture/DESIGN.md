@@ -168,6 +168,17 @@ shared `card_body` block, `.field` (view/edit), `.rel` (relationship rows),
 `.toast`, `.search`, home cards. Layout primitives:
 `.stack/.row/.cluster/.grid/.between/.muted/.faint/.truncate/.vh`.
 
+**Combobox** (rebuild P5) — the filter-as-you-type enhancement over a native
+single `<select>` for enum/user fields: `.combobox` / `.combobox__control`
+(carries `.select` so its geometry is exactly the native control's — WYSIWYG,
+no shift on enhance) / `.combobox__menu` / `.combobox__filter` /
+`.combobox__list` / `.combobox__option` (+ `--free`, `.is-active`,
+`.is-selected`) / `.combobox__empty`. **Stable theme hooks — renames are
+breaking.** Token discipline: these rules read neutral + role tokens only,
+never `--type-*` hues (board inline styles override those); pinned by a
+docaudit test. The native select stays in the DOM as the submitted control
+and the no-JS fallback.
+
 **Icons** are monochromatic `currentColor` mask-images (data-URI SVG) keyed by
 `[data-type]`, optional config-emitted `[data-icon]`, and `[data-stat]` — one
 colour, consistent size, no emoji. `data-icon` wins over type defaults so users

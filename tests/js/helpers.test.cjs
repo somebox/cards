@@ -36,3 +36,14 @@ test('ago: buckets match the data-ago contract', () => {
 test('ago: defaults to the real clock when now is omitted', () => {
   assert.equal(ago(new Date().toISOString()), 'just now');
 });
+
+const { comboMatch } = require(path.join(
+  __dirname, '..', '..', 'internal', 'httpapi', 'templates', 'assets', 'helpers.js'));
+
+test('comboMatch: case-insensitive substring; empty query matches all', () => {
+  assert.equal(comboMatch('Desktop', 'desk'), true);
+  assert.equal(comboMatch('desktop', 'TOP'), true);
+  assert.equal(comboMatch('mobile', 'desk'), false);
+  assert.equal(comboMatch('anything', ''), true);
+  assert.equal(comboMatch('anything', null), true);
+});

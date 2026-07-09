@@ -352,6 +352,42 @@ main { padding: var(--s-5); max-width: 100%; }
    chip control progressively enhances this exact element. */
 .select--multi { height: auto; max-height: 9rem; overflow-y: auto; padding: var(--s-1); }
 .select--multi option { padding: var(--s-1) var(--s-2); border-radius: var(--r-sm); }
+/* Combobox (rebuild P5): the filter-as-you-type enhancement over a native
+   <select> for single enum/user fields. STABLE THEME HOOKS (DESIGN.md):
+   .combobox / .combobox__control / .combobox__menu / .combobox__filter /
+   .combobox__option. Token discipline: neutral + role tokens ONLY — never
+   --type-* hues (board inline styles override those and would render
+   un-dark-adapted inside a board). The control carries .select too, so its
+   geometry is EXACTLY the native select's (WYSIWYG: no shift on enhance).
+   The menu is absolutely positioned, so opening it never moves the field. */
+.combobox { position: relative; display: block; }
+.combobox__control {
+  width: 100%; text-align: left; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: space-between; gap: var(--s-2);
+}
+.combobox__control::after { content: "▾"; color: var(--c-faint); font-size: var(--t-xs); }
+.combobox__control .is-placeholder { color: var(--c-faint); }
+.combobox__menu {
+  position: absolute; left: 0; right: 0; top: calc(100% + 2px); z-index: 30;
+  background: var(--c-surface); border: var(--edge) solid var(--c-border-2);
+  border-radius: var(--r-md); box-shadow: var(--sh-md);
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.combobox__filter {
+  border: 0; border-bottom: var(--edge) solid var(--c-border);
+  border-radius: 0; padding: var(--s-2) var(--s-3);
+  font: inherit; background: var(--c-surface); color: var(--c-text);
+}
+.combobox__filter:focus { outline: none; background: var(--c-surface-2); }
+.combobox__list { list-style: none; margin: 0; padding: var(--s-1); max-height: 11rem; overflow-y: auto; }
+.combobox__option {
+  padding: var(--s-1) var(--s-3); border-radius: var(--r-sm); cursor: pointer;
+  color: var(--c-text);
+}
+.combobox__option:hover, .combobox__option.is-active { background: var(--c-surface-2); }
+.combobox__option.is-selected { font-weight: var(--role-strong-weight); }
+.combobox__option--free { color: var(--c-accent); font-style: italic; }
+.combobox__empty { padding: var(--s-1) var(--s-3); color: var(--c-faint); font-style: italic; }
 .input::placeholder, .textarea::placeholder { color: var(--c-faint); }
 
 /* Select — restyled to the design language: appearance:none drops the native
