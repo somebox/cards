@@ -279,6 +279,37 @@ detail layout is the one place a theme *does* branch the shared `card_body`
 template (`{{if eq $.Theme "labels"}}` in `card_modal.html`); every other
 theme shares one header + body assembly.
 
+## Interactivity layer (Alpine.js) — decision + division of labor
+
+Adopted in the frontend rebuild (see `docs/plans/frontend-rebuild-plan.md`):
+**Alpine.js is the UI's one sanctioned interactivity layer**, replacing the
+hand-rolled `wire*()` vanilla JS incrementally. The decision and its rules:
+
+- **Self-hosted + embedded, pinned.** `templates/assets/alpine.min.js`
+  (v3.15.0) ships inside the binary and is served at
+  `/ui/assets/alpine.min.js?v=<assetStamp>` — no CDN at runtime, survives a
+  future CSP, cache-busted per composition generation like the stylesheet.
+- **Division of labor (normative).** Go templates render **all server data**
+  and the first paint; Alpine handles **ephemeral local state only**
+  (open/closed, drag, filter-as-you-type, dirty tracking). Never `x-for` over
+  server JSON — that forks the API contract and breaks no-JS rendering.
+  Enforced by `internal/docaudit/frontend_test.go` (x-for allowlist).
+- **One swap seam.** Server HTML enters the live DOM only through
+  `swapHTML(container, html)` in `ui.js` — `innerHTML` + `Alpine.initTree`
+  on the fresh subtree (never on `document` or a persistent root — that
+  double-binds) + `refreshAgo`. Guard-tested: exactly one `.innerHTML =` in
+  our JS.
+- **JS lives in embedded assets, not templates.** `templates/assets/ui.js`
+  (behavior) and `helpers.js` (pure functions, unit-tested by `node --test
+  tests/js/` — zero npm dependencies). Template inline `<script>` blocks only
+  hand over server parameters (budget-guarded).
+- **CSS drift guards.** Type is never sized in `px`/`vw`/`vh` (test-pinned),
+  and hex color literals are ratcheted — new colors go through tokens.
+- Component conventions (Alpine `data` factories, combobox/multiselect
+  controls) land phase-by-phase per the rebuild plan; Pinemix components are
+  a *behavior* reference only — their Tailwind styling is always replaced
+  with our token classes.
+
 ## Substrate & upgrade path
 
 The token layer is hand-rolled (~600 lines, zero dependencies). The sanctioned

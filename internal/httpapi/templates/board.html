@@ -47,44 +47,13 @@
 </div>
 </div>
 <script>
-// Live updates: subscribe to the board's event stream. On a mutation event,
-// re-fetch the board HTML and swap #board so the card lands in the right
-// column with fresh content. (htmx could do this more surgically; this is
-// the simplest correct live board.)
-(function () {
-  var board = document.getElementById('board');
-  if (!board || typeof EventSource === 'undefined') return;
-  // Server-built type list: board mutations + every condition event, so a
-  // blocked/unblocked or WIP crossing re-renders the badges live.
-  var types = '{{.SSETypes}}';
-  var es = new EventSource('/v1/events/stream?board_id={{.Board.ID}}&types=' + types);
-  types.split(',').forEach(function(t){ es.addEventListener(t, handle); });
-  function handle(e) {
-    fetch(window.location.href, {headers: {'HX-Request':'true'}})
-      .then(function(r){ return r.text(); })
-      .then(function(html){
-        var tmp = document.createElement('div');
-        tmp.innerHTML = html;
-        var fresh = tmp.querySelector('.board');
-        if (fresh) board.innerHTML = fresh.innerHTML;
-        refreshAgo();
-      })
-      .catch(function(){});
-  }
-  es.onerror = function() { es.close(); };
-})();
-// Deep-link creation (P2): /ui/cards/new 303s here with ?new=1(&type&status);
-// open the create modal once, then strip the params so refresh doesn't re-open.
-(function () {
-  var p = new URLSearchParams(window.location.search);
-  if (p.get('new') !== '1') return;
-  var q = ['board={{.Board.ID}}'];
-  if (p.get('type')) q.push('type=' + encodeURIComponent(p.get('type')));
-  if (p.get('status')) q.push('status=' + encodeURIComponent(p.get('status')));
-  loadModal('/ui/cards/new/modal?' + q.join('&'));
-  p.delete('new'); p.delete('type'); p.delete('status');
-  var rest = p.toString();
-  history.replaceState(null, '', window.location.pathname + (rest ? '?' + rest : ''));
-})();
+// Behavior lives in ui.js (wireBoardLive / boardDeepLinkCreate); this block
+// only hands over the template-injected parameters. DOMContentLoaded defers
+// the calls until ui.js (loaded at the end of <body>) has defined them —
+// content scripts parse BEFORE the layout's script tags.
+document.addEventListener('DOMContentLoaded', function () {
+  wireBoardLive('{{.Board.ID}}', '{{.SSETypes}}');
+  boardDeepLinkCreate('{{.Board.ID}}');
+});
 </script>
 {{end}}
