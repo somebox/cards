@@ -121,3 +121,49 @@ func modalFor(t *testing.T, tsURL, id string) string {
 	}
 	return b.String()
 }
+
+// TestUISaveReturnsRealStatusOnConflict (rebuild P8, closes bug
+// card_096261c37): a stale-version modal save returns the REAL 409 with
+// the error-embedded fragment — not HTTP 200 as before, which would toast
+// "Saved" while dropping the write.
+func TestUISaveReturnsRealStatusOnConflict(t *testing.T) {
+	ts, svc := newServer(t)
+	ctx := context.Background()
+
+	c, err := svc.CreateCard(ctx, core.CreateCardRequest{
+		TypeID: "frontend-task", Title: "conflict-victim", Status: "backlog", Actor: "local-dev",
+		Fields: map[string]any{"description": "d", "surface": "board"},
+	})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	// Post with a stale version (server is at 1, we send 0).
+	form := url.Values{}
+	form.Set("title", "SHOULD NOT PERSIST")
+	form.Set("version", "0")
+	req, _ := http.NewRequest("POST", ts.URL+"/ui/cards/"+c.ID+"/save", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("X-Cards-Partial", "true")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Consume the body before checking status so the server's stream write
+	// completes cleanly (avoids a "broken pipe" log line, not correctness).
+	body, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusConflict {
+		t.Fatalf("save with stale version: %d, want 409 (honest status, per P8)", resp.StatusCode)
+	}
+	if !strings.Contains(string(body), "version_conflict") {
+		t.Error("409 body should still carry the re-rendered modal with the alert")
+	}
+	got, err := svc.GetCard(ctx, c.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Title != "conflict-victim" {
+		t.Errorf("title mutated by stale save: %q", got.Title)
+	}
+}

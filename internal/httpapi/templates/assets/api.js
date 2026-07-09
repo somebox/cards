@@ -34,30 +34,39 @@ var cardsAPI = (function () {
     for (var k in (opts.headers || {})) headers[k] = opts.headers[k];
     if (typeof CARDS_ACTOR !== 'undefined' && CARDS_ACTOR) headers['X-Work-Cards-Actor'] = CARDS_ACTOR;
     var body = opts.body;
-    var isRaw = (typeof Blob !== 'undefined' && body instanceof Blob) ||
-                (typeof File !== 'undefined' && body instanceof File);
-    if (body !== undefined && body !== null && !isRaw) {
+    // Raw bodies (Blob/File/FormData) are passed through untouched — fetch
+    // handles the Content-Type and multipart boundaries for FormData itself;
+    // JSON-stringifying a FormData would produce '{}' and silently drop every
+    // field (this bit editForm's save path in P8 until we caught it).
+    var isBlobLike = (typeof Blob !== 'undefined' && body instanceof Blob) ||
+                     (typeof File !== 'undefined' && body instanceof File);
+    var isFormData = (typeof FormData !== 'undefined' && body instanceof FormData);
+    if (body !== undefined && body !== null && !isBlobLike && !isFormData) {
       headers['Content-Type'] = 'application/json';
       body = JSON.stringify(body);
-    } else if (isRaw && !headers['Content-Type']) {
+    } else if (isBlobLike && !headers['Content-Type']) {
       headers['Content-Type'] = 'application/octet-stream';
     }
+    // FormData: DO NOT set Content-Type — fetch injects
+    // "multipart/form-data; boundary=..." with the correct boundary.
     return fetch(opts.url, { method: opts.method || 'GET', headers: headers, body: body })
       .then(function (r) {
         return r.text().then(function (t) {
           if (r.ok) {
             var data = null;
             try { data = JSON.parse(t); } catch (_) {}
-            return { ok: true, status: r.status, data: data };
+            // .body is the raw response text (HTML fragments, non-JSON
+            // payloads); .data is the parsed JSON when available.
+            return { ok: true, status: r.status, data: data, body: t };
           }
           if (r.status === 409) {
-            return { ok: false, status: 409, stale: true, message: STALE_MSG };
+            return { ok: false, status: 409, stale: true, message: STALE_MSG, body: t };
           }
           if (r.status === 413) {
-            return { ok: false, status: 413, tooLarge: true, message: 'The server rejected the file as too large.' };
+            return { ok: false, status: 413, tooLarge: true, message: 'The server rejected the file as too large.', body: t };
           }
           var e = parseErrorBody(t, 'Request failed');
-          return { ok: false, status: r.status, message: e.message, field: e.field, value: e.value, validOptions: e.validOptions };
+          return { ok: false, status: r.status, message: e.message, field: e.field, value: e.value, validOptions: e.validOptions, body: t };
         });
       })
       .catch(function () {
