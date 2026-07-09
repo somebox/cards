@@ -54,7 +54,7 @@
         </span>
       </div>
     </div>
-    <button type="button" class="modal__close" onclick="closeModal()" aria-label="close">×</button>
+    <button type="button" class="modal__close" @click="closeModal()" aria-label="close">×</button>
   </div>
 {{end}}
 
@@ -304,7 +304,7 @@
       x-data="editForm({cardId: '{{.Card.ID}}', version: {{.Card.Version}}})" @field-dirty="onDirty()">
   {{template "card_body" .}}
   <div class="modal__footer">
-    <button type="button" class="btn btn--ghost" onclick="closeModal()">Cancel</button>
+    <button type="button" class="btn btn--ghost" @click="closeModal()">Cancel</button>
     <button type="button" class="btn btn--primary" :disabled="!dirty || saving" @click="submit()">Save</button>
   </div>
 </form>

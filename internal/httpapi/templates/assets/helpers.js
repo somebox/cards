@@ -4,12 +4,9 @@
 // bottom. Keep this file dependency-free and side-effect-free: anything here
 // must be callable from a unit test with plain values.
 
-// apiErrText extracts a human message from a structured core.Error JSON body
-// ({message, field, ...}); falls back verbatim when the body isn't JSON.
-function apiErrText(t, fallback) {
-  try { var e = JSON.parse(t); return (e.message || fallback) + (e.field ? ' (' + e.field + ')' : ''); }
-  catch (_) { return fallback; }
-}
+// (Rebuild P10: apiErrText was subsumed by cardsAPI.parseErrorBody in api.js —
+// deleted here now that every caller flows through cardsAPI.send. Legacy
+// clients: reach for cardsAPI.parseErrorBody(text, fallback).)
 
 // ago renders an RFC3339 timestamp as a compact relative time ("just now",
 // "5m ago", "3h ago", "2d ago"). `now` is injectable for tests; defaults to
@@ -33,5 +30,5 @@ function comboMatch(label, q) {
 
 // Node test-runner hook (no-op in the browser).
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { apiErrText: apiErrText, ago: ago, comboMatch: comboMatch };
+  module.exports = { ago: ago, comboMatch: comboMatch };
 }

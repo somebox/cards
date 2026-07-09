@@ -1,31 +1,40 @@
 {{define "content"}}
-<div class="breaches">
+{{/* Breaches page (rebuild P10): proves $store.live generalizes beyond the
+     board. The breachesPage component subscribes to condition events (WIP
+     exceeded/cleared, lane drained/refilled, blocked/unblocked) and swaps
+     the list in place; a plain GET without JS still works. */}}
+<div class="breaches" x-data="breachesPage()">
   <header class="breaches__head">
     <h1>Breaches</h1>
-    <p class="muted">Conditions currently true across all boards, as of {{.BreachAsOf}}.</p>
+    <p class="muted">Conditions currently true across all boards, as of <span data-as-of>{{.BreachAsOf}}</span>.</p>
   </header>
+  <div id="breaches-list">
+    {{template "breaches_fragment" .}}
+  </div>
+</div>
+{{end}}
 
-  {{if .Breaches}}
-  <div class="stack">
-    {{range .Breaches}}
-    <div class="breach" data-condition="{{.RawType}}">
-      <span class="breach__label">{{.Label}}</span>
-      {{if eq .Scope "card"}}
-        <a class="breach__subject" href="/ui/cards/{{.CardID}}" data-card-link="/ui/cards/{{.CardID}}/modal">{{.CardTitle}}</a>
-        {{if .Blockers}}<span class="breach__detail">blocked by
-          {{range $i, $b := .Blockers}}{{if $i}}, {{end}}<a href="/ui/cards/{{$b.CardID}}" data-card-link="/ui/cards/{{$b.CardID}}/modal">{{$b.Title}}</a>{{end}}
-        </span>{{end}}
-      {{else}}
-        <a class="breach__subject" href="/ui/boards/{{.BoardID}}">{{.BoardName}}</a>
-        <span class="breach__detail">
-          {{.Column}}: {{.Count}}{{if .Limit}} / {{.Limit}} limit{{end}}
-        </span>
-      {{end}}
-    </div>
+{{define "breaches_fragment"}}
+{{if .Breaches}}
+<div class="stack">
+  {{range .Breaches}}
+  <div class="breach" data-condition="{{.RawType}}">
+    <span class="breach__label">{{.Label}}</span>
+    {{if eq .Scope "card"}}
+      <a class="breach__subject" href="/ui/cards/{{.CardID}}" data-card-link="/ui/cards/{{.CardID}}/modal">{{.CardTitle}}</a>
+      {{if .Blockers}}<span class="breach__detail">blocked by
+        {{range $i, $b := .Blockers}}{{if $i}}, {{end}}<a href="/ui/cards/{{$b.CardID}}" data-card-link="/ui/cards/{{$b.CardID}}/modal">{{$b.Title}}</a>{{end}}
+      </span>{{end}}
+    {{else}}
+      <a class="breach__subject" href="/ui/boards/{{.BoardID}}">{{.BoardName}}</a>
+      <span class="breach__detail">
+        {{.Column}}: {{.Count}}{{if .Limit}} / {{.Limit}} limit{{end}}
+      </span>
     {{end}}
   </div>
-  {{else}}
-  <p class="breaches__empty muted">Nothing breaching right now — every board is within its limits and no cards are blocked.</p>
   {{end}}
 </div>
+{{else}}
+<p class="breaches__empty muted">Nothing breaching right now — every board is within its limits and no cards are blocked.</p>
+{{end}}
 {{end}}

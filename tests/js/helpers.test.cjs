@@ -5,25 +5,11 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('node:path');
 
-const { apiErrText, ago } = require(path.join(
+const { ago } = require(path.join(
   __dirname, '..', '..', 'internal', 'httpapi', 'templates', 'assets', 'helpers.js'));
 
-test('apiErrText: structured core.Error → message (field)', () => {
-  const body = JSON.stringify({ error: 'validation_failed', message: 'Unknown enum value', field: 'priority' });
-  assert.equal(apiErrText(body, 'Save failed'), 'Unknown enum value (priority)');
-});
-
-test('apiErrText: message without field has no suffix', () => {
-  assert.equal(apiErrText(JSON.stringify({ message: 'Nope' }), 'x'), 'Nope');
-});
-
-test('apiErrText: non-JSON body falls back verbatim', () => {
-  assert.equal(apiErrText('<html>502</html>', 'Save failed'), 'Save failed');
-});
-
-test('apiErrText: JSON without message uses fallback but keeps field', () => {
-  assert.equal(apiErrText(JSON.stringify({ field: 'tags' }), 'Save failed'), 'Save failed (tags)');
-});
+// apiErrText was replaced by cardsAPI.parseErrorBody in P10 — see api.test.cjs
+// for the equivalent structured-error unit tests.
 
 test('ago: buckets match the data-ago contract', () => {
   const now = '2026-07-08T12:00:00Z';
