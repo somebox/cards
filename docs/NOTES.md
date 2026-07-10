@@ -262,3 +262,47 @@ Mismatched links are rejected with the valid set echoed. Stops an agent from
   in core as optional presentation metadata (clients may ignore).
 - The PHILOSOPHY §1/§7 edits drafted in CORE-BOUNDARIES §5 land **with the
   first `token`-mode implementation**, not before.
+
+## Demo-workspace seed policy (2026-07-10)
+
+**Decision (P1b of `docs/plans/sprint-2026-07-10.md`): keep the onboarding
+cards.** A fresh install from source should greet the user with a working,
+self-documenting board, not an empty one.
+
+**Persona.** Someone cloning/installing cards from source and running it for
+the first time (`cards init`, or the zero-config serve path that falls back to
+the global workspace). Not the maintainer's dogfood board — that's a separate
+surface (see below).
+
+**Chosen option: (b) auto-seed into any empty workspace — already implemented,
+no new code.** `internal/starter/SeedWelcome` (wired at
+`cmd/cards/workspace.go:121`, covered by `internal/starter/starter_test.go`)
+creates a five-card onboarding tutorial the first time a workspace has zero
+cards: *Welcome to Cards · Make it yours · Add a board per project · Drive it
+from the CLI and agents (MCP) · Back up and move your workspace*. The cards
+are authored as real cards (type `task` on a `welcome` board) so the tutorial
+*is* the product demonstrating itself, and they reference `docs/CONCEPTS.md`
+for depth.
+
+**Idempotency is the safety property.** `SeedWelcome` is a no-op the moment the
+workspace holds any card, so it never re-seeds or clobbers a user's real work —
+the tutorial appears once and quietly stops mattering as soon as the user
+creates their own first card. `Scaffold` has the same guard on
+`definitions/workspace.json`. Options (a) "demo-only fixtures" and (c) "remove
+entirely" were both rejected: (a) would deny fresh installs the guided start;
+(c) throws away a genuinely good first-run experience.
+
+**Acceptance check.** A fresh `cards init <dir>` (or serving into an empty
+workspace) shows the five welcome cards, they read as a tutorial rather than
+scaffolding noise, and running against a workspace that already has cards adds
+none. `internal/starter/starter_test.go` pins the seed + idempotency.
+
+**Two distinct surfaces — don't conflate them.**
+- **Fresh-install onboarding** (this decision): the `starter` welcome board,
+  generated on demand, never committed.
+- **The maintainer dogfood board** (`examples/demo-workspace/`, committed as
+  `backlog.jsonl`): a real, groomed engineering board that happens to also
+  carry a few onboarding-titled cards in its history. It is kept as-is — it
+  doubles as a realistic example workspace shipped with the repo. If those
+  specific cards ever read as clutter *on the dogfood board*, that's a board-
+  grooming task, independent of the first-install onboarding policy above.
