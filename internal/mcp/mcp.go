@@ -152,7 +152,7 @@ func (s *Server) handle(req jsonRPCRequest) *jsonRPCResponse {
 func (s *Server) handleInitialize(req jsonRPCRequest) *jsonRPCResponse {
 	result := map[string]any{
 		"protocolVersion": "2024-11-05",
-		"serverInfo":      map[string]any{"name": "work-cards", "version": "poc"},
+		"serverInfo":      map[string]any{"name": "cards", "version": "poc"},
 		"capabilities":    map[string]any{"tools": map[string]any{}},
 	}
 	return &jsonRPCResponse{JSONRPC: "2.0", ID: req.ID, Result: result}

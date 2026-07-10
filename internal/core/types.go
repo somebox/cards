@@ -1,4 +1,4 @@
-// Package core implements the Work Cards service layer: card and schema
+// Package core implements the Cards service layer: card and schema
 // types, validation, transition evaluation, optimistic concurrency,
 // idempotency, and event production.
 //

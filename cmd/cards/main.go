@@ -1,4 +1,4 @@
-// Command cards is the Work Cards binary. It has two modes:
+// Command cards is the Cards binary. It has two modes:
 //   - cards serve ...        : run the HTTP+UI server (see serveCmd)
 //   - cards <cmd> ...        : CLI client against a running server (CARDS_URL)
 //
@@ -178,7 +178,7 @@ func runCLI(cfg cli.Config, rest []string) error {
 	return cmd.Run(cli.NewWithTransport(cfg, backend), rest[1:])
 }
 
-const usage = `Work Cards — typed-card coordination.
+const usage = `Cards — typed-card coordination.
 
 Usage:
   cards                                Show this help
