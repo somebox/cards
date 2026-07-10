@@ -107,7 +107,7 @@ func blankComments(s string) string {
 	for i := 0; i < len(b)-1; i++ {
 		if b[i] == '/' && b[i+1] == '*' {
 			j := i + 2
-			for j < len(b)-1 && !(b[j] == '*' && b[j+1] == '/') {
+			for j < len(b)-1 && (b[j] != '*' || b[j+1] != '/') {
 				if b[j] != '\n' {
 					b[j] = ' '
 				}
