@@ -8,6 +8,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"time"
@@ -18,6 +19,41 @@ import (
 	"github.com/somebox/cards/internal/mcp"
 	"github.com/somebox/cards/internal/seed"
 )
+
+// loopbackWarning returns a two-line stderr warning when host binds beyond the
+// loopback interface — where the API and UI become reachable from the network
+// with no authentication (the default deployment is unauthenticated;
+// docs/design/AUTH.md is the proposed identity story). It returns "" for
+// loopback binds, which stay quiet. Kept as a pure function so a test can
+// exercise the decision without starting a server.
+func loopbackWarning(host string) string {
+	if isLoopbackHost(host) {
+		return ""
+	}
+	return fmt.Sprintf(
+		"WARNING: binding to a non-loopback address (%s) — the API and UI are reachable "+
+			"from the network with no authentication.\n"+
+			"         Bind to 127.0.0.1 for local-only use, or put an authenticating reverse "+
+			"proxy in front. See docs/design/AUTH.md.",
+		host)
+}
+
+// isLoopbackHost reports whether a --host value binds only the loopback
+// interface. An empty host means "all interfaces" (net/http default) — not
+// loopback. A non-IP, non-"localhost" hostname is treated as non-loopback: we
+// warn rather than assume it resolves to 127.0.0.1.
+func isLoopbackHost(host string) bool {
+	switch host {
+	case "localhost":
+		return true
+	case "":
+		return false
+	}
+	if ip := net.ParseIP(host); ip != nil {
+		return ip.IsLoopback()
+	}
+	return false
+}
 
 func serveCmd(args []string) error {
 	fs := flag.NewFlagSet("serve", flag.ContinueOnError)
@@ -80,6 +116,9 @@ func serveCmd(args []string) error {
 	log.Printf("work-cards serving http://%s  (workspace: %s)", addr, abs)
 	log.Printf("  UI:  http://%s/ui/boards/", addr)
 	log.Printf("  API: http://%s/v1/workspace", addr)
+	if w := loopbackWarning(*host); w != "" {
+		log.Print(w)
+	}
 	if *runExt {
 		// Tie the supervisor's lifetime to the HTTP server's: when
 		// ListenAndServe returns (including an immediate bind failure), cancel
