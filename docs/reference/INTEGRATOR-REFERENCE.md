@@ -513,6 +513,32 @@ never acts on a condition. Out of scope, by design:
 
 ---
 
+## Audit changelog
+
+This doc is *code-verified*: each entry below records the `git log` evidence
+for the source paths a section describes, over the range since the doc was
+last verified. **Boundary:** `8d043ea` (rebuild Phase 3 — multi-value fields;
+the doc's previous verification point, `b8dda45` before the frontend-rebuild
+branch was rebased into `main`) **→ HEAD (`b3bfed5`, 2026-07-10)**. Reproduce
+any line with `git log --oneline 8d043ea..HEAD -- <paths>`.
+
+Headline: the only post-Phase-3 code under this doc's purview was the `/ui`
+**reference client** (DESIGN.md's domain, not this doc — §2 documents zero
+`/ui` routes) and an SSE **keepalive** (liveness, not a consumer contract).
+The `/v1` API, MCP surface, event payloads, actor model, workspace schema, and
+extension model are **unchanged** since the last verification.
+
+| § | Section | Paths audited | Result (`8d043ea..HEAD`) |
+|---|---|---|---|
+| 1 | Data model | `internal/core/types.go` | reviewed, no change needed — no commits in range (Phase 3 multi-value fields are the boundary, already reflected) |
+| 2 | HTTP API | `internal/httpapi/api.go`, `filters.go`, `internal/sqlite/filter.go` | `/v1` contract reviewed, no change needed — `api.go`/`filters.go` unchanged in range. The Phase 4–10 httpapi churn is all `/ui` reference-client (`render.go`, `ui.go`, `server.go` route registration), which §2 does not document |
+| 3 | MCP surface | `internal/mcp/` | reviewed, no change needed — no commits in range |
+| 4 | Events | `internal/core/events.go`, `breaches.go`, `monitor.go`; `internal/httpapi/sse.go` | event payloads/breaches reviewed, no change needed. SSE transport gained a keepalive at `44012f4` (Phase 9, `sse.go`) — liveness only, no change to event shape or the consumer contract |
+| 5 | Actor & identity | `internal/core/service.go`, `internal/httpapi/middleware.go` | reviewed, no change needed — no commits in range. (The `docs/design/AUTH.md` direction is *proposed*/unbuilt; §5 still describes the built trusted-actor model) |
+| 6 | Workspace & schema | `internal/config/` | reviewed, no change needed — no commits in range |
+| 7 | Extensions | `internal/hooks/` | reviewed, no change needed — no commits in range |
+| 8 | What cards does NOT provide | (prose boundary, no owned source path) | n/a |
+
 ## Pointers into the cards docs
 
 | Topic | Doc |
@@ -526,6 +552,7 @@ never acts on a condition. Out of scope, by design:
 | Workspace authoring (definitions, schema versioning, reload) | [`DEVELOPER-REFERENCE.md`](../reference/DEVELOPER-REFERENCE.md) |
 | Design rationale & decisions (D-numbers) | [`PHILOSOPHY.md`](../concepts/PHILOSOPHY.md), [`NOTES.md`](../NOTES.md) |
 
-*Verified against the source at the time of writing. Where this doc and an older
-narrative doc disagree, this doc (read from code) wins — and the discrepancy is a
-bug to file against the narrative doc.*
+*Verified against the source at the time of writing (see the Audit changelog
+above for the per-section `git log` evidence through HEAD). Where this doc and
+an older narrative doc disagree, this doc (read from code) wins — and the
+discrepancy is a bug to file against the narrative doc.*

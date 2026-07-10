@@ -2,8 +2,9 @@
 
 The `/ui` surface (`internal/httpapi/templates/`) is a server-rendered reference
 consumer of the API. Its look is a single token-driven CSS system in
-`templates/style.css` — no build step, htmx + a little inline JS in
-`layout.html`. This doc is the contract for that system: the principles, the
+`templates/style.css` — no build step; Alpine.js for interactivity (see
+[Interactivity layer](#interactivity-layer-alpinejs--decision--division-of-labor))
+plus a little inline JS in `layout.html`. This doc is the contract for that system: the principles, the
 tokens, the components, and the theming hooks. **The default theme (the values
 in `:root`) is the reference implementation of clean UI** — every theme and
 every new component is judged against it.
