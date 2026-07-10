@@ -6,8 +6,8 @@
 
 | Parameter | Meaning |
 |-----------|---------|
-| `type_id` | One or more types |
-| `status` | Column id(s) |
+| `type_id` | Type id. **Comma-separated = matches ANY** (`type_id=frontend-task,programming-task` → IN); a single value is exact equality. |
+| `status` | Column id. **Comma-separated = matches ANY** (`status=todo,in_progress` → IN); a single value is exact equality. |
 | `owner` | User id (exact). The `me` alias is resolved by the **board UI** to the viewing actor, not by this API param — `?owner=me` on `GET /cards` matches the literal owner `me`. |
 | `tag` | Tag(s) |
 | `q` | Full-text search (FTS5) |
@@ -67,7 +67,10 @@ jsonl` and local jq out of band.
 > is almost never what you want.
 
 ### Recipes
-- **Open assigned to me:** `owner=me&status=todo,in_progress`.
+- **Cards in either lane:** `status=todo,in_progress` (comma = IN; scoped to the
+  `GET /v1/cards` first-class params above — the only endpoint that splits these
+  lists. The board UI resolves an `owner=me` chip to the viewing actor before
+  calling the API; `?owner=me` on the API itself matches the literal owner).
 - **Blocked stale for take-next:** request body `blocked=true` + `filter={"updated_at":{"$lt":"<now-1h>"}}`.
 
 ---

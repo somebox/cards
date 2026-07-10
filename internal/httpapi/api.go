@@ -65,8 +65,6 @@ func (s *Server) apiBreaches(w http.ResponseWriter, r *http.Request) {
 func (s *Server) apiListCards(w http.ResponseWriter, r *http.Request) {
 	q := core.CardQuery{
 		BoardID:    r.URL.Query().Get("board_id"),
-		TypeID:     r.URL.Query().Get("type_id"),
-		Status:     r.URL.Query().Get("status"),
 		Owner:      r.URL.Query().Get("owner"),
 		Q:          r.URL.Query().Get("q"),
 		IDLike:     r.URL.Query().Get("q"), // also match id/short-id when q is set (1d)
@@ -75,6 +73,19 @@ func (s *Server) apiListCards(w http.ResponseWriter, r *http.Request) {
 		LinkTarget: r.URL.Query().Get("link_target"),
 		Sort:       r.URL.Query().Get("sort"),
 		Cursor:     r.URL.Query().Get("cursor"),
+	}
+	// status= and type_id= accept a comma-separated list → matches ANY (IN);
+	// a bare single value keeps the scalar-equality path. Core already
+	// supports both (CardQuery.StatusIn / TypeIDIn, sqlite buildCardWhere).
+	if v := r.URL.Query().Get("status"); strings.Contains(v, ",") {
+		q.StatusIn = splitCSV(v)
+	} else {
+		q.Status = v
+	}
+	if v := r.URL.Query().Get("type_id"); strings.Contains(v, ",") {
+		q.TypeIDIn = splitCSV(v)
+	} else {
+		q.TypeID = v
 	}
 	if inc := r.URL.Query().Get("include"); inc != "" {
 		q.Include = strings.Split(inc, ",")
