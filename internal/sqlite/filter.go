@@ -4,6 +4,7 @@ package sqlite
 
 import (
 	"fmt"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -89,6 +90,14 @@ func compileFieldOp(key string, opMap map[string]any) (string, []any, error) {
 	return strings.Join(parts, " AND "), args, nil
 }
 
+// fieldIDRE bounds the characters allowed in a typed-field key before it is
+// interpolated into a JSON path literal. Field ids are [A-Za-z0-9_] (mirrors
+// core.sortFieldRE); constraining the key here keeps a client-supplied filter
+// key from breaking out of the '$.<id>' string literal (the value side is
+// always parameterized; the path side cannot be). Rejection surfaces as a
+// filter validation error → HTTP 400.
+var fieldIDRE = regexp.MustCompile(`^[A-Za-z0-9_]+$`)
+
 // columnExpr returns the SQL expression for a filter key, whether it's the
 // tags array (which needs json_each), and — for typed-field paths — the raw
 // JSON path ("$.<id>") that array-aware operators like $has need.
@@ -101,12 +110,12 @@ func columnExpr(key string) (expr string, tagMode bool, jsonPath string, err err
 	case "tag", "tags":
 		return "tags", true, "", nil
 	default:
-		if strings.HasPrefix(key, "fields.") {
-			path := "$." + strings.TrimPrefix(key, "fields.")
-			return "json_extract(fields, '" + path + "')", false, path, nil
+		id := strings.TrimPrefix(key, "fields.")
+		if !fieldIDRE.MatchString(id) {
+			return "", false, "", fmt.Errorf("invalid field key %q: field ids are [A-Za-z0-9_]", key)
 		}
-		// Unknown top-level key → treat as a typed field path.
-		return "json_extract(fields, '$." + key + "')", false, "$." + key, nil
+		path := "$." + id
+		return "json_extract(fields, '" + path + "')", false, path, nil
 	}
 }
 
