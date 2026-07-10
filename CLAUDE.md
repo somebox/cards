@@ -17,7 +17,7 @@ all share one service layer:
 - **HTTP/REST API** under `/v1` (with SSE event stream at `/v1/events/stream`)
 - **CLI** (`cards create|list|patch|comment|...`)
 - **MCP** server for agent clients (`cards mcp`)
-- **Web UI** under `/ui` (server-rendered Go templates + htmx, no JS build step)
+- **Web UI** under `/ui` (server-rendered Go templates + Alpine.js, no JS build step)
 
 There is **no separate database server** — SQLite is embedded via the pure-Go
 `modernc.org/sqlite` driver (no CGO). One process serves exactly one workspace.
@@ -68,7 +68,7 @@ Read the full version: [`docs/concepts/PHILOSOPHY.md`](docs/concepts/PHILOSOPHY.
 | Core model | `internal/core/` | cards, schemas, transitions, validation, events, `Store` interface |
 | Definitions | `internal/config/` | load/merge/validate JSON core definitions + extension config |
 | Storage | `internal/sqlite/` | SQLite impl (FTS5, migrations) |
-| HTTP + UI | `internal/httpapi/` | REST, SSE, htmx web UI handlers, server-rendered templates |
+| HTTP + UI | `internal/httpapi/` | REST, SSE, server-rendered web UI (Go templates + Alpine.js) |
 | MCP | `internal/mcp/` | MCP adapter over core services |
 | Hooks | `internal/hooks/` | hook supervisor (spawns subprocesses on events) |
 | Demo workspace | `examples/demo-workspace/` | the dogfooding backlog — definitions + `backlog.jsonl` |
