@@ -161,7 +161,7 @@ func (s *Service) evaluateColumn(ctx context.Context, b *Board, column string) {
 		return
 	}
 	limit, hasLimit := b.WIPLimits[column]
-	watchEmpty := b.Monitors != nil && contains(b.Monitors.AlertWhenEmpty, column)
+	watchEmpty := b.Monitors != nil && Contains(b.Monitors.AlertWhenEmpty, column)
 	if (!hasLimit || limit <= 0) && !watchEmpty {
 		return
 	}
@@ -750,7 +750,7 @@ func (s *Service) PatchCard(ctx context.Context, id string, req PatchCardRequest
 		}
 		if b := s.boardForCard(current); b != nil && b.Settings.EnforceTransitions && !req.Force {
 			allowed, ok := b.Transitions[current.Status]
-			if ok && !contains(allowed, newStatus) {
+			if ok && !Contains(allowed, newStatus) {
 				// Opt-in: TakeNext never reaches this branch (it pre-filters
 				// candidates to legal from-statuses), so only a genuinely
 				// attempted-and-refused PatchCard move fires it. (3c)

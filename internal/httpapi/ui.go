@@ -728,11 +728,3 @@ func getFormIfPresent(r *http.Request, key string) (string, bool) {
 	return r.FormValue(key), true
 }
 
-func containsStr(s []string, v string) bool {
-	for _, x := range s {
-		if x == v {
-			return true
-		}
-	}
-	return false
-}

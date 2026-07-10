@@ -481,7 +481,7 @@ func (s *Server) moveOptions(b *core.Board, current string) []Option {
 		disabled := false
 		if enforce {
 			// Only allow current + transitions[current]; others disabled.
-			if cid != current && !containsStr(allowed, cid) {
+			if cid != current && !core.Contains(allowed, cid) {
 				disabled = true
 			}
 		}
@@ -508,7 +508,7 @@ func (s *Server) statusOptions(ct *core.CardType, b *core.Board, selected string
 		}
 	}
 	allowed := func(cid string) bool {
-		return len(ct.AllowedColumns) == 0 || containsStr(ct.AllowedColumns, cid)
+		return len(ct.AllowedColumns) == 0 || core.Contains(ct.AllowedColumns, cid)
 	}
 	def := selected
 	if def == "" || !allowed(def) {
@@ -533,7 +533,7 @@ func (s *Server) statusOptions(ct *core.CardType, b *core.Board, selected string
 
 func (s *Server) boardForCard(c *core.Card) *core.Board {
 	for _, b := range s.boards {
-		if containsStr(b.CardTypeIDs, c.TypeID) {
+		if core.Contains(b.CardTypeIDs, c.TypeID) {
 			return b
 		}
 	}
