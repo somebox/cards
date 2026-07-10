@@ -113,7 +113,7 @@ func serveCmd(args []string) error {
 		Handler:           app,
 		ReadHeaderTimeout: 10 * time.Second,
 	}
-	log.Printf("work-cards serving http://%s  (workspace: %s)", addr, abs)
+	log.Printf("cards serving http://%s  (workspace: %s)", addr, abs)
 	log.Printf("  UI:  http://%s/ui/boards/", addr)
 	log.Printf("  API: http://%s/v1/workspace", addr)
 	if w := loopbackWarning(*host); w != "" {
