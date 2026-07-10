@@ -88,6 +88,11 @@ func TestFilterDSLMalformedIsValidationError(t *testing.T) {
 		{"$and": "not-an-array"},
 		{"$or": []any{"not-an-object"}},
 		{"tags": map[string]any{"$gt": "x"}},
+		// SQL-injection guard: a field key that tries to break out of the
+		// '$.<id>' JSON-path literal must be rejected, not interpolated.
+		{"fields.x') OR 1=1--": map[string]any{"$eq": "y"}},
+		{"x'); DROP TABLE cards;--": map[string]any{"$eq": "y"}},
+		{"fields.a.b": map[string]any{"$eq": "y"}}, // dot in id → not [A-Za-z0-9_]
 	}
 	for _, f := range bad {
 		_, err := st.ListCards(context.Background(), core.CardQuery{Filter: f, Limit: 10})
