@@ -51,8 +51,22 @@
 
       <label class="field">
         <span class="field__label">Tags</span>
-        <input type="text" class="input" data-create-input="tags" data-kind="tags" list="tag-options" placeholder="comma, separated">
-        {{if .TagSet}}<datalist id="tag-options">{{range .TagSet}}<option value="{{.}}">{{end}}</datalist>{{end}}
+        {{/* Reuse the edit-card chip control: it reads/writes the hidden
+             input[name=tags] as a comma-joined value, which is exactly what
+             createModal.collect() already parses — so no JS change is needed,
+             and the chips inherit the neutral .chip--tag styling. */}}
+        <div class="multiselect" x-data="tagChips({policy: '{{.TagPolicy}}'})" @click.outside="open = false">
+          <input type="text" class="input" name="tags" data-create-input="tags" data-kind="tags" placeholder="Add tags…" x-show="!ready">
+          <div class="multiselect__chips" x-cloak x-show="ready" @click="open = true; $refs.taginput.focus()">
+            <template x-for="v in values" :key="v">
+              <span class="chip chip--tag" :class="{'is-invalid': invalid === v}"><span x-text="v"></span><button type="button" class="chip__x" @click.stop="removeTag(v)" :aria-label="'Remove ' + v">×</button></span>
+            </template>
+            <input type="text" class="multiselect__input" x-ref="taginput" x-model="q" placeholder="Add tags…" aria-label="Add tag"
+                   @focus="open = true" @keydown.enter.prevent="submit()" @keydown.,.prevent="submit()"
+                   @keydown.backspace="backspace()" @keydown.escape.prevent.stop="open = false">
+          </div>
+          {{if .TagSet}}<div class="combobox__menu" x-cloak x-show="open"><ul class="combobox__list" role="listbox">{{range .TagSet}}<li class="combobox__option" role="option" data-value="{{.}}" x-show="match($el)" @click="pick($event)">{{.}}</li>{{end}}</ul></div>{{end}}
+        </div>
         <span class="field-error" data-error-for="tags" hidden></span>
       </label>
 
@@ -61,7 +75,7 @@
       {{/* post-creation surfaces: entries/uploads/links happen on the card */}}
       {{else}}
       <label class="field">
-        <span class="field__label">{{.Def.ID}}{{if .Def.Required}} <span class="req">*</span>{{end}}</span>
+        <span class="field__label">{{.Def.Label}}{{if .Def.Required}} <span class="req">*</span>{{end}}</span>
         {{template "field_control" (dict "Def" .Def "Ctx" "create" "Users" $.Users)}}
         {{if .Def.Description}}<span class="muted field-hint">{{.Def.Description}}</span>{{end}}
         <span class="field-error" data-error-for="field:{{.Def.ID}}" hidden></span>

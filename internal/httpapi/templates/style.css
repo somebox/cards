@@ -837,12 +837,17 @@ main { padding: var(--s-5); max-width: 100%; }
 .entries-toolbar { display: flex; justify-content: flex-end; margin-bottom: var(--s-1); }
 
 /* New-card creation modal (UI sprint P2): type picker + schema-driven form. */
+/* The create modal shares the .modal__head/body/footer anatomy but not the
+   .save-form wrapper, so it needs the same full-height flex column: body
+   scrolls, footer stays pinned on a long schema. */
+.modal .create-modal { display: flex; flex-direction: column; width: 100%; height: 100%; min-height: 0; }
 .type-picker { display: flex; flex-wrap: wrap; gap: var(--s-2); }
 .type-picker__opt {
   border: 1px solid var(--c-border); background: var(--c-surface); cursor: pointer;
   padding: var(--s-2) var(--s-3); border-radius: var(--r-md);
 }
 .type-picker__opt:hover { border-color: var(--c-border-2); transform: translateY(-1px); }
+.type-picker__opt:focus-visible { outline: var(--edge) solid var(--c-accent); outline-offset: 2px; border-color: var(--c-accent); }
 .type-picker__opt .card__type-badge { font-size: var(--t-sm); padding: .4em .6em; }
 .create-form { display: flex; flex-direction: column; gap: var(--s-3); }
 .create-form .field { display: flex; flex-direction: column; gap: .3rem; }
