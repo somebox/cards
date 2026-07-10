@@ -106,6 +106,11 @@ func TestTemplatesServerDataStaysServerRendered(t *testing.T) {
 		// never API data. First paint and no-JS remain the server-rendered
 		// view cluster + input.
 		"card_modal.html": true,
+		// card_create.html reuses the SAME tagChips control (P4 create-form
+		// polish): the x-for iterates the user's freshly-typed tag values on a
+		// blank create form — no API data exists yet. The hidden input[name=tags]
+		// is the server-rendered / no-JS fallback.
+		"card_create.html": true,
 	}
 	for name, src := range templateFiles(t) {
 		if strings.Contains(src, "x-for") && !xForAllowlist[name] {

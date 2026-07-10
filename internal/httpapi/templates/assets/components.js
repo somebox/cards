@@ -595,7 +595,17 @@ document.addEventListener('alpine:init', function () {
           method: 'POST', url: '/v1/cards', body: c.req,
           headers: { 'Idempotency-Key': this.idemKey }
         }).then(function (res) {
-          if (res.ok) { toast('Card created'); closeModal(); return; }
+          if (res.ok) {
+            toast('Card created');
+            // Open the new card so the creator sees what they made — visible
+            // even when a board filter would have hidden it. The board behind
+            // refreshes independently via $store.live. Fall back to a plain
+            // close if the response didn't carry the card id.
+            var id = res.data && res.data.id;
+            if (id) { loadModal('/ui/cards/' + encodeURIComponent(id) + '/modal'); }
+            else { closeModal(); }
+            return;
+          }
           self.saving = false;
           var msg = res.message || 'Create failed';
           if (res.validOptions) msg += ' (valid: ' + res.validOptions.join(', ') + ')';
