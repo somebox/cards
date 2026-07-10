@@ -241,3 +241,24 @@ Mismatched links are rejected with the valid set echoed. Stops an agent from
   scale (typically <100k cards, few hundred per column); if it ever matters,
   give the census an unclamped `CountCards`/iterator path rather than raising
   the ceiling further. Export already sidesteps this by cursor-paginating.
+
+## Design-doc freeze (2026-07-10)
+
+- **`docs/design/AUTH.md` (proposed) and `docs/design/CORE-BOUNDARIES.md`
+  (exploration) are frozen as the accepted direction** for identity/attribution
+  and core-vs-client boundaries, after two adversarial review passes. From this
+  date, these two documents change only via (a) an implementation PR that
+  discovers reality diverging from the doc, or (b) an explicit re-open note
+  from the project owner naming the section. Drive-by prose passes are not a
+  reason to edit. Board cards `card_f570b35b`, `card_61040a3e`, and
+  `card_350b1bac` were reconciled against the frozen shape the same day.
+- Decisions frozen with them: auth mode matrix `none|token|proxy` with
+  attribution (not access control) as the core concern; opaque bearer token as
+  the reference credential; force = per-write escape hatch that skips
+  declarative rules AND board callbacks but never identity verification
+  (`diff.forced` on `status_changed`, per-board `settings.allow_force: false`
+  opt-out); declarative `Board.Transitions` stays core data, programmable
+  vetoes live at the validator boundary; `BoardPresentation`/`TypeTheme` stay
+  in core as optional presentation metadata (clients may ignore).
+- The PHILOSOPHY §1/§7 edits drafted in CORE-BOUNDARIES §5 land **with the
+  first `token`-mode implementation**, not before.
