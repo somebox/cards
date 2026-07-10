@@ -73,7 +73,9 @@ func defaultStatus(ct *CardType, ws *Workspace) string {
 	return ""
 }
 
-func contains(s []string, v string) bool {
+// Contains reports whether v is an element of s. Exported so packages layered
+// on core (httpapi, etc.) share one membership helper instead of copying it.
+func Contains(s []string, v string) bool {
 	for _, x := range s {
 		if x == v {
 			return true

@@ -73,7 +73,7 @@ func (s *Service) Breaches(ctx context.Context, boardID string, types []string) 
 	for _, b := range boardList {
 		for _, column := range b.Columns {
 			limit, hasLimit := b.WIPLimits[column]
-			watchEmpty := b.Monitors != nil && contains(b.Monitors.AlertWhenEmpty, column)
+			watchEmpty := b.Monitors != nil && Contains(b.Monitors.AlertWhenEmpty, column)
 			if !hasLimit && !watchEmpty {
 				continue
 			}

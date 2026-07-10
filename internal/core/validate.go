@@ -170,7 +170,7 @@ func validateValue(f *FieldDef, v any) error {
 				return err
 			}
 			for _, str := range vals {
-				if !contains(f.Options, str) {
+				if !Contains(f.Options, str) {
 					return newUnknownEnum(f.ID, str, f.Options)
 				}
 			}
@@ -180,7 +180,7 @@ func validateValue(f *FieldDef, v any) error {
 		if !ok {
 			return NewValidationError(f.ID, fmt.Sprintf("field %q expects a string", f.ID))
 		}
-		if !contains(f.Options, str) {
+		if !Contains(f.Options, str) {
 			return newUnknownEnum(f.ID, str, f.Options)
 		}
 	case FieldUser:
@@ -314,7 +314,7 @@ func (s *Service) checkColumn(status string, ct *CardType) *Error {
 	if !colSet[status] {
 		return newUnknownEnum("status", status, columnIDs(s.ws))
 	}
-	if len(ct.AllowedColumns) > 0 && !contains(ct.AllowedColumns, status) {
+	if len(ct.AllowedColumns) > 0 && !Contains(ct.AllowedColumns, status) {
 		return newUnknownEnum("status", status, ct.AllowedColumns)
 	}
 	return nil
@@ -344,10 +344,10 @@ func (s *Service) lookupLinkType(id string) *LinkType {
 }
 
 func (s *Service) checkLinkTypeConstraints(lt *LinkType, sourceType, targetType string) *Error {
-	if len(lt.SourceTypes) > 0 && !contains(lt.SourceTypes, sourceType) {
+	if len(lt.SourceTypes) > 0 && !Contains(lt.SourceTypes, sourceType) {
 		return newTargetCardTypeMismatch(sourceType, lt.SourceTypes)
 	}
-	if len(lt.TargetTypes) > 0 && !contains(lt.TargetTypes, targetType) {
+	if len(lt.TargetTypes) > 0 && !Contains(lt.TargetTypes, targetType) {
 		return newTargetCardTypeMismatch(targetType, lt.TargetTypes)
 	}
 	return nil
@@ -375,7 +375,7 @@ func (s *Service) boardForTypeID(typeID, boardID string) *Board {
 	var match *Board
 	for _, id := range ids {
 		b := s.boards[id]
-		if !contains(b.CardTypeIDs, typeID) {
+		if !Contains(b.CardTypeIDs, typeID) {
 			continue
 		}
 		if b.Settings.EnforceTransitions {
@@ -392,7 +392,7 @@ func (s *Service) boardForTypeID(typeID, boardID string) *Board {
 func allowedFromStatuses(b *Board, to string) []string {
 	out := []string{}
 	for from, nexts := range b.Transitions {
-		if contains(nexts, to) {
+		if Contains(nexts, to) {
 			out = append(out, from)
 		}
 	}
