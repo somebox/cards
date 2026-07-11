@@ -1001,8 +1001,14 @@ func (s *Store) CommentCounts(ctx context.Context) (map[string]int, error) {
 }
 
 func (s *Store) InsertComment(ctx context.Context, cardID string, c core.Comment) error {
+	// Preserve edited_at when present (import round-trip); a never-edited
+	// comment (zero time — the live AddComment path) stores NULL.
+	var edited any
+	if !c.EditedAt.IsZero() {
+		edited = c.EditedAt.Format(time.RFC3339Nano)
+	}
 	_, err := s.db.ExecContext(ctx, `INSERT INTO comments(id, card_id, author, body, created_at, edited_at) VALUES(?,?,?,?,?,?)`,
-		c.ID, cardID, c.Author, c.Body, c.CreatedAt.Format(time.RFC3339Nano), nil)
+		c.ID, cardID, c.Author, c.Body, c.CreatedAt.Format(time.RFC3339Nano), edited)
 	return err
 }
 

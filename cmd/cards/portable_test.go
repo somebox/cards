@@ -65,7 +65,7 @@ func seedStore(t *testing.T, st *sqlite.Store) {
 	if err := st.InsertCard(ctx, c1, &core.Event{CardID: "card_a", Type: core.EventCardCreated, Actor: "foz", At: at}); err != nil {
 		t.Fatalf("seed card_a: %v", err)
 	}
-	if err := st.InsertComment(ctx, "card_a", core.Comment{ID: "cm_1", Author: "pi", Body: "import is the remaining half", CreatedAt: at.Add(30 * time.Minute)}); err != nil {
+	if err := st.InsertComment(ctx, "card_a", core.Comment{ID: "cm_1", Author: "pi", Body: "import is the remaining half", CreatedAt: at.Add(30 * time.Minute), EditedAt: at.Add(45 * time.Minute)}); err != nil {
 		t.Fatalf("seed comment: %v", err)
 	}
 
@@ -216,9 +216,13 @@ func TestExportImportRoundTrip(t *testing.T) {
 		t.Errorf("entry_id not preserved: %v", entry["entry_id"])
 	}
 
-	// Comments and links restored.
+	// Comments and links restored — including edited_at (regression: import
+	// used to hardcode edited_at to NULL, dropping comment edit timestamps).
 	if len(got.Comments) != 1 || got.Comments[0].ID != "cm_1" {
 		t.Errorf("comment not restored: %+v", got.Comments)
+	}
+	if len(got.Comments) == 1 && !got.Comments[0].EditedAt.Equal(time.Date(2026, 6, 26, 12, 45, 0, 0, time.UTC)) {
+		t.Errorf("comment edited_at not preserved through round-trip: %v", got.Comments[0].EditedAt)
 	}
 	if len(got.Links) != 1 || got.Links[0].Target != "card_b" || got.Links[0].TypeID != "depends-on" {
 		t.Errorf("link not restored: %+v", got.Links)
