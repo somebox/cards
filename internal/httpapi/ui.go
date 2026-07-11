@@ -423,13 +423,21 @@ var boardMutationTypes = []string{
 	"definition_reloaded",
 }
 
+// boardSSEExtraTypes are subscribed on the board live stream but do NOT
+// trigger a lane re-fetch by themselves. definition_reload_failed keeps
+// last-good serving; the UI shows a banner instead of swapping.
+var boardSSEExtraTypes = []string{
+	"definition_reload_failed",
+}
+
 // boardSSETypes is the comma-joined event-type filter the board's live stream
-// subscribes to: the durable mutations above plus every condition event
-// (core.ConditionTypes) so a blocked/unblocked or WIP crossing re-renders the
-// badges without a manual reload. Single source for both the stream URL and
-// the client-side addEventListener loop.
+// subscribes to: the durable mutations above plus failure surfacing plus every
+// condition event (core.ConditionTypes) so a blocked/unblocked or WIP crossing
+// re-renders the badges without a manual reload. Single source for both the
+// stream URL and the client-side addEventListener loop.
 func boardSSETypes() string {
 	types := append([]string{}, boardMutationTypes...)
+	types = append(types, boardSSEExtraTypes...)
 	for _, t := range core.ConditionTypes() {
 		types = append(types, string(t))
 	}
@@ -692,7 +700,7 @@ func (s *Server) renderCardModalErr(w http.ResponseWriter, r *http.Request, c *c
 	data.Users = users
 	data.TagSet = s.ws.TagSet
 	data.Error = err
-	data.TypeThemes = s.buildTypeThemes()
+	data.CardTheme = s.resolveCardTheme(c, b)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err != nil && err.HTTPStatus > 0 {
 		w.WriteHeader(err.HTTPStatus)
@@ -727,4 +735,3 @@ func getFormIfPresent(r *http.Request, key string) (string, bool) {
 	}
 	return r.FormValue(key), true
 }
-

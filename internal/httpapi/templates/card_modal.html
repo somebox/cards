@@ -6,7 +6,7 @@
      "updated"); the labels theme grids the same anatomy into its two-row
      attribute-cell header. */}}
 {{define "card_head"}}
-  {{$th := typeTheme .TypeThemes .Card.TypeID}}
+  {{$th := .CardTheme}}
   <div class="modal__head" data-type="{{.Card.TypeID}}"{{if $th.Icon}} data-icon="{{$th.Icon}}"{{end}}
        {{- if $th.Accent}} style="--card-stock:{{$th.Accent}}{{- if $th.Muted}};--card-stock-bg:{{$th.Muted}}{{end}}"{{end -}}>
     <span class="modal__type-icon" aria-hidden="true"></span>

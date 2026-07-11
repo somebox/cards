@@ -1,0 +1,372 @@
+
+<form class="save-form" action="/ui/cards/card_golden_infra/save" method="POST" data-version="1"
+      x-data="editForm({cardId: 'card_golden_infra', version: 1})" @field-dirty="onDirty()">
+  
+  
+  
+  <div class="modal__head" data-type="infra-task" data-icon="wrench" style="--card-stock:#596469;--card-stock-bg:#e2e6e8">
+    <span class="modal__type-icon" aria-hidden="true"></span>
+    <div class="modal__head-main">
+      <div class="field field--editable" data-field="title" x-data="editField()"
+           @focusout.capture="onBlur()" @keydown.escape.prevent.stop="revert()">
+        <span class="field__view card-title__view" tabindex="0" data-view
+              x-show="!editing" @click="activate()" @keydown="onKeydown($event)" title="Golden infra task">Golden infra task</span>
+        <span class="field__edit card-title__edit" data-edit x-ref="edit" x-cloak x-show="editing" @input="onInput()" @change="onInput()">
+          <input type="text" class="input" name="title" value="Golden infra task">
+        </span>
+      </div>
+      <div class="modal__meta">
+        <span class="card__type-badge" data-type="infra-task" data-icon="wrench" style="--badge-ink:#596469;--badge-wash:#e2e6e8"title="infra-task">
+          Infra Task
+        </span>
+        <span class="field field--editable modal__meta-field" data-field="status" x-data="editField()"
+              @focusout.capture="onBlur()" @keydown.escape.prevent.stop="revert()">
+          <span class="modal__meta-key">status</span>
+          <span class="field__view" tabindex="0" data-view x-show="!editing" @click="activate()" @keydown="onKeydown($event)">To Do</span>
+          <span class="field__edit" data-edit x-ref="edit" x-cloak x-show="editing" @input="onInput()" @change="onInput()">
+            <select class="select" name="status">
+              
+                <option value="backlog" disabled >Backlog</option>
+              
+                <option value="todo"  selected>To Do</option>
+              
+                <option value="in_progress"  >In Progress</option>
+              
+                <option value="review" disabled >Review</option>
+              
+                <option value="done" disabled >Done</option>
+              
+            </select>
+          </span>
+        </span>
+        <span class="field field--editable modal__meta-field" data-field="owner" x-data="editField()"
+              @focusout.capture="onBlur()" @keydown.escape.prevent.stop="revert()">
+          <span class="modal__meta-key">owner</span>
+          <span class="field__view is-empty" tabindex="0" data-view
+                x-show="!editing" @click="activate()" @keydown="onKeydown($event)">unassigned</span>
+          <span class="field__edit" data-edit x-ref="edit" x-cloak x-show="editing" @input="onInput()" @change="onInput()">
+            <input type="text" class="input" name="owner" value=""
+                   placeholder="unassigned" size="8">
+          </span>
+        </span>
+        <span class="modal__meta-tail mono faint">
+          <span class="modal__meta-item" data-meta="id" title="card_golden_infra"><span class="modal__meta-key">id</span><span class="modal__meta-value">#golden_i</span><button type="button" class="id-copy" data-copy-id="card_golden_infra" title="Copy id · card_golden_infra" aria-label="Copy card id">⧉</button></span>
+          <span class="modal__meta-item" data-meta="version"><span class="modal__meta-key">version</span><span class="modal__meta-value">v1</span></span>
+          <span class="modal__meta-item" data-meta="updated" title="Created 2026-07-01T12:04:00Z · Updated 2026-07-01T12:04:00Z · schema v1"><span class="modal__meta-key">updated</span><span class="modal__meta-value"><time data-ago="2026-07-01T12:04:00Z" datetime="2026-07-01T12:04:00Z"></time></span></span>
+        </span>
+      </div>
+    </div>
+    <button type="button" class="modal__close" @click="closeModal()" aria-label="close">×</button>
+  </div>
+
+  <div class="modal__body">
+    
+    
+
+    <div class="field field--editable" data-field="tags" data-field-type="tags" x-data="editField()"
+         @focusout.capture="onBlur()" @keydown.escape.prevent.stop="revert()">
+      <label class="field__label">Tags</label>
+      <div class="field__view is-empty" tabindex="0" data-view
+           x-show="!editing" @click="activate()" @keydown="onKeydown($event)">Add tags…</div>
+      <div class="field__edit" data-edit x-ref="edit" x-cloak x-show="editing" @input="onInput()" @change="onInput()">
+        <div class="multiselect" x-data="tagChips({policy: 'open'})" @click.outside="open = false">
+          
+          <input type="text" class="input" name="tags" value="" placeholder="Add tags…" x-show="!ready">
+          <div class="multiselect__chips" x-cloak x-show="ready" @click="open = true; $refs.taginput.focus()">
+            
+            <template x-for="v in values" :key="v">
+              <span class="chip chip--tag" :class="{'is-invalid': invalid === v}"><span x-text="v"></span><button type="button" class="chip__x" @click.stop="removeTag(v)" :aria-label="'Remove ' + v">×</button></span>
+            </template>
+            <input type="text" class="multiselect__input" x-ref="taginput" x-model="q" placeholder="Add tags…"
+                   aria-label="Add tag" @focus="open = true"
+                   @keydown.enter.prevent="submit()" @keydown.,.prevent="submit()"
+                   @keydown.backspace="backspace()" @keydown.escape.prevent.stop="open = false">
+          </div>
+          <div class="combobox__menu" x-cloak x-show="open">
+            <ul class="combobox__list" role="listbox">
+              <li class="combobox__option" role="option" data-value="urgent" x-show="match($el)" @click="pick($event)">urgent</li>
+              <li class="combobox__option" role="option" data-value="bug" x-show="match($el)" @click="pick($event)">bug</li>
+              <li class="combobox__option" role="option" data-value="feature" x-show="match($el)" @click="pick($event)">feature</li>
+              
+              <li class="combobox__empty" x-show="!canFree()" x-text="invalid ? ('“' + invalid + '” is not in the workspace tag set') : 'Workspace tags only'"></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    
+    
+    
+    
+    <div class="field field--editable" data-field="field:description" data-field-type="text" x-data="editField()"
+         @focusout.capture="onBlur()" @keydown.escape.prevent.stop="revert()">
+      <label class="field__label">Description <span class="req">*</span></label>
+
+      <div class="field__view mono" tabindex="0" data-view
+           x-show="!editing" @click="activate()" @keydown="onKeydown($event)">d</div>
+
+      <div class="field__edit" data-edit x-ref="edit" x-cloak x-show="editing" @input="onInput()" @change="onInput()">
+        <textarea class="textarea mono" name="field:description">d</textarea>
+      </div>
+    </div>
+    
+    
+    
+    
+    
+    
+    <div class="field field--editable" data-field="field:environment" data-field-type="enum" x-data="editField()"
+         @focusout.capture="onBlur()" @keydown.escape.prevent.stop="revert()">
+      <label class="field__label">Environment <span class="req">*</span></label>
+
+      <div class="field__view" tabindex="0" data-view
+           x-show="!editing" @click="activate()" @keydown="onKeydown($event)">ci</div>
+
+      <div class="field__edit" data-edit x-ref="edit" x-cloak x-show="editing" @input="onInput()" @change="onInput()">
+        <div class="combobox" x-data="combobox()" @click.outside="close()">
+    <select class="select" name="field:environment" x-show="!ready">
+      <option value="">—</option>
+      <option value="local" >local</option><option value="ci" selected>ci</option><option value="release" >release</option><option value="prod" >prod</option>
+    </select>
+    
+<button type="button" class="select combobox__control" x-cloak x-show="ready"
+        @click="toggle()" @keydown.arrow-down.prevent="openMenu()"
+        aria-haspopup="listbox" :aria-expanded="open">
+  <span :class="{'is-placeholder': isEmpty}" x-text="label">—</span>
+</button>
+<div class="combobox__menu" x-cloak x-show="open" @keydown.escape.prevent.stop="close()">
+  <input type="text" class="combobox__filter" x-model="q" placeholder="Type to filter…"
+         aria-label="Filter options"
+         @keydown.arrow-down.prevent="move(1)" @keydown.arrow-up.prevent="move(-1)"
+         @keydown.enter.prevent="enter()">
+  <ul class="combobox__list" role="listbox">
+    <li class="combobox__option" role="option" data-value="" x-show="match($el)"
+        :class="{'is-active': active === ''}" @click="pick($event)">—</li>
+    <li class="combobox__option" role="option" data-value="local" x-show="match($el)"
+        :class="{'is-active': active === 'local', 'is-selected': current === 'local'}"
+        @click="pick($event)">local</li>
+    <li class="combobox__option" role="option" data-value="ci" x-show="match($el)"
+        :class="{'is-active': active === 'ci', 'is-selected': current === 'ci'}"
+        @click="pick($event)">ci</li>
+    <li class="combobox__option" role="option" data-value="release" x-show="match($el)"
+        :class="{'is-active': active === 'release', 'is-selected': current === 'release'}"
+        @click="pick($event)">release</li>
+    <li class="combobox__option" role="option" data-value="prod" x-show="match($el)"
+        :class="{'is-active': active === 'prod', 'is-selected': current === 'prod'}"
+        @click="pick($event)">prod</li>
+    
+    
+    <li class="combobox__empty" x-show="noneVisible()">No matches</li>
+  </ul>
+</div>
+
+  </div>
+      </div>
+    </div>
+    
+    
+    
+    
+    
+    
+    <div class="field field--editable" data-field="field:rollback" data-field-type="text" x-data="editField()"
+         @focusout.capture="onBlur()" @keydown.escape.prevent.stop="revert()">
+      <label class="field__label">Rollback</label>
+
+      <div class="field__view is-empty" tabindex="0" data-view
+           x-show="!editing" @click="activate()" @keydown="onKeydown($event)">Not set</div>
+
+      <div class="field__edit" data-edit x-ref="edit" x-cloak x-show="editing" @input="onInput()" @change="onInput()">
+        <textarea class="textarea" name="field:rollback"></textarea>
+      </div>
+    </div>
+    
+    
+    
+    
+    
+    
+    <div class="field field--editable" data-field="field:acceptance" data-field-type="text" x-data="editField()"
+         @focusout.capture="onBlur()" @keydown.escape.prevent.stop="revert()">
+      <label class="field__label">Acceptance</label>
+
+      <div class="field__view is-empty" tabindex="0" data-view
+           x-show="!editing" @click="activate()" @keydown="onKeydown($event)">Not set</div>
+
+      <div class="field__edit" data-edit x-ref="edit" x-cloak x-show="editing" @input="onInput()" @change="onInput()">
+        <textarea class="textarea" name="field:acceptance"></textarea>
+      </div>
+    </div>
+    
+    
+    
+    
+    
+    
+    <div class="field field--editable" data-field="field:verify" data-field-type="string" x-data="editField()"
+         @focusout.capture="onBlur()" @keydown.escape.prevent.stop="revert()">
+      <label class="field__label">Verify</label>
+
+      <div class="field__view is-empty mono" tabindex="0" data-view
+           x-show="!editing" @click="activate()" @keydown="onKeydown($event)">Not set</div>
+
+      <div class="field__edit" data-edit x-ref="edit" x-cloak x-show="editing" @input="onInput()" @change="onInput()">
+        <input type="text" class="input" name="field:verify" value="">
+      </div>
+    </div>
+    
+    
+    
+    
+    
+    
+    <div class="field field--editable" data-field="field:branch" data-field-type="string" x-data="editField()"
+         @focusout.capture="onBlur()" @keydown.escape.prevent.stop="revert()">
+      <label class="field__label">Branch</label>
+
+      <div class="field__view" tabindex="0" data-view
+           x-show="!editing" @click="activate()" @keydown="onKeydown($event)"><span class="chip chip--tag">feat/golden-infra</span></div>
+
+      <div class="field__edit" data-edit x-ref="edit" x-cloak x-show="editing" @input="onInput()" @change="onInput()">
+        <input type="text" class="input" name="field:branch" value="feat/golden-infra">
+      </div>
+    </div>
+    
+    
+    
+    
+    
+    
+    <div class="field" data-field-type="repeating" data-entry-field="change_log"
+         x-data="entryEditor({cardId: 'card_golden_infra', field: 'change_log', version: 1})">
+      <label class="field__label">Change log</label>
+      <div class="field__val entries-box">
+      <div class="entries-toolbar">
+        <button type="button" class="icon-btn" data-entry-add title="Add entry" aria-label="Add Change log entry" @click="openAdd()">+</button>
+      </div>
+      
+      <div class="entry-form" data-entry-form x-cloak x-show="open" @keydown.escape.prevent.stop="close()">
+        
+        <label class="entry-form__row">
+          <span class="entry-form__label">action <span class="req">*</span></span>
+          <input type="text" class="input" data-entry-input="action" data-kind="string" data-required>
+        </label>
+        
+        <label class="entry-form__row">
+          <span class="entry-form__label">target</span>
+          <input type="text" class="input" data-entry-input="target" data-kind="string">
+        </label>
+        
+        <label class="entry-form__row">
+          <span class="entry-form__label">result</span>
+          <input type="text" class="input" data-entry-input="result" data-kind="string">
+        </label>
+        
+        <label class="entry-form__row">
+          <span class="entry-form__label">author <span class="req">*</span></span>
+          <div class="combobox" x-data="combobox()" data-free="1" @click.outside="close()">
+    
+    <select class="select" data-entry-input="author" data-kind="user" data-required x-show="!ready"><option value="">—</option></select>
+    
+<button type="button" class="select combobox__control" x-cloak x-show="ready"
+        @click="toggle()" @keydown.arrow-down.prevent="openMenu()"
+        aria-haspopup="listbox" :aria-expanded="open">
+  <span :class="{'is-placeholder': isEmpty}" x-text="label">—</span>
+</button>
+<div class="combobox__menu" x-cloak x-show="open" @keydown.escape.prevent.stop="close()">
+  <input type="text" class="combobox__filter" x-model="q" placeholder="Type to filter…"
+         aria-label="Filter options"
+         @keydown.arrow-down.prevent="move(1)" @keydown.arrow-up.prevent="move(-1)"
+         @keydown.enter.prevent="enter()">
+  <ul class="combobox__list" role="listbox">
+    <li class="combobox__option" role="option" data-value="" x-show="match($el)"
+        :class="{'is-active': active === ''}" @click="pick($event)">—</li>
+    
+    <li class="combobox__option combobox__option--free" role="option" x-show="freeVisible()"
+        @click="pickFree()">Use “<span x-text="q.trim()"></span>”</li>
+    <li class="combobox__empty" x-show="noneVisible()">No matches</li>
+  </ul>
+</div>
+
+  </div>
+        </label>
+        
+        <label class="entry-form__row">
+          <span class="entry-form__label">timestamp <span class="req">*</span></span>
+          <input type="date" class="input" data-entry-input="timestamp" data-kind="date" data-required>
+        </label>
+        
+        <div class="entry-form__status" data-entry-status role="status" aria-live="polite"
+             x-cloak x-show="status" x-text="status" :class="{'is-error': isErr}"></div>
+        <div class="row entry-form__actions">
+          <button type="button" class="icon-btn icon-btn--primary" data-entry-save title="Save entry" aria-label="Save entry" @click="save()">✓</button>
+          <button type="button" class="icon-btn" data-entry-cancel title="Cancel" aria-label="Cancel" @click="close()">×</button>
+        </div>
+      </div>
+      <span class="muted" data-entry-empty>No entries yet.</span>
+      </div>
+    </div>
+    
+    
+    
+    
+    
+    <div class="field" data-field-type="artifact">
+      <label class="field__label">Evidence</label>
+      
+      
+      
+      <div class="artifact-upload" data-artifact-upload data-state="idle" :data-state="state"
+           x-data="artifactZone({cardId: 'card_golden_infra', field: 'evidence', version: 1, maxBytes: 33554432})">
+        <label class="artifact-upload__zone" data-drop
+               @dragenter="dragover($event)" @dragover="dragover($event)"
+               @dragleave="dragleave($event)" @drop="drop($event)">
+          <input type="file" class="artifact-upload__input" data-input @change="pick($event)"
+                 aria-label="Upload Evidence">
+          <span class="artifact-upload__cta">Choose a file…</span>
+          <span class="artifact-upload__hint">or drop one here</span>
+        </label>
+        <div class="artifact-upload__status" data-status role="status" aria-live="polite"
+             x-cloak x-show="message" x-text="message" :class="{'is-error': kind === 'error'}"></div>
+      </div>
+      
+    </div>
+    
+    
+    
+
+    
+    
+
+    
+    <div class="field" data-field-type="repeating" data-comments>
+      <label class="field__label">Comments</label>
+      <div class="field__val comments-box">
+      
+      <div class="comment-composer" data-comment-composer x-data="commentComposer({cardId: 'card_golden_infra'})">
+        <textarea class="textarea" rows="2" placeholder="Add a comment… (Esc to clear, ⌘↵ to send)" data-comment-input aria-label="Add a comment"
+                  x-model="text" @keydown.escape.prevent.stop="clear(); $event.target.blur()"
+                  @keydown.meta.enter.prevent="submit()" @keydown.ctrl.enter.prevent="submit()"></textarea>
+        <div class="comment-composer__status" data-comment-status role="status" aria-live="polite"
+             x-cloak x-show="status" x-text="status" :class="{'is-error': isErr}"></div>
+        <div class="comment-composer__bar">
+          <button type="button" class="icon-btn icon-btn--primary" data-comment-submit title="Add comment (⌘↵)" aria-label="Add comment"
+                  disabled :disabled="!canSubmit" @click="submit()">✓</button>
+        </div>
+      </div>
+      </div>
+    </div>
+
+    
+    <div class="field">
+      <div class="mono faint">created by local-dev · <time data-ago="2026-07-01T12:04:00Z" datetime="2026-07-01T12:04:00Z"></time></div>
+    </div>
+
+  </div>
+
+  <div class="modal__footer">
+    <button type="button" class="btn btn--ghost" @click="closeModal()">Cancel</button>
+    <button type="button" class="btn btn--primary" :disabled="!dirty || saving" @click="submit()">Save</button>
+  </div>
+</form>

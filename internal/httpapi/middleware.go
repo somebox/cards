@@ -22,15 +22,7 @@ func (s *Server) resolveActor(r *http.Request) string {
 
 // withActor wraps write handlers that need an actor (API only; UI always has default).
 func (s *Server) withActor(h http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		actor := s.resolveActor(r)
-		if actor == "" {
-			writeAPIError(w, core.ActorRequired())
-			return
-		}
-		r = r.WithContext(core.WithActor(r.Context(), actor))
-		h(w, r)
-	}
+	return withActor(s.resolveActor, h)
 }
 
 func (s *Server) actorFromCtx(r *http.Request) string {
@@ -45,14 +37,43 @@ func (s *Server) actorFromCtx(r *http.Request) string {
 // idempotent wraps a write handler so that an Idempotency-Key header replays
 // the original response. SPEC §11. Key is scoped per actor.
 func (s *Server) idempotent(h http.HandlerFunc) http.HandlerFunc {
+	return idempotent(s.store, s.actorFromCtx, h)
+}
+
+// WriteStack wraps a mutating handler as withActor(idempotent(h)) — the same
+// stack POST /v1/cards uses. cmd/cards applies this to POST /v1/boards on the
+// reload seam (board create is not registered on Server.Router).
+func WriteStack(store core.Store, resolveActor func(*http.Request) string, h http.HandlerFunc) http.HandlerFunc {
+	fallback := func(r *http.Request) string {
+		if a := core.ActorFromCtx(r.Context()); a != "" {
+			return a
+		}
+		return resolveActor(r)
+	}
+	return withActor(resolveActor, idempotent(store, fallback, h))
+}
+
+func withActor(resolveActor func(*http.Request) string, h http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		actor := resolveActor(r)
+		if actor == "" {
+			writeAPIError(w, core.ActorRequired())
+			return
+		}
+		r = r.WithContext(core.WithActor(r.Context(), actor))
+		h(w, r)
+	}
+}
+
+func idempotent(store core.Store, actorFromCtx func(*http.Request) string, h http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		key := r.Header.Get("Idempotency-Key")
 		if key == "" {
 			h(w, r)
 			return
 		}
-		actor := s.actorFromCtx(r)
-		rec, err := s.store.GetIdempotency(r.Context(), key, actor)
+		actor := actorFromCtx(r)
+		rec, err := store.GetIdempotency(r.Context(), key, actor)
 		if err != nil {
 			writeAPIError(w, core.NewValidationError("idempotency", err.Error()))
 			return
@@ -71,7 +92,7 @@ func (s *Server) idempotent(h http.HandlerFunc) http.HandlerFunc {
 		// retry with this key will re-execute instead of replaying. Log it.
 		rw := &recordingWriter{header: http.Header{}, status: 200, buf: new(bytes.Buffer)}
 		h(rw, r)
-		if err := s.store.PutIdempotency(r.Context(), core.IdempotencyRecord{
+		if err := store.PutIdempotency(r.Context(), core.IdempotencyRecord{
 			Key: key, Actor: actor, Status: rw.status, Body: rw.buf.Bytes(),
 		}); err != nil {
 			log.Printf("ERROR: idempotency record for key %q (actor %s) not persisted; a retry will re-execute: %v", key, actor, err)

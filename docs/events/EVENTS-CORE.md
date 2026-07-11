@@ -374,7 +374,8 @@ Shift-left checks:
 - `comment_edited`
 - `schema_upgraded`
 - `artifact_added` **[proposed — constant declared; no upload route or emit site yet]**
-- `definition_reloaded` **[proposed — constant declared; no reload trigger implemented yet]**
+- `definition_reloaded` **[built]** — `POST /v1/workspace/reload` / `serve --watch`
+- `definition_reload_failed` **[built]** — last-good kept; see `docs/architecture/RELOAD.md`
 
 (Per-type `diff` shapes remain as currently documented and wire-compatible.)
 

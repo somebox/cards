@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -56,7 +57,7 @@ func TestHookFiresOnMatchingEvent(t *testing.T) {
 		Filter: config.HookFilter{BoardID: "eng", ToStatus: "review"},
 		Run:    []string{"bash", "-c", `echo "$(cat)" >> ` + logFile},
 	}
-	sup := hooks.New(svc, ws, []config.Extension{hook}, dir, "http://127.0.0.1:8787/v1")
+	sup := hooks.New(func() *core.Service { return svc }, ws, []config.Extension{hook}, dir, "http://127.0.0.1:8787/v1")
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -106,7 +107,7 @@ func fireSlowHook(t *testing.T, sleep string, logFile string, drainTimeout time.
 		Filter: config.HookFilter{ToStatus: "review"},
 		Run:    []string{"bash", "-c", `sleep ` + sleep + `; echo done >> ` + logFile},
 	}
-	sup := hooks.New(svc, ws, []config.Extension{hook}, dir, "http://127.0.0.1:8787/v1")
+	sup := hooks.New(func() *core.Service { return svc }, ws, []config.Extension{hook}, dir, "http://127.0.0.1:8787/v1")
 	if drainTimeout > 0 {
 		sup.SetDrainTimeout(drainTimeout)
 	}
@@ -179,7 +180,7 @@ func TestHookDoesNotFireOnNonMatching(t *testing.T) {
 		Filter: config.HookFilter{ToStatus: "review"},
 		Run:    []string{"bash", "-c", `echo hit >> ` + logFile},
 	}
-	sup := hooks.New(svc, ws, []config.Extension{hook}, dir, "http://127.0.0.1:8787/v1")
+	sup := hooks.New(func() *core.Service { return svc }, ws, []config.Extension{hook}, dir, "http://127.0.0.1:8787/v1")
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	go sup.Run(ctx)
@@ -207,7 +208,7 @@ func TestHookFilterTypeID(t *testing.T) {
 		Filter: config.HookFilter{TypeID: "bug", ToStatus: "review"},
 		Run:    []string{"bash", "-c", `echo hit >> ` + logFile},
 	}
-	sup := hooks.New(svc, ws, []config.Extension{hook}, dir, "http://127.0.0.1:8787/v1")
+	sup := hooks.New(func() *core.Service { return svc }, ws, []config.Extension{hook}, dir, "http://127.0.0.1:8787/v1")
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	go sup.Run(ctx)
@@ -236,5 +237,78 @@ func TestHookFilterTypeID(t *testing.T) {
 	}
 	if _, err := os.Stat(logFile); err != nil {
 		t.Fatal("hook did not fire for bug card matching type_id=bug")
+	}
+}
+
+// TestSupervisorUsesCurrentGenerationAfterSwap is the P3a regression: the
+// supervisor must evaluate board membership against the LIVE generation, not
+// a Service pointer captured at construction. Without the getSvc accessor,
+// a "reload" that closes gen1 and installs gen2 with a narrower board still
+// sees gen1's card_type_ids — the board_id filter matches incorrectly and the
+// hook fires. With the accessor, membership follows gen2 and the hook stays quiet.
+func TestSupervisorUsesCurrentGenerationAfterSwap(t *testing.T) {
+	dir := t.TempDir()
+	ws := &core.Workspace{
+		ID: "t", Name: "T",
+		Columns:  []core.Column{{ID: "todo", Name: "Todo"}, {ID: "review", Name: "Review"}, {ID: "done", Name: "Done"}},
+		Settings: core.WorkspaceSettings{DefaultUser: "u", StrictFields: true},
+	}
+	types := map[string]*core.CardType{
+		"task": {ID: "task", Name: "Task", SchemaVersion: 1,
+			Fields:         []core.FieldDef{{ID: "description", Type: core.FieldText, Required: true}},
+			AllowedColumns: []string{"todo", "review", "done"}},
+		"bug": {ID: "bug", Name: "Bug", SchemaVersion: 1,
+			Fields:         []core.FieldDef{{ID: "description", Type: core.FieldText, Required: true}},
+			AllowedColumns: []string{"todo", "review", "done"}},
+	}
+	// Gen1: eng accepts task+bug. Gen2 (post-"reload"): eng accepts bug only.
+	boardsWide := map[string]*core.Board{
+		"eng": {ID: "eng", Name: "Eng", Columns: []string{"todo", "review", "done"}, CardTypeIDs: []string{"task", "bug"}},
+	}
+	boardsNarrow := map[string]*core.Board{
+		"eng": {ID: "eng", Name: "Eng", Columns: []string{"todo", "review", "done"}, CardTypeIDs: []string{"bug"}},
+	}
+	st, err := sqlite.Open(filepath.Join(dir, "test.db"), ws)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { st.Close() })
+	_ = st.InsertUser(context.Background(), core.User{ID: "u", Kind: "human", CreatedAt: time.Now().UTC()})
+
+	gen1 := core.NewService(ws, types, boardsWide, st)
+	var cur atomic.Pointer[core.Service]
+	cur.Store(gen1)
+
+	logFile := filepath.Join(dir, "gen.log")
+	hook := config.Extension{
+		ID: "board-eng", Kind: "hook", On: "status_changed",
+		Filter: config.HookFilter{BoardID: "eng", ToStatus: "review"},
+		Run:    []string{"bash", "-c", `echo hit >> ` + logFile},
+	}
+	sup := hooks.New(func() *core.Service { return cur.Load() }, ws, []config.Extension{hook}, dir, "http://127.0.0.1:8787/v1")
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go sup.Run(ctx)
+	time.Sleep(100 * time.Millisecond)
+
+	c, err := gen1.CreateCard(ctx, core.CreateCardRequest{TypeID: "task", Title: "T", Status: "todo",
+		Fields: map[string]any{"description": "d"}, Actor: "u"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Simulate reloadLocked: new generation shares the bus+store; old is closed.
+	gen2 := core.NewService(ws, types, boardsNarrow, st, core.WithBus(gen1.Bus()))
+	old := cur.Swap(gen2)
+	old.Close()
+
+	stReview := "review"
+	if _, err := gen2.PatchCard(ctx, c.ID, core.PatchCardRequest{Version: 1, Status: &stReview, Actor: "u"}); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(500 * time.Millisecond)
+	if _, err := os.Stat(logFile); err == nil {
+		t.Fatal("hook fired using stale gen1 board membership (task still on eng); " +
+			"supervisor must read the current generation after swap")
 	}
 }

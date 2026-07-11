@@ -209,12 +209,21 @@ func newTestApp(t *testing.T) (*httptest.Server, string) {
 
 func appDo(t *testing.T, method, url string, body string) (int, map[string]any) {
 	t.Helper()
+	code, out, _ := appDoHeaders(t, method, url, body, nil)
+	return code, out
+}
+
+func appDoHeaders(t *testing.T, method, url, body string, headers map[string]string) (int, map[string]any, http.Header) {
+	t.Helper()
 	var req *http.Request
 	if body != "" {
 		req, _ = http.NewRequest(method, url, strings.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 	} else {
 		req, _ = http.NewRequest(method, url, nil)
+	}
+	for k, v := range headers {
+		req.Header.Set(k, v)
 	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -223,7 +232,7 @@ func appDo(t *testing.T, method, url string, body string) (int, map[string]any) 
 	defer resp.Body.Close()
 	var out map[string]any
 	_ = json.NewDecoder(resp.Body).Decode(&out)
-	return resp.StatusCode, out
+	return resp.StatusCode, out, resp.Header.Clone()
 }
 
 func boardsServed(t *testing.T, tsURL string) []string {
@@ -293,6 +302,60 @@ func TestCreateBoardWritesFileAndReloads(t *testing.T) {
 		`{"name":"Design Review","columns":["todo"],"card_type_ids":["task"]}`)
 	if code != 409 {
 		t.Errorf("duplicate create: %d %v (want 409)", code, out)
+	}
+}
+
+// TestCreateBoardIdempotency covers both arms of POST /v1/boards idempotency
+// (card_f20e87d5): same Idempotency-Key replays the same board id; a different
+// key with an otherwise-matching payload creates a second board.
+func TestCreateBoardIdempotency(t *testing.T) {
+	ts, _ := newTestApp(t)
+	payload := `{"id":"idem-board-a","name":"Idem Board","columns":["todo","done"],"card_type_ids":["task"]}`
+	H := map[string]string{
+		"X-Work-Cards-Actor": "local-dev",
+		"Idempotency-Key":    "board-create-k1",
+	}
+
+	code1, b1, hdr1 := appDoHeaders(t, "POST", ts.URL+"/v1/boards", payload, H)
+	if code1 != 201 {
+		t.Fatalf("first create: %d %v", code1, b1)
+	}
+	if b1["id"] != "idem-board-a" {
+		t.Fatalf("first id = %v, want idem-board-a", b1["id"])
+	}
+	if hdr1.Get("Idempotent-Replay") != "" {
+		t.Fatalf("first create should not be a replay, got header %q", hdr1.Get("Idempotent-Replay"))
+	}
+
+	// Same key → replay, same board id (no second file write).
+	code2, b2, hdr2 := appDoHeaders(t, "POST", ts.URL+"/v1/boards", payload, H)
+	if code2 != 200 || hdr2.Get("Idempotent-Replay") != "true" {
+		t.Fatalf("replay: %d header=%q body=%v", code2, hdr2.Get("Idempotent-Replay"), b2)
+	}
+	if b2["id"] != b1["id"] {
+		t.Errorf("replay returned different board: %v vs %v", b1["id"], b2["id"])
+	}
+
+	// Different key, same shape, different id → a second board (proves the
+	// key is what scopes replay; without server-side idempotency a double
+	// submit with distinct keys would always invent duplicates).
+	H2 := map[string]string{
+		"X-Work-Cards-Actor": "local-dev",
+		"Idempotency-Key":    "board-create-k2",
+	}
+	payload2 := `{"id":"idem-board-b","name":"Idem Board","columns":["todo","done"],"card_type_ids":["task"]}`
+	code3, b3, hdr3 := appDoHeaders(t, "POST", ts.URL+"/v1/boards", payload2, H2)
+	if code3 != 201 {
+		t.Fatalf("second key create: %d %v", code3, b3)
+	}
+	if hdr3.Get("Idempotent-Replay") == "true" {
+		t.Fatal("different key must not replay the first board")
+	}
+	if b3["id"] == b1["id"] {
+		t.Errorf("different key should yield a second board, both were %v", b1["id"])
+	}
+	if b3["id"] != "idem-board-b" {
+		t.Errorf("second id = %v, want idem-board-b", b3["id"])
 	}
 }
 

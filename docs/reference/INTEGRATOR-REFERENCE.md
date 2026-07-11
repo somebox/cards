@@ -270,7 +270,7 @@ Transport: **JSON-RPC 2.0 over stdio** (newline-delimited). Launch:
 delegates to the **same `core.Service`** as HTTP, so validation, events, and the
 no-double-claim guarantee are identical.
 
-### Tools — `internal/mcp/mcp.go:204`
+### Tools — `internal/mcp/mcp.go:217` (`buildTools`)
 
 **Per card type (generated):** `create_<type_id>` and `update_<type_id>` — input
 schemas derived from the type's fields (`title`/`status`/`tags` + per-field
@@ -279,10 +279,19 @@ props; `update_*` requires `card_id` + `version`). There is **no** generic
 
 **Fixed generic tools:** `workspace`, `get_card`, `list_cards`
 (`type_id/status/owner/board_id/q/blocked/limit/cursor`), `search_cards`
-(`q/limit`), `claim` (`card_id/version/status`), `take_next`
+(`q/limit`), `claim` (`card_id/version/status`), `release`
+(`card_id/version/status?/force?`), `take_next`
 (`type_id/board_id/assign_to/status/filter`), `append_entry`
-(`card_id/field/version/entry`), `add_link` (`card_id/type_id/target/note`),
-`add_comment` (`card_id/body`), `history` (`card_id`).
+(`card_id/field/version/entry`), `update_entry`
+(`card_id/field/entry_id/version/entry`), `remove_entry`
+(`card_id/field/entry_id/version`), `add_link` (`card_id/type_id/target/note`),
+`remove_link` (`card_id/type_id/target`), `add_comment` (`card_id/body`),
+`edit_comment` (`card_id/comment_id/body`), `upgrade_schema`
+(`card_id/target_version?/confirm?` — dry-run unless `confirm:true`),
+`attach_artifact` (`card_id/field/content_base64`), `get_artifact` (`uri`),
+`history` (`card_id`), `breaches` (`board_id/type`),
+`events` (`types/board_id/since/limit`). Authoritative short list also in
+`internal/mcp/README.md`; narrative in `docs/extensions/MCP.md`.
 
 ### Actor binding
 
@@ -291,13 +300,10 @@ props; `update_*` requires `card_id` + `version`). There is **no** generic
 No MCP tool exposes an actor parameter. Note: over MCP there is **no
 `X-Work-Cards-Actor`** path — that header is HTTP-only.
 
-> **[drift] `docs/MCP.md` over-documents the surface.** `update_entry`,
-> `subscribe`, `card_events`, `upgrade_schema`, `card_type`, a create
-> `schema_version` param, per-call `idempotency_key`, and `scoped_tools` are
-> described there but are **not implemented** in `internal/mcp/mcp.go`. Treat the
-> tool list above (read from code) as authoritative. Streaming is **HTTP/SSE
-> only** — there is no MCP subscribe tool; an MCP-only client polls
-> `history`/`list_cards` or holds a separate SSE connection.
+Streaming is **HTTP/SSE only** — there is no MCP `subscribe` tool; an MCP-only
+client polls `history`/`events`/`list_cards` or holds a separate SSE connection.
+MCP does not forward idempotency keys or dry-run (except `upgrade_schema`'s
+`confirm` gate) — see SPEC-API-SURFACE §13.
 
 ---
 
@@ -314,16 +320,19 @@ shapes per type (`field_updated`: `{field, before, after}`; `item_updated`:
 
 ### Mutation events [built] — `internal/core/types.go:209`
 
-Canonical enumeration — `internal/core/types.go` declares **25** event types:
-16 card/state events plus the 9 condition events (§ below). The **15 durable
+Canonical enumeration — `internal/core/types.go` declares **26** event types:
+17 card/state events plus the 9 condition events (§ below). The **15 durable
 card facts** are `card_created`, `card_deleted`, `field_updated`,
 `status_changed`, `owner_changed`, `tags_changed`, `item_appended`,
 `item_updated`, `item_removed`, `link_added`, `link_removed`, `comment_added`,
 `comment_edited`, `schema_upgraded`, `artifact_added` — synchronous on a write,
 card-scoped, persisted, replayable. `artifact_added` emits from the attachments
-upload path (`Service.AddArtifact`, **[built]**). The one remaining **[drift]**
-constant is `definition_reloaded` (declared; no reload handler or file watching —
-see §6 below).
+upload path (`Service.AddArtifact`, **[built]**). `definition_reloaded` is
+**[built]** — emitted by `POST /v1/workspace/reload` and by `cards serve
+--watch` after a successful definitions reload (`cmd/cards/reload.go`).
+`definition_reload_failed` is **[built]** — emitted when a reload keeps
+last-good serving (HTTP 422 or watch poller); the board UI shows a banner.
+Contract: [`docs/architecture/RELOAD.md`](../architecture/RELOAD.md).
 
 ### Condition events [built] — `internal/core/types.go`, `INTEGRATION.md`
 
@@ -418,7 +427,8 @@ the ephemeral `wip_exceeded`/`wip_cleared` signals.
 `workspace.json` settings include `enforce_transitions`, `strict_fields`,
 `tag_policy`, `default_user`, `event_retention_days`. All cross-references
 (board columns/types/transitions, card-type `allowed_columns`, field types) are
-validated **at load**; bad references fail startup.
+validated **at load**; bad references fail startup. Semantic load checks also
+cover number/date `min`≤`max`, known icon aliases, and dangling presentation/filter field refs (ambiguous legacy keys warn via `Result.Warnings`).
 
 ### Single workspace per instance [confirmed, long-term]
 
@@ -443,12 +453,18 @@ unsupported.*
   target schema, re-validates, emits `schema_upgraded`). It is one-card-at-a-time
   and refuses downgrades; today the target must be the type's currently-loaded
   version.
-- **"Reload definitions" caveat [drift].** A `definition_reloaded` event type and
-  a `POST /v1/workspace/reload` are *specced*, but in the current code only the
-  event constant exists — **there is no reload handler and no file watching**.
-  Definitions are loaded once at process start, so **"reload" in practice means
-  restart the server**. Semantically, reloading definitions never mutates cards
-  (it only rebuilds in-memory config).
+- **Reload definitions [built].** `POST /v1/workspace/reload` (and CLI
+  `cards reload`) is implemented on `cards serve` via `reloadableApp` in
+  `cmd/cards/reload.go`: re-loads definitions, swaps the Service + HTTP router
+  around the same SQLite store and event bus, emits `definition_reloaded` per
+  board, and on loader failure returns **422**, emits
+  `definition_reload_failed`, and keeps the previous generation. Semantically,
+  reloading never mutates cards (in-memory config only). **`cards serve
+  --watch` [built]** polls `definitions/` with a dependency-free fingerprint
+  hash (no fsnotify), debounces, and reloads on the same path — see
+  [`docs/architecture/RELOAD.md`](../architecture/RELOAD.md). `POST /v1/boards`
+  (create-board) also writes a board JSON then reloads, with self-write
+  suppression so the poller does not double-fire.
 
 ---
 
@@ -457,7 +473,7 @@ unsupported.*
 The core **loads no extension code and executes nothing in-process**; extensions
 are independent processes that talk to the API. Declared in
 `definitions/extensions.json`:
-`{id, kind, description?, on?, filter?, run, cwd?, env?, autostart?, expose?}`.
+`{id, kind, description?, on?, filter?, run, cwd?, env?, autostart?, restart_policy?, expose?}`.
 
 - **`hook` [built]** — reactive subprocess. `on: <event_type>` + optional
   `filter` (`board_id`, `type_id`, `card_id`, `to_status`, `from_status`). The
@@ -479,13 +495,27 @@ are independent processes that talk to the API. Declared in
   [--param k=v ...]`. Receives the `--param` flags as **argv** (not event JSON);
   synchronous; child stdout/stderr stream to the parent.
 
-- **`service` [drift / not implemented]** — a long-running SSE-subscriber is
-  *designed* (`autostart`, restart policy, `expose`), and the fields parse, but
-  **nothing in the current code starts or supervises a `service`**; only `hook`
-  and `run` are wired. Run long-lived consumers yourself (systemd/compose/by-hand)
-  as ordinary API+SSE clients — which is exactly picraft's persistent operator
-  session. Either way a "service" can only write back as an API client; the core
-  never loads it in-process.
+- **`service` [built]** — long-running supervised process when `autostart: true`
+  under `cards serve --run-extensions` (supported home) or standalone
+  `cards run-extensions`. Shared construction path (`cmd/cards/supervisor.go`).
+  Listener-ready gate on serve: bind first, then start children. Env:
+  `CARDS_URL` (loopback base), `CARDS_WORKSPACE`, `CARDS_USER`. Restart per
+  `restart_policy` (`on-failure` default / `always` / `never`) with bounded
+  backoff and min-healthy-uptime streak reset. Drain: SIGTERM → grace →
+  SIGKILL process group. **No in-process event feeding** — services dial
+  `/v1/events/stream` themselves. `expose` still parsed but unconsumed.
+  **Reconcile-on-reload [built]** (P5c): identity = extension `id`; declaration
+  fingerprint = hash of `run`+`env`+`cwd`+`restart_policy`; decision table
+  added→start / removed→drain+stop / unchanged→leave alone /
+  declaration-changed→drain+restart. Snapshot handed off after
+  `reloadableApp.mu` release (board-create reload ⇒ zero service churn). See
+  `docs/architecture/RELOAD.md`.
+
+  ```json
+  { "id": "dropbox", "kind": "service", "autostart": true,
+    "restart_policy": "on-failure",
+    "run": ["node", ".cards/ext/dropbox.mjs"] }
+  ```
 
 ---
 
@@ -536,7 +566,7 @@ extension model are **unchanged** since the last verification.
 | 4 | Events | `internal/core/events.go`, `breaches.go`, `monitor.go`; `internal/httpapi/sse.go` | event payloads/breaches reviewed, no change needed. SSE transport gained a keepalive at `44012f4` (Phase 9, `sse.go`) — liveness only, no change to event shape or the consumer contract |
 | 5 | Actor & identity | `internal/core/service.go`, `internal/httpapi/middleware.go` | reviewed, no change needed — no commits in range. (The `docs/design/AUTH.md` direction is *proposed*/unbuilt; §5 still describes the built trusted-actor model) |
 | 6 | Workspace & schema | `internal/config/` | reviewed, no change needed — no commits in range |
-| 7 | Extensions | `internal/hooks/` | reviewed, no change needed — no commits in range |
+| 7 | Extensions | `internal/hooks/` | **updated 2026-07-11 (P5c):** reconcile-on-reload for `kind:service` — identity key = extension id; fingerprint = run/env/cwd/restart_policy; decision table in `docs/architecture/RELOAD.md`; board-create reload zero-churn. Prior P5b (service supervisor) already [built]. Hook/run decls remain frozen across reload. |
 | 8 | What cards does NOT provide | (prose boundary, no owned source path) | n/a |
 
 ## Pointers into the cards docs

@@ -261,6 +261,14 @@ func (s *Server) buildTools() []Tool {
 					Version: intArg(a, "version"), Status: strArg(a, "status"), Actor: s.actor,
 				})
 			}},
+		Tool{Name: "release", Description: "Release ownership of a claimed card (clears owner; optional status).",
+			InputSchema: objSchema(map[string]any{"card_id": str(), "version": intSchema(), "status": str(), "force": boolSchema()}),
+			run: func(ctx context.Context, a map[string]any) (any, error) {
+				return s.svc.Release(ctx, strArg(a, "card_id"), core.ReleaseRequest{
+					Version: intArg(a, "version"), Status: strArg(a, "status"),
+					Force: boolArg(a, "force"), Actor: s.actor,
+				})
+			}},
 		Tool{Name: "take_next", Description: "Pick + atomically claim the oldest matching unowned card. Returns {card: null} when nothing matches.",
 			InputSchema: objSchema(map[string]any{"type_id": str(), "board_id": str(), "assign_to": str(), "status": str(), "filter": objSchema(map[string]any{})}),
 			run: func(ctx context.Context, a map[string]any) (any, error) {
@@ -279,6 +287,16 @@ func (s *Server) buildTools() []Tool {
 			run: func(ctx context.Context, a map[string]any) (any, error) {
 				return s.svc.AppendEntry(ctx, strArg(a, "card_id"), strArg(a, "field"), mapArg(a, "entry"), intArg(a, "version"))
 			}},
+		Tool{Name: "update_entry", Description: "Patch a repeating-field entry by entry_id (version-checked).",
+			InputSchema: objSchema(map[string]any{"card_id": str(), "field": str(), "entry_id": str(), "version": intSchema(), "entry": objSchema(map[string]any{})}),
+			run: func(ctx context.Context, a map[string]any) (any, error) {
+				return s.svc.UpdateEntry(ctx, strArg(a, "card_id"), strArg(a, "field"), strArg(a, "entry_id"), mapArg(a, "entry"), intArg(a, "version"))
+			}},
+		Tool{Name: "remove_entry", Description: "Remove a repeating-field entry by entry_id (version-checked).",
+			InputSchema: objSchema(map[string]any{"card_id": str(), "field": str(), "entry_id": str(), "version": intSchema()}),
+			run: func(ctx context.Context, a map[string]any) (any, error) {
+				return s.svc.RemoveEntry(ctx, strArg(a, "card_id"), strArg(a, "field"), strArg(a, "entry_id"), intArg(a, "version"))
+			}},
 		Tool{Name: "add_link", Description: "Add a typed link to another card.",
 			InputSchema: objSchema(map[string]any{"card_id": str(), "type_id": str(), "target": str(), "note": str()}),
 			run: func(ctx context.Context, a map[string]any) (any, error) {
@@ -287,10 +305,29 @@ func (s *Server) buildTools() []Tool {
 					Note: strArg(a, "note"), Actor: s.actor,
 				})
 			}},
+		Tool{Name: "remove_link", Description: "Remove a typed link to another card.",
+			InputSchema: objSchema(map[string]any{"card_id": str(), "type_id": str(), "target": str()}),
+			run: func(ctx context.Context, a map[string]any) (any, error) {
+				return s.svc.RemoveLink(ctx, strArg(a, "card_id"), strArg(a, "type_id"), strArg(a, "target"))
+			}},
 		Tool{Name: "add_comment", Description: "Add a markdown comment to a card.",
 			InputSchema: objSchema(map[string]any{"card_id": str(), "body": str()}),
 			run: func(ctx context.Context, a map[string]any) (any, error) {
 				return s.svc.AddComment(ctx, strArg(a, "card_id"), strArg(a, "body"))
+			}},
+		Tool{Name: "edit_comment", Description: "Edit an existing comment body by comment_id.",
+			InputSchema: objSchema(map[string]any{"card_id": str(), "comment_id": str(), "body": str()}),
+			run: func(ctx context.Context, a map[string]any) (any, error) {
+				return s.svc.EditComment(ctx, strArg(a, "card_id"), strArg(a, "comment_id"), strArg(a, "body"))
+			}},
+		Tool{Name: "upgrade_schema", Description: "Preview or apply a card schema upgrade. Defaults to dry-run (returns fields that would drop); set confirm:true to apply.",
+			InputSchema: objSchema(map[string]any{"card_id": str(), "target_version": intSchema(), "confirm": boolSchema()}),
+			run: func(ctx context.Context, a map[string]any) (any, error) {
+				return s.svc.UpgradeSchema(ctx, strArg(a, "card_id"), core.UpgradeSchemaRequest{
+					TargetVersion: intArg(a, "target_version"),
+					DryRun:        !boolArg(a, "confirm"),
+					Actor:         s.actor,
+				})
 			}},
 		Tool{Name: "attach_artifact", Description: "Store bytes for an artifact field from base64-encoded content (stdio has no binary frame); returns the updated card.",
 			InputSchema: objSchema(map[string]any{"card_id": str(), "field": str(), "content_base64": str()}),

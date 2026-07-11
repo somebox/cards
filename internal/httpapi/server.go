@@ -190,9 +190,9 @@ func New(svc *core.Service, ws *core.Workspace, types map[string]*core.CardType,
 			return m
 		},
 		// typeTheme returns the effective TypeTheme for a type id from the
-		// ViewData.TypeThemes map (built in boardData/uiCardModal/uiCardDetail/
-		// uiIndex). Fallback for non-loop call-sites where CardView fields are
-		// not precomputed. (1a)
+		// ViewData.TypeThemes map (home recent rows, create/board type
+		// pickers). Per-card surfaces (board cards, modal/detail card_head)
+		// use resolveCardTheme → CardView / ViewData.CardTheme instead. (1a / P4a)
 		"typeTheme": func(themes map[string]core.TypeTheme, id string) core.TypeTheme {
 			if t, ok := themes[id]; ok {
 				return t

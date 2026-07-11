@@ -58,9 +58,12 @@ implementation — header only.)
 - `GET /workspace/card-types/:type_id?version=` → **not yet implemented**;
   card-type schemas are only available via the `card_types` map in
   `GET /workspace` (current version only).
-- `POST /workspace/reload` → **not yet implemented** as an HTTP route (the
-  `definition_reloaded` event type exists for when reload lands, but there is
-  no trigger endpoint yet).
+- `POST /workspace/reload` → **implemented** on `cards serve` (`cmd/cards/reload.go`):
+  re-loads definitions, swaps the live Service/router, emits `definition_reloaded`;
+  failed reload returns 422, emits `definition_reload_failed`, and keeps the prior
+  generation. Optional `cards serve --watch` polls `definitions/` (fingerprint
+  hash, no fsnotify) and reloads on the same path. CLI: `cards reload`.
+  Contract: `docs/architecture/RELOAD.md`.
 
 ### Boards and views
 - `GET /boards/:board_id` → **implemented** (see "Workspace and definitions"
@@ -183,7 +186,7 @@ lifecycle examples ([`LIFECYCLE-EXAMPLES.md`](../examples/LIFECYCLE-EXAMPLES.md)
 |-----------|-------|
 | **REST** | Source of truth; filters and SSE for reactive agents |
 | **CLI** | Mirrors REST paths/flags for most operations; a few REST routes (e.g. `release`) currently have no CLI command, and `--dry-run` coverage is inconsistent across write commands — see DEVELOPER-REFERENCE.md for the current gap list. |
-| **MCP** | Typed tools from workspace introspection (one create tool per card type). MCP tool coverage is currently a **strict subset** of REST/CLI: no MCP tools exist yet for `release`, `remove-entry`, `remove-link`, `edit-comment`, `upgrade-schema`, `update-entry` (patch a repeating entry), per-card event history, the event feed, event streaming, or user registration. See MCP.md gap list before assuming full parity. |
+| **MCP** | Typed tools from workspace introspection (one create tool per card type). Fixed tools include mutations (`claim`, `release`, entry/link/comment CRUD, `upgrade_schema` with `confirm:true` apply gate), `history`/`events`/`breaches`, and artifact attach/get. Still a **strict subset** of REST/CLI: no SSE/event streaming or user registration over MCP; no idempotency-key forwarding. See `internal/mcp/README.md` + MCP.md before assuming full parity. |
 | **Skills** | `take-and-work`, `append-commit-and-PR`, `upgrade-schema`, `resume-from-history` |
 | **Web UI** | Renders from `BoardPresentation` + field types. Inline click-to-edit on the card modal/detail (title/status/owner/tags/scalar fields) saves via `POST /ui/cards/{id}/save` with optimistic-concurrency `version`; drag-drop moves and unclaim call the `/v1` API. Board-scoped theming via `Board.theme` (design-system token overrides). See `docs/DESIGN.md`. |
 

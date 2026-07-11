@@ -138,6 +138,9 @@ reconciled against AUTH.md.
 Under this framing the current shape is defensible: `TypeTheme` in
 particular lives next to *type schema* — a place human authors edit — and
 belongs in the schema-authoring vocabulary, not banished to a UI package.
+`FieldDef.OptionThemes` (define) and `BoardPresentation.StyleField` (activate)
+follow the same rule: optional presentation metadata; boards opt in; write
+paths ignore them. Precedence is normative in `docs/design/STYLE-FIELD.md`.
 
 **What we should still do (small, cheap):**
 - Add a one-line type comment on `BoardPresentation` and `TypeTheme`

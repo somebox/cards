@@ -131,7 +131,8 @@ A direct, synchronous consequence of an API call. Always card-scoped.
 | `comment_added` / `comment_edited` | a comment changes |
 | `artifact_added` **[proposed]** | a file/artifact is attached (constant declared; no upload route or emit site yet) |
 | `schema_upgraded` | a card is re-pinned to a new schema version |
-| `definition_reloaded` **[proposed]** | workspace definitions reload (constant declared; no reload trigger implemented — restart to reload) |
+| `definition_reloaded` **[built]** | workspace definitions reloaded (`POST /v1/workspace/reload` or `serve --watch`) |
+| `definition_reload_failed` **[built]** | reload kept last-good; UI banner under `--watch` |
 
 ### Condition events — emitted when a declared threshold crosses **[built]**
 

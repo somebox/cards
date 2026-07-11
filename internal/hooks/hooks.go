@@ -1,8 +1,13 @@
-// Package hooks is the optional extension supervisor. It subscribes to the
-// core event bus and, for each declared hook whose filter matches a fired
-// event, spawns the hook's run[] command with the event JSON on stdin and
-// CARDS_* environment variables set. Delivery is at-most-once: a non-zero
-// exit is logged, not retried. See docs/EXTENSIONS.md.
+// Package hooks is the optional extension supervisor. It is deliberately
+// bimodal (see docs/architecture/LIFECYCLE-SCHEMA.md):
+//
+//   - kind:hook — subscribe to the core event bus; on filter match, spawn
+//     run[] with event JSON on stdin (at-most-once, not retried).
+//   - kind:service — pure process lifecycle (start / restart per
+//     RestartPolicy / bounded drain). No in-process event feeding; services
+//     dial /v1/events/stream themselves.
+//
+// See docs/EXTENSIONS.md.
 package hooks
 
 import (
@@ -22,38 +27,68 @@ import (
 )
 
 // defaultDrainTimeout bounds how long Run waits for in-flight hook subprocesses
-// to finish after its context is cancelled, before killing the stragglers.
+// (and SIGTERM'd services) after its context is cancelled, before killing
+// stragglers.
 const defaultDrainTimeout = 5 * time.Second
 
-// Supervisor subscribes to the event bus and spawns hook subprocesses.
+// ServiceFunc returns the *core.Service the supervisor should use for
+// condition evaluation (GetCard, Workspace boards) and bus subscription.
+// Callers that outlive a workspace reload must return the current generation
+// on every call — never a closed/stale pointer captured at construction.
+type ServiceFunc func() *core.Service
+
+// Supervisor runs declared hooks and autostart services.
 //
-// Lifecycle / graceful drain (the convention Sprint B's outbox tailer and
-// webhook worker reuse): Run(ctx) accepts events until ctx is cancelled, then
-// drains — it stops accepting new events and waits up to drainTimeout for
-// already-spawned hooks to finish (tracked by wg), killing any that overrun.
-// The caller cancels the context and waits for Run to return; nothing is left
-// running past that point.
+// Lifecycle / graceful drain: Run(ctx) accepts events until ctx is cancelled,
+// then drains — stops accepting new events, waits up to drainTimeout for
+// in-flight hooks, and SIGTERM→grace→SIGKILL's supervised services. The caller
+// cancels the context and waits for Run to return; nothing is left running
+// past that point.
+//
+// Generation provenance: getSvc is consulted on every condition-evaluation
+// path so a reload that closes the prior Service cannot leave the supervisor
+// reading a dead generation. Hook/run declarations stay frozen at
+// construction; kind:service decls are reconciled after each successful
+// reload (see Reconcile / docs/architecture/RELOAD.md).
 type Supervisor struct {
-	svc          *core.Service
+	getSvc       ServiceFunc
 	ws           *core.Workspace
 	extensions   []config.Extension
 	workspaceDir string
 	cardsURL     string
 	drainTimeout time.Duration
-	wg           sync.WaitGroup // in-flight hook subprocesses
-	mu           sync.Mutex
-	logs         map[string][]string // per-extension recent log lines
+	ready        <-chan struct{} // listener-ready gate; nil = start services immediately
+	backoff      BackoffConfig
+	sleep        sleepFunc
+
+	wg          sync.WaitGroup // in-flight hook subprocesses
+	svcWG       sync.WaitGroup // supervised service loops
+	mu          sync.Mutex
+	logs        map[string][]string // per-extension recent log lines
+	services    []*managedService
+	svcCtx      context.Context // set in Run after ready; parent for service loops
+	reconcileMu sync.Mutex      // serializes startAutostartServices ↔ Reconcile
 }
 
-// New constructs a Supervisor bound to a service + workspace + declarations.
-func New(svc *core.Service, ws *core.Workspace, exts []config.Extension, workspaceDir, cardsURL string) *Supervisor {
+// New constructs a Supervisor. getSvc must be non-nil and return a live
+// Service on every call; for a fixed (non-reloading) process pass
+// `func() *core.Service { return svc }`.
+func New(getSvc ServiceFunc, ws *core.Workspace, exts []config.Extension, workspaceDir, cardsURL string) *Supervisor {
+	if getSvc == nil {
+		panic("hooks.New: getSvc is required")
+	}
 	return &Supervisor{
-		svc: svc, ws: ws, extensions: exts,
+		getSvc: getSvc, ws: ws, extensions: exts,
 		workspaceDir: workspaceDir, cardsURL: cardsURL,
 		drainTimeout: defaultDrainTimeout,
+		backoff:      DefaultBackoff(),
+		sleep:        defaultSleep,
 		logs:         map[string][]string{},
 	}
 }
+
+// svc returns the current generation's Service.
+func (s *Supervisor) svc() *core.Service { return s.getSvc() }
 
 // SetDrainTimeout overrides how long Run waits for in-flight hooks on shutdown
 // before killing stragglers. Call before Run.
@@ -61,6 +96,8 @@ func (s *Supervisor) SetDrainTimeout(d time.Duration) { s.drainTimeout = d }
 
 // Hooks returns the declared hooks (kind == "hook").
 func (s *Supervisor) Hooks() []config.Extension {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	out := []config.Extension{}
 	for _, e := range s.extensions {
 		if e.Kind == "hook" {
@@ -70,39 +107,70 @@ func (s *Supervisor) Hooks() []config.Extension {
 	return out
 }
 
-// Run blocks, dispatching matching events to hooks until ctx is cancelled, then
-// drains in-flight hooks before returning (see drain). It subscribes to the bus
-// with no filter (each hook applies its own filter) and spawns hooks
-// asynchronously, tracking each with wg so shutdown can await them.
+// Run blocks until ctx is cancelled, then drains hooks and stops services
+// (bounded). Autostart services start only after the optional ready channel
+// fires (listener-ready gate for serve --run-extensions).
 //
 // Hook subprocesses run under spawnCtx, a separate context that outlives ctx's
 // cancellation, so a shutdown gives in-flight hooks a bounded grace period to
 // finish rather than SIGKILLing them the instant the server stops accepting
 // requests. drain cancels spawnCtx only if the grace period elapses.
 func (s *Supervisor) Run(ctx context.Context) error {
-	hooks := s.Hooks()
-	if len(hooks) == 0 {
-		// Nothing to supervise; just wait for cancellation.
-		<-ctx.Done()
-		return ctx.Err()
+	if s.ready != nil {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-s.ready:
+		}
 	}
+
+	svcCtx, stopServices := context.WithCancel(context.Background())
+	defer stopServices()
+	s.mu.Lock()
+	s.svcCtx = svcCtx
+	s.mu.Unlock()
+	s.startAutostartServices(svcCtx)
+
+	hooks := s.Hooks()
 	spawnCtx, killSpawns := context.WithCancel(context.Background())
 	defer killSpawns()
 
-	// Subscribe to all events; filter per-hook.
-	sub := s.svc.Bus().Subscribe(core.EventFilter{}, 128)
-	defer s.svc.Bus().Unsubscribe(sub.ID)
+	shutdown := func() {
+		s.drain(killSpawns)
+		// Hold reconcileMu so a late Reconcile cannot start children during drain.
+		s.reconcileMu.Lock()
+		stopServices()
+		s.mu.Lock()
+		s.svcCtx = nil
+		s.mu.Unlock()
+		s.stopAllServices()
+		s.reconcileMu.Unlock()
+	}
+
+	if len(hooks) == 0 {
+		<-ctx.Done()
+		shutdown()
+		return ctx.Err()
+	}
+
+	// Subscribe to all events; filter per-hook. The bus is shared across
+	// reload generations, so the current Service's Bus() is always the same
+	// long-lived bus — we still go through getSvc so a nil/racy generation
+	// surfaces loudly rather than using a captured pointer.
+	bus := s.svc().Bus()
+	sub := bus.Subscribe(core.EventFilter{}, 128)
+	defer bus.Unsubscribe(sub.ID)
 
 	for {
 		select {
 		case <-ctx.Done():
-			s.drain(killSpawns)
+			shutdown()
 			return ctx.Err()
 		case e, ok := <-sub.Ch:
 			if !ok {
 				// Dropped (slow supervisor). Resubscribe.
 				s.log("supervisor", "dropped by bus; resubscribing")
-				sub = s.svc.Bus().Subscribe(core.EventFilter{}, 128)
+				sub = s.svc().Bus().Subscribe(core.EventFilter{}, 128)
 				continue
 			}
 			for _, h := range hooks {
@@ -195,8 +263,13 @@ func (s *Supervisor) spawn(ctx context.Context, h config.Extension, e *core.Even
 
 // cardBoardMembership returns the board id the card belongs to (first board
 // whose card_type_ids contains the card's type), or "". Used by hook filters.
+// Always reads the current generation via getSvc — never a closed Service.
 func (s *Supervisor) cardBoardMembership(cardID string) string {
-	c, err := s.svc.GetCard(context.Background(), cardID)
+	svc := s.svc()
+	if svc == nil {
+		return ""
+	}
+	c, err := svc.GetCard(context.Background(), cardID)
 	if err != nil {
 		return ""
 	}
@@ -211,19 +284,26 @@ func (s *Supervisor) cardBoardMembership(cardID string) string {
 }
 
 // cardTypeID returns the card's type_id, or "" on lookup failure. Used by
-// hook filters (filter.type_id).
+// hook filters (filter.type_id). Always reads the current generation.
 func (s *Supervisor) cardTypeID(cardID string) string {
-	c, err := s.svc.GetCard(context.Background(), cardID)
+	svc := s.svc()
+	if svc == nil {
+		return ""
+	}
+	c, err := svc.GetCard(context.Background(), cardID)
 	if err != nil {
 		return ""
 	}
 	return c.TypeID
 }
 
-// boards is a placeholder accessor; the supervisor holds boards via the
-// service's introspection. We fetch once per call (cheap enough for POC).
+// boards returns the current generation's boards via Workspace introspection.
 func (s *Supervisor) boards() []*core.Board {
-	snap, _ := s.svc.Workspace(context.Background())
+	svc := s.svc()
+	if svc == nil {
+		return nil
+	}
+	snap, _ := svc.Workspace(context.Background())
 	if snap == nil {
 		return nil
 	}

@@ -256,7 +256,24 @@ document.addEventListener('alpine:init', function () {
         var self = this;
         // Stable references so destroy() can deregister — a root re-init would
         // otherwise stack a second live handler + popstate listener (P4 review).
-        this._onLive = function () { self.debouncedSwap(); };
+        this._onLive = function (ev) {
+          // definition_reload_failed: keep last-good board; show banner.
+          // definition_reloaded: clear banner, then refetch lanes as usual.
+          if (ev && ev.type === 'definition_reload_failed') {
+            var msg = '';
+            try {
+              var data = JSON.parse(ev.data || '{}');
+              if (data.diff && data.diff.message) msg = data.diff.message;
+              else if (data.message) msg = data.message;
+            } catch (_) {}
+            if (typeof showDefReloadBanner === 'function') showDefReloadBanner(msg);
+            return;
+          }
+          if (ev && ev.type === 'definition_reloaded') {
+            if (typeof clearDefReloadBanner === 'function') clearDefReloadBanner();
+          }
+          self.debouncedSwap();
+        };
         Alpine.store('live').on(this._onLive);
         // Popstate: Back/Forward re-runs the URL through swapBoard so the
         // filter state matches the address bar.
@@ -686,7 +703,8 @@ document.addEventListener('alpine:init', function () {
   // cfg.columns/types are the SERVER-provided initial selections (Alpine
   // x-model on a checkbox array is authoritative: it unchecks anything the
   // array does not contain at init, so the array must arrive already
-  // populated). ----
+  // populated). Idempotency-Key is minted once per open form (closeModal
+  // destroys the fragment; the next open gets a fresh key). ----
   Alpine.data('boardCreate', function (cfg) {
     return {
       name: '',
@@ -694,6 +712,11 @@ document.addEventListener('alpine:init', function () {
       types: (cfg && cfg.types) ? cfg.types.slice() : [],
       wipColumn: '', wipLimit: 0,
       alert: '', errors: {}, saving: false,
+      idemKey: '',
+      mintIdemKey: function () {
+        this.idemKey = 'ui-board-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
+      },
+      init: function () { this.mintIdemKey(); },
       err: function (name, msg) { this.errors[name] = msg; },
       submit: function () {
         if (this.saving) return;
@@ -705,8 +728,12 @@ document.addEventListener('alpine:init', function () {
         if (this.wipColumn && this.wipLimit > 0) { req.wip_limits = {}; req.wip_limits[this.wipColumn] = this.wipLimit; }
         this.saving = true;
         var self = this;
-        cardsAPI.send({ method: 'POST', url: '/v1/boards', body: req })
-          .then(function (res) {
+        cardsAPI.send({
+          method: 'POST', url: '/v1/boards', body: req,
+          headers: { 'Idempotency-Key': this.idemKey }
+        }).then(function (res) {
+            // Success only: navigate. Any 4xx/5xx stays on the form with an
+            // inline error — never toast "Saved" / "Board created".
             if (res.ok) { toast('Board created'); window.location.href = '/ui/boards/' + res.data.id; return; }
             self.saving = false;
             if (res.field) self.err(res.field, res.message || 'invalid');

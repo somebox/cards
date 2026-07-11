@@ -229,3 +229,414 @@ func TestYAMLCardTypeDefinitionIsNotLoaded(t *testing.T) {
 		t.Errorf("card types = %d, want 1 (only the JSON one)", len(r.CardTypes))
 	}
 }
+
+// --- P2b semantic validation ---
+
+func TestRejectFieldMinGreaterThanMax(t *testing.T) {
+	dir := t.TempDir()
+	mustWrite(t, filepath.Join(dir, "definitions", "workspace.json"), `{
+		"id":"t","name":"T",
+		"columns":[{"id":"a","name":"A"}],
+		"settings":{"default_user":"u"}
+	}`)
+	mustWrite(t, filepath.Join(dir, "definitions", "card-types", "task.json"), `{
+		"id":"task","name":"Task",
+		"fields":[{"id":"n","type":"number","min":10,"max":1}]
+	}`)
+	_, err := New(dir).Load()
+	if err == nil {
+		t.Fatal("expected error for min > max, got nil")
+	}
+	if !strings.Contains(err.Error(), "min") || !strings.Contains(err.Error(), "max") {
+		t.Errorf("error %q should mention min/max", err)
+	}
+}
+
+func TestRejectDateFieldMinGreaterThanMax(t *testing.T) {
+	dir := t.TempDir()
+	mustWrite(t, filepath.Join(dir, "definitions", "workspace.json"), `{
+		"id":"t","name":"T",
+		"columns":[{"id":"a","name":"A"}],
+		"settings":{"default_user":"u"}
+	}`)
+	mustWrite(t, filepath.Join(dir, "definitions", "card-types", "task.json"), `{
+		"id":"task","name":"Task",
+		"fields":[{"id":"due","type":"date","min":200,"max":100}]
+	}`)
+	_, err := New(dir).Load()
+	if err == nil {
+		t.Fatal("expected error for date min > max, got nil")
+	}
+	if !strings.Contains(err.Error(), "min") {
+		t.Errorf("error %q should mention min", err)
+	}
+}
+
+func TestAcceptNumberMinEqualsMax(t *testing.T) {
+	dir := newMinimalWorkspaceDir(t, `{"default_user":"u"}`)
+	mustWrite(t, filepath.Join(dir, "definitions", "card-types", "task.json"), `{
+		"id":"task","name":"Task",
+		"fields":[{"id":"n","type":"number","min":5,"max":5}]
+	}`)
+	if _, err := New(dir).Load(); err != nil {
+		t.Fatalf("load: %v", err)
+	}
+}
+
+func TestRejectUnknownIconAlias(t *testing.T) {
+	dir := newMinimalWorkspaceDir(t, `{"default_user":"u"}`)
+	mustWrite(t, filepath.Join(dir, "definitions", "card-types", "task.json"), `{
+		"id":"task","name":"Task","fields":[],
+		"type_theme":{"icon":"rocket"}
+	}`)
+	_, err := New(dir).Load()
+	if err == nil {
+		t.Fatal("expected error for unknown icon, got nil")
+	}
+	if !strings.Contains(err.Error(), "rocket") || !strings.Contains(err.Error(), "type_theme.icon") {
+		t.Errorf("error %q should name the bad icon and field", err)
+	}
+	if !strings.Contains(err.Error(), "wrench") {
+		t.Errorf("error %q should list allowed aliases", err)
+	}
+}
+
+func TestRejectLegacyUnknownIcon(t *testing.T) {
+	dir := newMinimalWorkspaceDir(t, `{"default_user":"u"}`)
+	mustWrite(t, filepath.Join(dir, "definitions", "card-types", "task.json"), `{
+		"id":"task","name":"Task","fields":[],
+		"icon":"emoji"
+	}`)
+	_, err := New(dir).Load()
+	if err == nil {
+		t.Fatal("expected error for unknown legacy icon, got nil")
+	}
+	if !strings.Contains(err.Error(), "emoji") {
+		t.Errorf("error %q should name the bad icon", err)
+	}
+}
+
+func TestAcceptKnownIconAlias(t *testing.T) {
+	dir := newMinimalWorkspaceDir(t, `{"default_user":"u"}`)
+	mustWrite(t, filepath.Join(dir, "definitions", "card-types", "task.json"), `{
+		"id":"task","name":"Task","fields":[],
+		"type_theme":{"icon":"bug"}
+	}`)
+	r, err := New(dir).Load()
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	if r.CardTypes["task"].TypeTheme.Icon != "bug" {
+		t.Errorf("icon = %q, want bug", r.CardTypes["task"].TypeTheme.Icon)
+	}
+}
+
+func TestRejectOptionThemesUnknownKey(t *testing.T) {
+	dir := newMinimalWorkspaceDir(t, `{"default_user":"u"}`)
+	mustWrite(t, filepath.Join(dir, "definitions", "card-types", "task.json"), `{
+		"id":"task","name":"Task",
+		"fields":[{
+			"id":"kind","type":"enum","options":["feature","bug"],
+			"option_themes":{
+				"feature":{"icon":"star","accent":"#005bd3","muted":"#d9e8ff"},
+				"ghost":{"icon":"bug","accent":"#b00000","muted":"#ffd9d6"}
+			}
+		}]
+	}`)
+	_, err := New(dir).Load()
+	if err == nil {
+		t.Fatal("expected error for option_themes key not in options")
+	}
+	if !strings.Contains(err.Error(), "ghost") {
+		t.Errorf("error %q should name the bad key", err)
+	}
+}
+
+func TestRejectOptionThemesSoftContrast(t *testing.T) {
+	dir := newMinimalWorkspaceDir(t, `{"default_user":"u"}`)
+	mustWrite(t, filepath.Join(dir, "definitions", "card-types", "task.json"), `{
+		"id":"task","name":"Task",
+		"fields":[{
+			"id":"kind","type":"enum","options":["design"],
+			"option_themes":{
+				"design":{"icon":"pen","accent":"#cf7b00","muted":"#ffe8bf"}
+			}
+		}]
+	}`)
+	_, err := New(dir).Load()
+	if err == nil {
+		t.Fatal("expected error for accent/muted below 4.5:1")
+	}
+	if !strings.Contains(err.Error(), "contrast") && !strings.Contains(err.Error(), "4.5") {
+		t.Errorf("error %q should mention contrast floor", err)
+	}
+}
+
+func TestRejectOptionThemesMissingIcon(t *testing.T) {
+	dir := newMinimalWorkspaceDir(t, `{"default_user":"u"}`)
+	mustWrite(t, filepath.Join(dir, "definitions", "card-types", "task.json"), `{
+		"id":"task","name":"Task",
+		"fields":[{
+			"id":"kind","type":"enum","options":["feature"],
+			"option_themes":{
+				"feature":{"accent":"#005bd3","muted":"#d9e8ff"}
+			}
+		}]
+	}`)
+	_, err := New(dir).Load()
+	if err == nil {
+		t.Fatal("expected error when option theme omits icon")
+	}
+	if !strings.Contains(err.Error(), "icon") {
+		t.Errorf("error %q should require icon", err)
+	}
+}
+
+func TestRejectOptionThemesOnNonEnum(t *testing.T) {
+	dir := newMinimalWorkspaceDir(t, `{"default_user":"u"}`)
+	mustWrite(t, filepath.Join(dir, "definitions", "card-types", "task.json"), `{
+		"id":"task","name":"Task",
+		"fields":[{
+			"id":"branch","type":"string",
+			"option_themes":{"x":{"icon":"star","accent":"#005bd3","muted":"#d9e8ff"}}
+		}]
+	}`)
+	_, err := New(dir).Load()
+	if err == nil {
+		t.Fatal("expected error for option_themes on non-enum")
+	}
+	if !strings.Contains(err.Error(), "enum") {
+		t.Errorf("error %q should mention enum", err)
+	}
+}
+
+func TestAcceptOptionThemesAndStyleField(t *testing.T) {
+	dir := newMinimalWorkspaceDir(t, `{"default_user":"u"}`)
+	mustWrite(t, filepath.Join(dir, "definitions", "card-types", "task.json"), `{
+		"id":"task","name":"Task",
+		"fields":[{
+			"id":"kind","type":"enum","options":["feature","bug"],
+			"option_themes":{
+				"feature":{"icon":"star","accent":"#005bd3","muted":"#d9e8ff"},
+				"bug":{"icon":"bug","accent":"#b00000","muted":"#ffd9d6"}
+			}
+		}]
+	}`)
+	mustWrite(t, filepath.Join(dir, "definitions", "boards", "b.json"), `{
+		"id":"b","name":"B","columns":["a"],"card_type_ids":["task"],
+		"presentation":{"style_field":"kind"}
+	}`)
+	r, err := New(dir).Load()
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	if r.Boards["b"].Presentation.StyleField != "kind" {
+		t.Errorf("style_field = %q", r.Boards["b"].Presentation.StyleField)
+	}
+}
+
+func TestRejectStyleFieldUnknown(t *testing.T) {
+	dir := newMinimalWorkspaceDir(t, `{"default_user":"u"}`)
+	mustWrite(t, filepath.Join(dir, "definitions", "card-types", "task.json"), `{
+		"id":"task","name":"Task","fields":[{"id":"notes","type":"text"}]
+	}`)
+	mustWrite(t, filepath.Join(dir, "definitions", "boards", "b.json"), `{
+		"id":"b","name":"B","columns":["a"],"card_type_ids":["task"],
+		"presentation":{"style_field":"kind"}
+	}`)
+	_, err := New(dir).Load()
+	if err == nil {
+		t.Fatal("expected error for unknown style_field")
+	}
+	if !strings.Contains(err.Error(), "style_field") || !strings.Contains(err.Error(), "kind") {
+		t.Errorf("error %q should name style_field and kind", err)
+	}
+}
+
+func TestRejectStyleFieldNonEnum(t *testing.T) {
+	dir := newMinimalWorkspaceDir(t, `{"default_user":"u"}`)
+	mustWrite(t, filepath.Join(dir, "definitions", "card-types", "task.json"), `{
+		"id":"task","name":"Task","fields":[{"id":"branch","type":"string"}]
+	}`)
+	mustWrite(t, filepath.Join(dir, "definitions", "boards", "b.json"), `{
+		"id":"b","name":"B","columns":["a"],"card_type_ids":["task"],
+		"presentation":{"style_field":"branch"}
+	}`)
+	_, err := New(dir).Load()
+	if err == nil {
+		t.Fatal("expected error for non-enum style_field")
+	}
+	if !strings.Contains(err.Error(), "enum") {
+		t.Errorf("error %q should require enum", err)
+	}
+}
+
+func TestRejectLaneSortUnknownField(t *testing.T) {
+	dir := newMinimalWorkspaceDir(t, `{"default_user":"u"}`)
+	mustWrite(t, filepath.Join(dir, "definitions", "card-types", "task.json"), `{
+		"id":"task","name":"Task",
+		"fields":[{"id":"priority","type":"enum","options":["low","high"]}]
+	}`)
+	mustWrite(t, filepath.Join(dir, "definitions", "boards", "b.json"), `{
+		"id":"b","name":"B","columns":["a"],"card_type_ids":["task"],
+		"presentation":{"lane_sort":"-fields.nope"}
+	}`)
+	_, err := New(dir).Load()
+	if err == nil {
+		t.Fatal("expected error for dangling lane_sort field, got nil")
+	}
+	if !strings.Contains(err.Error(), "nope") {
+		t.Errorf("error %q should name the missing field", err)
+	}
+}
+
+func TestAcceptLaneSortKnownField(t *testing.T) {
+	dir := newMinimalWorkspaceDir(t, `{"default_user":"u"}`)
+	mustWrite(t, filepath.Join(dir, "definitions", "card-types", "task.json"), `{
+		"id":"task","name":"Task",
+		"fields":[{"id":"priority","type":"enum","options":["low","high"]}]
+	}`)
+	mustWrite(t, filepath.Join(dir, "definitions", "boards", "b.json"), `{
+		"id":"b","name":"B","columns":["a"],"card_type_ids":["task"],
+		"presentation":{"lane_sort":"-fields.priority"}
+	}`)
+	if _, err := New(dir).Load(); err != nil {
+		t.Fatalf("load: %v", err)
+	}
+}
+
+func TestRejectCardPreviewUnknownField(t *testing.T) {
+	dir := newMinimalWorkspaceDir(t, `{"default_user":"u"}`)
+	mustWrite(t, filepath.Join(dir, "definitions", "card-types", "task.json"), `{
+		"id":"task","name":"Task",
+		"fields":[{"id":"branch","type":"string"}]
+	}`)
+	mustWrite(t, filepath.Join(dir, "definitions", "boards", "b.json"), `{
+		"id":"b","name":"B","columns":["a"],"card_type_ids":["task"],
+		"presentation":{"card_preview":{"task":["missing"]}}
+	}`)
+	_, err := New(dir).Load()
+	if err == nil {
+		t.Fatal("expected error for dangling card_preview field, got nil")
+	}
+	if !strings.Contains(err.Error(), "missing") {
+		t.Errorf("error %q should name the missing field", err)
+	}
+}
+
+func TestRejectLaneGroupByUnknownField(t *testing.T) {
+	dir := newMinimalWorkspaceDir(t, `{"default_user":"u"}`)
+	mustWrite(t, filepath.Join(dir, "definitions", "card-types", "task.json"), `{
+		"id":"task","name":"Task","fields":[]
+	}`)
+	mustWrite(t, filepath.Join(dir, "definitions", "boards", "b.json"), `{
+		"id":"b","name":"B","columns":["a"],"card_type_ids":["task"],
+		"presentation":{"lane_group_by":"priority"}
+	}`)
+	_, err := New(dir).Load()
+	if err == nil {
+		t.Fatal("expected error for unknown lane_group_by, got nil")
+	}
+	if !strings.Contains(err.Error(), "priority") {
+		t.Errorf("error %q should name the missing field", err)
+	}
+}
+
+func TestRejectDetailSectionUnknownField(t *testing.T) {
+	dir := newMinimalWorkspaceDir(t, `{"default_user":"u"}`)
+	mustWrite(t, filepath.Join(dir, "definitions", "card-types", "task.json"), `{
+		"id":"task","name":"Task","fields":[{"id":"branch","type":"string"}]
+	}`)
+	mustWrite(t, filepath.Join(dir, "definitions", "boards", "b.json"), `{
+		"id":"b","name":"B","columns":["a"],"card_type_ids":["task"],
+		"presentation":{"detail_sections":[{"title":"Main","fields":["ghost"]}]}
+	}`)
+	_, err := New(dir).Load()
+	if err == nil {
+		t.Fatal("expected error for dangling detail_sections field, got nil")
+	}
+	if !strings.Contains(err.Error(), "ghost") {
+		t.Errorf("error %q should name the missing field", err)
+	}
+}
+
+func TestRejectDefaultFilterUnknownField(t *testing.T) {
+	dir := newMinimalWorkspaceDir(t, `{"default_user":"u"}`)
+	mustWrite(t, filepath.Join(dir, "definitions", "card-types", "task.json"), `{
+		"id":"task","name":"Task","fields":[{"id":"priority","type":"enum","options":["low"]}]
+	}`)
+	mustWrite(t, filepath.Join(dir, "definitions", "boards", "b.json"), `{
+		"id":"b","name":"B","columns":["a"],"card_type_ids":["task"],
+		"default_filter":{"fields.nope":{"$eq":"x"}}
+	}`)
+	_, err := New(dir).Load()
+	if err == nil {
+		t.Fatal("expected error for dangling default_filter field, got nil")
+	}
+	if !strings.Contains(err.Error(), "nope") {
+		t.Errorf("error %q should name the missing field", err)
+	}
+}
+
+func TestWarnUnrecognizedDefaultFilterKey(t *testing.T) {
+	dir := newMinimalWorkspaceDir(t, `{"default_user":"u"}`)
+	mustWrite(t, filepath.Join(dir, "definitions", "card-types", "task.json"), `{
+		"id":"task","name":"Task","fields":[]
+	}`)
+	mustWrite(t, filepath.Join(dir, "definitions", "boards", "b.json"), `{
+		"id":"b","name":"B","columns":["a"],"card_type_ids":["task"],
+		"default_filter":{"mystery_key":{"$eq":"x"}}
+	}`)
+	r, err := New(dir).Load()
+	if err != nil {
+		t.Fatalf("load should warn not fail: %v", err)
+	}
+	if len(r.Warnings) == 0 {
+		t.Fatal("expected a warning for unrecognized filter key")
+	}
+	if !strings.Contains(r.Warnings[0], "mystery_key") {
+		t.Errorf("warning %q should name the key", r.Warnings[0])
+	}
+}
+
+func TestWarnOrphanCardPreviewType(t *testing.T) {
+	dir := newMinimalWorkspaceDir(t, `{"default_user":"u"}`)
+	mustWrite(t, filepath.Join(dir, "definitions", "card-types", "task.json"), `{
+		"id":"task","name":"Task","fields":[{"id":"branch","type":"string"}]
+	}`)
+	mustWrite(t, filepath.Join(dir, "definitions", "card-types", "other.json"), `{
+		"id":"other","name":"Other","fields":[{"id":"branch","type":"string"}]
+	}`)
+	mustWrite(t, filepath.Join(dir, "definitions", "boards", "b.json"), `{
+		"id":"b","name":"B","columns":["a"],"card_type_ids":["task"],
+		"presentation":{"card_preview":{"other":["branch"]}}
+	}`)
+	r, err := New(dir).Load()
+	if err != nil {
+		t.Fatalf("load should warn not fail: %v", err)
+	}
+	found := false
+	for _, w := range r.Warnings {
+		if strings.Contains(w, "other") && strings.Contains(w, "card_preview") {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("warnings = %v, want orphan card_preview note", r.Warnings)
+	}
+}
+
+func TestLoadDemoWorkspaceNoSemanticWarnings(t *testing.T) {
+	dir := filepath.Join("..", "..", "examples", "demo-workspace")
+	r, err := New(dir).Load()
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	for _, w := range r.Warnings {
+		if strings.Contains(w, "hard-reject next sprint") ||
+			strings.Contains(w, "unknown field") ||
+			strings.Contains(w, "icon") {
+			t.Errorf("demo-workspace should load clean; unexpected warning: %s", w)
+		}
+	}
+}

@@ -1,14 +1,36 @@
 // Command cards — the workspace reload seam (UI sprint P4, ROADMAP §7 card
-// 4b507da7). Definitions are FILES; applying an edit without a restart means
-// re-running the loader and atomically swapping the Service + router that
-// were built from the old files. The store and the event bus are the only
-// long-lived resources: both are shared across swaps, so SQLite state, live
-// SSE subscribers, and the hook supervisor all survive a reload.
+// 4b507da7; sprint P3a/P3b cards card_524c5758 / card_ec61b093).
+//
+// Definitions are FILES; applying an edit without a restart means re-running
+// the loader and atomically swapping the Service + router that were built from
+// the old files. The store and the event bus are the only long-lived resources:
+// both are shared across swaps, so SQLite state, live SSE subscribers, and the
+// hook supervisor all survive a reload.
+//
+// Normative contract (also docs/architecture/RELOAD.md):
+//
+//   - Store + bus survive; each successful reload builds a new *core.Service
+//     and closes the previous generation (stops its deadline scheduler).
+//   - Mutex serialization: reloadableApp.mu serializes reload + create-board
+//     (file writes + generation swaps). The definitions poller NEVER takes mu
+//     in its scan loop — it calls reload(), which acquires mu briefly.
+//   - Supervisor ↔ generation: the in-process hook supervisor must NOT capture
+//     the initial Service. Condition evaluation goes through
+//     reloadableApp.currentService. Hook/run declarations stay FROZEN at
+//     construction; kind:service decls are reconciled AFTER mu is released
+//     (afterReload → Supervisor.Reconcile). See docs/architecture/RELOAD.md.
+//   - Debounce (--watch): fingerprint must be stable for watchDebounce before
+//     one reload fires; editor bursts coalesce.
+//   - Self-write suppression: handleCreateBoard sets a token on selfWriteGate
+//     (its own mutex, not mu) so the poller absorbs the create-board write
+//     without a second reload.
+//   - Failure: a load error never swaps; last-good keeps serving. Watch / HTTP
+//     reload paths emit definition_reload_failed on the bus (UI banner); stderr
+//     is additive. Successful reload emits definition_reloaded (banner clears).
 //
 // The seam also carries the one write path the create-a-board UI needs:
 // POST /v1/boards writes definitions/boards/<id>.json, validates it by
 // running the SAME loader (rolling the file back on failure), then reloads.
-// The UI writes a reviewable file — it does not grow a parallel board store.
 package main
 
 import (
@@ -48,8 +70,26 @@ type reloadableApp struct {
 	st  *sqlite.Store
 	bus core.Bus
 
-	mu  sync.Mutex // serializes reload/create-board (file writes + swaps)
-	cur atomic.Pointer[appState]
+	mu          sync.Mutex // serializes reload/create-board (file writes + swaps)
+	cur         atomic.Pointer[appState]
+	selfWrite   selfWriteGate            // poller self-write suppression; NEVER share mu
+	afterReload func([]config.Extension) // optional; called AFTER mu released (P5c)
+}
+
+// setAfterReload installs the post-swap extensions handoff (service reconcile).
+// Must not acquire reloadableApp.mu from the callback.
+func (a *reloadableApp) setAfterReload(fn func([]config.Extension)) {
+	a.afterReload = fn
+}
+
+// notifyReload hands a snapshot of extensions to afterReload. Caller must NOT
+// hold a.mu — reconcile may block on process drain.
+func (a *reloadableApp) notifyReload(result *config.Result) {
+	if a.afterReload == nil || result == nil {
+		return
+	}
+	exts := append([]config.Extension(nil), result.Extensions...)
+	a.afterReload(exts)
 }
 
 // newReloadableApp wraps the initially-composed workspace. The initial
@@ -66,19 +106,53 @@ func (a *reloadableApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.Method == http.MethodPost && r.URL.Path == "/v1/boards" {
-		a.handleCreateBoard(w, r)
+		// Same write stack as POST /v1/cards: withActor(idempotent(h)). Board
+		// create lives on the reload seam (file write + generation swap), so
+		// it cannot register on httpapi.Server.Router — wrap here instead.
+		httpapi.WriteStack(a.st, a.resolveActor, a.handleCreateBoard)(w, r)
 		return
 	}
 	a.cur.Load().router.ServeHTTP(w, r)
 }
 
+// resolveActor mirrors httpapi.Server.resolveActor for the reload-seam write
+// paths (X-Work-Cards-Actor → CARDS_USER → workspace default_user).
+func (a *reloadableApp) resolveActor(r *http.Request) string {
+	if h := r.Header.Get("X-Work-Cards-Actor"); h != "" {
+		return h
+	}
+	if u := os.Getenv("CARDS_USER"); u != "" {
+		return u
+	}
+	if cur := a.cur.Load(); cur != nil && cur.result != nil {
+		return cur.result.Workspace.Settings.DefaultUser
+	}
+	return ""
+}
+
+// currentService returns the live composition generation's Service. The hook
+// supervisor uses this (not a pointer captured at serve start) so condition
+// evaluation never reads a generation that reloadLocked already closed.
+func (a *reloadableApp) currentService() *core.Service {
+	return a.cur.Load().svc
+}
+
 // reload re-runs the loader and swaps in a new generation. On a load error
-// the current generation is untouched and the error is returned — the server
-// is never left half-loaded.
+// the current generation is untouched, definition_reload_failed is published
+// on the bus (so a browser under --watch can show a banner), and the error
+// is returned — the server is never left half-loaded.
+//
+// Service reconcile runs AFTER mu is released (see notifyReload).
 func (a *reloadableApp) reload() (*config.Result, error) {
 	a.mu.Lock()
-	defer a.mu.Unlock()
-	return a.reloadLocked()
+	result, err := a.reloadLocked()
+	a.mu.Unlock()
+	if err != nil {
+		a.publishReloadFailed(err)
+		return nil, err
+	}
+	a.notifyReload(result)
+	return result, nil
 }
 
 func (a *reloadableApp) reloadLocked() (*config.Result, error) {
@@ -122,6 +196,36 @@ func (a *reloadableApp) reloadLocked() (*config.Result, error) {
 	}
 	log.Printf("workspace reloaded: %d types, %d boards", len(result.CardTypes), len(result.Boards))
 	return result, nil
+}
+
+// publishReloadFailed fans out definition_reload_failed per currently-served
+// board so board-scoped SSE clients (filter on board_id) receive it. Does not
+// take a.mu — callers either already hold it (reload) or publish after unlock.
+func (a *reloadableApp) publishReloadFailed(err error) {
+	diff := map[string]any{
+		"error":   "validation_failed",
+		"message": err.Error(),
+		"hint":    "the previous definitions are still being served",
+	}
+	now := time.Now().UTC()
+	cur := a.cur.Load()
+	ids := map[string]bool{}
+	if cur != nil && cur.result != nil {
+		for id := range cur.result.Boards {
+			ids[id] = true
+		}
+	}
+	if len(ids) == 0 {
+		a.bus.Publish(&core.Event{
+			Type: core.EventDefinitionReloadFailed, Actor: "system", At: now, Diff: diff,
+		})
+		return
+	}
+	for id := range ids {
+		a.bus.Publish(&core.Event{
+			Type: core.EventDefinitionReloadFailed, BoardID: id, Actor: "system", At: now, Diff: diff,
+		})
+	}
 }
 
 func (a *reloadableApp) handleReload(w http.ResponseWriter, r *http.Request) {
@@ -196,7 +300,14 @@ func (a *reloadableApp) handleCreateBoard(w http.ResponseWriter, r *http.Request
 	}
 
 	a.mu.Lock()
-	defer a.mu.Unlock()
+	var reloadResult *config.Result
+	defer func() {
+		a.mu.Unlock()
+		// Reconcile AFTER unlock — never hold mu while supervisor drains children.
+		if reloadResult != nil {
+			a.notifyReload(reloadResult)
+		}
+	}()
 	path := filepath.Join(a.dir, "definitions", "boards", id+".json")
 	if _, err := os.Stat(path); err == nil {
 		appWriteJSON(w, 409, map[string]any{"error": "validation_failed", "field": "id", "message": "board " + id + " already exists", "hint": "edit " + path + " instead"})
@@ -210,19 +321,28 @@ func (a *reloadableApp) handleCreateBoard(w http.ResponseWriter, r *http.Request
 		board["wip_limits"] = req.WIPLimits
 	}
 	data, _ := json.MarshalIndent(board, "", "  ")
+
+	// Suppress the --watch poller for this write-then-reload so it does not
+	// double-fire. Gate uses its own mutex (not a.mu).
+	a.selfWrite.begin()
+	var doneFP string
+	defer func() { a.selfWrite.end(doneFP) }()
+
 	if err := os.WriteFile(path, append(data, '\n'), 0o644); err != nil {
 		appWriteJSON(w, 500, map[string]any{"error": "internal_error", "message": "write board file: " + err.Error()})
 		return
 	}
 	// Validate by running the real loader; a bad board must not survive as a
-	// file that breaks the next restart.
+	// file that breaks the next restart. Use reloadLocked (not reload) so a
+	// rolled-back create does not emit definition_reload_failed.
 	result, err := a.reloadLocked()
 	if err != nil {
 		_ = os.Remove(path)
 		appWriteJSON(w, 422, map[string]any{"error": "validation_failed", "message": err.Error(), "hint": "the board file was rolled back"})
 		return
 	}
-	_ = result
+	doneFP = definitionsFingerprint(filepath.Join(a.dir, "definitions"))
+	reloadResult = result
 	appWriteJSON(w, 201, map[string]any{"id": id, "path": path})
 }
 

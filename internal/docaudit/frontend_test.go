@@ -191,7 +191,9 @@ func TestCSSHexLiteralRatchet(t *testing.T) {
 	// Phase 0 baseline 179; 183 after the board-selector added 4 fixed-light
 	// `#fff` values on the always-dark nav bar (the documented not-theme-remapped
 	// exception — same literal `.brand`/`.theme-picker` already use).
-	const pin = 183
+	// 184: P3b `#def-reload-banner` uses `#fff` on `--c-danger` (same fixed-contrast
+	// exception as nav chrome — ink on a non-theme-remapped danger wash).
+	const pin = 184
 	css := readRepoFile(t, "internal/httpapi/templates/style.css")
 	n := len(regexp.MustCompile(`#[0-9a-fA-F]{3,8}\b`).FindAllString(css, -1))
 	if n > pin {
