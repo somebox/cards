@@ -188,7 +188,10 @@ func TestCSSTypeNeverSizedInPxOrViewport(t *testing.T) {
 // or if a new token is genuinely needed, declare it and raise the pin in the
 // same commit with a comment saying why.
 func TestCSSHexLiteralRatchet(t *testing.T) {
-	const pin = 179 // Phase 0 baseline
+	// Phase 0 baseline 179; 183 after the board-selector added 4 fixed-light
+	// `#fff` values on the always-dark nav bar (the documented not-theme-remapped
+	// exception — same literal `.brand`/`.theme-picker` already use).
+	const pin = 183
 	css := readRepoFile(t, "internal/httpapi/templates/style.css")
 	n := len(regexp.MustCompile(`#[0-9a-fA-F]{3,8}\b`).FindAllString(css, -1))
 	if n > pin {

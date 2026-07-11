@@ -302,6 +302,36 @@ a:hover { text-decoration: underline; }
 .theme-picker .theme-menu a:hover { background: rgba(246,247,248,.10); color: #fff; }
 .theme-picker .theme-menu a[aria-current="true"] { color: #fff; font-weight: 600; }
 
+/* Board selector — the brand + "/" + current-board disclosure read as one
+   breadcrumb, so this group has its own tight gap (the nav's own gap is --s-5,
+   too airy for a breadcrumb). */
+.nav-brand-group { display: flex; align-items: center; gap: var(--s-2); }
+.nav-sep { color: rgba(246,247,248,.4); font-family: var(--font-mono); }
+.board-picker { position: relative; }
+.board-picker > summary {
+  list-style: none; cursor: pointer; color: #fff; user-select: none;
+  font-family: var(--font-mono); font-size: var(--t-sm); font-weight: 600;
+  display: inline-flex; align-items: center; gap: var(--s-1);
+}
+.board-picker > summary::-webkit-details-marker { display: none; }
+.board-picker__chev { color: rgba(246,247,248,.6); font-size: .85em; }
+.board-picker[open] .board-picker__chev { color: #fff; }
+.board-menu {
+  position: absolute; left: 0; top: calc(100% + var(--s-2));
+  background: var(--c-nav-bg); border: var(--edge) solid rgba(246,247,248,.16);
+  border-radius: var(--r-md); box-shadow: var(--sh-md);
+  display: flex; flex-direction: column; min-width: 11rem; padding: var(--s-1);
+  z-index: 6;
+}
+.board-menu a {
+  color: rgba(246,247,248,.72); padding: var(--s-1) var(--s-3); border-radius: var(--r-sm);
+  display: flex; align-items: center; justify-content: space-between; gap: var(--s-3);
+}
+.board-menu a:hover { background: rgba(246,247,248,.10); color: #fff; }
+.board-menu a[aria-current="true"] { color: #fff; font-weight: 600; }
+.board-menu a[aria-current="true"]::after { content: "✓"; color: var(--c-accent); }
+.board-menu__new { border-top: var(--stroke) solid rgba(246,247,248,.16); margin-top: var(--s-1); padding-top: var(--s-2); }
+
 main { padding: var(--s-5); max-width: 100%; }
 .page-title { font-size: var(--t-xl); letter-spacing: -.02em; }
 
@@ -873,10 +903,6 @@ main { padding: var(--s-5); max-width: 100%; }
 /* Create-a-board form (UI sprint P4). */
 .check-grid { display: flex; flex-wrap: wrap; gap: var(--s-2) var(--s-3); }
 .check-item { display: inline-flex; align-items: center; gap: .35em; font-size: var(--t-sm); cursor: pointer; }
-.nav-add {
-  opacity: .55; font-weight: 700; padding: 0 .3rem;
-}
-.nav-add:hover, .nav-add:focus-visible { opacity: 1; }
 .mono { font-family: var(--font-mono); font-size: var(--t-xs); }
 
 /* --- Error / alert ------------------------------------------------------ */
