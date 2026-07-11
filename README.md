@@ -11,7 +11,7 @@ is more process than the team needs. Humans, scripts, and agents can claim
 cards, update typed fields, append evidence, and resume from the card history
 later. The web board is useful, but it is only one view over the same API.
 
-![Work Cards board UI](./media/board.png)
+![Cards board UI](./media/board.png)
 
 ## How It Works
 
@@ -278,7 +278,7 @@ end-to-end scenarios, see [`docs/examples/LIFECYCLE-EXAMPLES.md`](docs/examples/
 Design rationale for major decisions is recorded in
 [`docs/NOTES.md`](docs/NOTES.md); styling and web UI components are described in [`docs/architecture/DESIGN.md`](docs/architecture/DESIGN.md).
 
-Work Cards is in beta. The core service, HTTP API, CLI, MCP server, web UI, and
+Cards is in beta. The core service, HTTP API, CLI, MCP server, web UI, and
 hook system are implemented, but the API should still be treated as
 project-local unless a release notes otherwise.
 
