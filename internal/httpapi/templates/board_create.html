@@ -26,7 +26,7 @@
         <span class="field__label">Name <span class="req">*</span></span>
         <input type="text" class="input" data-board-input="name" placeholder="e.g. Design" data-required
                x-model="name" :class="{'is-invalid': errors.name}">
-        <span class="field-error" data-error-for="name" x-cloak x-show="errors.name" x-text="errors.name"></span>
+        <span class="field-error" role="alert" data-error-for="name" x-cloak x-show="errors.name" x-text="errors.name"></span>
       </label>
 
       <div class="field">
@@ -36,7 +36,7 @@
           <label class="check-item"><input type="checkbox" value="{{.ID}}" x-model="columns"> {{.Name}}</label>
           {{end}}
         </div>
-        <span class="field-error" data-error-for="columns" x-cloak x-show="errors.columns" x-text="errors.columns"></span>
+        <span class="field-error" role="alert" data-error-for="columns" x-cloak x-show="errors.columns" x-text="errors.columns"></span>
       </div>
 
       <div class="field">
@@ -50,7 +50,7 @@
           </label>
           {{end}}
         </div>
-        <span class="field-error" data-error-for="card_type_ids" x-cloak x-show="errors.card_type_ids" x-text="errors.card_type_ids"></span>
+        <span class="field-error" role="alert" data-error-for="card_type_ids" x-cloak x-show="errors.card_type_ids" x-text="errors.card_type_ids"></span>
       </div>
 
       <div class="field">

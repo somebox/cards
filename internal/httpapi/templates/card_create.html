@@ -36,7 +36,7 @@
         <span class="field__label">Title <span class="req">*</span></span>
         <input type="text" class="input" data-create-input="title" data-kind="string" data-required
                placeholder="What needs doing?">
-        <span class="field-error" data-error-for="title" hidden></span>
+        <span class="field-error" role="alert" data-error-for="title" hidden></span>
       </label>
 
       <label class="field">
@@ -46,7 +46,7 @@
           <option value="{{.Value}}"{{if .Selected}} selected{{end}}{{if .Disabled}} disabled title="not allowed for this card type"{{end}}>{{.Label}}</option>
           {{end}}
         </select>
-        <span class="field-error" data-error-for="status" hidden></span>
+        <span class="field-error" role="alert" data-error-for="status" hidden></span>
       </label>
 
       <label class="field">
@@ -67,7 +67,7 @@
           </div>
           {{if .TagSet}}<div class="combobox__menu" x-cloak x-show="open"><ul class="combobox__list" role="listbox">{{range .TagSet}}<li class="combobox__option" role="option" data-value="{{.}}" x-show="match($el)" @click="pick($event)">{{.}}</li>{{end}}</ul></div>{{end}}
         </div>
-        <span class="field-error" data-error-for="tags" hidden></span>
+        <span class="field-error" role="alert" data-error-for="tags" hidden></span>
       </label>
 
       {{range .Fields}}
@@ -78,7 +78,7 @@
         <span class="field__label">{{.Def.Label}}{{if .Def.Required}} <span class="req">*</span>{{end}}</span>
         {{template "field_control" (dict "Def" .Def "Ctx" "create" "Users" $.Users)}}
         {{if .Def.Description}}<span class="muted field-hint">{{.Def.Description}}</span>{{end}}
-        <span class="field-error" data-error-for="field:{{.Def.ID}}" hidden></span>
+        <span class="field-error" role="alert" data-error-for="field:{{.Def.ID}}" hidden></span>
       </label>
       {{end}}
       {{end}}

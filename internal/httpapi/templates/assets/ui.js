@@ -34,6 +34,16 @@ function swapHTML(container, html) {
     // field is an editField/editForm component, so click-to-edit, dirty-
     // gating, and save are wired declaratively — no wire*() fan-out.
     swapHTML(modal, html);
+    // Label the dialog from the card title so a screen reader announces what
+    // opened (a11y). The native dialog handles focus: showModal() moves focus
+    // into the dialog, and close() restores it to the trigger (the card link).
+    var titleEl = modal.querySelector('.modal__head-main .card-title__view, .modal__head-main, .card-title__view');
+    if (titleEl) {
+      if (!titleEl.id) titleEl.id = 'card-modal-title';
+      modal.setAttribute('aria-labelledby', titleEl.id);
+    } else {
+      modal.removeAttribute('aria-labelledby');
+    }
     if (!modal.open) modal.showModal();
     refreshAgo(); // convert injected <time data-ago> to relative text
   }
