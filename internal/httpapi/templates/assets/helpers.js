@@ -28,7 +28,39 @@ function comboMatch(label, q) {
   return String(label).toLowerCase().indexOf(String(q).toLowerCase()) !== -1;
 }
 
+// --- $store.live reconnect decisions (rebuild P9 / hardened P4) ---
+// These three pure functions are the spine of the live EventSource's
+// generation-guarded reconnect. Extracted here so the invariants are
+// unit-tested with plain values (tests/js/live.test.cjs) — a server-side
+// keepalive test cannot exercise client reconnect semantics.
+
+// shouldDeliver gates an SSE event by generation. $store.live bumps a
+// generation counter on every open() and stop(); each EventSource's listeners
+// capture the generation they opened under, so a SUPERSEDED connection
+// self-silences (the "stale ES delivers after replace" bug class). Deliver iff
+// the event's generation is still the current one.
+function shouldDeliver(gen, currentGen) {
+  return gen === currentGen;
+}
+
+// nextBackoff is the reconnect schedule: double, capped at 8s. A falsy current
+// resets to the 500ms base's next step.
+function nextBackoff(current) {
+  return Math.min((current || 500) * 2, 8000);
+}
+
+// maxEventId is the reconnect resume cursor — the largest numeric SSE id seen
+// so far, so a reconnect resumes with ?since=<id>. Non-numeric or smaller ids
+// leave the cursor unchanged.
+function maxEventId(current, evId) {
+  var n = parseInt(evId, 10);
+  return (!isNaN(n) && n > current) ? n : current;
+}
+
 // Node test-runner hook (no-op in the browser).
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { ago: ago, comboMatch: comboMatch };
+  module.exports = {
+    ago: ago, comboMatch: comboMatch,
+    shouldDeliver: shouldDeliver, nextBackoff: nextBackoff, maxEventId: maxEventId,
+  };
 }

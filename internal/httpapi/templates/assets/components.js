@@ -141,12 +141,39 @@ document.addEventListener('alpine:init', function () {
   // via CustomEvent 'live' on window as well so plain code can listen too.
   // Records lastEventId on EVERY message; on error, exponential backoff
   // (500ms → 8s cap) reopens with ?since=<lastId>. status: open|reconnecting|down. ----
+  // CONTRACT (hardened P4) — the `generation` counter is the spine:
+  //   generation   bumped on every open() AND every stop(). Each EventSource's
+  //                listeners capture the generation they opened under, so a
+  //                SUPERSEDED connection self-silences via shouldDeliver()
+  //                (helpers.js) — no stale ES can deliver after a replace.
+  //   open()       clears any pending reconnect timer, bumps generation, opens
+  //                exactly one ES (status 'connecting'). Its onopen resets the
+  //                backoff to 500ms — resetting on OPEN not on every attempt is
+  //                what makes the 500ms→8s backoff actually ramp.
+  //   stop()       clears the reconnect timer, bumps generation (invalidating
+  //                any in-flight ES/timer), closes and drops the ES. It does
+  //                NOT clear handlers — they persist for the page lifetime and
+  //                on() is idempotent, so a consumer re-registering after a
+  //                fragment swap never stacks duplicate deliveries.
+  //   onerror      ignored if it belongs to a superseded generation; otherwise
+  //                closes, schedules ONE backoff reconnect (timer tracked so it
+  //                can be cleared), and never fires after stop() (status=down).
+  //   _deliver     ignored if from a superseded generation.
+  // The reconnect decisions (shouldDeliver / nextBackoff / maxEventId) are pure
+  // functions in helpers.js, unit-tested in tests/js/live.test.cjs.
   Alpine.store('live', (function () {
     return {
       es: null, status: 'down', lastId: 0, backoff: 500,
       boardId: '', types: '',
-      handlers: [],
-      on: function (fn) { this.handlers.push(fn); },
+      handlers: [], generation: 0, reconnectTimer: null,
+      on: function (fn) {
+        // Idempotent by identity: the board can re-register a handler after a
+        // fragment swap; without this each re-register stacks another delivery.
+        if (this.handlers.indexOf(fn) === -1) this.handlers.push(fn);
+      },
+      off: function (fn) {
+        this.handlers = this.handlers.filter(function (h) { return h !== fn; });
+      },
       start: function (boardId, types) {
         if (typeof EventSource === 'undefined') return;
         // Same (boardId, types) as an open connection? Do nothing —
@@ -158,19 +185,33 @@ document.addEventListener('alpine:init', function () {
       },
       open: function () {
         var self = this;
+        if (this.reconnectTimer) { clearTimeout(this.reconnectTimer); this.reconnectTimer = null; }
+        var gen = ++this.generation; // this connection's generation
         var url = '/v1/events/stream?board_id=' + encodeURIComponent(this.boardId)
                 + '&types=' + encodeURIComponent(this.types)
                 + (this.lastId ? '&since=' + encodeURIComponent(this.lastId) : '');
         var es = new EventSource(url);
         this.es = es;
-        this.status = 'open'; this.backoff = 500;
+        this.status = 'connecting';
+        // Reset the backoff only when a connection actually OPENS — resetting
+        // it in open() (as the pre-P4 code did) defeated the exponential
+        // backoff, hammering a down server every ~500ms instead of ramping
+        // 500ms → 8s.
+        es.onopen = function () {
+          if (!shouldDeliver(gen, self.generation)) return; // superseded ES
+          self.status = 'open'; self.backoff = 500;
+        };
         // Named handlers per type — the server does not send a default
         // "message" event; it uses the event: line.
         this.types.split(',').forEach(function (t) {
           if (!t) return;
-          es.addEventListener(t, function (ev) { self._deliver(ev); });
+          es.addEventListener(t, function (ev) {
+            if (!shouldDeliver(gen, self.generation)) return; // superseded ES
+            self._deliver(ev);
+          });
         });
         es.onerror = function () {
+          if (!shouldDeliver(gen, self.generation)) return; // superseded ES erroring
           // The browser will retry EventSource on transport error; we still
           // treat it as a reconnect and rearm with backoff, so a server
           // ':dropped' or a broken pipe (post-keepalive) both surface as one
@@ -178,22 +219,21 @@ document.addEventListener('alpine:init', function () {
           if (self.status === 'down') return;
           self.status = 'reconnecting';
           try { es.close(); } catch (_) {}
-          setTimeout(function () { self.open(); }, self.backoff);
-          self.backoff = Math.min(self.backoff * 2, 8000);
+          self.reconnectTimer = setTimeout(function () { self.open(); }, self.backoff);
+          self.backoff = nextBackoff(self.backoff);
         };
       },
       _deliver: function (ev) {
         // Record the last SSE id so a reconnect resumes with ?since=.
-        if (ev.lastEventId) {
-          var n = parseInt(ev.lastEventId, 10);
-          if (!isNaN(n) && n > this.lastId) this.lastId = n;
-        }
+        this.lastId = maxEventId(this.lastId, ev.lastEventId);
         this.handlers.forEach(function (fn) { try { fn(ev); } catch (_) {} });
         window.dispatchEvent(new CustomEvent('live', { detail: { type: ev.type, id: ev.lastEventId, data: ev.data } }));
       },
       stop: function () {
+        if (this.reconnectTimer) { clearTimeout(this.reconnectTimer); this.reconnectTimer = null; }
+        this.generation++; // invalidate any in-flight ES listeners + timer
         if (this.es) { try { this.es.close(); } catch (_) {} }
-        this.es = null; this.status = 'down'; this.handlers = [];
+        this.es = null; this.status = 'down';
       }
     };
   })());
@@ -214,10 +254,18 @@ document.addEventListener('alpine:init', function () {
         var types = (boardEl && boardEl.getAttribute('data-sse-types')) || cfg.sseTypes || '';
         Alpine.store('live').start(this.boardId, types);
         var self = this;
-        Alpine.store('live').on(function () { self.debouncedSwap(); });
+        // Stable references so destroy() can deregister — a root re-init would
+        // otherwise stack a second live handler + popstate listener (P4 review).
+        this._onLive = function () { self.debouncedSwap(); };
+        Alpine.store('live').on(this._onLive);
         // Popstate: Back/Forward re-runs the URL through swapBoard so the
         // filter state matches the address bar.
-        window.addEventListener('popstate', function () { self.swapBoard(); });
+        this._onPopstate = function () { self.swapBoard(); };
+        window.addEventListener('popstate', this._onPopstate);
+      },
+      destroy: function () {
+        if (this._onLive) Alpine.store('live').off(this._onLive);
+        if (this._onPopstate) window.removeEventListener('popstate', this._onPopstate);
       },
       applyFilters: function (ev) {
         // Called from @change on the owner/type/sort selects and the search
@@ -372,7 +420,11 @@ document.addEventListener('alpine:init', function () {
         // Every current condition event type (see breaches.go / EVENTS-CORE).
         var types = 'wip_exceeded,wip_cleared,lane_drained,lane_refilled,card_blocked,card_unblocked,status_timeout,card_idle';
         Alpine.store('live').start('', types); // no board scope; workspace-wide
-        Alpine.store('live').on(function () { self.debouncedRefresh(); });
+        this._onLive = function () { self.debouncedRefresh(); };
+        Alpine.store('live').on(this._onLive);
+      },
+      destroy: function () {
+        if (this._onLive) Alpine.store('live').off(this._onLive);
       },
       debouncedRefresh: function () {
         var self = this;
