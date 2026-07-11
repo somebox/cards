@@ -228,6 +228,9 @@ body {
   background-position: -5px -5px;
 }
 h1, h2, h3, h4 { margin: 0; line-height: 1.2; font-weight: var(--role-heading-weight); letter-spacing: -.01em; }
+/* Containers own spacing (DESIGN.md §1): no element carries a UA margin —
+   rhythm comes from the parent's gap. Headings reset above; paragraphs here. */
+p { margin: 0; }
 strong, b { font-weight: var(--role-strong-weight); }
 a { color: var(--c-accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
@@ -300,7 +303,7 @@ a:hover { text-decoration: underline; }
 .theme-picker .theme-menu a[aria-current="true"] { color: #fff; font-weight: 600; }
 
 main { padding: var(--s-5); max-width: 100%; }
-.page-title { font-size: var(--t-xl); margin-bottom: var(--s-4); letter-spacing: -.02em; }
+.page-title { font-size: var(--t-xl); letter-spacing: -.02em; }
 
 /* --- Buttons — mono labels; primary is the strong white-on-black action -- */
 .btn {
@@ -540,6 +543,7 @@ main { padding: var(--s-5); max-width: 100%; }
    custom props only inherit downward. Negative margin bleeds it past <main>'s
    padding so the themed sheet fills the whole board area. */
 .board-view {
+  display: flex; flex-direction: column; gap: var(--s-4);
   background-color: var(--c-flat);
   background-image: radial-gradient(var(--c-flat-dot) 1px, transparent 1.2px);
   background-size: 11px 11px; background-position: -5px -5px;
@@ -547,6 +551,9 @@ main { padding: var(--s-5); max-width: 100%; }
   min-height: calc(100vh - 3.5rem);
 }
 .board { display: flex; gap: var(--s-4); overflow-x: auto; padding-bottom: var(--s-3); align-items: flex-start; }
+/* Search results reuse .page-title (now marginless); the section owns the
+   rhythm between title, form, and results via gap. */
+.search-results { display: flex; flex-direction: column; gap: var(--s-4); }
 
 .lane { min-width: 268px; max-width: 300px; flex: 0 0 272px; display: flex; flex-direction: column; gap: var(--s-3); }
 /* Lane header: a black label bar — white-on-black, the control-layer stamp. */
@@ -762,7 +769,7 @@ main { padding: var(--s-5); max-width: 100%; }
 /* --- Repeating entries -------------------------------------------------- */
 .entry {
   border-left: var(--edge) solid var(--c-border); padding: var(--s-1) var(--s-3);
-  margin: var(--s-1) 0; font-size: var(--t-sm); background: var(--c-surface-2);
+  font-size: var(--t-sm); background: var(--c-surface-2);
   border-radius: 0 var(--r-sm) var(--r-sm) 0;
 }
 .feed { display: flex; flex-direction: column; gap: var(--s-2); }
@@ -784,7 +791,7 @@ main { padding: var(--s-5); max-width: 100%; }
    the ink-filled variant for the committing action. */
 .icon-btn {
   border: 1px solid var(--c-border); background: var(--c-surface); color: var(--c-muted);
-  border-radius: var(--r-sm); font-size: .8rem; line-height: 1;
+  border-radius: var(--r-sm); font-size: var(--t-sm); line-height: 1;
   width: 1.55rem; height: 1.55rem; padding: 0;
   display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
 }
@@ -815,7 +822,7 @@ main { padding: var(--s-5); max-width: 100%; }
 /* Entry sub-form (schema-driven add/edit) + comment composer. */
 .entry-form {
   display: flex; flex-direction: column; gap: var(--s-2);
-  padding: var(--s-3); margin: var(--s-2) 0;
+  padding: var(--s-3);
   border: 1px dashed var(--c-border); border-radius: var(--r-md); background: var(--c-surface-2);
 }
 .entry-form__row { display: grid; grid-template-columns: minmax(6rem, max-content) minmax(0, 1fr); gap: var(--s-3); align-items: start; }
@@ -833,8 +840,8 @@ main { padding: var(--s-5); max-width: 100%; }
 /* Comments/entries live in ONE field__val wrapper so themes that lay .field
    out as a label|value grid (labels) keep the feed + controls in the value
    column — a third child would wrap into the label column. */
-.entries-box, .comments-box { min-width: 0; display: flex; flex-direction: column; }
-.entries-toolbar { display: flex; justify-content: flex-end; margin-bottom: var(--s-1); }
+.entries-box, .comments-box { min-width: 0; display: flex; flex-direction: column; gap: var(--s-2); }
+.entries-toolbar { display: flex; justify-content: flex-end; }
 
 /* New-card creation modal (UI sprint P2): type picker + schema-driven form. */
 .type-picker { display: flex; flex-wrap: wrap; gap: var(--s-2); }
@@ -974,10 +981,10 @@ main { padding: var(--s-5); max-width: 100%; }
 @keyframes toast-in { from { transform: translateX(1rem); opacity: 0; } to { transform: none; opacity: 1; } }
 
 /* --- Search form — shared global/board component ------------------------ */
-.filter-chips { display: flex; flex-wrap: wrap; gap: var(--s-2); margin: var(--s-3) 0 var(--s-2); }
+.filter-chips { display: flex; flex-wrap: wrap; gap: var(--s-2); }
 .chip-filter { display: inline-flex; align-items: center; padding: .28em .7em; border-radius: var(--r-pill); border: 1px solid var(--c-border); font-size: var(--t-sm); color: var(--c-text-2); background: var(--c-surface); }
 .chip-filter.is-active { border-color: var(--c-accent); background: var(--c-accent-soft); color: var(--c-text); font-weight: 600; }
-.board-controls { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--s-2) var(--s-3); margin: var(--s-2) 0 var(--s-5); }
+.board-controls { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--s-2) var(--s-3); }
 .board-controls .search__input { flex: 1; max-width: 24rem; min-height: 2.1rem; }
 .control { display: flex; flex-direction: column; gap: .2em; }
 .control__label { font-family: var(--font-mono); font-size: var(--t-xs); text-transform: uppercase; letter-spacing: .04em; color: var(--c-faint); }
@@ -1003,23 +1010,24 @@ main { padding: var(--s-5); max-width: 100%; }
 .search__clear:hover, .search__clear:focus-visible { color: var(--c-ink); background: var(--c-surface-2); }
 
 /* --- Home page ---------------------------------------------------------- */
-.home { max-width: 980px; }
-.home__hero { margin-bottom: var(--s-6); }
-.home__hero h1 { margin: 0 0 var(--s-2); font-size: var(--t-xl); }
-.home__boards { margin-bottom: var(--s-6); }
+.home { max-width: 980px; display: flex; flex-direction: column; gap: var(--s-6); }
+.home__hero { display: flex; flex-direction: column; gap: var(--s-2); }
+.home__hero h1 { font-size: var(--t-xl); }
+.home__boards, .home__recent { display: flex; flex-direction: column; gap: var(--s-3); }
 .home__boards h2, .home__recent h2 {
   font-family: var(--font-mono); font-size: var(--t-sm); text-transform: uppercase; letter-spacing: .08em;
-  color: var(--c-muted); margin-bottom: var(--s-3);
+  color: var(--c-muted);
 }
 .home .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--s-4); }
 .home__board-card {
-  display: block; background: var(--c-surface); color: var(--c-text); text-decoration: none;
+  display: flex; flex-direction: column; gap: var(--s-1);
+  background: var(--c-surface); color: var(--c-text); text-decoration: none;
   border: 1px solid var(--c-ink); border-radius: var(--r-md); padding: var(--s-4); box-shadow: var(--sh-sm);
   transition: box-shadow var(--t-fast), transform var(--t-fast);
 }
 .home__board-card:hover { box-shadow: var(--sh-hover); transform: translateY(-1px); }
-.home__board-card h3 { margin: 0 0 var(--s-1); font-size: var(--t-md); }
-.home__board-card .muted { font-size: var(--t-sm); margin: 0 0 var(--s-2); }
+.home__board-card h3 { font-size: var(--t-md); }
+.home__board-card .muted { font-size: var(--t-sm); }
 .home__board-meta { font-family: var(--font-mono); font-size: var(--t-sm); color: var(--c-muted); display: flex; gap: var(--s-1); }
 .home__recent-row { display: flex; align-items: center; gap: var(--s-2); padding: var(--s-2) 0; border-bottom: var(--rule) dashed var(--c-border); font-size: var(--t-sm); }
 .home__recent-row a { color: var(--c-text); flex: 1; }
@@ -1300,8 +1308,6 @@ html[data-theme="labels"] .app-nav a {
 html[data-theme="labels"] .page-title {
   font-family: var(--role-meta-font); font-weight: var(--role-heading-weight); text-transform: uppercase; letter-spacing: .08em; font-size: var(--t-xl);
 }
-html[data-theme="labels"] .filter-chips,
-html[data-theme="labels"] .board-controls { margin-bottom: var(--s-3); }
 html[data-theme="labels"] .input,
 html[data-theme="labels"] .select,
 html[data-theme="labels"] .textarea,

@@ -40,6 +40,33 @@ sprinkled on children.
   container sizing stays proportional across viewports; components inherit the
   space, they don't hardcode it.
 
+**The mechanical rules (enforce these on every CSS change):**
+
+1. **No element carries a UA or ad-hoc external margin.** `h1–h4`, `p`, and the
+   list primitives are reset to `margin: 0` globally; a component that wants
+   space around it gets it from its parent's `gap`, never a `margin` on itself.
+   If you catch yourself writing `margin-bottom` on a child, the fix is a `gap`
+   on the parent.
+2. **A stack of siblings ⇒ the parent is `display: flex; flex-direction:
+   column; gap: var(--s-N)`.** This is how `.board-view`, `.home`, the home
+   sections, `.home__board-card`, `.entries-box`/`.comments-box`, and
+   `.search-results` space their children — adding a child later needs no new
+   rule, the gap already spaces it.
+3. **Never double the rhythm.** A gapped parent plus a margined child stacks two
+   spacings. The classic trap (fixed in the 2026-07 spacing pass): `.feed`/
+   `.entries-box` gapped *and* `.entry` carried `margin` — the visible gap was
+   `gap + 2×margin`. The parent owns it; the child has none.
+4. **One scale, tokens only.** Every spacing and rhythmic size reads `--s-1..6`
+   (type reads `--t-*`/`--role-*`). No literal `rem`/`px` for spacing or
+   font-size in a component rule — e.g. `.icon-btn`'s glyph is `var(--t-sm)`,
+   not `.8rem`. Fixed icon/hairline *dimensions* (a button's width, a 1px
+   border) may stay literal; everything rhythmic is a token.
+5. **Themes remap the scale, never re-add margins.** Because rhythm lives in
+   container `gap` reading `--s-*`, a theme retunes density by remapping
+   `--s-3..5` (see the `journal`/`labels` blocks) — it must not reintroduce a
+   per-component `margin` (the labels `.board-controls { margin-bottom }`
+   override was removed for exactly this reason: the `.board-view` gap owns it).
+
 ### 2 · Type is compact but never small
 
 - One scale: `--t-xs..xl` (body `--t-base` .9rem/1.5; headings 1.2). Density
