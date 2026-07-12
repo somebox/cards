@@ -25,11 +25,21 @@ For each card type `T` defined in the workspace, the MCP server dynamically publ
 - `list_cards` - Page-based querying and list filters.
 - `search_cards` - Full-text search (FTS).
 - `claim` - Claim ownership and transition status.
+- `release` - Release ownership (optional status); requires `version`.
 - `take_next` - Atomically claims and returns the next eligible card of a queue.
 - `append_entry` - Typed append to a repeating field (version-checked).
+- `update_entry` - Patch a repeating-field entry by `entry_id` (version-checked).
+- `remove_entry` - Remove a repeating-field entry by `entry_id` (version-checked).
 - `add_link` - Relate two cards.
+- `remove_link` - Remove a typed link.
 - `add_comment` - Append a comment.
+- `edit_comment` - Edit an existing comment body.
+- `upgrade_schema` - Preview or apply a schema upgrade. Defaults to dry-run; set `confirm:true` to apply.
+- `attach_artifact` - Store bytes for an artifact field from base64-encoded content; returns the updated card.
+- `get_artifact` - Fetch stored artifact bytes by uri, returned as base64 with size.
 - `history` - Fetch resumption-ready card timeline.
+- `breaches` - Current breaching conditions (WIP over limit, drained watched lanes, blocked cards); optional `board_id` / `type`.
+- `events` - Durable workspace event feed with `since` replay floor; filter by `types` / `board_id`.
 
 ## Concurrency, Idempotency, and Errors
 - **Concurrency:** Mutation tools require `version` to prevent write collisions, returning a `version_conflict` error if stale.

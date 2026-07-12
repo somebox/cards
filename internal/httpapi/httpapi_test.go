@@ -220,6 +220,14 @@ func TestUIBoardInjectsActor(t *testing.T) {
 			t.Errorf("board SSE type list missing condition event %q", ct)
 		}
 	}
+	// P3b: definition_reload_failed is subscribed (banner) but is not a
+	// lane-mutation type — still present in the stream type list.
+	if !strings.Contains(body, "definition_reload_failed") {
+		t.Error("board SSE type list missing definition_reload_failed")
+	}
+	if !strings.Contains(body, `id="def-reload-banner"`) {
+		t.Error("layout missing def-reload-banner element")
+	}
 }
 
 func TestUIBoardShowsBlockedBadge(t *testing.T) {

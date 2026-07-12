@@ -158,9 +158,19 @@ func validateValue(f *FieldDef, v any) error {
 		if !ok {
 			return NewValidationError(f.ID, fmt.Sprintf("field %q expects an ISO date string", f.ID))
 		}
-		if _, err := time.Parse(time.RFC3339, str); err != nil {
-			if _, err := time.Parse("2006-01-02", str); err != nil {
-				return NewValidationError(f.ID, fmt.Sprintf("field %q is not a parseable date", f.ID))
+		t, err := parseFieldDate(str)
+		if err != nil {
+			return NewValidationError(f.ID, fmt.Sprintf("field %q is not a parseable date", f.ID))
+		}
+		// Min/Max share FieldDef's *float64 slots with numbers; for dates they
+		// are Unix seconds (UTC). Load-time config checks min<=max when both set.
+		if f.Min != nil || f.Max != nil {
+			n := float64(t.Unix())
+			if f.Min != nil && n < *f.Min {
+				return NewValidationError(f.ID, fmt.Sprintf("field %q below min %v", f.ID, *f.Min))
+			}
+			if f.Max != nil && n > *f.Max {
+				return NewValidationError(f.ID, fmt.Sprintf("field %q above max %v", f.ID, *f.Max))
 			}
 		}
 	case FieldEnum:
@@ -386,6 +396,14 @@ func (s *Service) boardForTypeID(typeID, boardID string) *Board {
 		}
 	}
 	return match
+}
+
+// parseFieldDate accepts RFC3339 or a bare YYYY-MM-DD date.
+func parseFieldDate(str string) (time.Time, error) {
+	if t, err := time.Parse(time.RFC3339, str); err == nil {
+		return t, nil
+	}
+	return time.Parse("2006-01-02", str)
 }
 
 // allowedFromStatuses returns statuses that may transition to `to` under b's graph.

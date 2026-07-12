@@ -45,6 +45,10 @@
   <main>
     {{block "content" .}}{{end}}
   </main>
+  {{/* Persistent definitions-reload failure surface (P3b --watch). Cleared on
+       the next definition_reloaded. Outside <main> so board fragment swaps
+       do not tear it down. */}}
+  <div id="def-reload-banner" class="def-reload-banner" hidden role="alert" aria-live="assertive"></div>
   <div id="toasts" class="toasts"></div>
   <dialog id="card-modal" class="modal" aria-modal="true"></dialog>
   <script>

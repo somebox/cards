@@ -15,16 +15,18 @@ import (
 
 	"github.com/somebox/cards/internal/cli"
 	"github.com/somebox/cards/internal/config"
-	"github.com/somebox/cards/internal/hooks"
+	"github.com/somebox/cards/internal/core"
 )
 
-// runExtensionsCmd runs the hook supervisor against a workspace. It opens the
-// store (read/write, so hooks can post back via the API) and subscribes to the
-// bus. Blocks until interrupted.
+// runExtensionsCmd runs the bimodal extension supervisor against a workspace
+// (hooks + autostart services). Standalone mode: no HTTP listener here, so the
+// ready gate is nil and services start immediately — they dial CARDS_URL
+// (default loopback :8787) themselves. Blocks until interrupted.
 func runExtensionsCmd(args []string) error {
 	fs := flag.NewFlagSet("run-extensions", flag.ContinueOnError)
 	workspace := fs.String("workspace", "", "workspace directory")
-	port := fs.Int("port", 8787, "cards API port (for CARDS_URL env to hooks)")
+	port := fs.Int("port", 8787, "cards API port (for CARDS_URL env to children)")
+	host := fs.String("host", "127.0.0.1", "cards API host advertised via CARDS_URL")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -42,18 +44,35 @@ func runExtensionsCmd(args []string) error {
 	defer st.Close()
 
 	hookCount := countHooks(result.Extensions)
-	if hookCount == 0 {
-		log.Printf("no hooks declared in workspace %s", abs)
+	svcCount := countAutostartServices(result.Extensions)
+	if hookCount == 0 && svcCount == 0 {
+		log.Printf("no hooks or autostart services declared in workspace %s", abs)
 	} else {
-		log.Printf("supervising %d hook(s) for workspace %s", hookCount, abs)
+		log.Printf("supervising %d hook(s), %d autostart service(s) for workspace %s",
+			hookCount, svcCount, abs)
 		for _, e := range result.Extensions {
 			if e.Kind == "hook" {
 				log.Printf("  hook %s: on=%s run=%v", e.ID, e.On, e.Run)
 			}
+			if e.Kind == "service" && e.Autostart {
+				policy := e.RestartPolicy
+				if policy == "" {
+					policy = config.RestartOnFailure
+				}
+				log.Printf("  service %s: restart_policy=%s run=%v", e.ID, policy, e.Run)
+			}
 		}
 	}
-	cardsURL := fmt.Sprintf("http://127.0.0.1:%d/v1", *port)
-	sup := hooks.New(svc, result.Workspace, result.Extensions, abs, cardsURL)
+	cardsURL := cardsURLForChildren(*host, *port)
+	// Shared construction path with serve --run-extensions (ready=nil: start now).
+	sup := newExtensionSupervisor(extensionSupervisorOpts{
+		getSvc:       func() *core.Service { return svc },
+		ws:           result.Workspace,
+		exts:         result.Extensions,
+		workspaceDir: abs,
+		cardsURL:     cardsURL,
+		ready:        nil,
+	})
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()

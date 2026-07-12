@@ -50,6 +50,7 @@
   },
   "presentation": {
     "lane_group_by": "status",
+    "style_field": "kind",
     "card_preview": {
       "programming-task": [
         "branch"

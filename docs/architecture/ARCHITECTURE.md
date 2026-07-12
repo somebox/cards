@@ -151,7 +151,9 @@ Tables:
 
 Definitions are not stored in SQLite. They are loaded from `definitions/`
 and cached in memory as normalized config. Git-backed files remain the source
-of truth.
+of truth. Live reloads (`POST /v1/workspace/reload`, `cards serve --watch`)
+swap the in-memory generation around the same store and bus — see
+[`RELOAD.md`](RELOAD.md) for the debounce / self-write / failure contract.
 
 ---
 
@@ -223,35 +225,42 @@ to the binary/sidecar contract for v1.
 
 ## Extension Supervisor
 
-The Go binary includes an **optional** supervisor for declared extensions
-(`cards run-extensions`). The supervisor is part of the kernel only because
-hook dispatch and service lifecycle benefit from sharing the same event bus
-that already exists for SSE.
+The Go binary includes an **optional** supervisor for declared extensions.
+Supported home: `cards serve --run-extensions` (shared construction with
+standalone `cards run-extensions`). Lifecycle vocabulary
+(`autostart` × `restart_policy` × three kinds) and the **bimodal** event
+boundary are normative in [`LIFECYCLE-SCHEMA.md`](LIFECYCLE-SCHEMA.md).
+
+The supervisor is deliberately **bimodal** — not a single event-feeding path:
+
+- **Hooks:** subscribe to the in-process bus; on filter match, spawn
+  subprocess-per-event with event JSON on stdin.
+- **Services:** pure process lifecycle (start / restart per policy / drain).
+  The supervisor does **not** feed events into service children; services dial
+  `/v1/events/stream` as ordinary API clients.
 
 Responsibilities:
 
 - Read `definitions/extensions.{yaml,yml,json}`.
-- Subscribe to the internal event bus.
-- For `kind: hook` extensions whose `filter` matches a fired event, spawn the
-  declared `run` command with the event JSON on stdin and standard
-  environment variables (`CARDS_URL`, `CARDS_WORKSPACE`, etc.).
-- For `kind: service` extensions with `autostart: true` — **[proposed, not
-  yet implemented]** start the process when the supervisor starts and restart
-  on crash if `restart: on-failure` is set. (Only `hook` and `run` extensions
-  are wired today; see [`INTEGRATOR-REFERENCE.md`](../reference/INTEGRATOR-REFERENCE.md) §7
-  for the drift note.)
-- For `kind: run` extensions, invoke on `cards do <id>`.
+- For `kind: hook` — bus subscribe + spawn (built today).
+- For `kind: service` with `autostart: true` — **[built]** start after
+  the HTTP listener is accepting; restart per `restart_policy`
+  (`on-failure` default when omitted, or `always` / `never`); bounded
+  backoff with min-healthy-uptime; SIGTERM→grace→SIGKILL drain. Schema
+  field and load-time validation are **[built]** (P5a). Reconcile-on-reload
+  is **[built]** P5c (identity key + decision table in [`RELOAD.md`](RELOAD.md);
+  board-create reload ⇒ zero service churn; hook/run decls remain frozen).
+- For `kind: run` — invoke on `cards do <id>`.
 - Capture stdout/stderr to per-extension logs in `.cards/logs/`.
 
-The supervisor is not required: extensions can be started by systemd, docker
-compose, or by hand. The supervisor exists so a single `cards run-extensions`
-in a developer workspace gets the whole declared system running.
+`expose` (port/protocol) is parsed but unconsumed. The supervisor is not
+required: extensions can be started by systemd, docker compose, or by hand.
 
-The supervisor never loads extension code into the core process. It only
-spawns subprocesses and reads events. Crashes are isolated.
+The supervisor never loads extension code into the core process. Crashes are
+isolated.
 
-See [`EXTENSIONS.md`](../extensions/EXTENSIONS.md) for the declaration format and worked
-examples.
+See [`EXTENSIONS.md`](../extensions/EXTENSIONS.md) for the declaration format and
+[`LIFECYCLE-SCHEMA.md`](LIFECYCLE-SCHEMA.md) for Autostart / RestartPolicy rules.
 
 ---
 

@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/somebox/cards/internal/config"
-	"github.com/somebox/cards/internal/hooks"
 	"github.com/somebox/cards/internal/httpapi"
 	"github.com/somebox/cards/internal/mcp"
 	"github.com/somebox/cards/internal/seed"
@@ -62,6 +61,7 @@ func serveCmd(args []string) error {
 	host := fs.String("host", "127.0.0.1", "listen host")
 	seedFlag := fs.Bool("seed", false, "seed demo users/cards if DB empty")
 	runExt := fs.Bool("run-extensions", false, "also run the hook supervisor in-process")
+	watch := fs.Bool("watch", false, "poll definitions/ and reload on change (debounce; no fsnotify)")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -119,40 +119,62 @@ func serveCmd(args []string) error {
 	if w := loopbackWarning(*host); w != "" {
 		log.Print(w)
 	}
+	if *watch {
+		// Poller lifetime tied to serveCmd: cancel when Serve returns.
+		watchCtx, watchCancel := context.WithCancel(context.Background())
+		defer watchCancel()
+		go newDefsWatcher(app, defaultWatchPoll, defaultWatchDebounce, nil).Run(watchCtx)
+		log.Printf("  watch: polling definitions/ (poll=%s debounce=%s)", defaultWatchPoll, defaultWatchDebounce)
+	}
+
+	// Bind before starting the supervisor so kind:service autostart waits on a
+	// real accepting listener (listener-ready gate), not ListenAndServe's
+	// internal bind. See LIFECYCLE-SCHEMA.md / P5b.
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		return fmt.Errorf("listen %s: %w", addr, err)
+	}
+	ready := make(chan struct{})
+	close(ready) // port bound; OS accepts into the listen backlog
+
 	if *runExt {
-		// Tie the supervisor's lifetime to the HTTP server's: when
-		// ListenAndServe returns (including an immediate bind failure), cancel
-		// the supervisor's context and wait for Run to drain in-flight hooks
-		// (bounded) before serveCmd returns. Registered after the store/service
-		// defers so it runs first (LIFO): drain hooks, then close the store.
+		// Tie the supervisor's lifetime to the HTTP server's: when Serve
+		// returns, cancel the supervisor's context and wait for Run to drain
+		// in-flight hooks and stop services (bounded) before serveCmd returns.
+		// Registered after the store/service defers so it runs first (LIFO).
+		//
+		// Service accessor: pass app.currentService, NOT the initial svc.
+		// reloadLocked closes each prior generation; a captured pointer would
+		// leave GetCard/board-membership evaluating against a closed Service.
+		// Service decls reconcile after each successful reload (P5c); hooks stay frozen.
 		ctx, cancel := context.WithCancel(context.Background())
-		cardsURL := fmt.Sprintf("http://%s/v1", addr)
-		sup := hooks.New(svc, result.Workspace, result.Extensions, abs, cardsURL)
+		cardsURL := cardsURLForChildren(*host, *port)
+		sup := newExtensionSupervisor(extensionSupervisorOpts{
+			getSvc:       app.currentService,
+			ws:           result.Workspace,
+			exts:         result.Extensions,
+			workspaceDir: abs,
+			cardsURL:     cardsURL,
+			ready:        ready,
+		})
+		app.setAfterReload(func(exts []config.Extension) {
+			sup.Reconcile(exts)
+		})
 		supDone := make(chan struct{})
 		go func() {
 			defer close(supDone)
 			if err := sup.Run(ctx); err != nil && !errors.Is(err, context.Canceled) {
-				log.Printf("hook supervisor stopped: %v", err)
+				log.Printf("extension supervisor stopped: %v", err)
 			}
 		}()
 		defer func() {
 			cancel()
-			<-supDone // await the supervisor's bounded drain of in-flight hooks
+			<-supDone // await bounded drain of hooks + services
 		}()
-		log.Printf("  hooks: supervisor running (%d declared)", countHooks(result.Extensions))
+		log.Printf("  extensions: supervisor running (%d hook(s), %d autostart service(s))",
+			countHooks(result.Extensions), countAutostartServices(result.Extensions))
 	}
-	return httpSrv.ListenAndServe()
-}
-
-// countHooks returns the number of hook-kind extensions declared.
-func countHooks(exts []config.Extension) int {
-	n := 0
-	for _, e := range exts {
-		if e.Kind == "hook" {
-			n++
-		}
-	}
-	return n
+	return httpSrv.Serve(ln)
 }
 
 // mcpCmd runs the stdio MCP server against a workspace.

@@ -1,16 +1,22 @@
 # Hooks Package
 
-The `hooks` package handles system-level extensions and hook execution. It implements the work card extension model, specifically watching for events and scheduling subprocess hooks.
+Bimodal extension supervisor (`kind:hook` + `kind:service`). See
+[`LIFECYCLE-SCHEMA.md`](../../docs/architecture/LIFECYCLE-SCHEMA.md).
 
-## Extension Supervisor
+## Responsibilities
 
-The `cards run-extensions` command spins up this supervisor. It reads extension declarations and monitors the internal event bus.
+- **Hooks:** subscribe to the in-process event bus; on filter match, spawn
+  `run[]` with event JSON on stdin (at-most-once).
+- **Services:** when `autostart: true`, start after the listener-ready gate;
+  restart per `restart_policy` with bounded backoff (min-healthy-uptime);
+  drain with SIGTERM → grace → SIGKILL process group. No event feeding —
+  children dial `/v1/events/stream` via `CARDS_URL`. After a successful
+  workspace reload, `Reconcile` applies the decision table in
+  [`RELOAD.md`](../../docs/architecture/RELOAD.md) (unchanged decls ⇒ zero
+  churn).
+- Log stdout/stderr under `.cards/logs/<extension_id>.log`.
 
-### Responsibilities:
-- Read `definitions/extensions.{yaml,yml,json}`.
-- Subscribe to the internal event bus.
-- Run `kind: hook` extensions matching fired events. Spawns hook subprocesses with the event JSON piped on stdin.
-- Log stdout/stderr of subprocesses to `.cards/logs/<extension_id>.log`.
-- Isolate workspace execution securely.
+Supported home: `cards serve --run-extensions` (shared construction with
+standalone `cards run-extensions` via `cmd/cards/supervisor.go`).
 
 See also: [Extensions Design & Reference](../../docs/extensions/EXTENSIONS.md)

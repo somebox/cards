@@ -1,0 +1,265 @@
+
+<div class="board" id="board" data-sse-types="status_changed,card_created,field_updated,owner_changed,tags_changed,item_appended,item_updated,item_removed,link_added,comment_added,artifact_added,definition_reloaded,definition_reload_failed,wip_exceeded,wip_cleared,lane_drained,lane_refilled,card_blocked,card_unblocked,transition_rejected,status_timeout,card_idle">
+  
+  <section class="lane">
+    <div class="lane__head"><span>Backlog</span><span class="lane__head-tail"><span class="lane__count">1</span><button type="button" class="lane__add" data-create-link="/ui/cards/new/modal?board=engineering&status=backlog" aria-label="New card in Backlog" title="New card in Backlog">+</button></span></div>
+    <div class="lane__body" id="col-backlog" data-status="backlog"
+         :class="{'is-drag-over': dragOverColumn === 'backlog'}"
+         @dragover="dragOver($event)" @dragleave="dragLeave($event)" @drop="drop($event)">
+      
+        
+<div class="card" id="card-card_golden_research" data-card-id="card_golden_research" data-type="research-goal"
+     draggable="true" data-card-link="/ui/cards/card_golden_research/modal"
+     :class="{'is-dragging': draggingId === 'card_golden_research'}"
+     title="Research Goal · Golden research goal">
+  
+  <span class="card__type-mark" aria-hidden="true"></span>
+  <span class="vh">Research Goal</span>
+  <div class="card__title">
+    <a href="/ui/cards/card_golden_research" data-card-link="/ui/cards/card_golden_research/modal">Golden research goal</a>
+  </div>
+  
+  
+  <div class="card__preview">
+    <span class="truncate" title="hypothesis: CSS defaults still apply without type_theme"><b>hypothesis</b> CSS defaults still apply without type_theme</span>
+  </div>
+  
+  
+  
+  <div class="card__secondary" aria-hidden="true">
+    <span class="card__secondary-item card__secondary-item--status">Backlog</span>
+    
+    
+    <span class="card__secondary-item card__secondary-item--preview">hypothesis CSS defaults still apply without type_theme</span>
+    <span class="card__secondary-item card__secondary-item--updated"><time data-ago="2026-07-01T12:01:00Z" datetime="2026-07-01T12:01:00Z"></time></span>
+  </div>
+  <div class="card__stats">
+    <span class="card__stat card__stat--time"><time data-ago="2026-07-01T12:01:00Z" datetime="2026-07-01T12:01:00Z" title="last updated"></time></span>
+    
+    
+    
+    
+  </div>
+</div>
+
+      
+    </div>
+  </section>
+  
+  <section class="lane">
+    <div class="lane__head"><span>To Do</span><span class="lane__head-tail"><span class="lane__count">2</span><button type="button" class="lane__add" data-create-link="/ui/cards/new/modal?board=engineering&status=todo" aria-label="New card in To Do" title="New card in To Do">+</button></span></div>
+    <div class="lane__body" id="col-todo" data-status="todo"
+         :class="{'is-drag-over': dragOverColumn === 'todo'}"
+         @dragover="dragOver($event)" @dragleave="dragLeave($event)" @drop="drop($event)">
+      
+        
+<div class="card" id="card-card_golden_infra" data-card-id="card_golden_infra" data-type="infra-task" data-icon="wrench"
+     draggable="true" data-card-link="/ui/cards/card_golden_infra/modal"
+     :class="{'is-dragging': draggingId === 'card_golden_infra'}"
+     style="--card-stock:#596469;--card-stock-bg:#e2e6e8" title="Infra Task · Golden infra task">
+  
+  <span class="card__type-mark" aria-hidden="true"></span>
+  <span class="vh">Infra Task</span>
+  <div class="card__title">
+    <a href="/ui/cards/card_golden_infra" data-card-link="/ui/cards/card_golden_infra/modal">Golden infra task</a>
+  </div>
+  
+  
+  <div class="card__preview">
+    <span class="truncate" title="environment: ci"><b>environment</b> ci</span><span class="truncate" title="branch: feat/golden-infra"><b>branch</b> feat/golden-infra</span>
+  </div>
+  
+  
+  
+  <div class="card__secondary" aria-hidden="true">
+    <span class="card__secondary-item card__secondary-item--status">To Do</span>
+    
+    
+    <span class="card__secondary-item card__secondary-item--preview">environment ci</span><span class="card__secondary-item card__secondary-item--preview">branch feat/golden-infra</span>
+    <span class="card__secondary-item card__secondary-item--updated"><time data-ago="2026-07-01T12:04:00Z" datetime="2026-07-01T12:04:00Z"></time></span>
+  </div>
+  <div class="card__stats">
+    <span class="card__stat card__stat--time"><time data-ago="2026-07-01T12:04:00Z" datetime="2026-07-01T12:04:00Z" title="last updated"></time></span>
+    
+    
+    
+    
+  </div>
+</div>
+
+      
+        
+<div class="card" id="card-card_golden_programming" data-card-id="card_golden_programming" data-type="programming-task"
+     draggable="true" data-card-link="/ui/cards/card_golden_programming/modal"
+     :class="{'is-dragging': draggingId === 'card_golden_programming'}"
+     title="Programming Task · Golden programming task">
+  
+  <span class="card__type-mark" aria-hidden="true"></span>
+  <span class="vh">Programming Task</span>
+  <div class="card__title">
+    <a href="/ui/cards/card_golden_programming" data-card-link="/ui/cards/card_golden_programming/modal">Golden programming task</a>
+  </div>
+  
+  
+  <div class="card__preview">
+    <span class="truncate" title="branch: feat/golden-prog"><b>branch</b> feat/golden-prog</span>
+  </div>
+  
+  
+  
+  <div class="card__secondary" aria-hidden="true">
+    <span class="card__secondary-item card__secondary-item--status">To Do</span>
+    
+    
+    <span class="card__secondary-item card__secondary-item--preview">branch feat/golden-prog</span>
+    <span class="card__secondary-item card__secondary-item--updated"><time data-ago="2026-07-01T12:00:00Z" datetime="2026-07-01T12:00:00Z"></time></span>
+  </div>
+  <div class="card__stats">
+    <span class="card__stat card__stat--time"><time data-ago="2026-07-01T12:00:00Z" datetime="2026-07-01T12:00:00Z" title="last updated"></time></span>
+    
+    
+    
+    
+  </div>
+</div>
+
+      
+    </div>
+  </section>
+  
+  <section class="lane">
+    <div class="lane__head"><span>In Progress</span><span class="lane__head-tail"><span class="lane__count">1</span><button type="button" class="lane__add" data-create-link="/ui/cards/new/modal?board=engineering&status=in_progress" aria-label="New card in In Progress" title="New card in In Progress">+</button></span></div>
+    <div class="lane__body" id="col-in_progress" data-status="in_progress"
+         :class="{'is-drag-over': dragOverColumn === 'in_progress'}"
+         @dragover="dragOver($event)" @dragleave="dragLeave($event)" @drop="drop($event)">
+      
+        
+<div class="card" id="card-card_golden_api" data-card-id="card_golden_api" data-type="api-task" data-icon="target"
+     draggable="true" data-card-link="/ui/cards/card_golden_api/modal"
+     :class="{'is-dragging': draggingId === 'card_golden_api'}"
+     style="--card-stock:#0f5d78;--card-stock-bg:#d9e6ec" title="API Task · Golden API task">
+  
+  <span class="card__type-mark" aria-hidden="true"></span>
+  <span class="vh">API Task</span>
+  <div class="card__title">
+    <a href="/ui/cards/card_golden_api" data-card-link="/ui/cards/card_golden_api/modal">Golden API task</a>
+  </div>
+  
+  
+  <div class="card__preview">
+    <span class="truncate" title="endpoint: GET /v1/cards"><b>endpoint</b> GET /v1/cards</span><span class="truncate" title="branch: feat/golden-api"><b>branch</b> feat/golden-api</span>
+  </div>
+  
+  
+  
+  <div class="card__secondary" aria-hidden="true">
+    <span class="card__secondary-item card__secondary-item--status">In Progress</span>
+    
+    
+    <span class="card__secondary-item card__secondary-item--preview">endpoint GET /v1/cards</span><span class="card__secondary-item card__secondary-item--preview">branch feat/golden-api</span>
+    <span class="card__secondary-item card__secondary-item--updated"><time data-ago="2026-07-01T12:02:00Z" datetime="2026-07-01T12:02:00Z"></time></span>
+  </div>
+  <div class="card__stats">
+    <span class="card__stat card__stat--time"><time data-ago="2026-07-01T12:02:00Z" datetime="2026-07-01T12:02:00Z" title="last updated"></time></span>
+    
+    
+    
+    
+  </div>
+</div>
+
+      
+    </div>
+  </section>
+  
+  <section class="lane">
+    <div class="lane__head"><span>Review</span><span class="lane__head-tail"><span class="lane__count">1</span><button type="button" class="lane__add" data-create-link="/ui/cards/new/modal?board=engineering&status=review" aria-label="New card in Review" title="New card in Review">+</button></span></div>
+    <div class="lane__body" id="col-review" data-status="review"
+         :class="{'is-drag-over': dragOverColumn === 'review'}"
+         @dragover="dragOver($event)" @dragleave="dragLeave($event)" @drop="drop($event)">
+      
+        
+<div class="card" id="card-card_golden_frontend" data-card-id="card_golden_frontend" data-type="frontend-task" data-icon="pen"
+     draggable="true" data-card-link="/ui/cards/card_golden_frontend/modal"
+     :class="{'is-dragging': draggingId === 'card_golden_frontend'}"
+     style="--card-stock:#cf7b00;--card-stock-bg:#f6e7cc" title="Frontend Task · Golden frontend task">
+  
+  <span class="card__type-mark" aria-hidden="true"></span>
+  <span class="vh">Frontend Task</span>
+  <div class="card__title">
+    <a href="/ui/cards/card_golden_frontend" data-card-link="/ui/cards/card_golden_frontend/modal">Golden frontend task</a>
+  </div>
+  
+  
+  <div class="card__preview">
+    <span class="truncate" title="surface: board"><b>surface</b> board</span><span class="truncate" title="branch: feat/golden-fe"><b>branch</b> feat/golden-fe</span>
+  </div>
+  
+  
+  
+  <div class="card__secondary" aria-hidden="true">
+    <span class="card__secondary-item card__secondary-item--status">Review</span>
+    
+    
+    <span class="card__secondary-item card__secondary-item--preview">surface board</span><span class="card__secondary-item card__secondary-item--preview">branch feat/golden-fe</span>
+    <span class="card__secondary-item card__secondary-item--updated"><time data-ago="2026-07-01T12:03:00Z" datetime="2026-07-01T12:03:00Z"></time></span>
+  </div>
+  <div class="card__stats">
+    <span class="card__stat card__stat--time"><time data-ago="2026-07-01T12:03:00Z" datetime="2026-07-01T12:03:00Z" title="last updated"></time></span>
+    
+    
+    
+    
+  </div>
+</div>
+
+      
+    </div>
+  </section>
+  
+  <section class="lane">
+    <div class="lane__head"><span>Done</span><span class="lane__head-tail"><span class="lane__count">1</span><button type="button" class="lane__add" data-create-link="/ui/cards/new/modal?board=engineering&status=done" aria-label="New card in Done" title="New card in Done">+</button></span></div>
+    <div class="lane__body" id="col-done" data-status="done"
+         :class="{'is-drag-over': dragOverColumn === 'done'}"
+         @dragover="dragOver($event)" @dragleave="dragLeave($event)" @drop="drop($event)">
+      
+        
+<div class="card" id="card-card_golden_data" data-card-id="card_golden_data" data-type="data-task" data-icon="flask"
+     draggable="true" data-card-link="/ui/cards/card_golden_data/modal"
+     :class="{'is-dragging': draggingId === 'card_golden_data'}"
+     style="--card-stock:#079b43;--card-stock-bg:#d8efe0" title="Data Task · Golden data task">
+  
+  <span class="card__type-mark" aria-hidden="true"></span>
+  <span class="vh">Data Task</span>
+  <div class="card__title">
+    <a href="/ui/cards/card_golden_data" data-card-link="/ui/cards/card_golden_data/modal">Golden data task</a>
+  </div>
+  
+  
+  <div class="card__preview">
+    <span class="truncate" title="migration: none"><b>migration</b> none</span><span class="truncate" title="branch: feat/golden-data"><b>branch</b> feat/golden-data</span>
+  </div>
+  
+  
+  
+  <div class="card__secondary" aria-hidden="true">
+    <span class="card__secondary-item card__secondary-item--status">Done</span>
+    
+    
+    <span class="card__secondary-item card__secondary-item--preview">migration none</span><span class="card__secondary-item card__secondary-item--preview">branch feat/golden-data</span>
+    <span class="card__secondary-item card__secondary-item--updated"><time data-ago="2026-07-01T12:05:00Z" datetime="2026-07-01T12:05:00Z"></time></span>
+  </div>
+  <div class="card__stats">
+    <span class="card__stat card__stat--time"><time data-ago="2026-07-01T12:05:00Z" datetime="2026-07-01T12:05:00Z" title="last updated"></time></span>
+    
+    
+    
+    
+  </div>
+</div>
+
+      
+    </div>
+  </section>
+  
+</div>

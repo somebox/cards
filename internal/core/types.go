@@ -30,13 +30,13 @@ const (
 
 // FieldDef is a single field in a card-type schema.
 type FieldDef struct {
-	ID             string     `json:"id"`
-	Label          string     `json:"label"`
-	Type           FieldType  `json:"type"`
-	Required       bool       `json:"required"`
-	Default        any        `json:"default,omitempty"`
-	Description    string     `json:"description,omitempty"`
-	Options        []string   `json:"options,omitempty"`         // enum
+	ID          string    `json:"id"`
+	Label       string    `json:"label"`
+	Type        FieldType `json:"type"`
+	Required    bool      `json:"required"`
+	Default     any       `json:"default,omitempty"`
+	Description string    `json:"description,omitempty"`
+	Options     []string  `json:"options,omitempty"` // enum
 	// Multiple makes an enum or user field hold a JSON array of values
 	// instead of one scalar (v1 scope: enum + user only; card_link multiple
 	// is a documented fast-follow). Contract: an unset optional multiple
@@ -52,10 +52,15 @@ type FieldDef struct {
 	ArtifactPolicy string     `json:"artifact_policy,omitempty"` // artifact: "local"|"uri"
 	Display        string     `json:"display,omitempty"`         // UI hint: feed|badge|hidden|link|monospace
 	Deprecated     bool       `json:"deprecated,omitempty"`
+	// OptionThemes maps enum option values to visual themes (icon/accent/muted).
+	// Declared on the field (type-global); a board activates them via
+	// BoardPresentation.StyleField. Clients may ignore. See docs/design/STYLE-FIELD.md.
+	OptionThemes map[string]TypeTheme `json:"option_themes,omitempty"`
 }
 
-// TypeTheme is the visual identity for a card type, merged over the CSS
-// [data-type] defaults by httpapi.typeTheme. All fields optional so existing
+// TypeTheme is optional presentation metadata for a card type (clients may
+// ignore — CORE-BOUNDARIES §3.2). Merged over CSS [data-type] defaults by
+// httpapi.resolveCardTheme / typeTheme. All fields optional so existing
 // workspace.json files keep forward-compat. (1a)
 type TypeTheme struct {
 	Icon   string `json:"icon,omitempty"`   // monochromatic glyph name (e.g. "bug")
@@ -163,17 +168,21 @@ type Workspace struct {
 	Settings  WorkspaceSettings `json:"settings"`
 }
 
-// BoardPresentation carries UI hints. See SPEC.md §4 + DEVELOPER-REFERENCE.md §7.
-// These hints drive the schema-driven UI: which fields show on the board card,
-// which field is the accent color, which fields show in detail and in what order.
+// BoardPresentation carries optional UI hints. Clients may ignore unknown keys
+// (CORE-BOUNDARIES §3.2). These hints never branch write paths. See SPEC.md §4,
+// DEVELOPER-REFERENCE.md §7, and docs/design/STYLE-FIELD.md.
 type BoardPresentation struct {
-	LaneGroupBy     string              `json:"lane_group_by,omitempty"`     // status (default) or an enum field id
-	CardPreview     map[string][]string `json:"card_preview,omitempty"`      // per-type: field ids to show on the board card
-	CardTitleField  string              `json:"card_title_field,omitempty"`  // field to use as the card title (default: title)
-	CardAccentField string              `json:"card_accent_field,omitempty"` // enum field whose value drives card accent color
-	DetailSections  []DetailSection     `json:"detail_sections,omitempty"`   // ordered sections for the detail/modal view
-	Filters         []BoardFilter       `json:"filters,omitempty"`
-	LaneSort        string              `json:"lane_sort,omitempty"` // default within-lane order (ParseSort grammar, e.g. "-fields.priority")
+	LaneGroupBy    string              `json:"lane_group_by,omitempty"`    // status (default) or an enum field id
+	CardPreview    map[string][]string `json:"card_preview,omitempty"`     // per-type: field ids to show on the board card
+	CardTitleField string              `json:"card_title_field,omitempty"` // field to use as the card title (default: title)
+	// StyleField is the enum field id whose OptionThemes a board opts into for
+	// card accent/icon. FieldDef.OptionThemes define; this activates. Same card
+	// may render differently on two boards. Replaces the unused card_accent_field
+	// name. See docs/design/STYLE-FIELD.md.
+	StyleField     string          `json:"style_field,omitempty"`
+	DetailSections []DetailSection `json:"detail_sections,omitempty"` // ordered sections for the detail/modal view
+	Filters        []BoardFilter   `json:"filters,omitempty"`
+	LaneSort       string          `json:"lane_sort,omitempty"` // default within-lane order (ParseSort grammar, e.g. "-fields.priority")
 	// Theme names the html[data-theme] theme applied to this board — a full
 	// named theme ("assign it to a board to try it out"), distinct from
 	// Board.Theme (a map of inline hue tokens). It sits between the visitor's
@@ -301,22 +310,23 @@ type Card struct {
 type EventType string
 
 const (
-	EventCardCreated      EventType = "card_created"
-	EventCardDeleted      EventType = "card_deleted"
-	EventFieldUpdated     EventType = "field_updated"
-	EventStatusChanged    EventType = "status_changed"
-	EventOwnerChanged     EventType = "owner_changed"
-	EventTagsChanged      EventType = "tags_changed"
-	EventItemAppended     EventType = "item_appended"
-	EventItemUpdated      EventType = "item_updated"
-	EventItemRemoved      EventType = "item_removed"
-	EventLinkAdded        EventType = "link_added"
-	EventLinkRemoved      EventType = "link_removed"
-	EventCommentAdded     EventType = "comment_added"
-	EventCommentEdited    EventType = "comment_edited"
-	EventSchemaUpgraded   EventType = "schema_upgraded"
-	EventArtifactAdded    EventType = "artifact_added"
-	EventDefinitionReload EventType = "definition_reloaded"
+	EventCardCreated            EventType = "card_created"
+	EventCardDeleted            EventType = "card_deleted"
+	EventFieldUpdated           EventType = "field_updated"
+	EventStatusChanged          EventType = "status_changed"
+	EventOwnerChanged           EventType = "owner_changed"
+	EventTagsChanged            EventType = "tags_changed"
+	EventItemAppended           EventType = "item_appended"
+	EventItemUpdated            EventType = "item_updated"
+	EventItemRemoved            EventType = "item_removed"
+	EventLinkAdded              EventType = "link_added"
+	EventLinkRemoved            EventType = "link_removed"
+	EventCommentAdded           EventType = "comment_added"
+	EventCommentEdited          EventType = "comment_edited"
+	EventSchemaUpgraded         EventType = "schema_upgraded"
+	EventArtifactAdded          EventType = "artifact_added"
+	EventDefinitionReload       EventType = "definition_reloaded"
+	EventDefinitionReloadFailed EventType = "definition_reload_failed"
 	// Condition signals: ephemeral by default, escalatable to durable facts via
 	// settings.persist_conditions (Events seam 3b). The full catalog is
 	// declared here up front (EVENTS.md §12 Step 3) so config validation of

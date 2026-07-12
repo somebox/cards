@@ -1011,6 +1011,24 @@ main { padding: var(--s-5); max-width: 100%; }
 .toast button { background: none; border: 0; color: inherit; cursor: pointer; font-size: 1.1rem; line-height: 1; }
 @keyframes toast-in { from { transform: translateX(1rem); opacity: 0; } to { transform: none; opacity: 1; } }
 
+/* --- Definitions reload failure banner (P3b --watch) -------------------- */
+.def-reload-banner {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 1100;
+  display: flex; align-items: flex-start; justify-content: space-between; gap: var(--s-3);
+  padding: var(--s-3) var(--s-4);
+  background: var(--c-danger); color: #fff;
+  font-size: var(--role-body-size, var(--t-sm));
+  line-height: var(--role-body-lh, 1.4);
+  box-shadow: var(--sh-md);
+}
+.def-reload-banner[hidden] { display: none !important; }
+.def-reload-banner__msg { flex: 1; min-width: 0; }
+.def-reload-banner__msg strong { font-weight: var(--role-strong-weight, 600); }
+.def-reload-banner__dismiss {
+  background: none; border: 0; color: inherit; cursor: pointer;
+  font-size: 1.25rem; line-height: 1; padding: 0; flex-shrink: 0;
+}
+
 /* --- Search form — shared global/board component ------------------------ */
 .filter-chips { display: flex; flex-wrap: wrap; gap: var(--s-2); }
 .chip-filter { display: inline-flex; align-items: center; padding: .28em .7em; border-radius: var(--r-pill); border: 1px solid var(--c-border); font-size: var(--t-sm); color: var(--c-text-2); background: var(--c-surface); }

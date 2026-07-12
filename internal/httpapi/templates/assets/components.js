@@ -256,7 +256,24 @@ document.addEventListener('alpine:init', function () {
         var self = this;
         // Stable references so destroy() can deregister — a root re-init would
         // otherwise stack a second live handler + popstate listener (P4 review).
-        this._onLive = function () { self.debouncedSwap(); };
+        this._onLive = function (ev) {
+          // definition_reload_failed: keep last-good board; show banner.
+          // definition_reloaded: clear banner, then refetch lanes as usual.
+          if (ev && ev.type === 'definition_reload_failed') {
+            var msg = '';
+            try {
+              var data = JSON.parse(ev.data || '{}');
+              if (data.diff && data.diff.message) msg = data.diff.message;
+              else if (data.message) msg = data.message;
+            } catch (_) {}
+            if (typeof showDefReloadBanner === 'function') showDefReloadBanner(msg);
+            return;
+          }
+          if (ev && ev.type === 'definition_reloaded') {
+            if (typeof clearDefReloadBanner === 'function') clearDefReloadBanner();
+          }
+          self.debouncedSwap();
+        };
         Alpine.store('live').on(this._onLive);
         // Popstate: Back/Forward re-runs the URL through swapBoard so the
         // filter state matches the address bar.
@@ -359,16 +376,23 @@ document.addEventListener('alpine:init', function () {
         // GET current version → PATCH; on 422 transition_illegal, offer
         // force-move via confirm(); on any failure, toast + let swapBoard
         // reconcile (any stranded card ends up back where it belongs).
+        // Idempotency-Key must be unique per gesture: a stable
+        // move-<id>-to-<status> key replays a cached 200 after the card
+        // has been moved elsewhere, so the write never lands and the
+        // card appears to snap back with no error.
         var self = this;
+        var idem = function (prefix) {
+          return prefix + '-' + cardID + '-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
+        };
         cardsAPI.send({ method: 'GET', url: '/v1/cards/' + cardID }).then(function (res) {
           if (!res.ok) { toast(res.message || 'Move failed', 'err'); self.swapBoard(); return; }
           var version = res.data.version;
           cardsAPI.send({
             method: 'PATCH', url: '/v1/cards/' + cardID,
             body: { version: version, status: status },
-            headers: { 'Idempotency-Key': 'move-' + cardID + '-to-' + status }
+            headers: { 'Idempotency-Key': idem('move') }
           }).then(function (r2) {
-            if (r2.ok) return; // SSE + debouncedSwap will reconcile
+            if (r2.ok) { self.swapBoard(); return; }
             if (r2.status === 422 && (r2.message || '').indexOf('transition') !== -1) {
               if (!confirm('Move to "' + status + '" is not an allowed transition. Force-move anyway?')) { self.swapBoard(); return; }
               cardsAPI.send({ method: 'GET', url: '/v1/cards/' + cardID }).then(function (r3) {
@@ -376,7 +400,7 @@ document.addEventListener('alpine:init', function () {
                 cardsAPI.send({
                   method: 'PATCH', url: '/v1/cards/' + cardID,
                   body: { version: r3.data.version, status: status, force: true },
-                  headers: { 'Idempotency-Key': 'force-' + cardID + '-to-' + status }
+                  headers: { 'Idempotency-Key': idem('force') }
                 }).then(function (r4) {
                   if (!r4.ok) toast(r4.message || 'Force move failed', 'err');
                   self.swapBoard();
@@ -398,7 +422,7 @@ document.addEventListener('alpine:init', function () {
           cardsAPI.send({
             method: 'POST', url: '/v1/cards/' + cardID + '/release',
             body: { version: res.data.version },
-            headers: { 'Idempotency-Key': 'release-' + cardID }
+            headers: { 'Idempotency-Key': 'release-' + cardID + '-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10) }
           }).then(function (r2) {
             if (!r2.ok) toast(r2.message || 'Release failed', 'err');
             self.swapBoard();
@@ -686,7 +710,8 @@ document.addEventListener('alpine:init', function () {
   // cfg.columns/types are the SERVER-provided initial selections (Alpine
   // x-model on a checkbox array is authoritative: it unchecks anything the
   // array does not contain at init, so the array must arrive already
-  // populated). ----
+  // populated). Idempotency-Key is minted once per open form (closeModal
+  // destroys the fragment; the next open gets a fresh key). ----
   Alpine.data('boardCreate', function (cfg) {
     return {
       name: '',
@@ -694,6 +719,11 @@ document.addEventListener('alpine:init', function () {
       types: (cfg && cfg.types) ? cfg.types.slice() : [],
       wipColumn: '', wipLimit: 0,
       alert: '', errors: {}, saving: false,
+      idemKey: '',
+      mintIdemKey: function () {
+        this.idemKey = 'ui-board-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
+      },
+      init: function () { this.mintIdemKey(); },
       err: function (name, msg) { this.errors[name] = msg; },
       submit: function () {
         if (this.saving) return;
@@ -705,8 +735,12 @@ document.addEventListener('alpine:init', function () {
         if (this.wipColumn && this.wipLimit > 0) { req.wip_limits = {}; req.wip_limits[this.wipColumn] = this.wipLimit; }
         this.saving = true;
         var self = this;
-        cardsAPI.send({ method: 'POST', url: '/v1/boards', body: req })
-          .then(function (res) {
+        cardsAPI.send({
+          method: 'POST', url: '/v1/boards', body: req,
+          headers: { 'Idempotency-Key': this.idemKey }
+        }).then(function (res) {
+            // Success only: navigate. Any 4xx/5xx stays on the form with an
+            // inline error — never toast "Saved" / "Board created".
             if (res.ok) { toast('Board created'); window.location.href = '/ui/boards/' + res.data.id; return; }
             self.saving = false;
             if (res.field) self.err(res.field, res.message || 'invalid');

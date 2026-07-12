@@ -150,9 +150,14 @@ type ViewData struct {
 	StatusOptions []Option
 	Users         []core.User
 	TagSet        []string
-	// TypeThemes is the id→TypeTheme map for non-loop call-sites (modal,
-	// detail, home) that read via the typeTheme template func. (1a)
+	// TypeThemes is the id→TypeTheme map for non-card call-sites (home recent
+	// rows, type pickers) that look up by type id via the typeTheme template
+	// func. Per-card surfaces use CardTheme / CardView instead. (1a / P4a)
 	TypeThemes map[string]core.TypeTheme `json:"-"`
+	// CardTheme is the precomputed effective theme for the modal/detail card
+	// (resolveCardTheme). card_head reads this — not a live typeTheme lookup —
+	// so board cards and modal/detail share one resolution path. (P4a)
+	CardTheme core.TypeTheme `json:"-"`
 	// Candidates is the disambiguation list shown by card_ambiguous.html when a
 	// short id matches >1 card. (1e)
 	Candidates []core.CardCandidate
@@ -337,7 +342,7 @@ func (s *Server) renderCardDetail(w http.ResponseWriter, r *http.Request, c *cor
 	data.Users = users
 	data.TagSet = s.ws.TagSet
 	data.Error = err
-	data.TypeThemes = s.buildTypeThemes()
+	data.CardTheme = s.resolveCardTheme(c, b)
 	data.OutLinks, data.InLinks = s.cardRelations(r.Context(), c)
 	data.Theme = s.resolveTheme(w, r, b)
 	// Honest HTTP status on the save-error path (rebuild P8): a stale save
@@ -377,7 +382,7 @@ func (s *Server) uiCardModal(w http.ResponseWriter, r *http.Request) {
 	data.MoveOptions = s.moveOptions(b, c.Status)
 	data.Users = users
 	data.TagSet = s.ws.TagSet
-	data.TypeThemes = s.buildTypeThemes()
+	data.CardTheme = s.resolveCardTheme(c, b)
 	data.OutLinks, data.InLinks = s.cardRelations(r.Context(), c)
 	data.Theme = s.resolveTheme(w, r, b)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -401,8 +406,72 @@ func typeTheme(ct *core.CardType) core.TypeTheme {
 	return t
 }
 
+// resolveCardTheme is the single per-card theme resolution path for board
+// cards (cardView) and modal/detail (ViewData.CardTheme). Precedence is
+// option-theme → type-theme → CSS-default (docs/design/STYLE-FIELD.md).
+func (s *Server) resolveCardTheme(c *core.Card, b *core.Board) core.TypeTheme {
+	if c == nil {
+		return core.TypeTheme{}
+	}
+	th := typeTheme(s.types[c.TypeID])
+	if b == nil || b.Presentation == nil {
+		return th
+	}
+	sf := b.Presentation.StyleField
+	if sf == "" {
+		return th
+	}
+	opt := optionThemeFor(s.types[c.TypeID], c, sf)
+	return mergeTypeTheme(th, opt)
+}
+
+// optionThemeFor looks up OptionThemes[value] for the board's style_field on
+// this card's type. Empty when the field is absent, unset, or unthemed.
+func optionThemeFor(ct *core.CardType, c *core.Card, styleField string) core.TypeTheme {
+	if ct == nil || c == nil || styleField == "" {
+		return core.TypeTheme{}
+	}
+	var fd *core.FieldDef
+	for i := range ct.Fields {
+		if ct.Fields[i].ID == styleField {
+			fd = &ct.Fields[i]
+			break
+		}
+	}
+	if fd == nil || len(fd.OptionThemes) == 0 {
+		return core.TypeTheme{}
+	}
+	fm, ok := c.Fields.(map[string]any)
+	if !ok {
+		return core.TypeTheme{}
+	}
+	raw, ok := fm[styleField]
+	if !ok || raw == nil {
+		return core.TypeTheme{}
+	}
+	val, ok := raw.(string)
+	if !ok || val == "" {
+		return core.TypeTheme{}
+	}
+	return fd.OptionThemes[val]
+}
+
+// mergeTypeTheme overlays non-empty fields from over onto base.
+func mergeTypeTheme(base, over core.TypeTheme) core.TypeTheme {
+	if over.Icon != "" {
+		base.Icon = over.Icon
+	}
+	if over.Accent != "" {
+		base.Accent = over.Accent
+	}
+	if over.Muted != "" {
+		base.Muted = over.Muted
+	}
+	return base
+}
+
 // buildTypeThemes assembles the id→TypeTheme map used by ViewData.TypeThemes
-// for non-loop call-sites (modal, detail, home). (1a)
+// for type-id call-sites (home, create/board type pickers). (1a)
 func (s *Server) buildTypeThemes() map[string]core.TypeTheme {
 	themes := make(map[string]core.TypeTheme, len(s.types))
 	for id, ct := range s.types {
@@ -424,7 +493,7 @@ func (s *Server) cardView(c *core.Card, b *core.Board, users []core.User) CardVi
 			}
 		}
 	}
-	th := typeTheme(ct)
+	th := s.resolveCardTheme(c, b)
 	label := ""
 	if ct != nil {
 		label = ct.Name

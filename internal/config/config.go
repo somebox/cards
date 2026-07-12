@@ -1,6 +1,7 @@
 // Package config loads and validates workspace definitions from JSON files
 // in definitions/ (only definitions/extensions.{yaml,json} accepts YAML).
-// There is no reload-on-change: restart the process to pick up edits.
+// This package does not watch files; `cards serve --watch` and
+// POST /v1/workspace/reload re-invoke Load (see docs/architecture/RELOAD.md).
 //
 // See docs/ARCHITECTURE.md (Config Contexts) and docs/DEVELOPER-REFERENCE.md.
 package config
@@ -10,6 +11,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/somebox/cards/internal/core"
 )
@@ -54,7 +56,7 @@ func (l *Loader) Load() (*Result, error) {
 	if err != nil {
 		return nil, err
 	}
-	boards, err := l.loadBoards(ws, types)
+	boards, boardWarnings, err := l.loadBoards(ws, types)
 	if err != nil {
 		return nil, err
 	}
@@ -72,10 +74,13 @@ func (l *Loader) Load() (*Result, error) {
 			{ID: ws.Settings.DefaultUser, Kind: "human", CreatedAt: nowUTC()},
 		}
 	}
+	warnings := validatePersistConditions(ws)
+	warnings = append(warnings, boardWarnings...)
+	warnings = append(warnings, themeWarnings...)
 	return &Result{
 		Workspace: ws, CardTypes: types, Boards: boards, Extensions: exts,
 		Themes:   themes,
-		Warnings: append(validatePersistConditions(ws), themeWarnings...),
+		Warnings: warnings,
 	}, nil
 }
 
@@ -156,14 +161,15 @@ func (l *Loader) loadCardTypes(ws *core.Workspace) (map[string]*core.CardType, e
 	return types, nil
 }
 
-func (l *Loader) loadBoards(ws *core.Workspace, types map[string]*core.CardType) (map[string]*core.Board, error) {
+func (l *Loader) loadBoards(ws *core.Workspace, types map[string]*core.CardType) (map[string]*core.Board, []string, error) {
 	dir := filepath.Join(l.workspaceDir, "definitions", "boards")
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		// No boards dir is not fatal; return empty.
-		return map[string]*core.Board{}, nil
+		return map[string]*core.Board{}, nil, nil
 	}
 	boards := map[string]*core.Board{}
+	var warnings []string
 	for _, e := range entries {
 		if e.IsDir() || !hasExt(e.Name(), ".json") {
 			continue
@@ -171,27 +177,30 @@ func (l *Loader) loadBoards(ws *core.Workspace, types map[string]*core.CardType)
 		path := filepath.Join(dir, e.Name())
 		data, err := os.ReadFile(path)
 		if err != nil {
-			return nil, fmt.Errorf("read %s: %w", e.Name(), err)
+			return nil, nil, fmt.Errorf("read %s: %w", e.Name(), err)
 		}
 		var b core.Board
 		if err := json.Unmarshal(data, &b); err != nil {
-			return nil, fmt.Errorf("parse %s: %w", e.Name(), err)
+			return nil, nil, fmt.Errorf("parse %s: %w", e.Name(), err)
 		}
 		if b.ID == "" {
-			return nil, fmt.Errorf("%s: missing id", e.Name())
+			return nil, nil, fmt.Errorf("%s: missing id", e.Name())
 		}
 		if _, dup := boards[b.ID]; dup {
-			return nil, fmt.Errorf("duplicate board id: %s", b.ID)
+			return nil, nil, fmt.Errorf("duplicate board id: %s", b.ID)
 		}
-		if err := validateBoard(&b, ws, types); err != nil {
-			return nil, fmt.Errorf("board %s: %w", b.ID, err)
+		w, err := validateBoard(&b, ws, types)
+		if err != nil {
+			return nil, nil, fmt.Errorf("board %s: %w", b.ID, err)
 		}
+		warnings = append(warnings, w...)
 		boards[b.ID] = &b
 	}
-	return boards, nil
+	return boards, warnings, nil
 }
 
-// validateCardType checks allowed_columns reference workspace columns.
+// validateCardType checks allowed_columns reference workspace columns,
+// field defs, and icon aliases.
 func validateCardType(ct *core.CardType, ws *core.Workspace) error {
 	colSet := colSet(ws)
 	for _, c := range ct.AllowedColumns {
@@ -209,6 +218,14 @@ func validateCardType(ct *core.CardType, ws *core.Workspace) error {
 		if err := validateField(&f); err != nil {
 			return fmt.Errorf("field %q: %w", f.ID, err)
 		}
+	}
+	if ct.TypeTheme.Icon != "" && !core.IsKnownIconAlias(ct.TypeTheme.Icon) {
+		return fmt.Errorf("type_theme.icon %q is not a known icon alias (allowed: %s)",
+			ct.TypeTheme.Icon, core.KnownIconAliasList())
+	}
+	if ct.Icon != "" && !core.IsKnownIconAlias(ct.Icon) {
+		return fmt.Errorf("icon %q is not a known icon alias (allowed: %s)",
+			ct.Icon, core.KnownIconAliasList())
 	}
 	return nil
 }
@@ -238,6 +255,14 @@ func validateField(f *core.FieldDef) error {
 		// ok
 	default:
 		return fmt.Errorf("unknown field type %q", f.Type)
+	}
+	if f.Type == core.FieldNumber || f.Type == core.FieldDate {
+		if f.Min != nil && f.Max != nil && *f.Min > *f.Max {
+			return fmt.Errorf("min (%v) must be <= max (%v)", *f.Min, *f.Max)
+		}
+	}
+	if err := validateOptionThemes(f); err != nil {
+		return err
 	}
 	if f.Multiple {
 		// v1 scope: enum + user only. card_link multiple is a documented
@@ -276,55 +301,280 @@ func validateField(f *core.FieldDef) error {
 	return nil
 }
 
-func validateBoard(b *core.Board, ws *core.Workspace, types map[string]*core.CardType) error {
+// validateOptionThemes enforces STYLE-FIELD define-side rules: enum-only,
+// keys ⊆ options, known icons, icon+accent+muted together, and a 4.5:1
+// accent-on-muted contrast floor (decision C — hard reject for option_themes).
+func validateOptionThemes(f *core.FieldDef) error {
+	if len(f.OptionThemes) == 0 {
+		return nil
+	}
+	if f.Type != core.FieldEnum {
+		return fmt.Errorf("option_themes is only allowed on enum fields, not %q", f.Type)
+	}
+	if f.Multiple {
+		return fmt.Errorf("option_themes is not supported on multiple enum fields (style_field needs a single value)")
+	}
+	optSet := map[string]bool{}
+	for _, o := range f.Options {
+		optSet[o] = true
+	}
+	for val, th := range f.OptionThemes {
+		if !optSet[val] {
+			return fmt.Errorf("option_themes key %q is not in options", val)
+		}
+		if th.Icon == "" || th.Accent == "" || th.Muted == "" {
+			return fmt.Errorf("option_themes[%q] requires icon, accent, and muted (color alone must not carry meaning)", val)
+		}
+		if !core.IsKnownIconAlias(th.Icon) {
+			return fmt.Errorf("option_themes[%q].icon %q is not a known icon alias (allowed: %s)",
+				val, th.Icon, core.KnownIconAliasList())
+		}
+		if _, err := core.MeetsContrastFloor(th.Accent, th.Muted); err != nil {
+			return fmt.Errorf("option_themes[%q]: %w", val, err)
+		}
+	}
+	return nil
+}
+
+func validateBoard(b *core.Board, ws *core.Workspace, types map[string]*core.CardType) ([]string, error) {
 	colSet := colSet(ws)
 	for _, c := range b.Columns {
 		if !colSet[c] {
-			return fmt.Errorf("columns references unknown column %q", c)
+			return nil, fmt.Errorf("columns references unknown column %q", c)
 		}
 	}
 	for _, tid := range b.CardTypeIDs {
 		if _, ok := types[tid]; !ok {
-			return fmt.Errorf("card_type_ids references unknown type %q", tid)
+			return nil, fmt.Errorf("card_type_ids references unknown type %q", tid)
 		}
 	}
 	// Transitions reference columns.
 	for from, nexts := range b.Transitions {
 		if !colSet[from] {
-			return fmt.Errorf("transitions: unknown from-status %q", from)
+			return nil, fmt.Errorf("transitions: unknown from-status %q", from)
 		}
 		for _, n := range nexts {
 			if !colSet[n] {
-				return fmt.Errorf("transitions[%s]: unknown to-status %q", from, n)
+				return nil, fmt.Errorf("transitions[%s]: unknown to-status %q", from, n)
 			}
 		}
 	}
 	if b.Monitors != nil {
 		for _, c := range b.Monitors.AlertWhenEmpty {
 			if !colSet[c] {
-				return fmt.Errorf("monitors.alert_when_empty references unknown column %q", c)
+				return nil, fmt.Errorf("monitors.alert_when_empty references unknown column %q", c)
 			}
 		}
 		for col, dur := range b.Monitors.MaxTimeInStatus {
 			if !colSet[col] {
-				return fmt.Errorf("monitors.max_time_in_status references unknown column %q", col)
+				return nil, fmt.Errorf("monitors.max_time_in_status references unknown column %q", col)
 			}
 			if _, err := core.ParseMonitorDuration(dur); err != nil {
-				return fmt.Errorf("monitors.max_time_in_status[%s]: %w", col, err)
+				return nil, fmt.Errorf("monitors.max_time_in_status[%s]: %w", col, err)
 			}
 		}
 		if b.Monitors.IdleAfter != "" {
 			if _, err := core.ParseMonitorDuration(b.Monitors.IdleAfter); err != nil {
-				return fmt.Errorf("monitors.idle_after: %w", err)
+				return nil, fmt.Errorf("monitors.idle_after: %w", err)
 			}
 		}
 	}
-	if b.Presentation != nil && b.Presentation.LaneSort != "" {
-		if _, err := core.ParseSort(b.Presentation.LaneSort); err != nil {
-			return fmt.Errorf("presentation.lane_sort: %w", err)
+
+	fieldUnion := boardFieldUnion(b, types)
+	boardTypes := map[string]bool{}
+	for _, tid := range b.CardTypeIDs {
+		boardTypes[tid] = true
+	}
+	var warnings []string
+
+	if b.Presentation != nil {
+		p := b.Presentation
+		if p.LaneSort != "" {
+			sort, err := core.ParseSort(p.LaneSort)
+			if err != nil {
+				return nil, fmt.Errorf("presentation.lane_sort: %w", err)
+			}
+			if strings.HasPrefix(sort.Field, "fields.") {
+				fid := strings.TrimPrefix(sort.Field, "fields.")
+				if !fieldUnion[fid] {
+					return nil, fmt.Errorf("presentation.lane_sort references unknown field %q (not on board card types)", fid)
+				}
+			}
+		}
+		if g := p.LaneGroupBy; g != "" && g != "status" {
+			if !fieldUnion[g] {
+				return nil, fmt.Errorf("presentation.lane_group_by references unknown field %q", g)
+			}
+		}
+		if t := p.CardTitleField; t != "" && t != "title" {
+			if !fieldUnion[t] {
+				return nil, fmt.Errorf("presentation.card_title_field references unknown field %q", t)
+			}
+		}
+		if sf := p.StyleField; sf != "" {
+			if err := validateStyleField(b, sf, types); err != nil {
+				return nil, err
+			}
+		}
+		// Unknown presentation keys (including legacy card_accent_field) stay ignored.
+		for typeID, fields := range p.CardPreview {
+			ct, ok := types[typeID]
+			if !ok {
+				return nil, fmt.Errorf("presentation.card_preview references unknown type %q", typeID)
+			}
+			if !boardTypes[typeID] {
+				warnings = append(warnings, fmt.Sprintf(
+					"board %s: presentation.card_preview key %q is not in card_type_ids (orphan preview; hard-reject next sprint?)",
+					b.ID, typeID))
+			}
+			typeFields := fieldIDSet(ct)
+			for _, fid := range fields {
+				if !typeFields[fid] {
+					return nil, fmt.Errorf("presentation.card_preview[%s] references unknown field %q", typeID, fid)
+				}
+			}
+		}
+		for i, sec := range p.DetailSections {
+			for _, fid := range sec.Fields {
+				if !fieldUnion[fid] {
+					return nil, fmt.Errorf("presentation.detail_sections[%d] references unknown field %q", i, fid)
+				}
+			}
+		}
+		for _, f := range p.Filters {
+			w, err := checkFilterFieldRefs(
+				fmt.Sprintf("board %s: presentation.filters[%s]", b.ID, f.ID),
+				f.Filter, fieldUnion)
+			if err != nil {
+				return nil, err
+			}
+			warnings = append(warnings, w...)
 		}
 	}
+
+	if len(b.DefaultFilter) > 0 {
+		w, err := checkFilterFieldRefs(
+			fmt.Sprintf("board %s: default_filter", b.ID),
+			b.DefaultFilter, fieldUnion)
+		if err != nil {
+			return nil, err
+		}
+		warnings = append(warnings, w...)
+	}
+	return warnings, nil
+}
+
+// validateStyleField checks BoardPresentation.StyleField: the named field must
+// be a single-value enum on every board type that declares it, and at least one
+// board type must declare it. OptionThemes (when present) are already checked
+// in validateField; cards without the field or an unthemed value fall through.
+func validateStyleField(b *core.Board, styleField string, types map[string]*core.CardType) error {
+	found := false
+	for _, tid := range b.CardTypeIDs {
+		ct := types[tid]
+		if ct == nil {
+			continue
+		}
+		for _, f := range ct.Fields {
+			if f.ID != styleField {
+				continue
+			}
+			found = true
+			if f.Type != core.FieldEnum {
+				return fmt.Errorf("presentation.style_field %q on type %q must be an enum field, got %q",
+					styleField, tid, f.Type)
+			}
+			if f.Multiple {
+				return fmt.Errorf("presentation.style_field %q on type %q must not be multiple",
+					styleField, tid)
+			}
+		}
+	}
+	if !found {
+		return fmt.Errorf("presentation.style_field %q is not a field on any card type on this board", styleField)
+	}
 	return nil
+}
+
+// boardFieldUnion is the set of field ids across all card types on the board.
+func boardFieldUnion(b *core.Board, types map[string]*core.CardType) map[string]bool {
+	m := map[string]bool{}
+	for _, tid := range b.CardTypeIDs {
+		ct := types[tid]
+		if ct == nil {
+			continue
+		}
+		for id := range fieldIDSet(ct) {
+			m[id] = true
+		}
+	}
+	return m
+}
+
+func fieldIDSet(ct *core.CardType) map[string]bool {
+	m := map[string]bool{}
+	for _, f := range ct.Fields {
+		m[f.ID] = true
+	}
+	return m
+}
+
+// knownFilterKeys are first-class filter paths from SPEC-QUERY-DSL (not typed fields).
+var knownFilterKeys = map[string]bool{
+	"status": true, "owner": true, "type_id": true, "created_by": true,
+	"updated_at": true, "created_at": true, "tag": true, "tags": true,
+}
+
+// checkFilterFieldRefs walks a filter DSL map. Unambiguous fields.<id> refs that
+// are missing from fieldUnion are hard errors. Bare keys that are neither known
+// builtins nor fields on the board warn (legacy/ambiguous — sqlite treats bare
+// ids as json_extract paths). Nested $and/$or are walked recursively.
+func checkFilterFieldRefs(path string, filter map[string]any, fieldUnion map[string]bool) ([]string, error) {
+	if filter == nil {
+		return nil, nil
+	}
+	var warnings []string
+	for k, v := range filter {
+		switch k {
+		case "$and", "$or":
+			arr, ok := v.([]any)
+			if !ok {
+				warnings = append(warnings, fmt.Sprintf("%s: %s expects an array (left unchecked this sprint)", path, k))
+				continue
+			}
+			for i, e := range arr {
+				em, ok := e.(map[string]any)
+				if !ok {
+					warnings = append(warnings, fmt.Sprintf("%s: %s[%d] is not an object (left unchecked this sprint)", path, k, i))
+					continue
+				}
+				w, err := checkFilterFieldRefs(fmt.Sprintf("%s.%s[%d]", path, k, i), em, fieldUnion)
+				if err != nil {
+					return nil, err
+				}
+				warnings = append(warnings, w...)
+			}
+		default:
+			if strings.HasPrefix(k, "fields.") {
+				fid := strings.TrimPrefix(k, "fields.")
+				if fid == "" || !fieldUnion[fid] {
+					return nil, fmt.Errorf("%s references unknown field %q", path, fid)
+				}
+				continue
+			}
+			if knownFilterKeys[k] {
+				continue
+			}
+			if fieldUnion[k] {
+				// Bare field id — sqlite accepts it; prefer fields.<id> later.
+				continue
+			}
+			warnings = append(warnings, fmt.Sprintf(
+				"%s: unrecognized filter key %q (not a known path or board field; hard-reject next sprint?)",
+				path, k))
+		}
+	}
+	return warnings, nil
 }
 
 func colSet(ws *core.Workspace) map[string]bool {

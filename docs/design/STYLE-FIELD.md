@@ -1,33 +1,33 @@
-# Style field — board-chosen enum drives card visuals (exploration)
+# Style field — board-chosen enum drives card visuals
 
-Status: **exploration** (2026-07-06). No code. Prompted by the `labels` theme
-review: on the engineering board ~all cards are `programming-task`, so the
-type-driven color/icon key renders every card identically and carries zero
-information.
+Status: **shipped** (P4b, 2026-07-11). OptionThemes render through the same
+`data-icon` / `--card-stock` hooks as TypeTheme. Filter-by-accent is deferred.
+
+Prompted by the `labels` theme review: on the engineering board ~all cards are
+`programming-task`, so the type-driven color/icon key renders every card
+identically and carries zero information.
 
 ## The problem
 
-The UI has standardized on **card type** as the visual differentiator: 
+The UI has standardized on **card type** as the visual differentiator:
 `TypeTheme{icon, accent, muted}` on the type feeds the corner mark / spine
 color / badge, `[data-type]` CSS tokens, and the board header's TYPE filter.
 That works when a board mixes types — and fails on the common board that has
 exactly one type. A team's real categories ("feature vs bug vs design task")
-then live in an enum field or a tag, invisible to the eye and absent from the
-filter dropdown.
+then live in an enum field or a tag, invisible to the eye.
 
-The alternative the board currently gestures at (backlog card `cb9e2ca`:
-"dogfood 3+ card types — feature/bug/task") solves the *visuals* by **type
-explosion**: three near-identical schemas to maintain, `allowed_columns`
-duplicated, migrations tripled — schema mechanics spent on what is really a
-one-word categorization. Type should stay what it is (a field contract);
-category is data.
+The alternative of dogfooding 3+ near-identical card types (feature/bug/task)
+solves visuals by **type explosion**. Type should stay what it is (a field
+contract); category is data.
 
-## Proposal sketch
+## Normative: define / activate split
 
-Two small, layered pieces:
+Two layered pieces; presentation metadata never branches write paths
+(CORE-BOUNDARIES §3.2):
 
-**1. Enum options can carry a theme** (field definition, workspace-level —
-consistent with "the definition drives every surface"):
+**1. Define — enum options carry a theme** on the field definition
+(workspace-level, type-global — consistent with "the definition drives every
+surface"):
 
 ```json
 {
@@ -35,34 +35,59 @@ consistent with "the definition drives every surface"):
   "options": ["feature", "bug", "design", "infra"],
   "option_themes": {
     "feature": { "icon": "star",   "accent": "#005bd3", "muted": "#d9e8ff" },
-    "bug":     { "icon": "bug",    "accent": "#e21f26", "muted": "#ffd9d6" },
-    "design":  { "icon": "pen",    "accent": "#cf7b00", "muted": "#ffe8bf" },
+    "bug":     { "icon": "bug",    "accent": "#b00000", "muted": "#ffd9d6" },
+    "design":  { "icon": "pen",    "accent": "#8a5200", "muted": "#ffe8bf" },
     "infra":   { "icon": "wrench", "accent": "#596469", "muted": "#e0e4e5" }
   }
 }
 ```
 
-This is the user-facing value→icon/color mapping: the enum value names the
-category, and `option_themes[value]` supplies the icon and card colours for that
-category. Icon names resolve through the design-system `data-icon` aliases
-(currently `card`, `star`, `bug`, `check`, `flask`, `target`, `code`, `pen`, and
-`wrench`; adding a new icon means adding one CSS mask alias, not changing card
-markup).
+`FieldDef.OptionThemes` is the user-facing value→icon/color map. Icon names
+resolve through the design-system `data-icon` aliases (`card`, `star`, `bug`,
+`check`, `flask`, `target`, `code`, `pen`, `wrench`). Declaring OptionThemes
+alone does **not** change any board's render — boards must opt in.
 
-**2. A board opts in** to using that field as its visual + filter key:
+Each themed option requires **icon + accent + muted** together (meaning is
+never color-alone). The enum value remains ordinary field text in the
+modal/detail body.
+
+**2. Activate — a board opts in** via `BoardPresentation.StyleField`:
 
 ```json
 "presentation": { "style_field": "kind" }
 ```
 
-Resolution chain, one place (`httpapi.cardView` / modal data):
+The board names which enum field's OptionThemes to use for card accent/icon.
+It does not redefine the map. The same card can therefore render differently
+on two boards (one with `style_field` set, one without — or two boards naming
+different fields). This is intentional: presentation is board-scoped; the
+field contract is type-scoped.
+
+`BoardPresentation.StyleField` replaces the unused `card_accent_field` name
+(deleted; unknown JSON keys remain ignored — no `DisallowUnknownFields`).
+
+## Normative: resolution precedence
+
+One precomputed per-card theme (`httpapi.resolveCardTheme` → `ViewData.CardTheme`
+/ `CardView` TypeIcon·Accent·Muted), consumed by board cards and modal/detail
+`card_head`:
 
 ```
 option theme (card's style_field value)  →  TypeTheme (card's type)  →  CSS [data-type] defaults
 ```
 
-Today, without `style_field`, users can already specify type-level identity in a
-card type:
+- **Option theme wins** when the board has `style_field`, the card has that
+  field set, and `option_themes[value]` is present. Missing keys fall through.
+- **Type theme** (`CardType.type_theme`, plus legacy flat `icon`) fills any
+  unset Icon/Accent/Muted.
+- **CSS defaults** (`[data-type]` / `[data-icon]` in `style.css`) apply when
+  Accent/Muted/Icon remain empty after the merge.
+
+Without `style_field`, resolution is TypeTheme → CSS only (today's behavior).
+Cards without the field, or with an unthemed value, fall through — nothing
+breaks; `style_field` is pure opt-in.
+
+Type-level identity still works without any style_field:
 
 ```json
 {
@@ -75,45 +100,82 @@ With `style_field`, the same `TypeTheme` shape is reused for enum values so the
 card root, modal badge, and detail header all receive the effective `data-icon`,
 `--card-stock`, and `--card-stock-bg`.
 
-- Cards without the field, or with an unthemed value, fall through — nothing
-  breaks, `style_field` is pure opt-in.
-- The board header's TYPE dropdown becomes the style-field dropdown when one
-  is declared (options come from the field def — already introspectable);
-  filtering maps to the existing `fields.kind=bug` query surface.
-- Themes (default/labels/journal) need no changes: they already render from
-  `--card-stock`/`--card-stock-bg`/icon, which the resolution chain feeds.
+## Load-time validation (P2b seam)
+
+Misconfiguration fails workspace load with a structured error (field path +
+value + allowed set / required floor):
+
+| Check | Where |
+|---|---|
+| `option_themes` only on single-value enum | `validateField` |
+| keys ⊆ `options` | `validateField` |
+| icon ∈ 9-alias set (`internal/core/icons.go`) | `validateField` |
+| every themed option has icon + accent + muted | `validateField` |
+| accent-on-muted contrast ≥ 4.5:1 | `validateField` via `core.MeetsContrastFloor` |
+| `style_field` names an enum field on ≥1 board type | `validateBoard` |
+| that field is not `multiple` | `validateBoard` / `validateField` |
+
+## Accessibility — contrast decision (card_8fea3fc0 A/B/C)
+
+Badge text paints author **accent** on author **muted** wash
+(`.card__type-badge` / `--badge-ink` on `--badge-wash`). Soft pairs fail WCAG
+AA (e.g. legacy `frontend-task` `#cf7b00` on `#f6e7cc` ≈ 2.65:1).
+
+**Decision C (hybrid), enforced for option accents:**
+
+- **B for `option_themes`:** load-time hard reject below 4.5:1 accent-on-muted.
+  Authored pairs are applied inline (`--card-stock` / `--card-stock-bg`) and
+  do not remap under `prefers-color-scheme`, so one floor check covers light
+  and dark. Hex only (`#RGB` / `#RRGGBB`).
+- **A deferred for legacy `TypeTheme`:** existing soft type accents stay as
+  author identity this sprint (runtime text-shade residual for
+  `card_8fea3fc0`); they are not hard-rejected so demo workspaces keep
+  booting.
+
+Icon is mandatory with color; the enum value stays readable as field text.
+No filter-by-accent affordance ships with style_field.
 
 ## Why this fits the architecture
 
-- **Same seam as today.** `TypeTheme` merging (`typeTheme()`, inline
-  `--card-stock` vars, `[data-type]`) already exists; this adds one lookup in
-  front of it, not a second theming system.
+- **Same seam as today.** TypeTheme merging, inline `--card-stock` vars, and
+  `[data-type]` already exist; option themes add one lookup in front, not a
+  second theming system.
 - **Definition-driven.** The enum def drives API validation, CLI/MCP schema,
-  *and now* the visual identity — one source, every surface, per the
-  philosophy.
-- **Kills the type-explosion pressure.** `cb9e2ca`'s feature/bug/task split
-  becomes one `programming-task` type + a `kind` enum — cheaper to author,
-  migrate, and query.
+  *and* visual identity — one source, every surface.
+- **Kills type-explosion pressure.** feature/bug/task becomes one card type +
+  a `kind` enum.
 
-## Open questions (decide before building)
+## Open questions (filter UX — not blocking)
 
-1. **Where do option themes live** — decided for the proposed contract: on the
-   enum field definition (`option_themes`), because the value's identity should
-   be consistent across boards. A board opts into *using* the field via
-   `presentation.style_field`; it does not redefine the icon/color map.
-2. **Filter semantics.** Replace the TYPE dropdown or sit beside it? On a
-   single-type board "replace" is obviously right; on mixed boards both keys
-   are meaningful. Cheapest honest answer: show the style-field dropdown when
-   declared, keep TYPE in saved filters.
-3. **Tags overlap.** Tags are also lightweight categorization. Rule of thumb
-   worth documenting: enum = exactly-one-of, drives identity; tags = any-of,
+1. **Filter semantics.** Replace the TYPE dropdown or sit beside it? Deferred
+   — no generic enum-filter affordance exists yet.
+2. **Tags overlap.** Enum = exactly-one-of, drives identity; tags = any-of,
    never drive identity.
-4. **`card_preview` interplay.** If the style field is promoted to color/icon,
-   it should probably drop out of the preview line automatically (it would be
-   redundant), like status already is in the labels theme.
+3. **`card_preview` interplay.** If the style field is promoted to color/icon,
+   it should probably drop out of the preview line automatically (redundant),
+   like status already is in the labels theme. Engineering dogfood leaves
+   `kind` out of `card_preview` for that reason.
 
 ## Non-goals
 
 - No new field types, no per-card colors, no user-set colors on arbitrary
   fields. Only `enum` gets themes: bounded values, bounded palette.
 - Not a replacement for `TypeTheme` — mixed-type boards keep working unchanged.
+- No multi-field color, tag-driven visuals, or per-card custom colors.
+- Filter-by-accent-click is out of scope for the style_field legibility ship.
+
+## Demo (engineering board)
+
+`programming-task` declares optional `kind` with OptionThemes;
+`boards/engineering.json` sets `"style_field": "kind"`. Cards without `kind`
+keep their type/CSS look (golden fixtures included). Cards with `kind` set
+render per-option color+icon.
+
+```bash
+scripts/dev-server.sh
+# or: go build -o cards ./cmd/cards && ./cards serve --workspace ./examples/demo-workspace --port 8787 --seed
+open 'http://127.0.0.1:8787/ui/boards/engineering?theme=labels'
+```
+
+Set `kind` on a card via the modal enum field (or `cards patch`) to see the
+option theme; clear it to fall back to type theme.

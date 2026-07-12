@@ -25,15 +25,22 @@ not yet implemented. Individual sections are tagged below.
 
 | Kind | When the core invokes it | Lifetime | Input |
 |------|--------------------------|----------|-------|
-| `hook` | An event matches its filter | One-shot subprocess | Event JSON on stdin |
-| `service` | When started externally; parsed but not supervised by the core today | Long-running | Reads its own API/SSE |
+| `hook` | An event matches its filter | One-shot subprocess | Event JSON on stdin (supervisor bus delivery) |
+| `service` | When `autostart: true` under `--run-extensions` **[built]**; otherwise started externally | Long-running supervised process | None from supervisor — dials HTTP/SSE itself |
 | `run` | When called via `cards do <id>` | One-shot subprocess | Args from CLI |
 
-All three communicate with the core via the same HTTP API. Hooks and services
-can also subscribe to `/v1/events/stream` (with `Last-Event-ID` replay) if they
-want richer event flow than a one-shot subprocess. (The `command` kind was
-renamed to `run` to avoid colliding with the removed `command` field type —
-see `NOTES.md` D2/D18.)
+All three communicate with the core via the same HTTP API. **Event delivery is
+bimodal by design** (see [`LIFECYCLE-SCHEMA.md`](../architecture/LIFECYCLE-SCHEMA.md)):
+
+- **Hooks** receive events from the in-process bus as stdin JSON
+  (subprocess-per-event).
+- **Services** are not fed events by the supervisor. A service that needs the
+  stream dials `/v1/events/stream` (with `Last-Event-ID` replay) as an ordinary
+  API client — same contract as any external integrator.
+
+Do not unify these paths later; the split keeps long-running peers crash-isolated
+from bus fan-out. (The `command` kind was renamed to `run` to avoid colliding
+with the removed `command` field type — see `NOTES.md` D2/D18.)
 
 ## Declaration
 
@@ -54,6 +61,7 @@ extensions:
     kind: service
     description: Watch ./drop and create intake cards
     autostart: true
+    restart_policy: on-failure
     run: ["node", ".cards/ext/dropbox.mjs"]
 
   - id: build-report
@@ -71,15 +79,40 @@ extensions:
       protocol: http
 ```
 
-The core runs declared `hook` and `run` extensions only when asked:
+### Lifecycle fields (`autostart` × `restart_policy`)
+
+Normative detail: [`LIFECYCLE-SCHEMA.md`](../architecture/LIFECYCLE-SCHEMA.md).
+
+| Field | Applies to | Role |
+|-------|------------|------|
+| `autostart` | `service` (enable-gate) | Whether the supervisor should start the process after the HTTP listener is ready |
+| `restart_policy` | `service` only | Recovery shape after exit: `on-failure` (default when omitted), `always`, or `never` |
+
+`restart_policy` on `hook` or `run` is a **load-time rejection** (not a silent
+no-op). Unknown values are rejected the same way. `expose` remains parsed but
+unconsumed (no reverse proxy / port registry).
+
+The core runs declared `hook` and `run` extensions when asked; `service`
+supervision is **[built]** (P5b):
 
 ```bash
-cards run-extensions --workspace ./.work-cards
+cards serve --run-extensions --workspace ./.work-cards   # supported home
+cards run-extensions --workspace ./.work-cards           # standalone
 ```
 
-Declared `service` entries are parsed but not started or supervised by the
-current core; run long-lived consumers with systemd, docker compose, or by hand.
-The core never requires its own supervisor.
+`serve --run-extensions` binds the HTTP listener first, then starts the
+supervisor so autostart services see an accepting port. Children receive
+`CARDS_URL` (loopback base, e.g. `http://127.0.0.1:8787/v1`),
+`CARDS_WORKSPACE`, and `CARDS_USER`. Restart uses `restart_policy` with
+bounded backoff (min-healthy-uptime before streak reset). Shutdown is
+SIGTERM → grace → SIGKILL of the process group.
+
+On successful definition reload, the supervisor **reconciles** service
+declarations (P5c): identity is the extension id; a change to run/args/env
+(and cwd / restart_policy) is "same service, changed declaration" and
+triggers drain+restart of that child only. Unchanged decls (including a
+routine board-create reload) leave running services alone. Hook/run
+declarations stay frozen for the supervisor's lifetime.
 
 ## Event contract for hooks
 
@@ -342,5 +375,6 @@ crash-isolated, replaceable process.
 | [`PHILOSOPHY.md`](../concepts/PHILOSOPHY.md) | Why the system stays small |
 | [`SPEC.md`](../spec/SPEC.md) | Normative API and event types |
 | [`ARCHITECTURE.md`](../architecture/ARCHITECTURE.md) | Go core, packaging, supervisor |
+| [`LIFECYCLE-SCHEMA.md`](../architecture/LIFECYCLE-SCHEMA.md) | Autostart × RestartPolicy × kinds; bimodal supervisor |
 | [`DEVELOPER-REFERENCE.md`](../reference/DEVELOPER-REFERENCE.md) | Schema authoring |
 | [`LIFECYCLE-EXAMPLES.md`](../examples/LIFECYCLE-EXAMPLES.md) | End-to-end lifecycles |

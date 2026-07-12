@@ -27,6 +27,37 @@ function swapHTML(container, html) {
     setTimeout(function(){ if (t.parentNode) t.remove(); }, 6000);
   }
 
+  // ---- Definitions reload failure banner (P3b --watch) ----
+  // Shown on definition_reload_failed; cleared on definition_reloaded (or dismiss).
+  // Last-good generation stays serving — this is feedback, not a hard stop.
+  function showDefReloadBanner(message) {
+    var el = document.getElementById('def-reload-banner');
+    if (!el) return;
+    el.replaceChildren();
+    var msg = document.createElement('div');
+    msg.className = 'def-reload-banner__msg';
+    var strong = document.createElement('strong');
+    strong.textContent = 'Definitions reload failed';
+    msg.appendChild(strong);
+    msg.appendChild(document.createTextNode(' — last-good definitions still serving. '));
+    msg.appendChild(document.createTextNode(message || 'validation failed'));
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'def-reload-banner__dismiss';
+    btn.setAttribute('aria-label', 'dismiss');
+    btn.textContent = '×';
+    btn.onclick = function () { clearDefReloadBanner(); };
+    el.appendChild(msg);
+    el.appendChild(btn);
+    el.hidden = false;
+  }
+  function clearDefReloadBanner() {
+    var el = document.getElementById('def-reload-banner');
+    if (!el) return;
+    el.hidden = true;
+    el.replaceChildren();
+  }
+
   // ---- Modal ----
   var modal = document.getElementById('card-modal');
   function openModal(html) {

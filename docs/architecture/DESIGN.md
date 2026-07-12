@@ -257,7 +257,7 @@ Themes hook onto four **stable** attach points; component class names and
 | `:root` token remap | whole app | a theme stylesheet / the dark block |
 | `html[data-theme="<name>"]` | named theme | `settings.theme` (workspace default), overridable per-visitor via `?theme=<name>` (sticky cookie; `?theme=default` clears). Resolved in `httpapi.resolveTheme`. |
 | `[data-board="<id>"]` wrapper | one board | `Board.theme` → `httpapi.boardStyle` (whitelisted inline tokens) |
-| `.card[data-type="<id>"]` + `[data-icon="<name>"]` | one card type or styled value | CSS defaults; `CardType.type_theme` `accent`/`muted` override inline — board corner mark as `--card-stock`/`--card-stock-bg`, modal/home badge as `--badge-ink` (printing: text + outline) / `--badge-wash` (stock: background). `type_theme.icon` emits `data-icon`, which overrides the monochrome `[data-type]` mask glyph. Future board `presentation.style_field` support uses the same hook for enum option themes. |
+| `.card[data-type="<id>"]` + `[data-icon="<name>"]` | one card type or styled value | CSS defaults; `CardType.type_theme` `accent`/`muted` override inline — board corner mark as `--card-stock`/`--card-stock-bg`, modal/home badge as `--badge-ink` (printing: text + outline) / `--badge-wash` (stock: background). `type_theme.icon` emits `data-icon`, which overrides the monochrome `[data-type]` mask glyph. Board `presentation.style_field` overlays `FieldDef.option_themes` for the card's enum value on the same hooks (see `docs/design/STYLE-FIELD.md`). |
 
 Rules:
 

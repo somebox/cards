@@ -14,18 +14,27 @@ import (
 	"github.com/somebox/cards/internal/core"
 )
 
+// Valid restart_policy values for kind:service. Empty means omitted (supervisor
+// default on-failure). See docs/architecture/LIFECYCLE-SCHEMA.md.
+const (
+	RestartOnFailure = "on-failure"
+	RestartAlways    = "always"
+	RestartNever     = "never"
+)
+
 // Extension is one declared extension. Kind is hook|service|run.
 type Extension struct {
-	ID          string            `json:"id" yaml:"id"`
-	Kind        string            `json:"kind" yaml:"kind"` // hook | service | run
-	Description string            `json:"description" yaml:"description"`
-	On          string            `json:"on" yaml:"on"`         // hook: event type
-	Filter      HookFilter        `json:"filter" yaml:"filter"` // hook: event filter
-	Run         []string          `json:"run" yaml:"run"`       // argv
-	Cwd         string            `json:"cwd" yaml:"cwd"`
-	Env         map[string]string `json:"env" yaml:"env"`
-	Autostart   bool              `json:"autostart" yaml:"autostart"`
-	Expose      *Expose           `json:"expose" yaml:"expose"`
+	ID            string            `json:"id" yaml:"id"`
+	Kind          string            `json:"kind" yaml:"kind"` // hook | service | run
+	Description   string            `json:"description" yaml:"description"`
+	On            string            `json:"on" yaml:"on"`         // hook: event type
+	Filter        HookFilter        `json:"filter" yaml:"filter"` // hook: event filter
+	Run           []string          `json:"run" yaml:"run"`       // argv
+	Cwd           string            `json:"cwd" yaml:"cwd"`
+	Env           map[string]string `json:"env" yaml:"env"`
+	Autostart     bool              `json:"autostart" yaml:"autostart"`
+	RestartPolicy string            `json:"restart_policy,omitempty" yaml:"restart_policy"` // service only
+	Expose        *Expose           `json:"expose" yaml:"expose"`
 }
 
 // HookFilter selects which events trigger a hook.
@@ -96,8 +105,28 @@ func validateExtensions(exts []Extension) error {
 		if e.Kind == "hook" && e.On == "" {
 			return fmt.Errorf("extension %s: hook requires on", e.ID)
 		}
+		if err := validateRestartPolicy(e); err != nil {
+			return err
+		}
 	}
 	return nil
+}
+
+// validateRestartPolicy enforces LIFECYCLE-SCHEMA.md: restart_policy is
+// service-only; unknown values are rejected (fail-loud, not silent no-op).
+func validateRestartPolicy(e Extension) error {
+	if e.RestartPolicy == "" {
+		return nil
+	}
+	if e.Kind != "service" {
+		return fmt.Errorf("extension %s: restart_policy is only valid on kind:service (got kind:%s)", e.ID, e.Kind)
+	}
+	switch e.RestartPolicy {
+	case RestartOnFailure, RestartAlways, RestartNever:
+		return nil
+	default:
+		return fmt.Errorf("extension %s: unknown restart_policy %q (allowed: on-failure, always, never)", e.ID, e.RestartPolicy)
+	}
 }
 
 // MatchesEvent reports whether a hook filter accepts an event (POC: type +
@@ -212,6 +241,8 @@ func parseYAMLExtensions(data []byte) ([]Extension, error) {
 			cur.On = v
 		case "autostart":
 			cur.Autostart = v == "true"
+		case "restart_policy":
+			cur.RestartPolicy = v
 		case "cwd":
 			cur.Cwd = v
 		case "run":
