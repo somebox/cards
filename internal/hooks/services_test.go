@@ -28,7 +28,7 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-func testChildArgs(mode string) []string {
+func testChildArgs() []string {
 	return []string{os.Args[0], "-test.run=^$", "-test.v=false"}
 }
 
@@ -83,7 +83,7 @@ func TestServiceCrashLoopEscalatesBackoff(t *testing.T) {
 	ext := config.Extension{
 		ID: "crashy", Kind: "service", Autostart: true,
 		RestartPolicy: config.RestartOnFailure,
-		Run:           testChildArgs("crash"),
+		Run:           testChildArgs(),
 		Env:           testChildEnv("crash"),
 	}
 	sup, _, _ := newServiceSup(t, []config.Extension{ext})
@@ -250,7 +250,7 @@ func TestServiceOnFailureSkipsCleanExit(t *testing.T) {
 	ext := config.Extension{
 		ID: "once", Kind: "service", Autostart: true,
 		RestartPolicy: config.RestartOnFailure,
-		Run:           testChildArgs("exit0"),
+		Run:           testChildArgs(),
 		Env:           testChildEnv("exit0"),
 	}
 	sup, _, _ := newServiceSup(t, []config.Extension{ext})
@@ -276,7 +276,7 @@ func TestShouldRestartPolicy(t *testing.T) {
 	ext := config.Extension{
 		ID: "always", Kind: "service", Autostart: true,
 		RestartPolicy: config.RestartAlways,
-		Run:           testChildArgs("exit0"),
+		Run:           testChildArgs(),
 		Env:           testChildEnv("exit0"),
 	}
 	sup, _, _ := newServiceSup(t, []config.Extension{ext})
@@ -307,5 +307,64 @@ func TestShouldRestartPolicy(t *testing.T) {
 	}
 	if sleeps.Load() < 2 {
 		t.Fatalf("restart_policy=always did not restart on exit 0 (sleeps=%d)", sleeps.Load())
+	}
+}
+
+// TestServiceGrandchildHoldingStdoutDoesNotWedgeShutdown: a SIGTERM-ignoring
+// child uses job control (set -m) to spawn a grandchild in its OWN process
+// group that inherits stdout, so the drain's SIGKILL of the service's pgroup
+// misses it. Because service stdio is a real file (not an exec-managed pipe),
+// cmd.Wait returns as soon as the child itself is reaped and shutdown stays
+// bounded. With buffer/pipe stdio this test wedges Run past the 5s guard.
+func TestServiceGrandchildHoldingStdoutDoesNotWedgeShutdown(t *testing.T) {
+	dir := t.TempDir()
+	marker := filepath.Join(dir, "pids")
+	ext := config.Extension{
+		ID: "holder", Kind: "service", Autostart: true,
+		RestartPolicy: config.RestartNever,
+		Run: []string{"bash", "-c",
+			`set -m; sleep 30 & echo "$$ $!" >` + marker + `; trap '' TERM; while true; do sleep 1; done`},
+	}
+	sup, _, _ := newServiceSup(t, []config.Extension{ext})
+	sup.SetDrainTimeout(200 * time.Millisecond)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { defer close(done); _ = sup.Run(ctx) }()
+
+	var childPID, grandPID int
+	deadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadline) {
+		if data, err := os.ReadFile(marker); err == nil {
+			if n, _ := fmt.Sscanf(string(data), "%d %d", &childPID, &grandPID); n == 2 && childPID > 0 && grandPID > 0 {
+				break
+			}
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if childPID <= 0 || grandPID <= 0 {
+		cancel()
+		<-done
+		t.Fatal("holder child/grandchild never wrote pid marker")
+	}
+	defer func() { _ = syscall.Kill(grandPID, syscall.SIGKILL) }()
+
+	start := time.Now()
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Run did not return: shutdown wedged by grandchild holding stdout")
+	}
+	if elapsed := time.Since(start); elapsed > 3*time.Second {
+		t.Fatalf("shutdown took %s; want bounded by drain+kill (<3s)", elapsed)
+	}
+	// The scenario is only proven if the grandchild actually outlived the
+	// pgroup SIGKILL while holding the inherited stdout fd.
+	if err := syscall.Kill(grandPID, 0); err != nil {
+		t.Fatalf("grandchild %d did not survive pgroup kill — scenario not exercised: %v", grandPID, err)
+	}
+	if err := syscall.Kill(childPID, 0); err == nil {
+		t.Fatalf("service child %d still alive after shutdown", childPID)
 	}
 }

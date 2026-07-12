@@ -59,8 +59,8 @@ func (s *Supervisor) Reconcile(exts []config.Extension) {
 	ctx := s.svcCtx
 	s.mu.Unlock()
 	if ctx == nil || ctx.Err() != nil {
-		// Not past listener-ready / already shutting down — initial
-		// startAutostartServices (or shutdown) owns the set.
+		// Not past listener-ready / already shutting down — Run's initial
+		// autostart section (or shutdown) owns the set.
 		return
 	}
 
@@ -172,11 +172,20 @@ func (s *Supervisor) stopOne(ms *managedService) {
 			s.log(ms.ext.ID, "force kill (SIGKILL)")
 			_ = killProcessGroup(pid)
 		}
-		<-done
+		// Bounded even post-SIGKILL: stopOne runs under reconcileMu, and an
+		// unreapable child must not wedge every future reload/board-create.
+		select {
+		case <-done:
+		case <-time.After(s.drainTimeout):
+			s.log(ms.ext.ID, "drain incomplete after SIGKILL; leaking waiter goroutine")
+		}
 	}
 }
 
 // startOne launches one supervise loop under parent (the Run-scoped svcCtx).
+// Skips ids that already have a managed child: reconcile paths stop+remove
+// before restarting, so a duplicate here is always a caller race, and two
+// supervise loops for one id would fight over the same declaration forever.
 func (s *Supervisor) startOne(parent context.Context, ext config.Extension) {
 	ctx, cancel := context.WithCancel(parent)
 	ms := &managedService{
@@ -186,6 +195,14 @@ func (s *Supervisor) startOne(parent context.Context, ext config.Extension) {
 		done:   make(chan struct{}),
 	}
 	s.mu.Lock()
+	for _, x := range s.services {
+		if x.ext.ID == ext.ID {
+			s.mu.Unlock()
+			cancel()
+			s.log(ext.ID, "startOne: already managed; skipping duplicate start")
+			return
+		}
+	}
 	s.services = append(s.services, ms)
 	s.mu.Unlock()
 	s.svcWG.Add(1)

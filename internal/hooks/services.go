@@ -1,7 +1,6 @@
 package hooks
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -85,15 +84,22 @@ func (s *Supervisor) SetSleep(fn sleepFunc) {
 	s.sleep = fn
 }
 
-// startAutostartServices launches one supervise-loop goroutine per Autostart
-// service. Does not feed events — lifecycle only (LIFECYCLE-SCHEMA.md bimodal).
-// Serialized with Reconcile via reconcileMu.
-func (s *Supervisor) startAutostartServices(ctx context.Context) {
-	s.reconcileMu.Lock()
-	defer s.reconcileMu.Unlock()
-	for _, ext := range s.AutostartServices() {
-		s.startOne(ctx, ext)
+// serviceLogFile opens the append-mode per-service log sink. Handing the child
+// a real *os.File (not a buffer/pipe) is load-bearing twice over: exec passes
+// the fd straight through, so a chatty long-running service streams to disk
+// instead of growing supervisor memory, and cmd.Wait never blocks on I/O — a
+// grandchild that escaped the process group while holding stdout cannot wedge
+// shutdown. Returns nil (child gets /dev/null) if the log dir is unusable.
+func (s *Supervisor) serviceLogFile(extID string) *os.File {
+	logDir := filepath.Join(s.workspaceDir, ".cards", "logs")
+	if err := os.MkdirAll(logDir, 0o755); err != nil {
+		return nil
 	}
+	f, err := os.OpenFile(filepath.Join(logDir, extID+".log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	if err != nil {
+		return nil
+	}
+	return f
 }
 
 // superviseService runs one service until ctx is cancelled or the restart
@@ -184,11 +190,21 @@ func (s *Supervisor) runServiceOnce(ctx context.Context, ms *managedService) err
 		cwd = filepath.Join(s.workspaceDir, cwd)
 	}
 	cmd.Dir = cwd
-	var out, errOut bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &errOut
+	logf := s.serviceLogFile(ext.ID)
+	if logf != nil {
+		fmt.Fprintf(logf, "--- %s start ---\n", time.Now().UTC().Format(time.RFC3339))
+		cmd.Stdout = logf
+		cmd.Stderr = logf
+	}
+	// With *os.File stdio exec creates no pipes, so Wait is bounded by the
+	// process alone; WaitDelay backstops that invariant if the sink ever
+	// changes (mirrors the hook path in hooks.go).
+	cmd.WaitDelay = 5 * time.Second
 
 	if err := cmd.Start(); err != nil {
+		if logf != nil {
+			logf.Close()
+		}
 		s.log(ext.ID, fmt.Sprintf("start failed: %v", err))
 		return err
 	}
@@ -201,28 +217,28 @@ func (s *Supervisor) runServiceOnce(ctx context.Context, ms *managedService) err
 	waitDone := make(chan error, 1)
 	go func() { waitDone <- cmd.Wait() }()
 
+	var err error
+	cancelled := false
 	select {
-	case err := <-waitDone:
-		ms.mu.Lock()
-		ms.cmd = nil
-		ms.pid = 0
-		ms.mu.Unlock()
-		s.persistLog(ext.ID, out.String(), errOut.String())
-		return err
+	case err = <-waitDone:
 	case <-ctx.Done():
-		// Parent is shutting down; leave the process for stopAllServices.
-		// Still wait so we don't leak the Wait goroutine's Process state.
-		err := <-waitDone
-		ms.mu.Lock()
-		ms.cmd = nil
-		ms.pid = 0
-		ms.mu.Unlock()
-		s.persistLog(ext.ID, out.String(), errOut.String())
-		if err != nil {
-			return err
-		}
+		// Parent is shutting down; leave signalling to stopAllServices/stopOne.
+		// Wait is bounded (file stdio + WaitDelay), so this cannot wedge.
+		cancelled = true
+		err = <-waitDone
+	}
+	ms.mu.Lock()
+	ms.cmd = nil
+	ms.pid = 0
+	ms.mu.Unlock()
+	if logf != nil {
+		fmt.Fprintf(logf, "--- %s exit err=%v ---\n", time.Now().UTC().Format(time.RFC3339), err)
+		logf.Close()
+	}
+	if cancelled && err == nil {
 		return ctx.Err()
 	}
+	return err
 }
 
 // stopAllServices SIGTERMs every managed child, waits up to drainTimeout, then
@@ -264,6 +280,13 @@ func (s *Supervisor) stopAllServices() {
 				_ = killProcessGroup(pid)
 			}
 		}
-		<-done
+		// Post-SIGKILL wait is bounded too: an unreapable child (kernel
+		// D-state) must not turn "shutdown always returns" into a lie. If it
+		// trips, the waiter goroutine is leaked deliberately and loudly.
+		select {
+		case <-done:
+		case <-time.After(s.drainTimeout):
+			s.log("supervisor", "service drain incomplete after SIGKILL; leaking waiter goroutine")
+		}
 	}
 }
