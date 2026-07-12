@@ -67,7 +67,7 @@ type Supervisor struct {
 	logs        map[string][]string // per-extension recent log lines
 	services    []*managedService
 	svcCtx      context.Context // set in Run after ready; parent for service loops
-	reconcileMu sync.Mutex      // serializes startAutostartServices ↔ Reconcile
+	reconcileMu sync.Mutex      // serializes Run's initial autostart ↔ Reconcile
 }
 
 // New constructs a Supervisor. getSvc must be non-nil and return a live
@@ -126,10 +126,18 @@ func (s *Supervisor) Run(ctx context.Context) error {
 
 	svcCtx, stopServices := context.WithCancel(context.Background())
 	defer stopServices()
+	// Publish svcCtx and launch the initial autostart set inside ONE
+	// reconcileMu section: a reload's Reconcile that observes svcCtx before
+	// the initial set is registered would start every autostart service
+	// itself, and the unconditional starts here would then duplicate them.
+	s.reconcileMu.Lock()
 	s.mu.Lock()
 	s.svcCtx = svcCtx
 	s.mu.Unlock()
-	s.startAutostartServices(svcCtx)
+	for _, ext := range s.AutostartServices() {
+		s.startOne(svcCtx, ext)
+	}
+	s.reconcileMu.Unlock()
 
 	hooks := s.Hooks()
 	spawnCtx, killSpawns := context.WithCancel(context.Background())

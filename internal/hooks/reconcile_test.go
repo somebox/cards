@@ -202,7 +202,19 @@ func TestReconcileAddedStarts(t *testing.T) {
 	ext := longRunningExt("newbie", marker)
 	sup.Reconcile([]config.Extension{ext})
 	_ = waitServicePID(t, sup, "newbie", 3*time.Second)
-	if _, err := os.Stat(marker); err != nil {
-		t.Fatalf("added service did not write pid marker: %v", err)
+	// The pid is registered at cmd.Start, which can precede the shell writing
+	// the marker — poll rather than stat-once (was a -race flake).
+	waitForFile(t, marker, 3*time.Second)
+}
+
+func waitForFile(t *testing.T, path string, timeout time.Duration) {
+	t.Helper()
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		if _, err := os.Stat(path); err == nil {
+			return
+		}
+		time.Sleep(20 * time.Millisecond)
 	}
+	t.Fatalf("file %s never appeared within %s", path, timeout)
 }
