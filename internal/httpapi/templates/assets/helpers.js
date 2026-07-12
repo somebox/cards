@@ -57,10 +57,49 @@ function maxEventId(current, evId) {
   return (!isNaN(n) && n > current) ? n : current;
 }
 
+// --- create-card payload collection (P4 follow-up) ---
+// collectCreatePayload builds the POST /v1/cards request from plain input
+// descriptors: [{name, kind, value, values, required}]. The DOM walk lives in
+// components.js createModal.collect(); everything decision-shaped is here so
+// the dirty packages that bit us (number coercion, tags split, multi-value
+// absent-vs-[], required tracking, field: prefix routing) are unit-testable.
+//
+// Contract highlights:
+// - multi-enum/multi-user use `values` (array); empty selection = ABSENT from
+//   fields (the unset contract — never [] on the wire), required-and-empty
+//   lands in missing.
+// - scalar values are trimmed; empty = absent (required tracking as above).
+// - name "title"/"status" route to the top level; "tags" splits on commas,
+//   trims, drops empties; "field:<id>" routes into req.fields.
+// - kind "number" coerces with Number(v) — the FormData-vs-JSON bug class.
+function collectCreatePayload(typeID, inputs) {
+  var req = { type_id: typeID, fields: {} };
+  var missing = [];
+  (inputs || []).forEach(function (inp) {
+    var name = inp.name;
+    if (inp.kind === 'multi-enum' || inp.kind === 'multi-user') {
+      var vals = (inp.values || []).filter(Boolean);
+      if (!vals.length) { if (inp.required) missing.push(name); return; }
+      if (name.indexOf('field:') === 0) req.fields[name.slice(6)] = vals;
+      return;
+    }
+    var v = (inp.value || '').trim();
+    if (!v) { if (inp.required) missing.push(name); return; }
+    if (name === 'title') req.title = v;
+    else if (name === 'status') req.status = v;
+    else if (name === 'tags') req.tags = v.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+    else if (name.indexOf('field:') === 0) {
+      req.fields[name.slice(6)] = (inp.kind === 'number') ? Number(v) : v;
+    }
+  });
+  return { req: req, missing: missing };
+}
+
 // Node test-runner hook (no-op in the browser).
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     ago: ago, comboMatch: comboMatch,
     shouldDeliver: shouldDeliver, nextBackoff: nextBackoff, maxEventId: maxEventId,
+    collectCreatePayload: collectCreatePayload,
   };
 }
