@@ -378,3 +378,19 @@ Dark mode + `prefers-reduced-motion` supported; keyboard focus visible
 identically). Timestamps render via `<time data-ago="{{iso …}}">` + the client
 `refreshAgo()` helper — always emit `iso` (RFC3339), never a raw Go
 `time.Time`.
+
+## Definitions visibility (decided 2026-07-12)
+
+Workspace schema stays **git-backed files + docs**; the web UI's job is
+**visibility, not editing** (closed design card `card_8b5a4937`: the UI only
+ever selects *subsets* of workspace columns/types — board-create — and never
+authors field contracts). The sanctioned surface is a **read-only JSON view**
+of the authored definition files (workspace, card types, boards), each shown
+with its file path so the viewer knows exactly what to edit and where.
+
+Rendering: pretty-printed `<pre>` on the existing type tokens — **no JSON
+formatter/viewer library**. Investigated and declined (`card_cec11535`): the
+largest shipped definition is ~116 lines, so collapsible trees buy nothing,
+and a vendored formatter fights the no-build-step, no-dependency asset
+discipline. Optional light syntax tinting must be a few lines of our own
+code, not a dependency.
