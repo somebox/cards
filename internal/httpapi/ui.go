@@ -689,7 +689,7 @@ func (s *Server) uiSaveCard(w http.ResponseWriter, r *http.Request) {
 // toast; either way the swapped-in modal fragment still carries the alert.
 func (s *Server) renderCardModalErr(w http.ResponseWriter, r *http.Request, c *core.Card, err *core.Error) {
 	ct := s.types[c.TypeID]
-	b := s.boardForCard(c)
+	b := s.boardFromRequest(r, c)
 	users := s.listUsersBestEffort(r)
 	data := s.baseData(c.Title)
 	data.Card = c

@@ -48,6 +48,13 @@ func TestRender_GoldenTypeThemedBoards(t *testing.T) {
 			compareGolden(t, "testdata/golden/modal_"+id+".html", body)
 		})
 	}
+
+	// Option-themed modal WITH board context (?board= is what card links pass;
+	// pins the boardFromRequest + per-value OptionThemes render path).
+	t.Run("modal_option_themed_with_board", func(t *testing.T) {
+		body := goldenGET(t, ts, "/ui/cards/card_golden_programming/modal?board=engineering", nil)
+		compareGolden(t, "testdata/golden/modal_card_golden_programming.html", body)
+	})
 }
 
 func newGoldenServer(t *testing.T) (*httptest.Server, []string) {
@@ -77,7 +84,9 @@ func newGoldenServer(t *testing.T) (*httptest.Server, []string) {
 		{
 			id: "card_golden_programming", typeID: "programming-task",
 			title: "Golden programming task", status: "todo",
-			fields: map[string]any{"description": "d", "branch": "feat/golden-prog"},
+			// kind exercises the option-theme branch (engineering board sets
+			// presentation.style_field=kind; option wins over [data-type] CSS).
+			fields: map[string]any{"description": "d", "branch": "feat/golden-prog", "kind": "bug"},
 		},
 		{
 			id: "card_golden_research", typeID: "research-goal",

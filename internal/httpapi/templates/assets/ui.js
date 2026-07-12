@@ -90,7 +90,11 @@ function swapHTML(container, html) {
   // we do NOT clobber it, and a failed refetch surfaces an error and keeps the
   // (now-stale) modal rather than blanking it or pretending it is current.
   function reloadModal(cardID) {
-    return fetch('/ui/cards/' + cardID + '/modal', {headers:{'X-Cards-Partial':'true'}})
+    // Refetch with the same URL the modal was opened with (keeps ?board=
+    // theming context); fall back to the bare modal URL if it doesn't match.
+    var base = '/ui/cards/' + cardID + '/modal';
+    var url = (lastModalURL && lastModalURL.indexOf(base) === 0) ? lastModalURL : base;
+    return fetch(url, {headers:{'X-Cards-Partial':'true'}})
       .then(function(r){ if (!r.ok) throw new Error(''+r.status); return r.text(); })
       .then(function(html){
         // Superseded-guard: only overwrite if the modal is still showing
@@ -162,7 +166,9 @@ function swapHTML(container, html) {
       loadModal(a.getAttribute('data-card-link') || a.getAttribute('data-create-link'));
     }
   });
+  var lastModalURL = '';
   function loadModal(url) {
+    lastModalURL = url || '';
     var modal = document.getElementById('card-modal');
     swapHTML(modal, '<div class="modal__loading"><div class="skel-line"></div><div class="skel-line"></div><div class="skel-line"></div></div>');
     if (!modal.open) modal.showModal();

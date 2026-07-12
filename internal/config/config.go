@@ -52,7 +52,7 @@ func (l *Loader) Load() (*Result, error) {
 	if err != nil {
 		return nil, err
 	}
-	types, err := l.loadCardTypes(ws)
+	types, typeWarnings, err := l.loadCardTypes(ws)
 	if err != nil {
 		return nil, err
 	}
@@ -75,6 +75,7 @@ func (l *Loader) Load() (*Result, error) {
 		}
 	}
 	warnings := validatePersistConditions(ws)
+	warnings = append(warnings, typeWarnings...)
 	warnings = append(warnings, boardWarnings...)
 	warnings = append(warnings, themeWarnings...)
 	return &Result{
@@ -123,13 +124,14 @@ func (l *Loader) loadWorkspace() (*core.Workspace, error) {
 	return &ws, nil
 }
 
-func (l *Loader) loadCardTypes(ws *core.Workspace) (map[string]*core.CardType, error) {
+func (l *Loader) loadCardTypes(ws *core.Workspace) (map[string]*core.CardType, []string, error) {
 	dir := filepath.Join(l.workspaceDir, "definitions", "card-types")
 	entries, err := os.ReadDir(dir)
 	if err != nil {
-		return nil, fmt.Errorf("read card-types dir: %w", err)
+		return nil, nil, fmt.Errorf("read card-types dir: %w", err)
 	}
 	types := map[string]*core.CardType{}
+	warnings := []string{}
 	for _, e := range entries {
 		if e.IsDir() || !hasExt(e.Name(), ".json") {
 			continue
@@ -141,24 +143,46 @@ func (l *Loader) loadCardTypes(ws *core.Workspace) (map[string]*core.CardType, e
 		path := filepath.Join(dir, e.Name())
 		data, err := os.ReadFile(path)
 		if err != nil {
-			return nil, fmt.Errorf("read %s: %w", e.Name(), err)
+			return nil, nil, fmt.Errorf("read %s: %w", e.Name(), err)
 		}
 		var ct core.CardType
 		if err := json.Unmarshal(data, &ct); err != nil {
-			return nil, fmt.Errorf("parse %s: %w", e.Name(), err)
+			return nil, nil, fmt.Errorf("parse %s: %w", e.Name(), err)
 		}
 		if ct.ID == "" {
-			return nil, fmt.Errorf("%s: missing id", e.Name())
+			return nil, nil, fmt.Errorf("%s: missing id", e.Name())
 		}
 		if _, dup := types[ct.ID]; dup {
-			return nil, fmt.Errorf("duplicate card type id: %s", ct.ID)
+			return nil, nil, fmt.Errorf("duplicate card type id: %s", ct.ID)
 		}
 		if err := validateCardType(&ct, ws); err != nil {
-			return nil, fmt.Errorf("card type %s: %w", ct.ID, err)
+			return nil, nil, fmt.Errorf("card type %s: %w", ct.ID, err)
 		}
+		warnings = append(warnings, optionThemeInkWarnings(&ct)...)
 		types[ct.ID] = &ct
 	}
-	return types, nil
+	return types, warnings, nil
+}
+
+// optionThemeInkWarnings flags option accents too light for the fixed light
+// icon ink some themes paint ON the accent surface (labels: #fffdf5 on
+// --card-stock). Warning tier, not rejection: the hard 4.5:1 floor covers
+// accent-on-muted; icon-on-accent is a 3:1 graphics-scale concern and a light
+// accent may be deliberate on themes that never do this.
+func optionThemeInkWarnings(ct *core.CardType) []string {
+	const themeInk = "#fffdf5"
+	var out []string
+	for _, f := range ct.Fields {
+		for opt, th := range f.OptionThemes {
+			c, err := core.ContrastRatio(themeInk, th.Accent)
+			if err == nil && c < 3.0 {
+				out = append(out, fmt.Sprintf(
+					"card type %s: field %q: option_themes[%q]: accent %s gives %.1f:1 against the light icon ink themes paint on accent surfaces (3:1 graphics floor) — consider a darker accent",
+					ct.ID, f.ID, opt, th.Accent, c))
+			}
+		}
+	}
+	return out
 }
 
 func (l *Loader) loadBoards(ws *core.Workspace, types map[string]*core.CardType) (map[string]*core.Board, []string, error) {

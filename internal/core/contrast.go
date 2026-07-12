@@ -11,7 +11,8 @@ import (
 // OptionThemes accent/muted pairs at definition load. See docs/design/STYLE-FIELD.md.
 const MinContrastRatio = 4.5
 
-// ParseHexColor parses #RGB or #RRGGBB into 0–1 linear sRGB channels.
+// ParseHexColor parses #RGB or #RRGGBB into gamma-encoded sRGB channels in
+// 0–1 (linearization happens in RelativeLuminance).
 func ParseHexColor(s string) (r, g, b float64, err error) {
 	s = strings.TrimSpace(s)
 	if s == "" {
