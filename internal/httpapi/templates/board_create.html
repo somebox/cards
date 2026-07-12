@@ -6,12 +6,11 @@
      reloads the workspace. Everything richer (transitions, monitors,
      presentation) is edited in that file. */}}
 {{define "board_create_modal"}}
-{{/* All columns/types default to selected (matching the server-rendered
-     initial checkbox state); Alpine's x-model on checkbox arrays is
-     authoritative, so we hand it the seed list rather than having init()
-     read the DOM (which x-model has already overridden by then). */}}
-<div class="create-modal" data-board-create
-     x-data='boardCreate({columns: {{jsonAttr .AllColumnIDs}}, types: {{jsonAttr .AllTypeIDs}}})'>
+{{/* Columns/types use the shared multiSelect chip control (same language as
+     edit-card multi fields): a native <select multiple> with every option
+     selected is the source of truth — submit reads its selectedOptions, and
+     if Alpine never boots the native select remains the working control. */}}
+<div class="create-modal" data-board-create x-data="boardCreate()">
   <div class="modal__head">
     <div class="modal__head-main">
       <span class="card-title__view">New board</span>
@@ -31,24 +30,22 @@
 
       <div class="field">
         <span class="field__label">Columns <span class="req">*</span></span>
-        <div class="check-grid" data-board-columns>
-          {{range .Columns}}
-          <label class="check-item"><input type="checkbox" value="{{.ID}}" x-model="columns"> {{.Name}}</label>
-          {{end}}
+        <div class="multiselect" x-data="multiSelect()" @click.outside="close()" data-board-columns>
+          <select class="select select--multi" multiple size="{{len .AllColumnIDs}}" data-board-select="columns" aria-label="Columns" x-show="!ready">
+            {{range .AllColumnIDs}}<option value="{{.}}" selected>{{.}}</option>{{end}}
+          </select>
+          {{template "multiselect_ui" (dict "Options" .AllColumnIDs)}}
         </div>
         <span class="field-error" role="alert" data-error-for="columns" x-cloak x-show="errors.columns" x-text="errors.columns"></span>
       </div>
 
       <div class="field">
         <span class="field__label">Card types <span class="req">*</span></span>
-        <div class="check-grid" data-board-types>
-          {{range .TypeOptions}}
-          {{$th := typeTheme $.TypeThemes .Value}}
-          <label class="check-item"><input type="checkbox" value="{{.Value}}" x-model="types">
-            <span class="card__type-badge" data-type="{{.Value}}"{{if $th.Icon}} data-icon="{{$th.Icon}}"{{end}}
-                  {{- if $th.Accent}} style="--badge-ink:{{$th.Accent}}{{- if $th.Muted}};--badge-wash:{{$th.Muted}}{{end}}"{{end}}>{{.Label}}</span>
-          </label>
-          {{end}}
+        <div class="multiselect" x-data="multiSelect()" @click.outside="close()" data-board-types>
+          <select class="select select--multi" multiple size="{{len .AllTypeIDs}}" data-board-select="types" aria-label="Card types" x-show="!ready">
+            {{range .AllTypeIDs}}<option value="{{.}}" selected>{{.}}</option>{{end}}
+          </select>
+          {{template "multiselect_ui" (dict "Options" .AllTypeIDs)}}
         </div>
         <span class="field-error" role="alert" data-error-for="card_type_ids" x-cloak x-show="errors.card_type_ids" x-text="errors.card_type_ids"></span>
       </div>
