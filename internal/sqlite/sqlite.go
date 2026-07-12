@@ -584,6 +584,14 @@ func (s *Store) UpdateCard(ctx context.Context, c *core.Card, evs []*core.Event)
 	}
 	n, _ := res.RowsAffected()
 	if n == 0 {
+		// Attach the CURRENT row, not the attempted next state — the contract
+		// is "conflict hands you what the DB holds so you can rebase". Read
+		// through the same tx; fall back to the attempted card if even that
+		// fails (row deleted mid-flight).
+		row := tx.QueryRowContext(ctx, "SELECT "+cardCols+" FROM cards c WHERE c.id = ?", c.ID)
+		if cur, scanErr := scanCard(row); scanErr == nil {
+			return core.VersionConflict(cur)
+		}
 		return core.VersionConflict(c) // concurrent mutation
 	}
 	if err := upsertFTS(tx, c); err != nil {

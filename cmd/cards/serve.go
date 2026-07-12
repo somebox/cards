@@ -119,14 +119,6 @@ func serveCmd(args []string) error {
 	if w := loopbackWarning(*host); w != "" {
 		log.Print(w)
 	}
-	if *watch {
-		// Poller lifetime tied to serveCmd: cancel when Serve returns.
-		watchCtx, watchCancel := context.WithCancel(context.Background())
-		defer watchCancel()
-		go newDefsWatcher(app, defaultWatchPoll, defaultWatchDebounce, nil).Run(watchCtx)
-		log.Printf("  watch: polling definitions/ (poll=%s debounce=%s)", defaultWatchPoll, defaultWatchDebounce)
-	}
-
 	// Bind before starting the supervisor so kind:service autostart waits on a
 	// real accepting listener (listener-ready gate), not ListenAndServe's
 	// internal bind. See LIFECYCLE-SCHEMA.md / P5b.
@@ -173,6 +165,25 @@ func serveCmd(args []string) error {
 		}()
 		log.Printf("  extensions: supervisor running (%d hook(s), %d autostart service(s))",
 			countHooks(result.Extensions), countAutostartServices(result.Extensions))
+	}
+	// Start the definitions watcher LAST — after setAfterReload above — so a
+	// first-tick reload cannot race the plain afterReload field write (a
+	// watcher started earlier had no happens-before edge to it and could
+	// silently skip a service reconcile). Joined on shutdown like the
+	// supervisor: a SIGINT mid-scan must not race reloadLocked against the
+	// closing store.
+	if *watch {
+		watchCtx, watchCancel := context.WithCancel(context.Background())
+		watchDone := make(chan struct{})
+		go func() {
+			defer close(watchDone)
+			newDefsWatcher(app, defaultWatchPoll, defaultWatchDebounce, nil).Run(watchCtx)
+		}()
+		defer func() {
+			watchCancel()
+			<-watchDone
+		}()
+		log.Printf("  watch: polling definitions/ (poll=%s debounce=%s)", defaultWatchPoll, defaultWatchDebounce)
 	}
 	return httpSrv.Serve(ln)
 }

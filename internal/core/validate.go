@@ -166,11 +166,15 @@ func validateValue(f *FieldDef, v any) error {
 		// are Unix seconds (UTC). Load-time config checks min<=max when both set.
 		if f.Min != nil || f.Max != nil {
 			n := float64(t.Unix())
+			// Bounds are Unix seconds in the shared Min/Max slots; render them
+			// as dates — "below min 1.5778368e+09" tells an author nothing.
 			if f.Min != nil && n < *f.Min {
-				return NewValidationError(f.ID, fmt.Sprintf("field %q below min %v", f.ID, *f.Min))
+				return NewValidationError(f.ID, fmt.Sprintf("field %q: %s is before the minimum date %s",
+					f.ID, t.UTC().Format("2006-01-02"), time.Unix(int64(*f.Min), 0).UTC().Format("2006-01-02")))
 			}
 			if f.Max != nil && n > *f.Max {
-				return NewValidationError(f.ID, fmt.Sprintf("field %q above max %v", f.ID, *f.Max))
+				return NewValidationError(f.ID, fmt.Sprintf("field %q: %s is after the maximum date %s",
+					f.ID, t.UTC().Format("2006-01-02"), time.Unix(int64(*f.Max), 0).UTC().Format("2006-01-02")))
 			}
 		}
 	case FieldEnum:

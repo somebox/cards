@@ -1010,6 +1010,11 @@ func (s *Service) AppendEntry(ctx context.Context, id, field string, entry map[s
 	if err != nil {
 		return nil, err
 	}
+	if version <= 0 {
+		// Same shape as RemoveEntry: an omitted version is a caller bug and
+		// says so, not a version_conflict masquerading as a race.
+		return nil, NewValidationError("version", "version is required for entry append")
+	}
 	if version != current.Version {
 		return nil, VersionConflict(current)
 	}
@@ -1052,6 +1057,9 @@ func (s *Service) UpdateEntry(ctx context.Context, id, field, entryID string, en
 	current, err := s.resolveForWrite(ctx, &id)
 	if err != nil {
 		return nil, err
+	}
+	if version <= 0 {
+		return nil, NewValidationError("version", "version is required for entry update")
 	}
 	if version != current.Version {
 		return nil, VersionConflict(current)
