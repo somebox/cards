@@ -1187,6 +1187,9 @@ func (s *Service) RemoveLink(ctx context.Context, id, typeID, target string) (*C
 	if err != nil {
 		return nil, err
 	}
+	if ctxActor(ctx) == "" {
+		return nil, ActorRequired()
+	}
 	found := false
 	links := []Link{}
 	for _, l := range current.Links {
@@ -1331,6 +1334,9 @@ func (s *Service) EditComment(ctx context.Context, id, commentID, body string) (
 	current, err := s.resolveForWrite(ctx, &id)
 	if err != nil {
 		return nil, err
+	}
+	if ctxActor(ctx) == "" {
+		return nil, ActorRequired()
 	}
 	if strings.TrimSpace(body) == "" {
 		return nil, NewValidationError("body", "comment body is required")

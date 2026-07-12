@@ -30,6 +30,11 @@ a card pins one and validates against it.
 current). Applies `field_defaults` from the type's optional `migrations` block,
 bumps `schema_version`, emits `schema_upgraded`. `dry_run` supported.
 
+Transport default divergence (deliberate): REST **applies** unless
+`dry_run:true` is passed; the MCP `upgrade_schema` tool **previews** unless
+`confirm:true` is passed — agents don't reliably read tool descriptions, so
+the agent-facing transport defaults to the safe side.
+
 ### Migrations (authoring, optional)
 
 ```json

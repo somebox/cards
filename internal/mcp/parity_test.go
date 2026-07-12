@@ -1,14 +1,19 @@
 package mcp_test
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strings"
 	"testing"
 
+	"github.com/somebox/cards/internal/config"
+	"github.com/somebox/cards/internal/core"
 	"github.com/somebox/cards/internal/mcp"
+	"github.com/somebox/cards/internal/sqlite"
 )
 
 // Fixed MCP tools that mirror core.Service coordination methods.
@@ -24,16 +29,85 @@ var fixedMCPTools = []string{
 	"history", "breaches", "events",
 }
 
-// intentionallyUnmirroredMutations lists core.Service methods that mutate
-// state or process lifecycle but are deliberately NOT MCP tools. Each entry
-// needs a one-line reason — treat allowlist edits as contract changes.
+// mirroredServiceMethods maps every core.Service method that IS exposed over
+// MCP to the tool that serves it ("dynamic:" entries are generated per type).
+// Together with intentionallyUnmirroredMutations this forms a total partition
+// of core.Service's exported method set, enforced by reflection in
+// TestMCPParity_ServiceMethodPartition — an unclassified new method fails CI
+// until a human decides mirror-or-exclude.
+var mirroredServiceMethods = map[string]string{
+	"Workspace":      "workspace",
+	"GetCard":        "get_card",
+	"ListCards":      "list_cards", // also backs search_cards (Q param)
+	"Claim":          "claim",
+	"Release":        "release",
+	"TakeNext":       "take_next",
+	"AppendEntry":    "append_entry",
+	"UpdateEntry":    "update_entry",
+	"RemoveEntry":    "remove_entry",
+	"AddLink":        "add_link",
+	"RemoveLink":     "remove_link",
+	"AddComment":     "add_comment",
+	"EditComment":    "edit_comment",
+	"UpgradeSchema":  "upgrade_schema",
+	"AddArtifact":    "attach_artifact",
+	"OpenArtifact":   "get_artifact",
+	"History":        "history",
+	"Breaches":       "breaches",
+	"ListEventsPage": "events",
+	"CreateCard":     "dynamic:create_<type>",
+	"PatchCard":      "dynamic:update_<type>",
+}
+
+// intentionallyUnmirroredMutations lists core.Service methods that are
+// deliberately NOT MCP tools. Each entry needs a one-line reason — treat
+// allowlist edits as contract changes.
 var intentionallyUnmirroredMutations = map[string]string{
 	"Close":        "process lifecycle of the Service, not agent coordination",
 	"DeleteCard":   "destructive; REST/CLI only until an explicit MCP decision",
 	"SetArtifacts": "server wiring for the artifacts manager, not a card mutation",
 	"ResolveActor": "HTTP header / env resolution helper",
+	"ResolveCard":  "id/prefix resolution helper used inside other operations",
 	"Bus":          "internal pub/sub accessor for hooks/SSE",
 	"Emitter":      "internal event emitter accessor",
+	"ListEvents":   "unpaged variant; the events tool serves ListEventsPage",
+}
+
+// TestMCPParity_ServiceMethodPartition reflects over *core.Service and asserts
+// every exported method is classified exactly once: mirrored to a registered
+// tool, or allowlisted with a reason. This is the drift guard the P2a card
+// promised — hand-maintained lists alone cannot fail on a new Service method.
+func TestMCPParity_ServiceMethodPartition(t *testing.T) {
+	srv := newMCPServer(t)
+	got := toolNames(t, call(t, srv, `{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}`))
+
+	typ := reflect.TypeOf(&core.Service{})
+	seen := map[string]bool{}
+	for i := 0; i < typ.NumMethod(); i++ {
+		name := typ.Method(i).Name
+		seen[name] = true
+		tool, mirrored := mirroredServiceMethods[name]
+		_, excluded := intentionallyUnmirroredMutations[name]
+		switch {
+		case mirrored && excluded:
+			t.Errorf("core.Service.%s is in both mirroredServiceMethods and the allowlist — pick one", name)
+		case !mirrored && !excluded:
+			t.Errorf("core.Service.%s is UNCLASSIFIED — add it to mirroredServiceMethods (with its MCP tool) or intentionallyUnmirroredMutations (with a reason)", name)
+		case mirrored && !strings.HasPrefix(tool, "dynamic:") && !got[tool]:
+			t.Errorf("core.Service.%s claims MCP tool %q, but tools/list does not register it", name, tool)
+		}
+	}
+	// Stale entries rot the partition just as silently as missing ones.
+	for name := range mirroredServiceMethods {
+		if !seen[name] {
+			t.Errorf("mirroredServiceMethods[%q] names a method core.Service no longer has", name)
+		}
+	}
+	for name := range intentionallyUnmirroredMutations {
+		if !seen[name] {
+			t.Errorf("intentionallyUnmirroredMutations[%q] names a method core.Service no longer has", name)
+		}
+	}
 }
 
 func TestMCPToolsList_IncludesP2aMutations(t *testing.T) {
@@ -173,22 +247,90 @@ func TestMCPEntryLinkComment_HappyAndConflicts(t *testing.T) {
 	}
 }
 
-func TestMCPUpgradeSchema_DryRunByDefault(t *testing.T) {
-	srv := newMCPServer(t)
-	card := createProgrammingTask(t, srv, "upgrade-dry")
-	id := card["id"].(string)
-	verBefore := int(card["version"].(float64))
+// newMCPServerWithStaleCard builds an MCP server whose programming-task type
+// is at schema_version 2 (with the "branch" field REMOVED), over a store
+// holding one card still at schema_version 1 with branch set. The upgrade is
+// therefore a real migration: dry-run must report would_drop=["branch"]
+// without persisting, confirm:true must persist it. A card already at the
+// current version would hit UpgradeSchema's no-op early-return and prove
+// nothing (the prior version of this test did exactly that).
+func newMCPServerWithStaleCard(t *testing.T) (*mcp.Server, string) {
+	t.Helper()
+	r, err := config.New("../../examples/demo-workspace").Load()
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	st, err := sqlite.Open(":memory:", r.Workspace)
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	t.Cleanup(func() { st.Close() })
 
-	toolCard(t, toolsCall(t, srv, "upgrade_schema", map[string]any{"card_id": id}))
-
-	live := toolCard(t, toolsCall(t, srv, "get_card", map[string]any{"card_id": id}))
-	if int(live["version"].(float64)) != verBefore {
-		t.Fatalf("dry-run upgraded live version %v → %v", verBefore, live["version"])
+	// Generation 1: stock types; create the card at schema_version 1.
+	svc1 := core.NewService(r.Workspace, r.CardTypes, r.Boards, st)
+	card, err := svc1.CreateCard(context.Background(), core.CreateCardRequest{
+		TypeID: "programming-task", Title: "stale-schema", Actor: "tester",
+		Fields: map[string]any{"description": "d", "branch": "feat/x"},
+	})
+	if err != nil {
+		t.Fatalf("create v1 card: %v", err)
 	}
 
-	toolCard(t, toolsCall(t, srv, "upgrade_schema", map[string]any{
-		"card_id": id, "confirm": true,
-	}))
+	// Generation 2: same store, programming-task bumped to v2 without "branch".
+	v2 := *r.CardTypes["programming-task"]
+	v2.SchemaVersion = 2
+	fields := make([]core.FieldDef, 0, len(v2.Fields))
+	for _, f := range v2.Fields {
+		if f.ID != "branch" {
+			fields = append(fields, f)
+		}
+	}
+	v2.Fields = fields
+	types2 := map[string]*core.CardType{}
+	for k, v := range r.CardTypes {
+		types2[k] = v
+	}
+	types2["programming-task"] = &v2
+	svc2 := core.NewService(r.Workspace, types2, r.Boards, st)
+	return mcp.New(svc2, r.Workspace, types2, r.Boards, "coder-agent"), card.ID
+}
+
+func TestMCPUpgradeSchema_DryRunByDefault(t *testing.T) {
+	srv, id := newMCPServerWithStaleCard(t)
+
+	live := toolCard(t, toolsCall(t, srv, "get_card", map[string]any{"card_id": id}))
+	verBefore := int(live["version"].(float64))
+	if sv := int(live["schema_version"].(float64)); sv != 1 {
+		t.Fatalf("fixture card schema_version = %d, want 1 (stale)", sv)
+	}
+
+	// Default (no confirm) → preview only, with the promised drop list.
+	preview := toolCard(t, toolsCall(t, srv, "upgrade_schema", map[string]any{"card_id": id}))
+	if preview["dry_run"] != true {
+		t.Fatalf("dry-run response missing dry_run:true: %v", preview)
+	}
+	drops, _ := preview["would_drop"].([]any)
+	if len(drops) != 1 || drops[0] != "branch" {
+		t.Fatalf("would_drop = %v, want [branch]", preview["would_drop"])
+	}
+
+	live = toolCard(t, toolsCall(t, srv, "get_card", map[string]any{"card_id": id}))
+	if int(live["version"].(float64)) != verBefore || int(live["schema_version"].(float64)) != 1 {
+		t.Fatalf("dry-run mutated the card: version %v schema_version %v", live["version"], live["schema_version"])
+	}
+
+	// confirm:true → applies.
+	applied := toolCard(t, toolsCall(t, srv, "upgrade_schema", map[string]any{"card_id": id, "confirm": true}))
+	if sv := int(applied["schema_version"].(float64)); sv != 2 {
+		t.Fatalf("confirm did not upgrade: schema_version = %d, want 2", sv)
+	}
+	if _, hasBranch := applied["fields"].(map[string]any)["branch"]; hasBranch {
+		t.Fatal("confirm kept dropped field 'branch'")
+	}
+	live = toolCard(t, toolsCall(t, srv, "get_card", map[string]any{"card_id": id}))
+	if sv := int(live["schema_version"].(float64)); sv != 2 {
+		t.Fatalf("upgrade not persisted: schema_version = %d, want 2", sv)
+	}
 }
 
 func createProgrammingTask(t *testing.T, srv *mcp.Server, title string) map[string]any {

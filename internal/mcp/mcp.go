@@ -19,6 +19,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"sort"
 	"strings"
 
 	"github.com/somebox/cards/internal/core"
@@ -320,14 +321,47 @@ func (s *Server) buildTools() []Tool {
 			run: func(ctx context.Context, a map[string]any) (any, error) {
 				return s.svc.EditComment(ctx, strArg(a, "card_id"), strArg(a, "comment_id"), strArg(a, "body"))
 			}},
-		Tool{Name: "upgrade_schema", Description: "Preview or apply a card schema upgrade. Defaults to dry-run (returns fields that would drop); set confirm:true to apply.",
+		Tool{Name: "upgrade_schema", Description: "Preview or apply a card schema upgrade. Defaults to dry-run returning {dry_run, would_drop, would_apply, card}; set confirm:true to apply (returns the upgraded card).",
 			InputSchema: objSchema(map[string]any{"card_id": str(), "target_version": intSchema(), "confirm": boolSchema()}),
 			run: func(ctx context.Context, a map[string]any) (any, error) {
-				return s.svc.UpgradeSchema(ctx, strArg(a, "card_id"), core.UpgradeSchemaRequest{
+				confirm := boolArg(a, "confirm")
+				id := strArg(a, "card_id")
+				var before map[string]any
+				if !confirm {
+					cur, err := s.svc.GetCard(ctx, id)
+					if err != nil {
+						return nil, err
+					}
+					before, _ = cur.Fields.(map[string]any)
+				}
+				card, err := s.svc.UpgradeSchema(ctx, id, core.UpgradeSchemaRequest{
 					TargetVersion: intArg(a, "target_version"),
-					DryRun:        !boolArg(a, "confirm"),
+					DryRun:        !confirm,
 					Actor:         s.actor,
 				})
+				if err != nil || confirm {
+					return card, err
+				}
+				// Dry-run: name the exact field changes so an agent can act on
+				// the answer instead of diffing the preview card itself.
+				after, _ := card.Fields.(map[string]any)
+				wouldDrop := []string{}
+				for k := range before {
+					if _, ok := after[k]; !ok {
+						wouldDrop = append(wouldDrop, k)
+					}
+				}
+				sort.Strings(wouldDrop)
+				wouldApply := map[string]any{}
+				for k, v := range after {
+					if _, ok := before[k]; !ok {
+						wouldApply[k] = v
+					}
+				}
+				return map[string]any{
+					"dry_run": true, "would_drop": wouldDrop,
+					"would_apply": wouldApply, "card": card,
+				}, nil
 			}},
 		Tool{Name: "attach_artifact", Description: "Store bytes for an artifact field from base64-encoded content (stdio has no binary frame); returns the updated card.",
 			InputSchema: objSchema(map[string]any{"card_id": str(), "field": str(), "content_base64": str()}),
