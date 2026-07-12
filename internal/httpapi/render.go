@@ -7,6 +7,7 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -27,6 +28,7 @@ type CardView struct {
 	TypeAccent    string          // 1a — precomputed accent (overrides [data-type])
 	TypeMuted     string          // 1a — precomputed muted shade
 	TypeLabel     string          // 1a — precomputed type display name (== CardType.Name)
+	BoardID       string          // board this render belongs to; card links carry it as ?board= so the modal keeps the same theming context
 	StatusLabel   string          // board card: resolved column/status display name
 	Artifacts     []*ArtifactView // board card: stored artifacts (thumbnails / download chips), live via artifact_added SSE
 	CommentCount  int             // board card: number of comments
@@ -331,7 +333,7 @@ func (s *Server) cardRelations(ctx context.Context, c *core.Card) (outs, ins []L
 
 func (s *Server) renderCardDetail(w http.ResponseWriter, r *http.Request, c *core.Card, err *core.Error) {
 	ct := s.types[c.TypeID]
-	b := s.boardForCard(c)
+	b := s.boardFromRequest(r, c)
 	users := s.listUsersBestEffort(r)
 	data := s.baseData(c.Title)
 	data.Card = c
@@ -372,7 +374,7 @@ func (s *Server) uiCardModal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ct := s.types[c.TypeID]
-	b := s.boardForCard(c)
+	b := s.boardFromRequest(r, c)
 	users := s.listUsersBestEffort(r)
 	data := s.baseData(c.Title)
 	data.Card = c
@@ -498,6 +500,10 @@ func (s *Server) cardView(c *core.Card, b *core.Board, users []core.User) CardVi
 	if ct != nil {
 		label = ct.Name
 	}
+	boardID := ""
+	if b != nil {
+		boardID = b.ID
+	}
 	return CardView{
 		Card:          c,
 		CardType:      ct,
@@ -507,6 +513,7 @@ func (s *Server) cardView(c *core.Card, b *core.Board, users []core.User) CardVi
 		TypeAccent:    th.Accent,
 		TypeMuted:     th.Muted,
 		TypeLabel:     label,
+		BoardID:       boardID,
 		StatusLabel:   s.columnName(c.Status),
 		Artifacts:     cardArtifacts(ct, c),
 	}
@@ -600,13 +607,35 @@ func (s *Server) statusOptions(ct *core.CardType, b *core.Board, selected string
 	return opts
 }
 
+// boardForCard picks the board a card is themed/moved against when the
+// request carries no board context. Deterministic (sorted ids): with a type
+// on several boards, Go map order must not flip the modal's option theme per
+// request. Prefer boardFromRequest wherever an *http.Request is available.
 func (s *Server) boardForCard(c *core.Card) *core.Board {
-	for _, b := range s.boards {
-		if core.Contains(b.CardTypeIDs, c.TypeID) {
+	ids := make([]string, 0, len(s.boards))
+	for id := range s.boards {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	for _, id := range ids {
+		if b := s.boards[id]; core.Contains(b.CardTypeIDs, c.TypeID) {
 			return b
 		}
 	}
 	return nil
+}
+
+// boardFromRequest resolves the board context for a card render: an explicit
+// ?board= naming a board that actually hosts the card's type wins (the board
+// page passes it, so "the same card renders differently on two boards" holds
+// in the modal too); anything else falls back to the deterministic pick.
+func (s *Server) boardFromRequest(r *http.Request, c *core.Card) *core.Board {
+	if id := r.URL.Query().Get("board"); id != "" {
+		if b, ok := s.boards[id]; ok && core.Contains(b.CardTypeIDs, c.TypeID) {
+			return b
+		}
+	}
+	return s.boardForCard(c)
 }
 
 func (s *Server) columnName(id string) string {

@@ -1140,6 +1140,7 @@ html[data-theme="journal"] .lane__count { background: transparent; color: var(--
 /* Cards: pastel note stock, soft pencil edge, scattered rotation + depth. */
 html[data-theme="journal"] .card {
   background: var(--card-stock-bg, var(--c-surface));
+  /* dark scheme: see the washed-surface override at the end of this file */
   border: 1px solid rgba(57,51,43,.28); border-radius: 7px;
   padding: var(--s-4); box-shadow: 0 3px 7px rgba(57,51,43,.16);
   transform: rotate(-.6deg);
@@ -1593,4 +1594,18 @@ html[data-theme="labels"] .save-form.detail .modal__footer { background-color: t
   html[data-theme="labels"] .card__type-mark::before { width: .82rem; height: .82rem; }
   html[data-theme="labels"] .modal__meta { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   html[data-theme="labels"] .modal__body .field { grid-template-columns: 1fr; gap: var(--s-1); }
+}
+
+/* ---- Option/type wash vs dark scheme (P4 follow-up) --------------------
+   journal and labels use the author-inline wash (--card-stock-bg) as the FULL
+   card background while text stays on the theme ink token. Under a dark
+   scheme the ink goes near-white but the inline wash does not remap, so text
+   lands ~1.2:1 on a light pastel. The wash is decorative (type/option
+   identity survives via the accent stock strip, icon, and text); under dark
+   we keep the theme surface and let the accent elements carry the identity.
+   Load-time contrast validation covers accent-on-muted pairs only — it
+   cannot see theme-composed surfaces like these. */
+@media (prefers-color-scheme: dark) {
+  html[data-theme="journal"] .card { background: var(--c-surface); }
+  html[data-theme="labels"] .card { background: var(--c-surface); }
 }

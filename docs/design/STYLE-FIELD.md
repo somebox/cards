@@ -132,6 +132,22 @@ AA (e.g. legacy `frontend-task` `#cf7b00` on `#f6e7cc` ≈ 2.65:1).
   `card_8fea3fc0`); they are not hard-rejected so demo workspaces keep
   booting.
 
+**The floor covers accent-on-muted pairs only — not theme-composed
+surfaces.** Two follow-up rules close the gaps found post-merge:
+
+- **Washed cards under a dark scheme:** `journal`/`labels` use the wash as the
+  full card background while text stays on the theme ink token, which remaps
+  near-white in dark mode. A `prefers-color-scheme: dark` override (end of
+  style.css) keeps the theme surface as card background there — the wash is
+  decorative; accent stock elements, icon, and text carry the identity.
+- **Icon-on-accent:** themes paint a fixed light ink (`#fffdf5`) on the accent
+  surface. A load-time **warning** (not rejection) flags option accents below
+  the 3:1 graphics floor against that ink.
+
+**Board context:** card links pass `?board=<id>` to the modal, so a card
+shared by two boards keeps the opener board's option theming; without the
+param the fallback board choice is deterministic (sorted board ids).
+
 Icon is mandatory with color; the enum value stays readable as field text.
 No filter-by-accent affordance ships with style_field.
 

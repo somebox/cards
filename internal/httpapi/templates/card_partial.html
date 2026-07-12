@@ -1,6 +1,6 @@
 {{define "card_partial"}}
 <div class="card" id="card-{{.Card.ID}}" data-card-id="{{.Card.ID}}" data-type="{{.Card.TypeID}}"{{if .TypeIcon}} data-icon="{{.TypeIcon}}"{{end}}
-     draggable="true" data-card-link="/ui/cards/{{.Card.ID}}/modal"
+     draggable="true" data-card-link="/ui/cards/{{.Card.ID}}/modal{{if .BoardID}}?board={{.BoardID}}{{end}}"
      :class="{'is-dragging': draggingId === '{{.Card.ID}}'}"
      {{if .TypeAccent}}style="--card-stock:{{.TypeAccent}}{{if .TypeMuted}};--card-stock-bg:{{.TypeMuted}}{{end}}" {{end}}title="{{.TypeLabel}} · {{.Card.Title}}">
   {{/* Minimal corner type indicator: colour-stock tab + icon, no text label
@@ -9,7 +9,7 @@
   <span class="card__type-mark" aria-hidden="true"></span>
   <span class="vh">{{.TypeLabel}}</span>
   <div class="card__title">
-    <a href="/ui/cards/{{.Card.ID}}" data-card-link="/ui/cards/{{.Card.ID}}/modal">{{.Card.Title}}</a>
+    <a href="/ui/cards/{{.Card.ID}}" data-card-link="/ui/cards/{{.Card.ID}}/modal{{if .BoardID}}?board={{.BoardID}}{{end}}">{{.Card.Title}}</a>
   </div>
   {{if .Card.Owner}}<div class="card__meta">
     <button class="chip chip--owner" title="click to unclaim" @click="releaseCard('{{.Card.ID}}', $event)">{{.Card.Owner}}</button>
