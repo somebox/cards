@@ -19,6 +19,12 @@ type Store interface {
 
 	// Cards
 	ListCards(ctx context.Context, q CardQuery) (*Page[Card], error)
+	// CountCards returns how many cards match q — the same filter/status/
+	// type/blocked semantics as ListCards, but a scalar COUNT(*) with NO limit
+	// clamp (q.Limit/Sort/Cursor are ignored). Use it for census/aggregate
+	// counts where materializing rows would be wasteful and the 500-row list
+	// ceiling would silently undercount.
+	CountCards(ctx context.Context, q CardQuery) (int, error)
 	GetCard(ctx context.Context, id string) (*Card, error) // loads links + comments
 	// GetCardsByShortID returns cards whose id equals short or whose leading 8 hex chars
 	// suffix equals short. Used by ResolveCard (1e); returns 0, 1, or many.

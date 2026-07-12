@@ -154,8 +154,8 @@ func (s *Service) Close() {
 //
 // Caveat (documented, not fixed — EVENTS.md §12 Step 3c): membership is
 // TypeIDIn only (board.CardTypeIDs); a board scoped by DefaultFilter instead
-// is not counted correctly, and the census caps at 500 cards. Revisit only if
-// a filter-defined board needs WIP/lane limits.
+// is not counted correctly. Revisit only if a filter-defined board needs
+// WIP/lane limits.
 func (s *Service) evaluateColumn(ctx context.Context, b *Board, column string) {
 	if b == nil {
 		return
@@ -184,13 +184,11 @@ func (s *Service) evaluateColumn(ctx context.Context, b *Board, column string) {
 // countColumn is the single column-census query: how many of board b's card
 // types currently sit in column. Shared by evaluateColumn (crossing
 // detection on a mutation) and Breaches (on-demand catch-up) — one counting
-// path, not two (EVENTS.md §12 Step 3c).
+// path, not two (EVENTS.md §12 Step 3c). It uses a scalar COUNT(*) so the WIP
+// census is exact regardless of column size (an earlier ListCards+len capped
+// silently at 500).
 func (s *Service) countColumn(ctx context.Context, b *Board, column string) (int, error) {
-	page, err := s.store.ListCards(ctx, CardQuery{Status: column, TypeIDIn: b.CardTypeIDs, Limit: 500})
-	if err != nil {
-		return 0, err
-	}
-	return len(page.Items), nil
+	return s.store.CountCards(ctx, CardQuery{Status: column, TypeIDIn: b.CardTypeIDs})
 }
 
 // evaluateCrossing is the shared instant-condition crossing tracker: it fires

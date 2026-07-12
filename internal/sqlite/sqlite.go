@@ -512,6 +512,22 @@ func sortColumnExpr(field string) string {
 	}
 }
 
+// CountCards issues a scalar COUNT(*) over the same WHERE that ListCards
+// builds — identical filter/status/type/blocked semantics — but with no LIMIT,
+// so it never undercounts a column with more than the ListCards row ceiling
+// (clampCardLimit). Sort/Cursor are irrelevant to a count and ignored.
+func (s *Store) CountCards(ctx context.Context, q core.CardQuery) (int, error) {
+	where, args, err := buildCardWhere(q)
+	if err != nil {
+		return 0, err
+	}
+	var n int
+	if err := s.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM cards c"+where, args...).Scan(&n); err != nil {
+		return 0, fmt.Errorf("count cards: %w", err)
+	}
+	return n, nil
+}
+
 func (s *Store) GetCard(ctx context.Context, id string) (*core.Card, error) {
 	row := s.db.QueryRowContext(ctx, "SELECT "+cardCols+" FROM cards c WHERE c.id = ?", id)
 	c, err := scanCard(row)
