@@ -635,30 +635,23 @@ document.addEventListener('alpine:init', function () {
         if (!el && !inp) { this.alert = msg; }
       },
       collect: function () {
+        // DOM walk only — the decision logic is collectCreatePayload in
+        // helpers.js (unit-tested with plain values; tests/js/create.test.cjs).
         var form = this.$root.querySelector('[data-create-form]');
-        var req = { type_id: form.getAttribute('data-type-id'), fields: {} };
-        var missing = [];
+        var inputs = [];
         form.querySelectorAll('[data-create-input]').forEach(function (inp) {
-          var name = inp.getAttribute('data-create-input');
           var kind = inp.getAttribute('data-kind');
-          // Multi-value fields (native <select multiple>): always an array on
-          // the wire; nothing selected = ABSENT (unset contract).
-          if (kind === 'multi-enum' || kind === 'multi-user') {
-            var vals = Array.prototype.slice.call(inp.selectedOptions || []).map(function (o) { return o.value; }).filter(Boolean);
-            if (!vals.length) { if (inp.hasAttribute('data-required')) missing.push(name); return; }
-            if (name.indexOf('field:') === 0) req.fields[name.slice(6)] = vals;
-            return;
-          }
-          var v = (inp.value || '').trim();
-          if (!v) { if (inp.hasAttribute('data-required')) missing.push(name); return; }
-          if (name === 'title') req.title = v;
-          else if (name === 'status') req.status = v;
-          else if (name === 'tags') req.tags = v.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
-          else if (name.indexOf('field:') === 0) {
-            req.fields[name.slice(6)] = (kind === 'number') ? Number(v) : v;
-          }
+          inputs.push({
+            name: inp.getAttribute('data-create-input'),
+            kind: kind,
+            value: inp.value,
+            values: (kind === 'multi-enum' || kind === 'multi-user')
+              ? Array.prototype.slice.call(inp.selectedOptions || []).map(function (o) { return o.value; })
+              : undefined,
+            required: inp.hasAttribute('data-required'),
+          });
         });
-        return { req: req, missing: missing };
+        return collectCreatePayload(form.getAttribute('data-type-id'), inputs);
       },
       submit: function () {
         if (this.saving) return; // guards a double-click
