@@ -376,16 +376,23 @@ document.addEventListener('alpine:init', function () {
         // GET current version → PATCH; on 422 transition_illegal, offer
         // force-move via confirm(); on any failure, toast + let swapBoard
         // reconcile (any stranded card ends up back where it belongs).
+        // Idempotency-Key must be unique per gesture: a stable
+        // move-<id>-to-<status> key replays a cached 200 after the card
+        // has been moved elsewhere, so the write never lands and the
+        // card appears to snap back with no error.
         var self = this;
+        var idem = function (prefix) {
+          return prefix + '-' + cardID + '-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
+        };
         cardsAPI.send({ method: 'GET', url: '/v1/cards/' + cardID }).then(function (res) {
           if (!res.ok) { toast(res.message || 'Move failed', 'err'); self.swapBoard(); return; }
           var version = res.data.version;
           cardsAPI.send({
             method: 'PATCH', url: '/v1/cards/' + cardID,
             body: { version: version, status: status },
-            headers: { 'Idempotency-Key': 'move-' + cardID + '-to-' + status }
+            headers: { 'Idempotency-Key': idem('move') }
           }).then(function (r2) {
-            if (r2.ok) return; // SSE + debouncedSwap will reconcile
+            if (r2.ok) { self.swapBoard(); return; }
             if (r2.status === 422 && (r2.message || '').indexOf('transition') !== -1) {
               if (!confirm('Move to "' + status + '" is not an allowed transition. Force-move anyway?')) { self.swapBoard(); return; }
               cardsAPI.send({ method: 'GET', url: '/v1/cards/' + cardID }).then(function (r3) {
@@ -393,7 +400,7 @@ document.addEventListener('alpine:init', function () {
                 cardsAPI.send({
                   method: 'PATCH', url: '/v1/cards/' + cardID,
                   body: { version: r3.data.version, status: status, force: true },
-                  headers: { 'Idempotency-Key': 'force-' + cardID + '-to-' + status }
+                  headers: { 'Idempotency-Key': idem('force') }
                 }).then(function (r4) {
                   if (!r4.ok) toast(r4.message || 'Force move failed', 'err');
                   self.swapBoard();
@@ -415,7 +422,7 @@ document.addEventListener('alpine:init', function () {
           cardsAPI.send({
             method: 'POST', url: '/v1/cards/' + cardID + '/release',
             body: { version: res.data.version },
-            headers: { 'Idempotency-Key': 'release-' + cardID }
+            headers: { 'Idempotency-Key': 'release-' + cardID + '-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10) }
           }).then(function (r2) {
             if (!r2.ok) toast(r2.message || 'Release failed', 'err');
             self.swapBoard();
