@@ -50,6 +50,12 @@ field id.
 - Per-type column subset (`allowed_columns`).
 - Per-board or per-type transition graphs (optional; `transitions`).
 - Board-specific presentation without changing types.
+- **`min` / `max` bounds** on `number` fields (numeric) and `date` fields.
+  For dates the same JSON slots hold **Unix seconds (UTC)** — e.g.
+  `"min": 1577836800` for 2020-01-01 — not date strings (a string here is a
+  parse error at load). Rejections render the bound as a date
+  (`"2026-07-01" is before the minimum date "2027-01-01"`). Load-time
+  validation requires `min <= max` when both are set.
 
 ### What you do not get (v1)
 

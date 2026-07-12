@@ -106,12 +106,20 @@ func (w *defsWatcher) Run(ctx context.Context) {
 // scanOnce is the synchronously-drivable unit: tests call it after writing
 // files and advancing the clock. It never sleeps.
 func (w *defsWatcher) scanOnce() {
+	// Mid self-write (create-board handler in flight): the tree is transient.
+	// Skip WITHOUT touching lastFP/pending — an external edit landing in this
+	// window must stay detectable on a later tick, not be absorbed into
+	// lastFP and silently dropped.
+	if w.app.selfWrite.midWrite() {
+		return
+	}
 	fp := definitionsFingerprint(w.defsDir)
 	if fp == w.lastFP {
 		return
 	}
-	// Self-write (create-board) already reloaded — absorb without a second fire.
-	if w.app.selfWrite.take(fp) {
+	// Self-write (create-board) already reloaded — absorb exactly that
+	// post-reload fingerprint once, without a second fire.
+	if w.app.selfWrite.takeExact(fp) {
 		w.lastFP = fp
 		w.pendingFP = ""
 		return
@@ -198,18 +206,26 @@ func (g *selfWriteGate) end(fp string) {
 	g.mu.Unlock()
 }
 
-// take reports whether this fingerprint should be absorbed (no reload).
-// Mid-write (active>0) always suppresses; after end(fp), the matching fp
-// is suppressed once.
-func (g *selfWriteGate) take(fp string) bool {
+// midWrite reports whether a self-write bracket is open (scan results are
+// transient and must be ignored without recording).
+func (g *selfWriteGate) midWrite() bool {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	if g.active > 0 {
-		return true
-	}
+	return g.active > 0
+}
+
+// takeExact absorbs only the exact post-self-write fingerprint, once. Any
+// OTHER fingerprint observed clears the stale skipFP (one-tick TTL): if the
+// first post-write observation differs (an external edit landed first), a
+// later tree that happens to hash back to the old skipFP — e.g. the user
+// reverting that edit — must reload, not be swallowed.
+func (g *selfWriteGate) takeExact(fp string) bool {
+	g.mu.Lock()
+	defer g.mu.Unlock()
 	if g.skipFP != "" && g.skipFP == fp {
 		g.skipFP = ""
 		return true
 	}
+	g.skipFP = ""
 	return false
 }
