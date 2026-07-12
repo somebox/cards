@@ -34,7 +34,7 @@ For each card type `T` defined in the workspace, the MCP server dynamically publ
 - `remove_link` - Remove a typed link.
 - `add_comment` - Append a comment.
 - `edit_comment` - Edit an existing comment body.
-- `upgrade_schema` - Preview or apply a schema upgrade. Defaults to dry-run; set `confirm:true` to apply.
+- `upgrade_schema` - Preview or apply a schema upgrade. Defaults to dry-run returning `{dry_run, would_drop, would_apply, card}`; set `confirm:true` to apply. (REST's `POST /cards/:id/upgrade-schema` has the opposite default — it applies unless `dry_run:true` is passed.)
 - `attach_artifact` - Store bytes for an artifact field from base64-encoded content; returns the updated card.
 - `get_artifact` - Fetch stored artifact bytes by uri, returned as base64 with size.
 - `history` - Fetch resumption-ready card timeline.
@@ -42,7 +42,7 @@ For each card type `T` defined in the workspace, the MCP server dynamically publ
 - `events` - Durable workspace event feed with `since` replay floor; filter by `types` / `board_id`.
 
 ## Concurrency, Idempotency, and Errors
-- **Concurrency:** Mutation tools require `version` to prevent write collisions, returning a `version_conflict` error if stale.
+- **Concurrency:** Mutations that patch typed state (`claim`, `release`, `take_next`, `update_<T>`, and the entry tools) require `version` and return `version_conflict` if stale. The link, comment, and `upgrade_schema` tools take no `version` argument and operate on latest state — the store's compare-and-swap still rejects racing lost updates.
 - **Idempotency:** Unlike HTTP/CLI surfaces which support `Idempotency-Key` headers, the MCP tool surface does **not** yet forward or honor an idempotency key. Callers expecting retries without duplication should use HTTP.
 - **Errors:** Emits structured error payloads corresponding to the core error catalog (with `valid_options` to allow agents to rectify validation issues autonomously).
 
