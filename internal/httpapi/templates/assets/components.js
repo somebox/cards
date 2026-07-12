@@ -705,11 +705,9 @@ document.addEventListener('alpine:init', function () {
   // array does not contain at init, so the array must arrive already
   // populated). Idempotency-Key is minted once per open form (closeModal
   // destroys the fragment; the next open gets a fresh key). ----
-  Alpine.data('boardCreate', function (cfg) {
+  Alpine.data('boardCreate', function () {
     return {
       name: '',
-      columns: (cfg && cfg.columns) ? cfg.columns.slice() : [],
-      types: (cfg && cfg.types) ? cfg.types.slice() : [],
       wipColumn: '', wipLimit: 0,
       alert: '', errors: {}, saving: false,
       idemKey: '',
@@ -718,13 +716,21 @@ document.addEventListener('alpine:init', function () {
       },
       init: function () { this.mintIdemKey(); },
       err: function (name, msg) { this.errors[name] = msg; },
+      // Columns/types live in the shared multiSelect chip controls; the
+      // native <select multiple> is the source of truth (works without JS).
+      readMulti: function (which) {
+        var el = this.$root.querySelector('select[data-board-select="' + which + '"]');
+        return el ? Array.prototype.map.call(el.selectedOptions, function (o) { return o.value; }) : [];
+      },
       submit: function () {
         if (this.saving) return;
         this.errors = {}; this.alert = '';
+        var columns = this.readMulti('columns');
+        var types = this.readMulti('types');
         if (!this.name.trim()) { this.err('name', 'required'); return; }
-        if (!this.columns.length) { this.err('columns', 'pick at least one'); return; }
-        if (!this.types.length) { this.err('card_type_ids', 'pick at least one'); return; }
-        var req = { name: this.name.trim(), columns: this.columns.slice(), card_type_ids: this.types.slice() };
+        if (!columns.length) { this.err('columns', 'pick at least one'); return; }
+        if (!types.length) { this.err('card_type_ids', 'pick at least one'); return; }
+        var req = { name: this.name.trim(), columns: columns, card_type_ids: types };
         if (this.wipColumn && this.wipLimit > 0) { req.wip_limits = {}; req.wip_limits[this.wipColumn] = this.wipLimit; }
         this.saving = true;
         var self = this;
