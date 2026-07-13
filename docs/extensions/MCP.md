@@ -23,7 +23,7 @@ worked flows.
 
 ## Running it & Tool Surface
 
-For absolute tool inventories, instructions on running the MCP server, and details on concurrency, idempotency, or actor binding, see [the package-level documentation](../../internal/mcp/README.md).
+For absolute tool inventories, instructions on running the MCP server, and details on concurrency, idempotency, or actor binding, see [the package-level documentation](https://github.com/somebox/cards/blob/main/internal/mcp/README.md).
 
 For an overview of the key design properties of the MCP surface, see below.
 

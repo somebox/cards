@@ -260,23 +260,16 @@ workspace is under `examples/`, and the longer design references are in `docs/`.
 
 ## Documentation And Development
 
-Start with [`docs/concepts/CONCEPTS.md`](docs/concepts/CONCEPTS.md) for the vocabulary
-(workspaces, boards, card types) and how setups differ by use case, then
-[`docs/reference/DEVELOPER-REFERENCE.md`](docs/reference/DEVELOPER-REFERENCE.md) for workspace
-authoring and [`docs/spec/SPEC.md`](docs/spec/SPEC.md) for the API and data
-model. Design background is in [`docs/concepts/PHILOSOPHY.md`](docs/concepts/PHILOSOPHY.md) and
-[`docs/architecture/ARCHITECTURE.md`](docs/architecture/ARCHITECTURE.md); agent and extension details are
-in [`docs/extensions/MCP.md`](docs/extensions/MCP.md) and [`docs/extensions/EXTENSIONS.md`](docs/extensions/EXTENSIONS.md).
-How other apps observe changes, dispatch work, and react to timeouts/WIP/empty
-lanes is in [`docs/events/INTEGRATION.md`](docs/events/INTEGRATION.md). The event docs start at
-[`docs/events/EVENTS.md`](docs/events/EVENTS.md); the core contract (emission seam, log, bus, observers) is specified in
-[`docs/events/EVENTS-CORE.md`](docs/events/EVENTS-CORE.md), with staged history in
-[`docs/events/EVENTS-ROLLOUT.md`](docs/events/EVENTS-ROLLOUT.md). For a single-page, code-verified reference
-(what's actually built vs. proposed), see
-[`docs/reference/INTEGRATOR-REFERENCE.md`](docs/reference/INTEGRATOR-REFERENCE.md); for worked
-end-to-end scenarios, see [`docs/examples/LIFECYCLE-EXAMPLES.md`](docs/examples/LIFECYCLE-EXAMPLES.md).
-Design rationale for major decisions is recorded in
-[`docs/NOTES.md`](docs/NOTES.md); styling and web UI components are described in [`docs/architecture/DESIGN.md`](docs/architecture/DESIGN.md).
+**Full documentation lives at <https://somebox.github.io/cards/>** — start there
+for the [product overview](https://somebox.github.io/cards/), a
+[2-minute get-started](https://somebox.github.io/cards/get-started/), the
+[MCP/agent guide](https://somebox.github.io/cards/agents/mcp/), and the CLI,
+schema, events, and extension references.
+
+The site is built from the Markdown in [`docs/`](docs/) with MkDocs Material
+(`mkdocs.yml`); the source files remain browsable on GitHub. A code-verified map
+of what's actually built vs. proposed is in
+[`docs/reference/INTEGRATOR-REFERENCE.md`](docs/reference/INTEGRATOR-REFERENCE.md).
 
 Cards is in beta. The core service, HTTP API, CLI, MCP server, web UI, and
 hook system are implemented, but the API should still be treated as

@@ -45,3 +45,6 @@ examples/demo-workspace/artifacts/
 
 # pi agent working artifacts (dev-server tmp/run, audit scratch)
 /.pi/
+
+# MkDocs build output
+/site/

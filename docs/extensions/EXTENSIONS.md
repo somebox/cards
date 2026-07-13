@@ -329,7 +329,7 @@ for s in sources["items"]:
 ### Example 5 — Bash one-liner hook `[built]`
 
 Not every extension needs a runtime. A status-change hook that pings Slack can
-be a one-file script. For detailed CLI commands, distribution patterns, and running the extension supervisor, refer to the [hooks package documentation](../../internal/hooks/README.md).
+be a one-file script. For detailed CLI commands, distribution patterns, and running the extension supervisor, refer to the [hooks package documentation](https://github.com/somebox/cards/blob/main/internal/hooks/README.md).
 
 ## Best practices
 

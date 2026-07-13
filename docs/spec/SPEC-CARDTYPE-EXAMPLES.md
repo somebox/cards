@@ -13,7 +13,7 @@ Core v1 catalog (see [`NOTES.md`](../NOTES.md) D2 for what was trimmed and why):
 | `user` | User reference | Must exist; else rejected with registration hint. **Exception:** `owner` is existence-checked; other `user`-typed fields (e.g. a repeating entry's `author`) are currently type-checked only, not existence-checked — see §12. |
 | `card_link` | Card reference | Target exists; optional `target_type`, `link_type` |
 | `repeating` | Array of typed entries | Each entry validated against `item_fields` (no nested `repeating` in v1); entries have stable server-generated `entry_id` |
-| `artifact` | Pointer to blob in workspace or external URI | `{ uri, mime?, size?, sha256? }`; local `uri` must resolve under workspace artifacts root when `artifact_policy: local`. (Fully implemented with path confinement; see [internal/artifacts/README.md](../../internal/artifacts/README.md) for details). |
+| `artifact` | Pointer to blob in workspace or external URI | `{ uri, mime?, size?, sha256? }`; local `uri` must resolve under workspace artifacts root when `artifact_policy: local`. (Fully implemented with path confinement; see [internal/artifacts/README.md](https://github.com/somebox/cards/blob/main/internal/artifacts/README.md) for details). |
 
 ```
 FieldDef {

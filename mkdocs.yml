@@ -1,0 +1,126 @@
+site_name: Cards
+site_description: A local-first, single-binary coordination service for typed cards — one schema across API, CLI, MCP, and a web UI.
+site_url: https://somebox.github.io/cards/
+repo_url: https://github.com/somebox/cards
+repo_name: somebox/cards
+edit_uri: edit/main/docs/
+copyright: MIT-licensed
+
+docs_dir: docs
+
+theme:
+  name: material
+  logo: assets/logo.svg
+  favicon: assets/favicon.svg
+  icon:
+    repo: fontawesome/brands/github
+  font:
+    text: IBM Plex Sans
+    code: IBM Plex Mono
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: black
+      accent: indigo
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: black
+      accent: indigo
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.prune
+    - navigation.top
+    - navigation.indexes
+    - navigation.footer
+    - toc.follow
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+
+extra_css:
+  - stylesheets/extra.css
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - footnotes
+  - toc:
+      permalink: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+
+# Internal process docs stay out of the published site (still visible on GitHub).
+exclude_docs: |
+  plans/
+  archive/
+  *-provenance.md
+  GH-PAGES-TODO.md
+  README.md
+  design/AUTH.md
+  design/CORE-BOUNDARIES.md
+  design/OUTBOX-GONOGO.md
+  design/SUBSCRIBERS.md
+
+# Built (reachable via links) but intentionally absent from the nav.
+not_in_nav: |
+  architecture/LIFECYCLE-SCHEMA.md
+  architecture/RELOAD.md
+  design/STYLE-FIELD.md
+
+nav:
+  - Home: index.md
+  - Get started: get-started.md
+  - Guide:
+      - Concepts: concepts/CONCEPTS.md
+      - Why Cards: concepts/PHILOSOPHY.md
+      - Workspace configuration: reference/DEVELOPER-REFERENCE.md
+      - Schema authoring: reference/DEVELOPER-REFERENCE-SCHEMA-AUTHORING.md
+      - Field types & examples: reference/DEVELOPER-REFERENCE-TYPES-EXAMPLES.md
+      - CLI reference: reference/DEVELOPER-REFERENCE-CLI.md
+      - Themes: design/THEMES.md
+      - Walkthroughs:
+          - Overview: examples/LIFECYCLE-EXAMPLES.md
+          - Shared setup: examples/LIFECYCLE-EXAMPLES-SETUP.md
+          - Software delivery: examples/LIFECYCLE-EXAMPLES-SOFTWARE.md
+          - Shop floor: examples/LIFECYCLE-EXAMPLES-SHOPFLOOR.md
+  - Agents:
+      - MCP quickstart: agents/mcp.md
+      - MCP design & ergonomics: extensions/MCP.md
+  - Extend:
+      - Extensions (hooks & services): extensions/EXTENSIONS.md
+      - Consuming events (SSE): events/INTEGRATION.md
+      - Events overview: events/EVENTS.md
+  - Reference:
+      - Specification: spec/SPEC.md
+      - Data model: spec/SPEC-DATA-MODEL.md
+      - API surface: spec/SPEC-API-SURFACE.md
+      - Events & history: spec/SPEC-EVENTS-HISTORY.md
+      - Query DSL: spec/SPEC-QUERY-DSL.md
+      - Card-type examples: spec/SPEC-CARDTYPE-EXAMPLES.md
+      - Architecture: architecture/ARCHITECTURE.md
+      - Design system: architecture/DESIGN.md
+      - Event contract: events/EVENTS-CORE.md
+      - Event rollout history: events/EVENTS-ROLLOUT.md
+      - Built vs proposed (audit): reference/INTEGRATOR-REFERENCE.md
+      - Design notes: NOTES.md
+      - Roadmap: ROADMAP.md

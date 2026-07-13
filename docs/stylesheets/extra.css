@@ -1,0 +1,129 @@
+/* Cards docs — design language.
+ *
+ * 1. Semantic color + icons. Each entity keeps ONE icon and ONE hue everywhere
+ *    it appears, so color carries meaning instead of decoration:
+ *      board / web UI   blue    (material: view-column / palette)
+ *      schema / types   violet  (material: shape)
+ *      agents / MCP     green   (material: robot)
+ *      CLI              orange  (material: console)
+ *      API / events     rose    (material: broadcast / code-json)
+ *    Indigo (Material accent) is reserved for actions and navigation.
+ *    Apply with `.ic-board`, `.ic-schema`, `.ic-agent`, `.ic-cli`, `.ic-api`
+ *    on an inline icon: `:material-robot-outline:{ .ic-agent }`.
+ *
+ * 2. Dual-weight type. Headings, card titles, and callout titles are heavy
+ *    (700/600); body copy stays 400. No mid-weights on body text.
+ */
+
+:root {
+  --md-primary-fg-color: #111418;
+  --md-accent-fg-color: #4a5df9;
+  --cards-board: #1971c2;
+  --cards-schema: #6741d9;
+  --cards-agent: #099268;
+  --cards-cli: #e8590c;
+  --cards-api: #c2255c;
+}
+
+[data-md-color-scheme="slate"] {
+  --cards-board: #4dabf7;
+  --cards-schema: #9775fa;
+  --cards-agent: #38d9a9;
+  --cards-cli: #ffa94d;
+  --cards-api: #f783ac;
+}
+
+/* --- dual-weight typography ------------------------------------------------ */
+
+.md-typeset h1 {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--md-default-fg-color);
+}
+.md-typeset h2 {
+  font-weight: 700;
+  letter-spacing: -0.005em;
+}
+.md-typeset h3,
+.md-typeset h4 {
+  font-weight: 600;
+}
+.md-typeset .admonition-title,
+.md-typeset summary {
+  font-weight: 600;
+}
+.md-header__topic,
+.md-header__title {
+  font-weight: 600;
+}
+/* Card titles inside grids (first <strong> line) */
+.md-typeset .grid.cards strong {
+  font-weight: 600;
+}
+
+/* --- semantic icon colors --------------------------------------------------- */
+
+.md-typeset .ic-board  { color: var(--cards-board); }
+.md-typeset .ic-schema { color: var(--cards-schema); }
+.md-typeset .ic-agent  { color: var(--cards-agent); }
+.md-typeset .ic-cli    { color: var(--cards-cli); }
+.md-typeset .ic-api    { color: var(--cards-api); }
+.md-typeset .ic-nav    { color: var(--md-accent-fg-color); }
+
+/* Icons in section headings: slightly larger, aligned to the cap height. */
+.md-typeset h2 .twemoji {
+  vertical-align: -0.15em;
+  margin-right: 0.15em;
+}
+
+/* Icons leading a grid-card title. */
+.md-typeset .grid.cards .twemoji {
+  vertical-align: -0.15em;
+  margin-right: 0.2em;
+}
+
+/* --- components ------------------------------------------------------------- */
+
+/* Version / status pill used on the landing page. */
+.cards-badge {
+  display: inline-block;
+  padding: 0.1rem 0.5rem;
+  border-radius: 1rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--md-accent-fg-color);
+  border: 1px solid var(--md-accent-fg-color);
+  vertical-align: middle;
+}
+
+/* Framed screenshots. */
+.cards-shot {
+  border-radius: 8px;
+  border: 1px solid var(--md-default-fg-color--lightest);
+  box-shadow: 0 2px 14px rgba(0, 0, 0, 0.12);
+  max-width: 100%;
+}
+
+/* Theme gallery on the landing page. */
+.cards-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+  gap: 1rem;
+  align-items: start;
+}
+.cards-gallery figure,
+.md-typeset figure {
+  margin: 0.5rem 0;
+}
+.md-typeset figcaption {
+  font-size: 0.7rem;
+  color: var(--md-default-fg-color--light);
+  text-align: center;
+  margin-top: 0.3rem;
+}
+
+.md-typeset .md-button {
+  margin-top: 0.3rem;
+}
