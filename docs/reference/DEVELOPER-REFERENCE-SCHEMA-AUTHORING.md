@@ -41,12 +41,15 @@ generated MCP tools. This page covers authoring them.
 ## The envelope vs. your fields
 
 A schema is not fully free-form: every card shares a universal envelope the
-runtime manages, and your card type defines only the shape of `fields`.
+runtime manages, and your card type defines only the shape of `fields`. The
+two files relate by id — the `id` at the top of the definition
+(`programming-task` above) is what every card created from it carries as its
+`type_id`.
 
 | Property | On create | On update | Notes |
 |---|---|---|---|
 | `id` | Server-generated | Immutable | Stable string; used in URLs and links |
-| `type_id` | Required | Immutable | Must match a defined card type |
+| `type_id` | Required | Immutable | The definition's `id` (e.g. `programming-task`) |
 | `schema_version` | Defaults to current | Via `upgrade-schema` only | Pins validation rules |
 | `title` | Required | PATCH | Not part of `fields`; always indexed for search |
 | `status` | Required (or first allowed column) | PATCH | Always a workspace **column id** |
@@ -137,21 +140,32 @@ list, every card pins one, and writes validate against the pinned version.
 Reloading definitions never migrates existing cards.
 
 To evolve a type, bump `schema_version` and describe the step in
-`migrations`:
+`migrations`. Each version is the *complete* field list — a field you leave
+out is dropped from cards when they upgrade (the dry-run shows exactly what
+would be lost), so carry forward everything you keep:
 
 ```json
 {
   "id": "programming-task",
+  "name": "Programming Task",
   "schema_version": 2,
   "migrations": {
     "2": { "from": 1, "summary": "Track PR URL before review",
            "field_defaults": { "pull_request_url": null } }
   },
   "fields": [
-    { "id": "description", "type": "text", "required": true },
-    { "id": "branch", "type": "string", "required": true },
-    { "id": "pull_request_url", "type": "string" }
-  ]
+    { "id": "description", "type": "text", "required": true, "display": "monospace" },
+    { "id": "branch", "type": "string", "required": true, "display": "badge" },
+    { "id": "pull_request_url", "type": "string" },
+    { "id": "kind", "type": "enum",
+      "options": ["feature", "bug", "design", "infra"] },
+    { "id": "work_log", "type": "repeating", "display": "feed",
+      "item_fields": [
+        { "id": "commit_hash", "type": "string", "required": true },
+        { "id": "notes", "type": "text" }
+      ] }
+  ],
+  "allowed_columns": ["backlog", "todo", "in_progress", "review", "done"]
 }
 ```
 
