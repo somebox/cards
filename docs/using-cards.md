@@ -1,10 +1,13 @@
 # Using Cards
 
-This page covers how a project runs on Cards day to day, then documents every
+This page is for people running a project on Cards — solo developers, small
+teams, and anyone wiring agents into the loop. It covers how a project runs
+day to day, which setup fits your situation, how coordination works around
+git (PRs, notifications, changelogs, conflicts), and then documents every
 operation in detail. Everything goes through the same service layer, so
-validation, versioning, and events behave identically whether you use the CLI,
-the HTTP API, or the MCP tools — the examples below show all three, and the
-responses are real output from the bundled demo workspace.
+validation, versioning, and events behave identically whether you use the
+CLI, the HTTP API, or the MCP tools — the examples below show all three, and
+the responses are real output from the bundled demo workspace.
 
 New to Cards? Start with [Get started](get-started.md) to install it and serve
 a board; come back here when you want the full operation reference.
@@ -69,6 +72,91 @@ format is JSON you can read with `jq`, so there's no lock-in in either
 direction. The fine-grained event journal stays SQLite-owned and is not part
 of the snapshot — the snapshot rebuilds card state, not the machine-local log.
 See [events](events/index.md) for what lives where.
+
+## Picking a setup
+
+Unlike a hosted tracker, there's no single website everyone visits — you
+choose where the server runs, and the right choice depends on how
+synchronously people work.
+
+**Solo (one or two machines).** Run serverless CLI commands and
+`cards serve` when you want the board. The snapshot is your backup and your
+machine-sync: export before switching machines, import on the other side
+(`scripts/board.sh install-hook` makes the export automatic). Agents talk to
+your local server or the workspace folder directly.
+
+**Team, shared server.** One `cards serve` on a machine the team can reach —
+behind Tailscale, an SSH tunnel, or a reverse proxy
+([users & auth](guides/users-and-auth.md) covers the trust model). Humans
+open the board in a browser; agents point `CARDS_URL` or MCP at the same
+host. Everyone writes to the same live database, versions arbitrate
+concurrent edits in real time, and there is no merge problem. The snapshot
+still gets committed for durability and portability — git just isn't the
+concurrency layer.
+
+**Team, git-synced.** Everyone runs locally and `backlog.jsonl` in the repo
+is the sync fabric — a distributed tracker, with git's semantics: state
+converges when people push and pull, not continuously. This fits async
+collaboration — a maintainer plus occasional contributors, or agents working
+in sandboxes on branches — and it is the wrong tool for two people dragging
+cards on the same board in the same hour. For that, share a server.
+
+The two team modes compose: run a shared server for the day-to-day and
+commit the snapshot for history.
+
+## Coordinating around git
+
+**Pull requests.** With the export hook installed, board changes ride in the
+same commits as code — so a PR's diff shows the work management alongside
+the work: the card moving to `review`, the work-log entries with commit
+hashes, the discussion. A branch can carry its own card updates and merge
+with the PR. Nothing moves a card automatically when a PR merges today;
+that's a natural extension — a small service watching GitHub webhooks (or a
+GitHub Action calling the CLI) that patches the linked card to `done` on
+merge.
+
+**Notifications.** There is no built-in notification system, on purpose —
+the primitives are the event stream and hooks. The demo workspace ships a
+working example: the `review-notify` hook runs a script whenever a card
+reaches `review` on the engineering board
+([`extensions.json`](https://github.com/somebox/cards/blob/main/examples/demo-workspace/definitions/extensions.json)).
+Point the same pattern at `ntfy.sh`, a Slack webhook, or a desktop
+notification. In the git-synced setup, "notification" is often just the
+pull — asynchronous by nature. Post-commit hooks and GitHub Actions work
+too: anything that can run the CLI can react to the board.
+
+**Changelogs.** Typed fields make release notes a query. Cards closed since
+the last tag, grouped by `kind`:
+
+```console
+$ cards list --status done | jq -r '"- \(.fields.kind // "misc"): \(.title)"' | sort
+- bug: Fix cursor pagination off-by-one
+- bug: Harden transition_illegal error
+- feature: Add OpenAPI spec for /v1/cards
+```
+
+The snapshot diff between two tags is itself a board changelog — what
+closed, what was discussed — reviewable with `git diff`.
+
+**Conflicts.** In the git-synced setup, two people can change the board
+between pulls. The export is sorted (one card per line, stable order), so
+git auto-merges edits to *different* cards cleanly. Edits to the *same*
+card — including two people commenting on the same card at different
+times — conflict on that card's line and need a hand-merge of the JSON
+today. Comments and work-log entries have stable ids, so a semantic merge
+tool (union comments and entries, highest version wins for fields) is
+planned; until it exists, treat same-card divergence as something to avoid —
+share a server, or partition who touches what.
+
+**Artifacts.** Attachments are pointers, not repo content: the card field
+holds `{uri, mime, size, sha256}`, and local artifact bytes live under the
+workspace's `artifacts/` directory, which is gitignored by default and not
+part of the snapshot. On a fresh clone, artifact links from other machines
+don't resolve. Your options: commit `artifacts/` (or put it under git LFS)
+if the attachments are small evidence files worth versioning; use
+`artifact_policy: "uri"` to reference files in shared storage (S3, a NAS)
+for heavy payloads; or treat artifacts as machine-local working files. The
+`sha256` in the field lets you verify bytes that traveled separately.
 
 ## The operations
 

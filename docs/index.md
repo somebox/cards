@@ -6,16 +6,18 @@ hide:
 
 # Cards
 
-Cards is a kanban board that lives in a folder on your machine. You describe
-a card type in JSON — the fields on a task, a bug, a shop-floor job — and the
-same definition drives the web UI, the CLI, the REST API, and the MCP tools
-agents call. One binary, one SQLite file, no cloud account.
+Describe the things you need to organize — a room and its contents, a
+storyboard scene, a print job and its printer, a research goal, or a task —
+and Cards gives each kind its own validated fields. Every card also has a
+status, comments, links, and change history. Boards are saved views that filter
+and arrange cards from the workspace; they do not own or duplicate them.
 
-Reach for it when a TODO file is too little structure and a hosted tracker is
-too much ceremony: solo work, small teams, agent harnesses that need a shared
-typed board. It is not a Jira replacement, not an agent framework, and not a
-hosted multi-tenant service — [the philosophy](concepts/philosophy.md) draws
-the line.
+Write each type once in JSON. Cards uses that definition in its web UI, CLI,
+REST API, and MCP tools, so people, scripts, and agents work with the same
+model and rules. One local binary and SQLite handle live use, while JSON
+definitions and JSONL exports keep the workspace portable and git-friendly.
+Documented APIs, events, and hooks let outside programs extend it without
+changing the core.
 
 <span class="cards-badge">v0.1.x · beta</span>
 &nbsp;Local-only by default · SQLite-backed · git-portable · MIT.

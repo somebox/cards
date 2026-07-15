@@ -66,4 +66,6 @@ The boundary is extensible — outside the core:
 
 What Cards won't grow is a built-in account system, role model, or
 permission matrix — a tracker that fits in your repo shouldn't need a user
-database of its own.
+database of its own. (A minimal bearer-token verification layer is a parked
+item on the project backlog for shared-host setups; the trust model above is
+the design either way.)
