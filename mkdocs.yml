@@ -72,61 +72,57 @@ markdown_extensions:
 
 # Internal process docs stay out of the published site (still visible on GitHub).
 exclude_docs: |
-  plans/
   archive/
-  *-provenance.md
-  GH-PAGES-TODO.md
   README.md
-  design/AUTH.md
-  design/CORE-BOUNDARIES.md
-  design/OUTBOX-GONOGO.md
-  design/SUBSCRIBERS.md
+  design/auth.md
+  design/core-boundaries.md
+  design/outbox-gonogo.md
+  design/subscribers.md
 
 # Built (reachable via links) but intentionally absent from the nav.
 not_in_nav: |
-  architecture/LIFECYCLE-SCHEMA.md
-  architecture/RELOAD.md
-  design/STYLE-FIELD.md
-  design/THEMES.md
+  architecture/lifecycle-schema.md
+  architecture/reload.md
+  design/style-field.md
+  design/themes.md
 
 nav:
   - Home: index.md
   - Get started: get-started.md
+  - Using Cards: using-cards.md
   - Guide:
-      - Concepts: concepts/CONCEPTS.md
-      - Philosophy: concepts/PHILOSOPHY.md
-      - The workflow: concepts/WORKFLOW.md
-      - Card definitions: reference/DEVELOPER-REFERENCE-SCHEMA-AUTHORING.md
-      - Workspace & boards: reference/DEVELOPER-REFERENCE.md
-      - Card type examples: reference/DEVELOPER-REFERENCE-TYPES-EXAMPLES.md
-      - Using Cards (CLI · API · MCP): reference/OPERATIONS.md
-      - CLI usage: reference/DEVELOPER-REFERENCE-CLI.md
+      - Concepts: concepts/index.md
+      - Philosophy: concepts/philosophy.md
+      - Card definitions: reference/card-definitions.md
+      - Workspace & boards: reference/workspace-and-boards.md
+      - Card type examples: reference/card-type-examples.md
+      - CLI usage: reference/cli.md
       - Users & auth: guides/users-and-auth.md
       - Walkthroughs:
-          - Overview: examples/LIFECYCLE-EXAMPLES.md
-          - Shared setup: examples/LIFECYCLE-EXAMPLES-SETUP.md
-          - Software delivery: examples/LIFECYCLE-EXAMPLES-SOFTWARE.md
-          - Shop floor: examples/LIFECYCLE-EXAMPLES-SHOPFLOOR.md
+          - Overview: examples/index.md
+          - Shared setup: examples/setup.md
+          - Software delivery: examples/software-delivery.md
+          - Shop floor: examples/shop-floor.md
   - Agents:
       - MCP quickstart: agents/mcp.md
       - Agent instructions: agents/instructions.md
-      - MCP design & ergonomics: extensions/MCP.md
+      - MCP design & ergonomics: extensions/mcp.md
   - Extend:
-      - Extensions (hooks & services): extensions/EXTENSIONS.md
-      - Consuming events (SSE): events/INTEGRATION.md
-      - Events overview: events/EVENTS.md
+      - Extensions (hooks & services): extensions/index.md
+      - Consuming events (SSE): events/integration.md
+      - Events overview: events/index.md
       - Making themes: guides/themes.md
   - Reference:
-      - Specification: spec/SPEC.md
-      - Data model: spec/SPEC-DATA-MODEL.md
-      - API surface: spec/SPEC-API-SURFACE.md
-      - Events & history: spec/SPEC-EVENTS-HISTORY.md
-      - Query DSL: spec/SPEC-QUERY-DSL.md
-      - Card-type examples: spec/SPEC-CARDTYPE-EXAMPLES.md
-      - Architecture: architecture/ARCHITECTURE.md
-      - Design system: architecture/DESIGN.md
-      - Event contract: events/EVENTS-CORE.md
-      - Event rollout history: events/EVENTS-ROLLOUT.md
-      - Built vs proposed (audit): reference/INTEGRATOR-REFERENCE.md
-      - Design notes: NOTES.md
-      - Roadmap: ROADMAP.md
+      - Specification: spec/index.md
+      - Data model: spec/data-model.md
+      - API surface: spec/api-surface.md
+      - Events & history: spec/events-history.md
+      - Query DSL: spec/query-dsl.md
+      - Card-type fields: spec/card-types.md
+      - Architecture: architecture/index.md
+      - Design system: architecture/design-system.md
+      - Event contract: events/core.md
+      - Event rollout history: events/rollout.md
+      - Built vs proposed (audit): reference/implementation-status.md
+      - Design notes: design-notes.md
+      - Roadmap: roadmap.md

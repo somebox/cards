@@ -18,7 +18,7 @@ the system prompt or project instructions for other harnesses — alongside the
    workspace, so the field schemas in it are your card types.
 
 Agents with shell access but no MCP client can use the CLI instead — the same
-operations with the same validation ([using Cards](../reference/OPERATIONS.md)
+operations with the same validation ([using Cards](../using-cards.md)
 shows CLI, HTTP, and MCP side by side).
 
 ## The instruction block
@@ -61,5 +61,5 @@ Two notes for the human setting this up:
   agent (for example `agent-claude`, `agent-pi`) so the event history shows
   who did what.
 - The MCP surface has no idempotency keys yet. If your workflow retries
-  aggressively, route those writes through the [REST API](../spec/SPEC-API-SURFACE.md)
+  aggressively, route those writes through the [REST API](../spec/api-surface.md)
   instead.

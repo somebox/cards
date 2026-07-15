@@ -8,7 +8,7 @@ versioned, and event-emitting exactly like a human's.
 !!! note "Scope"
     This page gets an agent connected and coordinating. For *why* the tool
     surface is shaped the way it is (types as tools, the loop mapping), see
-    [MCP design & ergonomics](../extensions/MCP.md).
+    [MCP design & ergonomics](../extensions/mcp.md).
 
 ## Run the server
 
@@ -97,5 +97,5 @@ The tools are grouped to support one loop an agent runs repeatedly:
   current card attached. Read it, retry — don't paper over it.
 - **No idempotency keys over MCP (yet).** Unlike the HTTP surface, the MCP tools
   don't forward an `Idempotency-Key`. If you need retry-safe writes without
-  duplication, use the [REST API](../spec/SPEC-API-SURFACE.md) for those calls.
+  duplication, use the [REST API](../spec/api-surface.md) for those calls.
 

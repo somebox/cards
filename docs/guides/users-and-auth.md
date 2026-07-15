@@ -47,7 +47,7 @@ same way nothing stops a git commit with a borrowed author line. For a local,
 single-tenant tool, adding accounts and permissions would add ceremony
 without adding real security.
 
-This is [philosophy #7](../concepts/PHILOSOPHY.md#7-local-and-trusted-by-default):
+This is [philosophy #7](../concepts/philosophy.md#7-local-and-trusted-by-default):
 isolation belongs to the host.
 
 ## When you need more
@@ -61,7 +61,7 @@ The boundary is extensible — outside the core:
 - **Multiple isolated groups** — run multiple workspaces, one process each.
   The isolation boundary is the process, which a host can enforce properly.
 - **Auditing** — the event log already records every mutation with its
-  actor; an [extension](../extensions/EXTENSIONS.md) subscribed to the event
+  actor; an [extension](../extensions/index.md) subscribed to the event
   stream can ship that wherever your audit trail lives.
 
 What Cards won't grow is a built-in account system, role model, or

@@ -22,7 +22,7 @@ all share one service layer:
 There is **no separate database server** — SQLite is embedded via the pure-Go
 `modernc.org/sqlite` driver (no CGO). One process serves exactly one workspace.
 
-### Design principles (normative — read PHILOSOPHY.md before non-trivial work)
+### Design principles (normative — read philosophy.md before non-trivial work)
 
 1. **Small core, big composition.** The core does cards, fields, events,
    links, comments, columns, storage. Everything else (dispatchers, agents,
@@ -58,7 +58,7 @@ There is **no separate database server** — SQLite is embedded via the pure-Go
 10. **Boring tech.** SQLite, JSON/YAML, HTTP/SSE, subprocess. No new languages,
     protocols, or databases.
 
-Read the full version: [`docs/concepts/PHILOSOPHY.md`](docs/concepts/PHILOSOPHY.md).
+Read the full version: [`docs/concepts/philosophy.md`](docs/concepts/philosophy.md).
 
 ## Where things live (read before editing)
 
@@ -76,17 +76,18 @@ Read the full version: [`docs/concepts/PHILOSOPHY.md`](docs/concepts/PHILOSOPHY.
 
 ### Doc map (the contract for each area)
 
-- **Concepts / mental model:** [`docs/concepts/CONCEPTS.md`](docs/concepts/CONCEPTS.md)
-- **Principles (normative):** [`docs/concepts/PHILOSOPHY.md`](docs/concepts/PHILOSOPHY.md)
-- **Architecture (Go core, packaging):** [`docs/architecture/ARCHITECTURE.md`](docs/architecture/ARCHITECTURE.md)
-- **Web UI design system + theming contract:** [`docs/architecture/DESIGN.md`](docs/architecture/DESIGN.md) ← read before any CSS/template work
-- **API + data model (normative):** [`docs/spec/SPEC.md`](docs/spec/SPEC.md), split into `SPEC-API-SURFACE.md`, `SPEC-DATA-MODEL.md`, `SPEC-EVENTS-HISTORY.md`, `SPEC-QUERY-DSL.md`, `SPEC-CARDTYPE-EXAMPLES.md`
-- **Schema authoring:** [`docs/reference/DEVELOPER-REFERENCE.md`](docs/reference/DEVELOPER-REFERENCE.md) (+ `DEVELOPER-REFERENCE-CLI.md`, `DEVELOPER-REFERENCE-SCHEMA-AUTHORING.md`, `DEVELOPER-REFERENCE-TYPES-EXAMPLES.md`)
-- **Code-verified drift audit (built vs proposed):** [`docs/reference/INTEGRATOR-REFERENCE.md`](docs/reference/INTEGRATOR-REFERENCE.md) — the single-page source of truth for what's actually implemented
-- **Events:** [`docs/events/EVENTS.md`](docs/events/EVENTS.md) → `EVENTS-CORE.md` (contract), `EVENTS-ROLLOUT.md` (history), `INTEGRATION.md` (consumption)
-- **Extensions / MCP:** [`docs/extensions/EXTENSIONS.md`](docs/extensions/EXTENSIONS.md), [`docs/extensions/MCP.md`](docs/extensions/MCP.md)
-- **Design rationale notes:** [`docs/NOTES.md`](docs/NOTES.md)
-- **Design explorations (not built):** `docs/design/` (e.g. `STYLE-FIELD.md`)
+- **Concepts / mental model:** [`docs/concepts/index.md`](docs/concepts/index.md)
+- **Principles (normative):** [`docs/concepts/philosophy.md`](docs/concepts/philosophy.md)
+- **Architecture (Go core, packaging):** [`docs/architecture/index.md`](docs/architecture/index.md)
+- **Web UI design system + theming contract:** [`docs/architecture/design-system.md`](docs/architecture/design-system.md) ← read before any CSS/template work
+- **API + data model (normative):** [`docs/spec/index.md`](docs/spec/index.md), split into `api-surface.md`, `data-model.md`, `events-history.md`, `query-dsl.md`, `card-types.md`
+- **Card schemas & workspace:** [`docs/reference/card-definitions.md`](docs/reference/card-definitions.md) (card types & fields), [`docs/reference/workspace-and-boards.md`](docs/reference/workspace-and-boards.md) (columns, boards, transitions), `card-type-examples.md`, `cli.md`
+- **Using Cards (operations, CLI/API/MCP):** [`docs/using-cards.md`](docs/using-cards.md)
+- **Code-verified drift audit (built vs proposed):** [`docs/reference/implementation-status.md`](docs/reference/implementation-status.md) — the single-page source of truth for what's actually implemented
+- **Events:** [`docs/events/index.md`](docs/events/index.md) → `core.md` (contract), `rollout.md` (history), `integration.md` (consumption)
+- **Extensions / MCP:** [`docs/extensions/index.md`](docs/extensions/index.md), [`docs/extensions/mcp.md`](docs/extensions/mcp.md)
+- **Design rationale notes:** [`docs/design-notes.md`](docs/design-notes.md)
+- **Design explorations (not built):** `docs/design/` (e.g. `style-field.md`)
 
 ## How to run the server (and reload on changes)
 
@@ -140,7 +141,7 @@ go test ./internal/httpapi ./internal/config ./internal/core   # the three touch
 
 CI also runs `golangci-lint` and `go test -race`; keep new code race-clean.
 
-## Web UI / CSS conventions (read `docs/architecture/DESIGN.md` first)
+## Web UI / CSS conventions (read `docs/architecture/design-system.md` first)
 
 The UI is a single token-driven CSS system in
 `internal/httpapi/templates/style.css` — **no build step, no Tailwind, no JS
@@ -186,7 +187,7 @@ custom property the matched rule reads → edit it where it's declared
 Icons are monochrome `currentColor` mask-images keyed by `[data-icon]`
 (aliases: `card`, `star`, `bug`, `check`, `flask`, `target`, `code`, `pen`,
 `wrench`); add a new icon by adding one CSS mask alias, not by editing markup.
-See `docs/design/STYLE-FIELD.md` for the proposed enum-value → icon/color
+See `docs/design/style-field.md` for the proposed enum-value → icon/color
 mapping (`option_themes` + board `presentation.style_field`).
 
 ### Before you commit UI changes
@@ -212,7 +213,7 @@ mapping (`option_themes` + board `presentation.style_field`).
   `scripts/board.sh export|import` to sync boards across machines; never edit
   the JSONL by hand when a server is running against the same workspace.
 - **Docs vs. code drift:** `SPEC*.md` is normative intent;
-  `docs/reference/INTEGRATOR-REFERENCE.md` is the code-verified audit of what's
+  `docs/reference/implementation-status.md` is the code-verified audit of what's
   actually built. When a spec claim and code disagree, fix the code or update
   the spec deliberately — don't leave them split.
 - **No new dependencies without justification.** Keep it boring and buildable
@@ -221,15 +222,15 @@ mapping (`option_themes` + board `presentation.style_field`).
 ## Quick "where do I…" index
 
 - Add a card-type field / change a schema → `internal/core/types.go` +
-  `DEVELOPER-REFERENCE-SCHEMA-AUTHORING.md`
+  `card-definitions.md`
 - Add/fix an HTTP route → `internal/httpapi/api.go`, register in `server.go`,
-  document in `SPEC-API-SURFACE.md`
+  document in `api-surface.md`
 - Change the board UI look → `internal/httpapi/templates/style.css` (role
-  tokens), `DESIGN.md` is the contract
+  tokens), `design-system.md` is the contract
 - Add a CLI subcommand → `internal/cli/`, wire in `cmd/cards/`
-- Add an MCP tool → `internal/mcp/`, document in `docs/extensions/MCP.md`
-- Add an event / condition → `internal/core/events.go`, `EVENTS-CORE.md`
-- Add an extension hook → `internal/hooks/`, `docs/extensions/EXTENSIONS.md`
+- Add an MCP tool → `internal/mcp/`, document in `docs/extensions/mcp.md`
+- Add an event / condition → `internal/core/events.go`, `core.md`
+- Add an extension hook → `internal/hooks/`, `docs/extensions/index.md`
 - Tweak a theme → override `--role-*` (and palette / `--modal-*` geometry) in
   the theme's `html[data-theme="<name>"] { }` block; do not restructure
   templates (the `labels` detail header is the documented exception)

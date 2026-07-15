@@ -6,17 +6,16 @@ hide:
 
 # Cards
 
-Cards is a self-contained service for tracking work on typed cards — tasks,
-bugs, notes, anything you define in JSON. One binary and one SQLite file give
-you a web board, a REST API, a CLI, and an MCP server for agents, all
-validating against the same schema.
+Cards is a kanban board that lives in a folder on your machine. You describe
+a card type in JSON — the fields on a task, a bug, a shop-floor job — and the
+same definition drives the web UI, the CLI, the REST API, and the MCP tools
+agents call. One binary, one SQLite file, no cloud account.
 
-It's built for projects where a TODO file is too little structure and a hosted
-tracker is too much overhead: solo developers and small teams who want less
-process, agent harnesses that need a shared typed board, and work that isn't
-generic tickets. It is not a Jira replacement, not an agent framework, and not
-a hosted multi-tenant service — [the philosophy](concepts/PHILOSOPHY.md) draws
-the boundaries.
+Reach for it when a TODO file is too little structure and a hosted tracker is
+too much ceremony: solo work, small teams, agent harnesses that need a shared
+typed board. It is not a Jira replacement, not an agent framework, and not a
+hosted multi-tenant service — [the philosophy](concepts/philosophy.md) draws
+the line.
 
 <span class="cards-badge">v0.1.x · beta</span>
 &nbsp;Local-only by default · SQLite-backed · git-portable · MIT.
@@ -146,7 +145,7 @@ repo. Any agent that can speak either one can read and write the board — you
 can switch harnesses, run two side by side, or `grep` your own backlog. No
 tool owns your work.
 
-→ [The workflow](concepts/WORKFLOW.md) — a working session end to end, and
+→ [The workflow](using-cards.md) — a working session end to end, and
 what the committed snapshot buys you
 
 ## :material-robot-outline:{ .ic-agent } A board beats a markdown plan
@@ -217,7 +216,7 @@ just the id), so it pipes.
 <span class="to">card_7e090c38</span></pre>
 </div>
 
-→ [Using Cards](reference/OPERATIONS.md) — every operation with CLI, HTTP,
+→ [Using Cards](using-cards.md) — every operation with CLI, HTTP,
 and MCP examples side by side
 
 ## :material-palette-outline:{ .ic-board } Themes
@@ -258,13 +257,13 @@ The built-in and demo themes:
     Install, create a workspace, serve the board, connect an agent. About two
     minutes.
 
--   ### :material-shape-outline:{ .ic-schema } [Define card schemas](reference/DEVELOPER-REFERENCE-SCHEMA-AUTHORING.md)
+-   ### :material-shape-outline:{ .ic-schema } [Define card schemas](reference/card-definitions.md)
 
     ---
 
     Card types, the ten field types, validation rules, and schema versioning.
 
--   ### :material-view-column-outline:{ .ic-board } [Workspace & boards](reference/DEVELOPER-REFERENCE.md)
+-   ### :material-view-column-outline:{ .ic-board } [Workspace & boards](reference/workspace-and-boards.md)
 
     ---
 
@@ -277,7 +276,7 @@ The built-in and demo themes:
     Run the MCP server, wire it into a harness, and follow the coordination
     loop.
 
--   ### :material-console:{ .ic-cli } [Using Cards](reference/OPERATIONS.md)
+-   ### :material-console:{ .ic-cli } [Using Cards](using-cards.md)
 
     ---
 
@@ -291,14 +290,14 @@ The built-in and demo themes:
     What themes can customize, the validation rules, and how to install and
     share one.
 
--   ### :material-broadcast:{ .ic-api } [Events & extensions](extensions/EXTENSIONS.md)
+-   ### :material-broadcast:{ .ic-api } [Events & extensions](extensions/index.md)
 
     ---
 
     Hooks, services, and the SSE event stream — automation lives outside the
     core.
 
--   ### :material-file-document-outline:{ .ic-nav } [Specification](spec/SPEC.md)
+-   ### :material-file-document-outline:{ .ic-nav } [Specification](spec/index.md)
 
     ---
 
@@ -310,5 +309,5 @@ The built-in and demo themes:
 ---
 
 [Get started](get-started.md){ .md-button .md-button--primary }
-[Read the concepts](concepts/CONCEPTS.md){ .md-button }
-[See what's actually built](reference/INTEGRATOR-REFERENCE.md){ .md-button }
+[Read the concepts](concepts/index.md){ .md-button }
+[See what's actually built](reference/implementation-status.md){ .md-button }

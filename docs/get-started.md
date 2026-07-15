@@ -69,7 +69,7 @@ cards patch <id> --status in_progress --version 1
 cards comment add <id> --body "on it"
 ```
 
-→ Full command reference: [CLI](reference/DEVELOPER-REFERENCE-CLI.md).
+→ Full command reference: [CLI](reference/cli.md).
 
 ## 4. Point an agent at it
 
@@ -94,8 +94,8 @@ open http://127.0.0.1:8787/ui/boards/engineering
 ```
 
 Because the snapshot is committed, cloning the repo clones the board. See
-[Concepts](concepts/CONCEPTS.md) for the model and
-[card definitions](reference/DEVELOPER-REFERENCE-SCHEMA-AUTHORING.md) for
+[Concepts](concepts/index.md) for the model and
+[card definitions](reference/card-definitions.md) for
 defining your own types.
 
 ---
@@ -104,4 +104,4 @@ defining your own types.
     Cards is `v0.1.x`. The core service, HTTP API, CLI, MCP server, web UI, and
     hook system are implemented; treat the API as project-local unless a release
     says otherwise. For a code-verified map of what's built vs. proposed, see the
-    [built-vs-proposed audit](reference/INTEGRATOR-REFERENCE.md).
+    [built-vs-proposed audit](reference/implementation-status.md).

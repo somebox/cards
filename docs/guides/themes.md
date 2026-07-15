@@ -69,9 +69,9 @@ practice that covers:
   (`.artifact-upload[data-state=…]`), validation (`.is-invalid`), focus.
 
 The full token list and role system are documented in the
-[design system](../architecture/DESIGN.md); the complete hook catalog (every
+[design system](../architecture/design-system.md); the complete hook catalog (every
 class and attribute a theme may target, by surface) is in the
-[theme contract](../design/THEMES.md#the-theme-contract-v1-2026-07-07).
+[theme contract](../design/themes.md#the-theme-contract-v1-2026-07-07).
 
 ## The rules
 

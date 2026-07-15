@@ -207,8 +207,8 @@ scripts/board.sh install-hook      # optional: auto-export before every commit s
 Defaults to `examples/demo-workspace`; set `CARDS_WS=<dir>` for another
 workspace. The event journal, condition marks, and any delivery state are *not*
 in the snapshot by design (they are SQLite-owned durable state) — a restore
-rebuilds card state, not history. See `docs/events/EVENTS-CORE.md` for the
-event contract and `docs/events/EVENTS-ROLLOUT.md` for staged rollout status.
+rebuilds card state, not history. See `docs/events/core.md` for the
+event contract and `docs/events/rollout.md` for staged rollout status.
 
 ## API And Runtime Behavior
 
@@ -270,7 +270,7 @@ schema, events, and extension references.
 The site is built from the Markdown in [`docs/`](docs/) with MkDocs Material
 (`mkdocs.yml`); the source files remain browsable on GitHub. A code-verified map
 of what's actually built vs. proposed is in
-[`docs/reference/INTEGRATOR-REFERENCE.md`](docs/reference/INTEGRATOR-REFERENCE.md).
+[`docs/reference/implementation-status.md`](docs/reference/implementation-status.md).
 
 Cards is in beta. The core service, HTTP API, CLI, MCP server, web UI, and
 hook system are implemented, but the API should still be treated as

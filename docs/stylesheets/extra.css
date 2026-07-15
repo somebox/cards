@@ -96,16 +96,22 @@
 
 /* --- header ------------------------------------------------------------------ */
 
-/* Tighten the gap between the logo and the site name. */
+/* Tighten the gap between the logo and the site name. Material defaults leave
+   a full button padding + title margin; collapse both. */
 .md-header__button.md-logo {
   margin-right: 0;
-  padding-right: 0;
+  padding-inline: 0.2rem;
+}
+.md-header__button.md-logo img,
+.md-header__button.md-logo svg {
+  margin-right: 0;
 }
 
 /* Show the page title as a smaller subtitle beside the site name instead of
    replacing it on scroll. */
 .md-header__title {
-  margin-left: 0.5rem;
+  margin-left: 0.15rem;
+  padding-left: 0;
 }
 .md-header__title .md-header__ellipsis {
   display: flex;

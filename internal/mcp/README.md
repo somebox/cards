@@ -46,4 +46,4 @@ For each card type `T` defined in the workspace, the MCP server dynamically publ
 - **Idempotency:** Unlike HTTP/CLI surfaces which support `Idempotency-Key` headers, the MCP tool surface does **not** yet forward or honor an idempotency key. Callers expecting retries without duplication should use HTTP.
 - **Errors:** Emits structured error payloads corresponding to the core error catalog (with `valid_options` to allow agents to rectify validation issues autonomously).
 
-See also: [MCP Design & Ergonomics](../../docs/extensions/MCP.md)
+See also: [MCP Design & Ergonomics](../../docs/extensions/mcp.md)

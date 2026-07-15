@@ -19,4 +19,4 @@ Bimodal extension supervisor (`kind:hook` + `kind:service`). See
 Supported home: `cards serve --run-extensions` (shared construction with
 standalone `cards run-extensions` via `cmd/cards/supervisor.go`).
 
-See also: [Extensions Design & Reference](../../docs/extensions/EXTENSIONS.md)
+See also: [Extensions Design & Reference](../../docs/extensions/index.md)
