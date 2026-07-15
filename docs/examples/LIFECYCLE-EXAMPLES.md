@@ -10,7 +10,7 @@ Assumptions:
 - Base URL: `http://127.0.0.1:8787/v1`
 - Actor for writes: register users once; CLI uses `CARDS_USER` or `--as`.
   Every write carries the actor via the **`X-Work-Cards-Actor`** header
-  (`--as` sets it). See `SPEC.md` §12.
+  (`--as` sets it). See [`SPEC-EVENTS-HISTORY.md` §12](../spec/SPEC-EVENTS-HISTORY.md).
 
 CLI global flags: `--url`, `--workspace`, `--as <user_id>`, `--json` for raw
 output. Concurrency: PATCH/claim/take-next pass `--version`. Pinned to

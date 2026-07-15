@@ -31,6 +31,9 @@
   --cards-agent: #38d9a9;
   --cards-cli: #ffa94d;
   --cards-api: #f783ac;
+  /* Lighten the dark scheme slightly (Material default is 14% lightness). */
+  --md-default-bg-color: hsla(232, 15%, 17%, 1);
+  --md-code-bg-color: hsla(232, 15%, 22%, 1);
 }
 
 /* --- dual-weight typography ------------------------------------------------ */
@@ -43,10 +46,19 @@
 .md-typeset h2 {
   font-weight: 700;
   letter-spacing: -0.005em;
+  color: var(--md-default-fg-color);
 }
 .md-typeset h3,
 .md-typeset h4 {
   font-weight: 600;
+  color: var(--md-default-fg-color);
+}
+/* Stronger white headings in the dark scheme (Material dims them by default). */
+[data-md-color-scheme="slate"] .md-typeset h1,
+[data-md-color-scheme="slate"] .md-typeset h2,
+[data-md-color-scheme="slate"] .md-typeset h3,
+[data-md-color-scheme="slate"] .md-typeset h4 {
+  color: hsla(0, 0%, 100%, 0.94);
 }
 .md-typeset .admonition-title,
 .md-typeset summary {
@@ -82,7 +94,124 @@
   margin-right: 0.2em;
 }
 
+/* --- header ------------------------------------------------------------------ */
+
+/* Tighten the gap between the logo and the site name. */
+.md-header__button.md-logo {
+  margin-right: 0;
+  padding-right: 0;
+}
+
+/* Show the page title as a smaller subtitle beside the site name instead of
+   replacing it on scroll. */
+.md-header__title {
+  margin-left: 0.5rem;
+}
+.md-header__title .md-header__ellipsis {
+  display: flex;
+  align-items: baseline;
+  gap: 0.7rem;
+}
+.md-header__topic {
+  position: static;
+  transform: none !important;
+  transition: opacity 0.25s;
+  white-space: nowrap;
+}
+.md-header__topic:first-child {
+  opacity: 1 !important;
+}
+.md-header__topic:not(:first-child) {
+  font-size: 0.6rem;
+  font-weight: 400;
+  opacity: 0;
+  color: var(--md-primary-bg-color--light);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.md-header__title--active .md-header__topic:not(:first-child) {
+  opacity: 0.85;
+}
+@media screen and (max-width: 59.9375em) {
+  .md-header__topic:not(:first-child) {
+    display: none;
+  }
+}
+
 /* --- components ------------------------------------------------------------- */
+
+/* Two-column definition → rendered-page pairs on the landing page. */
+.cards-duo {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0.4rem 1rem;
+  align-items: center;
+  margin: 1.2rem 0;
+}
+.cards-duo .highlight {
+  margin: 0;
+}
+.cards-duo pre {
+  font-size: 0.58rem;
+  line-height: 1.45;
+}
+.cards-duo figure {
+  margin: 0;
+}
+@media screen and (max-width: 44.9375em) {
+  .cards-duo {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Terminal block. Deliberately dark in both color schemes. */
+.cards-term {
+  max-width: 44rem;
+  margin: 1rem 0;
+  border-radius: 10px;
+  border: 1px solid var(--md-default-fg-color--lightest);
+  box-shadow: 0 2px 14px rgba(0, 0, 0, 0.18);
+  background: #14171c;
+  overflow: hidden;
+}
+.cards-term__bar {
+  display: flex;
+  gap: 0.35rem;
+  padding: 0.5rem 0.8rem;
+  background: #1d2127;
+}
+.cards-term__dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+}
+.cards-term__dot--r { background: #ff5f57; }
+.cards-term__dot--y { background: #febc2e; }
+.cards-term__dot--g { background: #28c840; }
+.cards-term pre {
+  margin: 0;
+  padding: 0.9rem 1.1rem;
+  background: transparent;
+  font-family: var(--md-code-font-family);
+  font-size: 0.62rem;
+  line-height: 1.7;
+  color: #d6dde6;
+  overflow-x: auto;
+}
+.cards-term .tp { color: #7d8590; }   /* prompt */
+.cards-term .tc { color: #e6edf3; font-weight: 600; }   /* command */
+.cards-term .to { color: #7ee787; }   /* output */
+
+/* Documentation map: h3 titles inside grid cards (so they land in the TOC). */
+.md-typeset .grid.cards h3 {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+.md-typeset .grid.cards h3 .headerlink {
+  display: none;
+}
 
 /* Version / status pill used on the landing page. */
 .cards-badge {

@@ -5,8 +5,9 @@ MCP server is one of three surfaces (REST, CLI, MCP) sharing one Go service
 layer; it is the primary interface for agents living inside an MCP-aware
 harness.
 
-Normative behavior lives in [`SPEC.md`](../spec/SPEC.md). The agent coordination loop
-(§13) drives tool grouping. See also [`DEVELOPER-REFERENCE.md`](../reference/DEVELOPER-REFERENCE.md)
+Normative behavior lives in [`SPEC.md`](../spec/SPEC.md); the agent coordination loop
+([`SPEC-API-SURFACE.md` §13](../spec/SPEC-API-SURFACE.md)) drives tool grouping. See also
+[card definitions](../reference/DEVELOPER-REFERENCE-SCHEMA-AUTHORING.md)
 for schema authoring and [`LIFECYCLE-EXAMPLES.md`](../examples/LIFECYCLE-EXAMPLES.md) for
 worked flows.
 

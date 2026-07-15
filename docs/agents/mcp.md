@@ -90,7 +90,7 @@ The tools are grouped to support one loop an agent runs repeatedly:
    `version`).
 5. **Resume** — `history` to pick up where a prior session left off.
 
-## Limitations
+## Things to know
 
 - **Concurrency is version-checked.** Mutations that patch typed state require
   the current `version`; a stale write returns `version_conflict` with the
@@ -99,7 +99,3 @@ The tools are grouped to support one loop an agent runs repeatedly:
   don't forward an `Idempotency-Key`. If you need retry-safe writes without
   duplication, use the [REST API](../spec/SPEC-API-SURFACE.md) for those calls.
 
-!!! tip "Runnable skills are coming"
-    A curated, runnable **`take-and-work`** skill (matching these exact tool
-    names) lands next. Until then, the loop above is the contract — grounded in
-    the tools that exist today, not a wish list.

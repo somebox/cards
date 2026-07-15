@@ -1,209 +1,131 @@
-# Concepts & Setups
+# Concepts
 
-This document defines the vocabulary of Cards and shows how the pieces fit
-together in different use cases. For the API and field reference, see
-[`SPEC.md`](../spec/SPEC.md); for workspace authoring, see
-[`DEVELOPER-REFERENCE.md`](../reference/DEVELOPER-REFERENCE.md); for design principles, see
-[`PHILOSOPHY.md`](../concepts/PHILOSOPHY.md); for a code-verified drift audit of which
-features are built vs. proposed, see
-[`INTEGRATOR-REFERENCE.md`](../reference/INTEGRATOR-REFERENCE.md).
+## The sixty-second version
 
-Sections marked **Planned** describe the intended model that is not yet
-implemented. Everything else describes current behavior.
+Cards is this project's issue tracker, and it lives in the repo. A folder of
+JSON definitions describes the kinds of work we track (card types), the states
+work moves through (columns), and the views we look at it through (boards).
+The `cards` binary turns that folder into a web board, a REST API, a CLI, and
+MCP tools for agents — all enforcing the same schema. Board state is
+snapshotted to a JSONL file and committed alongside the definitions, so
+cloning the repo gets you the whole board: cards, comments, links, history of
+decisions. There is no account, no hosted service, and nothing to sign into.
 
-## The mental model in one paragraph
+That's the whole pitch. The rest of this page is the vocabulary and the
+reasoning.
 
-A **workspace** is a database with a schema. The schema is a set of
-**definitions** — **card types** (field shapes), **columns** (statuses), and
-**boards**. **Cards** are rows that belong to the workspace, not to any board.
-A **board** is a saved view: it chooses which card types and columns to show,
-adds transition rules, and can scope itself to a subset of cards. Card types are
-shared across every board in the workspace; boards select and filter, they do
-not define. One server process serves exactly one workspace.
+## Why not something that already exists?
 
-## Workspace
+There's plenty of tracking software, and a `TODO.md` is genuinely fine for
+many projects. Cards earns its place in the gap between them:
 
-A workspace is a directory containing definitions and a SQLite database:
+**Against a markdown file** — markdown has no structure to defend. Anyone (and
+especially any agent) can rewrite the whole file; two writers conflict; there's
+no history of *why* a line changed, no typed fields to query, no way to say
+"give me the next open bug." Cards gives every item typed, validated fields, a
+versioned history of every change, and queries — while staying just as local
+and just as much *yours* as the markdown file was.
 
-```text
-my-workspace/
-  definitions/
-    workspace.json          # columns, tags, link types, users, settings
-    card-types/*.json       # field schemas
-    boards/*.json           # views + transitions + presentation
-    extensions.json         # declared hooks/services
-  work-cards.db             # authoritative state (created on first serve)
-  .cards/                   # extension workspace: ext/, logs/, sessions/
-  artifacts/                # uploaded files
-```
+**Against a hosted tracker** — GitHub Issues, Jira, and Linear assume the
+tracker is a service somebody else runs. Your project's memory ends up behind
+an account, shaped by a vendor's model, and reachable only by their API. For a
+small team that's mostly overhead; for an open-source project it splits the
+project's state from the project's code; for agent workflows it ties your
+agents to whatever integration the vendor ships.
 
-The database is authoritative. The `definitions/` directory is the schema, and
-is meant to be committed to version control. One process serves one workspace
-(`cards serve --workspace <dir>`); the `/v1/health` endpoint reports a single
-workspace id. Running several workspaces means running several processes on
-different ports.
+Cards is built around the opposite assumption: **the tracker is part of the
+project.** That has two consequences worth naming:
 
-## Definitions are workspace-local
+- **Open source.** Fork the repo, get the board. Maintainer handoff is a
+  `git pull`. Anyone auditing the project can read not just what the code does
+  but how the work unfolded — the backlog is right there, diffable, in plain
+  JSON.
+- **Agent work.** Card types become typed MCP tools automatically, and
+  validation errors tell the agent what was allowed so it can correct itself.
+  Versioned writes mean two agents can't silently overwrite each other, and
+  everything an agent does — claims, field updates, comments, work logs — is
+  on the record for a human to review. The board is persistent shared memory,
+  which a scratch `plan.md` isn't.
 
-Definitions live in the workspace's `definitions/` directory and nowhere else.
-There is no global, shared, or inherited definition library: each workspace owns
-a complete, self-contained copy of its schema. This locality is deliberate — it
-is what makes a workspace portable as `definitions/` + a JSONL export (see
-[Import / export](#import--export-and-portability)).
+## The model in five terms
 
-A new workspace gets its schema by copying starter definitions in, then editing
-that copy. Customizing a workspace means editing the JSON under its own
-`definitions/` and restarting the server (or using an explicit reload command
-when one exists). Reloading definitions does not migrate existing cards (see
-schema versioning in [`SPEC.md`](../spec/SPEC.md)).
+- **Workspace** — one directory, one tracker. It holds the definitions, the
+  live SQLite database, and uploaded artifacts. One server process serves one
+  workspace.
+- **Definitions** — the JSON files under `definitions/` that declare card
+  types, columns, boards, and extensions. They are the schema, they are meant
+  to be committed, and each workspace owns a complete copy (there is no global
+  registry to depend on).
+- **Card types** — field schemas. An ordered list of typed fields (ten field
+  types: `string`, `text`, `number`, `date`, `enum`, `tags`, `user`,
+  `card_link`, `repeating`, `artifact`) plus the columns cards of that type
+  may occupy. One definition drives the web form, the API contract, the CLI,
+  and the generated MCP tools.
+- **Cards** — the work items. Every card has the same envelope (`id`, `title`,
+  `status`, `owner`, `version`, links, comments, timestamps); the custom data
+  lives under `fields` and is validated by the card type. A card's `status`
+  is always one of the workspace's column ids. Cards belong to the workspace,
+  not to a board.
+- **Boards** — saved views. A board picks which card types and columns to
+  show, can enforce a transition graph (`todo → in_progress → review → done`),
+  set WIP limits, and carry presentation hints. Boards select and filter;
+  they never own cards. Several boards can slice the same workspace
+  differently.
 
-## Card types
+## How a board scopes cards
 
-A card type is a field schema: an ordered list of typed fields
-(`string`, `text`, `number`, `date`, `enum`, `tags`, `user`, `card_link`,
-`repeating`, `artifact`) plus the columns a card of that type may occupy. The
-same definition drives the HTTP API, the CLI, the MCP tool schema, and the UI
-form — adding a field changes the contract everywhere at once.
-
-**Card types are global within a workspace.** Every board draws from the same
-type catalog. A type is defined once in `definitions/card-types/<id>.json` and
-is available to all boards.
-
-## Cards
-
-A card has a fixed envelope and schema-defined fields. The envelope gives every
-card an `id`, `type_id`, `title`, `status`, `owner`, `version`, links, comments,
-and timestamps; the custom data lives under `card.fields`. A card's `status` is
-always one of the workspace's column ids. Cards belong to the workspace — a card
-is never "in" a board; it simply matches (or does not match) a board's view.
-
-`owner` is the canonical assignment field, used by built-in filters
-(`owner=me`) and by `claim` / `take-next`.
-
-## Boards
-
-A board is a Kanban lens over the workspace's cards. It does not own cards; it
-scopes and presents them. A board defines:
-
-- **`columns`** — which statuses (workspace column ids) appear, and their order.
-- **`card_type_ids`** — which card types appear on the board.
-- **`default_filter`** — an optional [filter DSL](../spec/SPEC.md) expression that
-  scopes which cards the board shows, beyond type and column.
-- **`transitions`** + **`settings.enforce_transitions`** — an optional status
-  graph the board enforces (e.g. `todo -> in_progress -> review -> done`).
-- **`presentation`** — UI hints: preview fields per type, lane grouping, accent
-  field, detail sections, and named saved filters.
-
-### How a board scopes cards
-
-When a query names a board (`?board_id=eng`), the service folds the board's
-scope into the query:
+When a query names a board, the service folds the board's scope into it:
 
 | Mechanism | Behavior |
 |---|---|
-| `card_type_ids` | Restricts to those types, unless the caller already set a type filter. |
-| `columns` | Restricts to those statuses, unless the caller already set a status filter. |
-| `default_filter` | **Hard boundary.** AND-ed with any caller filter, so a board view can be narrowed but never widened past its own scope. |
+| `card_type_ids` | Restricts to those types, unless the caller filters types itself. |
+| `columns` | Restricts to those statuses, unless the caller filters status itself. |
+| `default_filter` | Hard boundary — AND-ed with any caller filter. A board view can be narrowed but never widened past its own scope. |
 
-`card_type_ids` and `columns` are convenience scopes the caller may override;
-`default_filter` is an isolation boundary the caller cannot escape.
+## One workspace or several?
 
-## Multiple boards in one workspace
-
-Because card types are global and boards filter, several boards can present
-different slices of the same workspace. This is the natural way to model a
-project with several sub-apps: one workspace, one board per sub-app.
-
-There are two isolation strategies:
-
-**1. A card type per sub-app.** Give each sub-app its own type and scope each
-board with `card_type_ids`:
-
-```jsonc
-// boards/web.json
-{ "id": "web", "name": "Web app",
-  "columns": ["todo", "in_progress", "review", "done"],
-  "card_type_ids": ["web-task"] }
-```
-
-**2. A shared type plus a discriminator.** Use one `task` type with a
-discriminating field (an `enum` like `app`, or a tag) and scope each board with
-`default_filter`:
-
-```jsonc
-// boards/web.json
-{ "id": "web", "name": "Web app",
-  "columns": ["todo", "in_progress", "review", "done"],
-  "card_type_ids": ["task"],
-  "default_filter": { "fields.app": { "$eq": "web" } } }
-```
-
-Both give clean isolation: a card created for the API sub-app will not appear on
-the web board. Choose strategy 1 when sub-apps need genuinely different fields,
-and strategy 2 when they share a shape and differ only by which sub-app they
-belong to.
-
-> Note: board-scoped event streams (SSE) currently determine board membership by
-> `card_type_ids` only; `default_filter` is applied to card listings, not yet to
-> event-stream membership.
-
-## Multiple workspaces
-
-When two efforts need fully separate vocabularies, columns, or histories, use
-separate workspaces — separate directories, each served by its own process on
-its own port. Workspaces never share definitions or data; the boundary is total.
+Because card types are global within a workspace and boards filter, several
+boards can present different slices of the same workspace — one board per
+sub-app is the natural way to model a project with several parts. Isolate
+either with a card type per sub-app (`card_type_ids`), or with one shared type
+plus a discriminator field and a `default_filter`.
 
 Rule of thumb:
 
-- **New project, same vocabulary →** a new **board** in the existing workspace.
-- **New project, different vocabulary or hard isolation →** a new **workspace**.
+- **New project, same vocabulary** → a new **board** in the existing workspace.
+- **New project, different vocabulary or hard isolation** → a new
+  **workspace** (a separate directory, served by its own process). Workspaces
+  never share definitions or data.
 
-## Import / export and portability
+## Portability is the point
 
-`cards export --workspace <dir>` dumps the full workspace state (cards, events,
-users) as JSONL. `cards import` restores such a dump into a fresh, empty
-workspace. Committing a JSONL export alongside `definitions/` makes the whole
-workspace reproducible from version control without a database server — this is
-the intended sync and backup mechanism for shared workspaces.
+`cards export --state-only` writes the whole board — cards, comments, links —
+to a `backlog.jsonl` that diffs cleanly and is committed next to
+`definitions/`. `cards import` restores it into a fresh workspace. The live
+SQLite database is machine-local and gitignored; the JSON is the durable,
+shared form. This is the backup, sync, *and* collaboration mechanism — see
+[the workflow](WORKFLOW.md) for how it plays out day to day.
 
-## Setups by use case
+## Common setups
 
-**Personal / projects.** One workspace in the user's home, many boards inside it
-— one per project or area. Data persists outside any repo. *(The zero-config
-launch path below is implemented: `cards` with no arguments serves the nearest
-`.cards/` or the personal workspace.)*
+- **Personal.** One workspace in your home directory (`~/.cards`), many
+  boards — one per project or area. `cards` with no arguments finds it.
+- **A project repo.** A `.cards/` workspace committed to the repo
+  (definitions + snapshot). Every contributor — human or agent — runs a local
+  server against the checkout. This project does exactly that; the bundled
+  demo workspace is the real backlog.
+- **Team / shared host.** The same repo workspace, served on one host behind
+  a reverse proxy. There is no built-in auth by design — see
+  [users & auth](../guides/users-and-auth.md).
 
-**Developing Cards (dogfooding).** The workspace is `examples/demo-workspace`,
-committed in the repo, with an `engineering` board holding the real build
-backlog. Run it explicitly with `cards serve --workspace ./examples/demo-workspace`.
+## Where to go next
 
-**Team / shared.** A workspace committed to a project repo (definitions plus a
-JSONL export under version control). Each contributor runs a local server
-against the checkout, or one host serves it behind a reverse proxy. There is no
-baked-in auth; isolation is the host's responsibility (see
-[`ARCHITECTURE.md`](../architecture/ARCHITECTURE.md)).
-
-## Setup and customization
-
-Cards resolves a workspace the way git resolves a repository:
-
-- **`cards init`** scaffolds a new workspace from baked-in starter definitions
-  (the columns `todo`/`doing`/`done`, a simple `task` type, and a `welcome`
-  board) and seeds an onboarding board. By default it creates `./.cards/` in the
-  current directory; `cards init --global` creates the personal workspace
-  instead. It never clobbers an existing workspace.
-- **`.cards/` is the workspace marker.** Running `cards` with no arguments walks
-  up from the current directory to find the nearest `.cards/` (which holds
-  `definitions/`, `work-cards.db`, and the `ext/`, `logs/`, `sessions/` subdirs)
-  and serves it — the way git resolves `.git/`.
-- **Global fallback.** With no `.cards/` found anywhere up the tree, `cards`
-  serves a personal workspace at `~/.cards` (override with `CARDS_HOME`),
-  creating and seeding it on first run.
-- **The `welcome` board is the tutorial.** Its cards explain editing
-  definitions, adding boards, the CLI/MCP surface, and export/import, so a fresh
-  workspace is self-documenting. Delete them once you're oriented.
-
-`cards serve --workspace <dir>` remains the explicit form (used, for example, by
-the repo's `examples/demo-workspace`); an explicit path is never auto-created.
-Customizing a workspace still means editing the JSON under its own
-`definitions/` and restarting.
+- [The workflow](WORKFLOW.md) — how a project actually runs on Cards day to day.
+- [Card definitions](../reference/DEVELOPER-REFERENCE-SCHEMA-AUTHORING.md) —
+  authoring card types.
+- [Workspace & boards](../reference/DEVELOPER-REFERENCE.md) — columns, boards,
+  transitions, and the workspace file layout.
+- [Using Cards](../reference/OPERATIONS.md) — every operation with CLI, HTTP,
+  and MCP examples.
+- [Philosophy](PHILOSOPHY.md) — the design principles and what Cards refuses
+  to be.

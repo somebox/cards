@@ -1,6 +1,6 @@
 # Lifecycle Examples — Shared Setup
 
-### Register identities
+## Register identities
 
 ```http
 POST /v1/users
@@ -21,7 +21,7 @@ cards users register --id shop-monitor --kind agent
 export CARDS_USER=coder-agent   # or --as on each command
 ```
 
-### Introspect (one call before work)
+## Introspect (one call before work)
 
 ```http
 GET /v1/workspace

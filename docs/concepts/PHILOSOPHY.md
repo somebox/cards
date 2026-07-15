@@ -1,108 +1,97 @@
 # Philosophy
 
-Work Cards aims to be a small kernel for typed-card coordination, not a
-framework. The design follows a handful of principles borrowed from minimal
-Unix tools and modern minimal agent harnesses.
+Cards is a small kernel for typed-card coordination, not a framework. These
+ten principles decide what goes in the core, what stays out, and why. They are
+normative: a change that violates one needs a better reason than convenience.
 
 ## Principles
 
-### 1. Small core, big composition
+### 1. Minimal core, extensible by composition
 
 The core does cards, fields, events, links, comments, columns, and storage.
-Everything else — dispatchers, agents, UIs, sync, reports, validations — is an
-external process talking to the API or reacting to events. The core grows
-reluctantly. The field catalog stays small (ten types); richer payload
-validation (JSON/YAML schemas, path confinement, command execution) is
-extension territory.
+Everything else — dispatchers, agents, UIs, sync, reports, richer validation —
+is an external process talking to the API or reacting to events. The core
+grows reluctantly; the field catalog stays at ten types.
 
-### 2. Files where they help
+### 2. Cards are files
 
-Core definitions are git-backed JSON; extension declarations may be YAML where
-implemented. An optional markdown mirror keeps cards human-reviewable
-(**planned, not yet implemented** — see SPEC.md §3). Anything authored,
-reviewed, or versioned by humans
-belongs in a file. Anything operational and queried belongs in SQLite.
+Definitions are git-backed JSON; board state exports to a JSONL snapshot that
+is committed next to them. SQLite is the working store — it exists for
+queries, search, and concurrent writes, not as the source of truth you have
+to keep. Anything authored or reviewed by humans belongs in a file; anything
+operational and queried belongs in the database.
 
-### 3. Schemas, not magic
+### 3. Schemas are the contract
 
-Behavior comes from explicit typed schemas the agent or human can introspect.
-No hidden context injection, no behind-the-scenes mutation, no implicit
-defaults that aren't visible in the API response.
+Behavior comes from explicit, introspectable schemas. A card type's definition
+is the web form, the API contract, the CLI surface, and the generated MCP
+tools. No hidden context injection, no behind-the-scenes mutation, no implicit
+defaults that don't appear in the API response.
 
 ### 4. Progressive disclosure
 
-Introspection can be scoped. Tool surfaces (MCP) can be narrow. An agent asks
-for what it needs; the core does not push every type, board, and tool into
-every session.
+Introspection is scoped. Tool surfaces can be narrow. An agent asks for what
+it needs; the core does not push every type, board, and tool into every
+session.
 
-### 5. Hooks, not engines
+### 5. Events and hooks, not a workflow engine
 
-There is no automation engine, workflow DSL, or rules language. There are
-events, hooks (subprocess scripts), and external processes that subscribe via
-SSE. If you need automation, write an extension.
+There is no automation engine, rules language, or workflow DSL. There are
+events, hooks (subprocess scripts), and external processes subscribing over
+SSE. Automation is something you write, not something you configure.
 
-### 6. Extensions over plugins
+### 6. Extensions are separate processes
 
-Extensions are independent processes in any language. They communicate via the
-HTTP API and event stream; they do not load into the core process. This keeps
-the core small, language-agnostic, and crash-isolated.
+Extensions run outside the core, in any language, talking to the HTTP API and
+event stream. The core never loads their code — which keeps it small,
+language-agnostic, and crash-isolated.
 
-### 7. YOLO defaults
+### 7. Local and trusted by default
 
-The default deployment is local-only, single-tenant, trusted environment. We
-do not ship permission theater. Authentication and isolation are the host's
-responsibility.
+The default deployment is single-user on `localhost`. There is no built-in
+authentication or permission system: isolation belongs to the host (a reverse
+proxy, a VPN, an SSH tunnel). See
+[users & auth](../guides/users-and-auth.md).
 
 ### 8. Stable, documented contracts
 
 The HTTP and event contracts are versioned and meant to outlive any specific
-implementation. Wrapper libraries (Python/Node) and the CLI are layered on top
-of the same contract.
+implementation. The CLI and client libraries are layers over the same
+contract, never side doors.
 
 ### 9. Fail loudly, guide recovery
 
-Every rejection includes a structured error: which field, which value, what
-was allowed. Agents retry; agents self-correct.
+Every rejection is a structured error naming the field, the value, and what
+was allowed. That is what lets agents retry and self-correct instead of
+guessing.
 
-### 10. Boring tech
+### 10. Boring technology
 
-SQLite, JSON/YAML, HTTP/SSE, subprocess. No new languages, no new protocols,
-no new databases.
+SQLite, JSON, HTTP/SSE, subprocesses. No new languages, protocols, or
+databases, and no build steps.
 
-## What this means in practice
+## In practice
 
-- Features are added only when an external extension cannot do the job well.
-- We resist building anything that can be expressed as `cards events stream`
-  plus a small script.
+- A feature is added to the core only when an extension cannot do the job.
+- Anything expressible as `cards events stream` plus a small script stays a
+  script.
 - The materialized card is the durable work product; the event log is
-  coordination memory that may be trimmed. The core is a coordinator, not an
-  archive.
-- We prefer "this is a file you edit" over "this is a setting in the API."
-- We prefer "run an extension" over "configure a built-in."
-- We document conventions and seams, not "the right way" to use the system.
+  coordination memory and may be trimmed.
+- "A file you edit" beats "a setting in the API."
 
-## What this is NOT
+## What Cards is not
 
-- Not a Jira replacement.
-- Not a workflow automation platform.
-- Not a generic document store.
-- Not an archive.
+Not a Jira replacement, not a workflow automation platform, not a generic
+document store, not an archive. It is a small substrate; anything richer is
+built on top of it, against the contracts in this documentation.
 
-It is a small substrate. Anything richer is something built on top of it using
-the contracts described in this repository.
-
-## Related documents
+## Related
 
 | Doc | Contents |
 |-----|----------|
-| [`CONCEPTS.md`](../concepts/CONCEPTS.md) | Vocabulary, mental model, and use-case setups |
-| [`NOTES.md`](../NOTES.md) | Design notes (v0.4 changes and rationale) |
-| [`SPEC.md`](../spec/SPEC.md) | Normative product behavior and API |
-| [`INTEGRATOR-REFERENCE.md`](../reference/INTEGRATOR-REFERENCE.md) | Code-verified drift audit of SPEC claims |
-| [`EVENTS.md`](../events/EVENTS.md) | Event subsystem design (Emitter seam, conditions) |
-| [`INTEGRATION.md`](../events/INTEGRATION.md) | Integration and consumption patterns |
-| [`MCP.md`](../extensions/MCP.md) | MCP tool surface |
-| [`EXTENSIONS.md`](../extensions/EXTENSIONS.md) | Extension model (hooks, services, runs) |
-| [`ARCHITECTURE.md`](../architecture/ARCHITECTURE.md) | Go core, packaging, Python/Node integration |
-| [`DEVELOPER-REFERENCE.md`](../reference/DEVELOPER-REFERENCE.md) | Schemas, transitions, links, versioning |
-| [`LIFECYCLE-EXAMPLES.md`](../examples/LIFECYCLE-EXAMPLES.md) | End-to-end card lifecycles |
+| [Concepts](CONCEPTS.md) | Vocabulary and the reasoning behind Cards |
+| [The workflow](WORKFLOW.md) | How a project runs on Cards day to day |
+| [Specification](../spec/SPEC.md) | Normative behavior and API |
+| [Built vs proposed](../reference/INTEGRATOR-REFERENCE.md) | Code-verified audit of what's implemented |
+| [Extensions](../extensions/EXTENSIONS.md) | Hooks, services, and runs |
+| [Architecture](../architecture/ARCHITECTURE.md) | The Go core and packaging |

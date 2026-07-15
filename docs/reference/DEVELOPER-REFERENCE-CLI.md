@@ -1,102 +1,148 @@
-# Developer Reference — CLI (`cards`)
+# CLI usage
 
-The binary is **`cards`** (avoids clashing with Unix `wc`). It mirrors the HTTP
-API.
+Everything Cards does is available from the `cards` binary. This page covers
+getting it installed and wired to a project, the two backends, and the full
+command surface. Per-operation examples with responses — including the HTTP
+and MCP equivalents — are in [using Cards](OPERATIONS.md).
 
-Client commands run **serverless by default**: with no `CARDS_URL` set they run
-the same `/v1` router in-process against the resolved workspace
-(`$CARDS_WORKSPACE`, else the nearest `.cards/`, else `~/.cards`) — no `cards
-serve` required. Set `CARDS_URL` (or `--url`) to talk to a running server
-instead. Prefer the server when one is up: a direct write bypasses that
-process's event bus, so its SSE stream and hooks would not observe the change.
+## Install
 
-**Card references.** Everywhere a command takes a card id — reads *and* writes
-(`get`, `patch`, `comment`, `link`, `attach`, `claim`, `delete`, …, including
-`link add --target`) — you may pass either the full `card_…` id or its 8-char
-short id (the first 8 characters after `card_`, as shown on the board). A
-short id matching more than one card is never auto-resolved: the command fails
-with the structured `ambiguous` error (HTTP 409, exit code 4) listing every
-candidate's full id and title so you can pick one and retry. The reference is
-normalized to the full id before anything is written, so events, links, and
-comments always record full ids.
+=== "Download a binary"
 
-**Attachments out of the box.** The starter `task` type ships an `attachment`
-artifact field, so a fresh install can run the whole loop immediately:
-`cards init proj && cards --workspace ./proj attach <id> attachment ./file.png`
-(`--workspace` accepts the project root or its `.cards` child; if both look
-like workspaces the command errors with the choices rather than guessing).
-Workspaces initialized before this field existed keep their old definitions —
-add it to `definitions/card-types/task.json` yourself:
-`{ "id": "attachment", "type": "artifact", "artifact_policy": "local" }`
-(additive and optional; no schema_version bump required).
+    Grab your platform's archive from the
+    [latest release](https://github.com/somebox/cards/releases/latest)
+    (`linux` / `darwin` / `windows` × `amd64` / `arm64`):
 
-```bash
-cards serve --workspace ./demo-workspace --port 8787
+    ```console
+    $ curl -L -o cards.tar.gz \
+        https://github.com/somebox/cards/releases/latest/download/cards_darwin_arm64.tar.gz
+    $ tar -xzf cards.tar.gz && sudo mv cards_darwin_arm64/cards /usr/local/bin/
+    $ cards version
+    ```
 
-cards workspace show
-cards boards show engineering   # GET /v1/boards/engineering
+    On macOS, clear Gatekeeper quarantine on first run:
+    `xattr -d com.apple.quarantine /usr/local/bin/cards`.
 
-cards list --board engineering --owner me --status todo,in_progress
-cards create --type programming-task --title "..." --status todo \
-  --field branch=feature/x --as coder-agent
-cards get CARD_ID
-cards patch CARD_ID --status review --version 3 \
-  --field branch=feat/oauth
-cards claim CARD_ID --as coder-agent --status in_progress
-# --filter-file points at any JSON file holding a §9 filter object
-# (illustrative path; not shipped in examples/demo-workspace)
-cards take-next --board engineering --filter-file ./filters/todo.json \
-  --as coder-agent --status in_progress
-cards append CARD_ID work_log \
-  --entry-json '{"commit_hash":"a1b2c3d","notes":"...","author":"coder-agent","timestamp":"2026-06-25T14:30:00Z"}'
-cards patch-entry CARD_ID work_log ENTRY_ID --entry-json '{...}'
-cards link add CARD_ID --type depends-on --target OTHER_ID
-cards upgrade-schema CARD_ID --target 2
-cards events CARD_ID
-cards events stream --board engineering
-cards history CARD_ID
+=== "Build from source (Go 1.26.4+)"
 
-cards users register --id coder-agent --kind agent
-# cards views query <id> --param k=v   # [proposed, not yet implemented]
+    ```console
+    $ go install github.com/somebox/cards/cmd/cards@latest
+    # or from a checkout:
+    $ go build -o cards ./cmd/cards
+    ```
 
-# Local, no server needed — full-snapshot backup/restore (reads SQLite directly):
-cards export --workspace ./demo-workspace --out backup.jsonl
-cards import --workspace ./fresh-workspace --in backup.jsonl   # restores into a fresh DB
+## Set up a project
+
+```console
+$ cd my-project
+$ cards init          # scaffolds ./.cards (definitions + starter welcome board)
+$ cards serve         # http://127.0.0.1:8787
 ```
 
-Environment:
+`cards` resolves its workspace the way git finds `.git/`: the nearest
+`.cards/` walking up from the current directory, falling back to a personal
+workspace at `~/.cards`. `cards init --global` creates the personal one;
+`--workspace <dir>` is always the explicit override.
+
+## Two backends
+
+Client commands (`list`, `create`, `patch`, …) work in either of two modes:
+
+| Mode | When | How |
+|---|---|---|
+| **Serverless** (default) | No server running; scripts, CI, quick edits | Runs the same service in-process against the resolved workspace |
+| **Server** | A `cards serve` is up | Set `CARDS_URL` (or `--url`) to target it |
+
+Prefer the server when one is running: a serverless write bypasses that
+process's event bus, so its live board and hooks won't see the change.
+`--workspace` applies to the serverless path only (combining it with `--url`
+is an error).
+
+## Environment
 
 | Variable | Purpose |
 |---|---|
-| `CARDS_URL` | API base; **unset = serverless** (in-process). Set it to target a running server |
-| `CARDS_WORKSPACE` | Workspace directory for serverless/embedded mode |
-| `CARDS_USER` | Default actor (`me` / `--as`) |
+| `CARDS_URL` | API base. **Unset = serverless.** |
+| `CARDS_WORKSPACE` | Workspace directory for serverless mode |
+| `CARDS_USER` | Default actor for writes (`--as` overrides per command) |
 
-Concurrency: pass `--version` on every PATCH/claim (there is no `If-Match`
-header alias — `version` in the body/query is the only mechanism); stale
-versions return `409 version_conflict` with the current card.
+## Commands
 
-### Output modes
-- `--json` — single JSON object (default for `get`, `create`, `patch`).
-- `--jsonl` — newline-delimited JSON (default for `list`, `events`, streams).
-- `--quiet` — ids only (for `xargs`).
-- Errors go to **stderr** as structured JSON, e.g.
-  `{"error":"unknown_enum","field":"status","valid_options":[...]}`.
+Global flags on every command: `--url`, `--as`, `--workspace`, `--json`,
+`--jsonl`, `--quiet`/`-q`. Run `cards <command> --help` for a command's flags.
 
----
+### Working with cards
 
-## 10. Checklist for a new board
+| Command | Purpose |
+|---|---|
+| `list` | List/search: `--board --owner --status --type --q --blocked --has-link --link-target --limit --cursor`; `--include links,comments` |
+| `get <id>` | One card (short ids work: `4430ab22`) |
+| `create` | `--type T --title T [--status S] [--field k=v]… [--tag t]… [--dry-run]` |
+| `patch <id>` | `--version N [--title] [--status] [--owner] [--field k=v]… [--dry-run]` |
+| `claim <id>` | Take ownership: `--version N [--status S]` |
+| `take-next` | Atomically claim the next eligible card: `[--type] [--board] [--assign-to] [--status] [--filter-file]` |
+| `delete <id>` | Delete (leaves a tombstone event) |
+| `comment add <id>` / `comment edit <id> <comment_id>` | `--body B` |
+| `append <id> <field>` | Add a repeating entry: `--version N --entry-json '{…}'` |
+| `patch-entry / remove-entry <id> <field> <entry_id>` | Edit/remove an entry |
+| `link add/remove <id>` | `--type T --target ID [--note N]` |
+| `attach <id> <field> <file>` | Upload to an artifact field |
+| `upgrade-schema <id>` | `[--target N] [--dry-run]` |
 
-1. Add or reuse **columns** in `workspace.json` (status ids).
-2. Add **link_types** you need (`depends-on`, `sent-to`, …) with optional
-   `source_types`/`target_types`.
-3. Create a **card type** under `definitions/card-types/`.
-4. Create a **board** JSON: `card_type_ids`, optional `transitions`,
-   `presentation.card_preview` and saved **filters**.
-5. Optional **views** for domain URLs.
-6. Register **users** (agents/humans) before assigning `owner`/`user` fields.
-7. Hit `GET /v1/workspace` or `cards workspace show` and verify introspection
-   before agents run.
+### Reading history and state
 
----
+| Command | Purpose |
+|---|---|
+| `history <id>` | Resumption-ready timeline (creates, moves, comments, entries) |
+| `events <id>` | Raw events with diffs: `[--types t1,t2] [--limit N]`; `events stream` follows live |
+| `feed` | Workspace-wide event feed |
+| `breaches` | Current WIP / drained-lane / blocked conditions |
+| `workspace show` | Full introspection: columns, types, boards, users |
+| `boards show [id]` | Board definition |
 
+### Workspace lifecycle
+
+| Command | Purpose |
+|---|---|
+| `init [dir] [--global]` | Scaffold a workspace |
+| `serve` | `[--workspace] [--port 8787] [--seed] [--run-extensions] [--watch]` |
+| `mcp` | stdio MCP server (`[--workspace]`) |
+| `reload` | Reload definitions on a running server |
+| `export` | Snapshot to JSONL: `[--out F] [--state-only]` — see [the workflow](../concepts/WORKFLOW.md) |
+| `import` | Restore a snapshot (`--in F`; refuses a non-empty DB) |
+| `users register` | `--id ID [--kind human\|agent] [--display-name N]` |
+| `run-extensions` | Run the hook supervisor standalone |
+| `do <id> [--param k=v]` | Invoke a `run` extension |
+| `extensions [show <id>]` | List declared extensions |
+| `version` | Version, commit, build info |
+
+## Output modes
+
+- `--json` — one JSON object (default for `get`, `create`, `patch`).
+- `--jsonl` — newline-delimited JSON (default for `list`, `events`).
+- `--quiet` / `-q` — ids only; built for `xargs` and shell pipelines.
+- Errors are structured messages on **stderr** — `code (field): message
+  [valid: …]`, e.g. `unknown_enum (kind): Unknown enum value. [valid:
+  feature, bug, design, infra]` — the same error catalog as the API.
+
+```console
+$ cards list --board engineering --status in_progress | jq -r .title
+Add rate limiting to /v1
+Fix cursor pagination off-by-one
+
+$ cards list --status done -q | xargs -n1 cards get -q
+```
+
+## Card references
+
+Anywhere a command takes a card id, the 8-character short id shown on the
+board works (`4430ab22`). An ambiguous short id is never auto-resolved — the
+command fails listing every candidate so you can pick. References are
+normalized to full ids before writing, so events and links always record full
+ids.
+
+## Concurrency
+
+Pass `--version` on every `patch` / `claim` / entry mutation. A stale version
+exits with `version_conflict` and the current card on stderr — re-read,
+retry. There is no force-write flag.

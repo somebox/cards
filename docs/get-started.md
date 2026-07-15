@@ -93,11 +93,10 @@ cards serve --workspace ./examples/demo-workspace --port 8787 --seed
 open http://127.0.0.1:8787/ui/boards/engineering
 ```
 
-Because that state is a committed file, cloning the repo *is* cloning the board.
-That portability — definitions in git, state in a diffable snapshot — is the
-point; see [Concepts](concepts/CONCEPTS.md) for the model and
-[Schema authoring](reference/DEVELOPER-REFERENCE-SCHEMA-AUTHORING.md) for
-defining your own card types.
+Because the snapshot is committed, cloning the repo clones the board. See
+[Concepts](concepts/CONCEPTS.md) for the model and
+[card definitions](reference/DEVELOPER-REFERENCE-SCHEMA-AUTHORING.md) for
+defining your own types.
 
 ---
 

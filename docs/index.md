@@ -1,5 +1,5 @@
 ---
-title: Cards — a local-first issue tracker for people and agents
+title: A local-first issue tracker for people and agents
 hide:
   - navigation
 ---
@@ -11,22 +11,81 @@ bugs, notes, anything you define in JSON. One binary and one SQLite file give
 you a web board, a REST API, a CLI, and an MCP server for agents, all
 validating against the same schema.
 
+It's built for projects where a TODO file is too little structure and a hosted
+tracker is too much overhead: solo developers and small teams who want less
+process, agent harnesses that need a shared typed board, and work that isn't
+generic tickets. It is not a Jira replacement, not an agent framework, and not
+a hosted multi-tenant service — [the philosophy](concepts/PHILOSOPHY.md) draws
+the boundaries.
+
 <span class="cards-badge">v0.1.x · beta</span>
 &nbsp;Local-only by default · SQLite-backed · git-portable · MIT.
 
 [Get started](get-started.md){ .md-button .md-button--primary }
 [Connect an agent (MCP)](agents/mcp.md){ .md-button }
-[GitHub](https://github.com/somebox/cards){ .md-button }
+[Agent instructions](agents/instructions.md){ .md-button }
+
+## Definitions in, tracker out
+
+A card type defines the fields; the detail page renders from it. A board
+definition picks columns, card types, and transition rules; the lanes render
+from that. There is no separate UI configuration.
+
+<div class="cards-duo" markdown>
+
+```json title="definitions/card-types/programming-task.json"
+{
+  "id": "programming-task",
+  "name": "Programming Task",
+  "fields": [
+    { "id": "description", "type": "text",
+      "required": true },
+    { "id": "branch", "type": "string",
+      "required": true, "display": "badge" },
+    { "id": "kind", "type": "enum",
+      "options": ["feature", "bug", "design", "infra"] },
+    { "id": "work_log", "type": "repeating",
+      "display": "feed",
+      "item_fields": [
+        { "id": "commit_hash", "type": "string",
+          "required": true },
+        { "id": "notes", "type": "text" }
+      ] }
+  ],
+  "allowed_columns": ["backlog", "todo",
+    "in_progress", "review", "done"]
+}
+```
 
 <figure markdown>
-  ![The engineering board — Cards' own backlog](assets/img/board.png){ .cards-shot }
-  <figcaption>The bundled engineering board — this project's own backlog, which ships with the repo.</figcaption>
+  ![The card detail page rendered from the schema](assets/img/card-detail.png){ .cards-shot }
+  <figcaption>The card that schema renders: badge, enum, work-log feed, comments.</figcaption>
 </figure>
 
-Cards is built for projects where a TODO file is too little structure and a
-hosted tracker is too much overhead. `cards init && cards serve` gives you a
-board, an API, and an agent interface over one `.cards/` folder. No account, no
-cloud, nothing to operate.
+```json title="definitions/boards/engineering.json"
+{
+  "id": "engineering",
+  "columns": ["backlog", "todo",
+    "in_progress", "review", "done"],
+  "card_type_ids": ["programming-task",
+    "research-goal", "api-task"],
+  "settings": { "enforce_transitions": true },
+  "wip_limits": { "in_progress": 3 },
+  "transitions": {
+    "backlog": ["todo"],
+    "todo": ["in_progress"],
+    "in_progress": ["review"],
+    "review": ["done", "in_progress"]
+  }
+}
+```
+
+<figure markdown>
+  ![The board lanes rendered from the board definition](assets/img/board-lanes.png){ .cards-shot }
+  <figcaption>The columns that board draws, with per-type preview fields.</figcaption>
+</figure>
+
+</div>
 
 <div class="grid cards" markdown>
 
@@ -34,96 +93,46 @@ cloud, nothing to operate.
 
     ---
 
-    One binary with embedded SQLite (pure-Go `modernc.org/sqlite`, no CGO). It
-    runs on `localhost`, single-user, with no accounts or permissions to
-    manage. Isolation is the host's responsibility, by design.
+    Your tracker runs on your machine and answers to you. Cards persist to
+    plain files and a SQLite database inside your project — no account, no
+    service, and nothing between you and your tasks.
 
--   :material-shape-outline:{ .ic-schema } **One schema, four interfaces**
+-   :material-shape-outline:{ .ic-schema } **Schemas drive everything**
 
     ---
 
-    You define a card type once, in JSON. That definition is the web form, the
-    API contract, the CLI surface, and the generated MCP tools. Add a field and
-    every surface picks it up — there is no separate UI model to drift out of
-    sync.
+    A workspace is a folder of JSON definitions: card types (one file each),
+    boards that combine them, columns, and tags. A card type's definition is
+    the web form, the API contract, the CLI surface, and the generated MCP
+    tools — change it once and every interface follows.
 
 -   :material-source-branch:{ .ic-nav } **Git-portable**
 
     ---
 
-    Definitions are plain files you commit. Board state exports to a
-    `backlog.jsonl` snapshot that diffs cleanly in review. Cloning the repo
-    restores the whole board — cards, comments, links.
+    `cards export` snapshots the whole board — cards, comments, links — into a
+    `backlog.jsonl` you commit next to the definitions. A collaborator pulls,
+    imports the same board, and keeps working.
+
+-   :material-tune-variant:{ .ic-nav } **Customizable**
+
+    ---
+
+    The core stays simple: cards, columns, events. Themes restyle the UI,
+    transitions and WIP limits add process where you want it, new card types
+    model your work, and hooks and extensions connect outside tools. All
+    optional.
 
 </div>
 
-## :material-shape-outline:{ .ic-schema } One schema, four interfaces
-
-The `programming-task.json` below is the only definition. Here is what it
-turns into.
-
-=== "The schema"
-
-    ```json title="definitions/card-types/programming-task.json"
-    {
-      "id": "programming-task",
-      "name": "Programming Task",
-      "schema_version": 1,
-      "fields": [
-        { "id": "description", "type": "text",   "required": true, "display": "monospace" },
-        { "id": "branch",      "type": "string", "required": true, "display": "badge" },
-        { "id": "kind", "type": "enum",
-          "options": ["feature", "bug", "design", "infra"] },
-        { "id": "work_log", "type": "repeating", "display": "feed",
-          "item_fields": [
-            { "id": "commit_hash", "type": "string", "required": true },
-            { "id": "author",      "type": "user",   "required": true }
-          ] }
-      ],
-      "allowed_columns": ["backlog", "todo", "in_progress", "review", "done"]
-    }
-    ```
-
-=== "The board"
-
-    ![The web board rendered from the schema](assets/img/board.png){ .cards-shot }
-
-    The `display` hints (`badge`, `monospace`, `feed`) and the `kind` enum
-    drive how the card renders — no template changes.
-
-=== "The agent tools (MCP)"
-
-    From that one type, the MCP server publishes typed tools automatically:
-
-    ```text
-    workspace              # introspect columns, types, boards
-    create_programming-task
-    update_programming-task
-    take_next              # atomically claim the next eligible card
-    claim / release / add_comment / append_entry / history …
-    ```
-
-    Unknown fields are rejected at the protocol layer, and validation errors
-    name the field and the allowed values so an agent can correct itself:
-
-    ```json
-    {
-      "error": "invalid_field",
-      "field": "status",
-      "message": "\"doing\" is not an allowed column",
-      "valid_options": ["backlog", "todo", "in_progress", "review", "done"]
-    }
-    ```
-
 ## :material-source-branch:{ .ic-nav } Your work stays in your repo
 
-If you are doing agentic dev work, this is the argument that matters most: the
-cards live with the code.
+If you are doing agentic dev work, the key property is that the cards live
+with the code.
 
 `definitions/` is plain JSON under version control. Live state is one SQLite
 file, and `cards export --state-only` snapshots it — every card, comment, and
-link — into a `backlog.jsonl` that diffs cleanly in review. Commit it, push it,
-clone it on another machine, `cards import`, keep working. This repo does
+link — into a `backlog.jsonl` that diffs cleanly in review. This repo does
 exactly that: the bundled demo workspace is the project's real backlog.
 
 Compare that with how agent-task coordination usually goes. Copilot
@@ -136,6 +145,9 @@ Cards keeps coordination in an HTTP API and an MCP server over files in your
 repo. Any agent that can speak either one can read and write the board — you
 can switch harnesses, run two side by side, or `grep` your own backlog. No
 tool owns your work.
+
+→ [The workflow](concepts/WORKFLOW.md) — a working session end to end, and
+what the committed snapshot buys you
 
 ## :material-robot-outline:{ .ic-agent } A board beats a markdown plan
 
@@ -155,12 +167,58 @@ at once. A board is a better shared surface:
   `version_conflict`, not a silent overwrite, and `take_next` assigns each
   worker its own card atomically.
 
-Claude Code, pi, or a plain shell script — anything that speaks MCP or HTTP —
-can claim a card, work it, log what it did, and move on. You get history for
-free, the conversations stay readable, and subagents stop contending for a
-scratch file.
+From a card type, the MCP server generates typed tools; validation errors
+carry the allowed values so agents correct themselves:
 
-→ [Wire up an agent](agents/mcp.md)
+<div class="cards-duo" markdown>
+
+```text title="Generated MCP tools"
+workspace
+create_programming-task
+update_programming-task
+take_next
+claim / release
+add_comment / append_entry
+history / events / breaches
+```
+
+```json title="A rejected write"
+{
+  "error": "invalid_field",
+  "field": "status",
+  "message": "\"doing\" is not an allowed column",
+  "valid_options": ["backlog", "todo",
+    "in_progress", "review", "done"]
+}
+```
+
+</div>
+
+Claude Code, pi, or a plain shell script — anything that speaks MCP or HTTP —
+can claim a card, work it, log what it did, and move on.
+
+→ [Connect an agent](agents/mcp.md) · [Agent instructions](agents/instructions.md)
+
+## :material-console:{ .ic-cli } The same board from your terminal
+
+Every operation works from the CLI — serverless against the workspace folder,
+or pointed at a running server with `CARDS_URL`. Output is JSON (`-q` prints
+just the id), so it pipes.
+
+<div class="cards-term">
+<div class="cards-term__bar"><span class="cards-term__dot cards-term__dot--r"></span><span class="cards-term__dot cards-term__dot--y"></span><span class="cards-term__dot cards-term__dot--g"></span></div>
+<pre><span class="tp">$</span> <span class="tc">cards create --type task --title "Draft changelog" --status todo -q</span>
+<span class="to">card_5f03f5f9</span>
+<span class="tp">$</span> <span class="tc">cards take-next --board engineering --type programming-task -q</span>
+<span class="to">card_7e090c38</span>
+<span class="tp">$</span> <span class="tc">cards patch card_7e090c38 --status review --version 2 -q</span>
+<span class="to">card_7e090c38</span>
+<span class="tp">$</span> <span class="tc">cards comment add card_7e090c38 --body "fix pushed, PR #212" -q</span>
+<span class="to">card_7e090c38</span></pre>
+</div>
+
+→ [Using Cards](reference/OPERATIONS.md) — every operation with CLI, HTTP,
+and MCP examples side by side
 
 ## :material-palette-outline:{ .ic-board } Themes
 
@@ -187,60 +245,60 @@ The built-in and demo themes:
 
 </div>
 
-→ [The themes guide](design/THEMES.md) covers writing your own.
+→ [Themes guide](guides/themes.md) — writing and installing your own
 
 ## :material-book-open-variant:{ .ic-nav } Documentation
 
 <div class="grid cards" markdown>
 
--   :material-rocket-launch-outline:{ .ic-nav } **[Get started](get-started.md)**
+-   ### :material-rocket-launch-outline:{ .ic-nav } [Get started](get-started.md)
 
     ---
 
     Install, create a workspace, serve the board, connect an agent. About two
     minutes.
 
--   :material-shape-outline:{ .ic-schema } **[Define card schemas](reference/DEVELOPER-REFERENCE-SCHEMA-AUTHORING.md)**
+-   ### :material-shape-outline:{ .ic-schema } [Define card schemas](reference/DEVELOPER-REFERENCE-SCHEMA-AUTHORING.md)
 
     ---
 
     Card types, the ten field types, validation rules, and schema versioning.
 
--   :material-view-column-outline:{ .ic-board } **[Workspace & boards](reference/DEVELOPER-REFERENCE.md)**
+-   ### :material-view-column-outline:{ .ic-board } [Workspace & boards](reference/DEVELOPER-REFERENCE.md)
 
     ---
 
     Columns, boards as filtered views, transitions, WIP limits, and monitors.
 
--   :material-robot-outline:{ .ic-agent } **[Agents & MCP](agents/mcp.md)**
+-   ### :material-robot-outline:{ .ic-agent } [Agents & MCP](agents/mcp.md)
 
     ---
 
     Run the MCP server, wire it into a harness, and follow the coordination
     loop.
 
--   :material-console:{ .ic-cli } **[CLI reference](reference/DEVELOPER-REFERENCE-CLI.md)**
+-   ### :material-console:{ .ic-cli } [Using Cards](reference/OPERATIONS.md)
 
     ---
 
-    Every command, serverless or against a running server: `create`, `list`,
-    `patch`, `take-next`, `export`, `import`.
+    Every operation documented once, with CLI, HTTP, and MCP examples and
+    real responses side by side.
 
--   :material-palette-outline:{ .ic-board } **[Themes](design/THEMES.md)**
+-   ### :material-palette-outline:{ .ic-board } [Themes](guides/themes.md)
 
     ---
 
-    The theme contract: tokens, stable hooks, validation, and how to share a
-    theme.
+    What themes can customize, the validation rules, and how to install and
+    share one.
 
--   :material-broadcast:{ .ic-api } **[Events & extensions](extensions/EXTENSIONS.md)**
+-   ### :material-broadcast:{ .ic-api } [Events & extensions](extensions/EXTENSIONS.md)
 
     ---
 
     Hooks, services, and the SSE event stream — automation lives outside the
     core.
 
--   :material-file-document-outline:{ .ic-nav } **[Specification](spec/SPEC.md)**
+-   ### :material-file-document-outline:{ .ic-nav } [Specification](spec/SPEC.md)
 
     ---
 
@@ -248,51 +306,6 @@ The built-in and demo themes:
     code-verified audit of what's built.
 
 </div>
-
-## Who it's for
-
-<div class="grid cards" markdown>
-
--   **The solo dev / small team**
-
-    ---
-
-    You want less process, not more. A board and a queryable history in your
-    git repo, running locally, with nothing to set up or pay for.
-
--   **The agent / tooling person**
-
-    ---
-
-    Your harness needs a typed board to coordinate on — not another ad-hoc
-    scratch DB, and not a vendor's issue tracker. MCP is a first-class
-    interface here.
-
--   **The schema author**
-
-    ---
-
-    Your work isn't generic tickets — research goals, print jobs, review
-    checklists. Model it once and the UI and the agents follow the same rules.
-
-</div>
-
-## What Cards is not
-
-Just as important is what Cards doesn't try to be:
-
-- **Not a Jira/Linear replacement.** It's a small substrate, not a process
-  suite. No sprints-as-a-feature, no roadmap engine, no automation DSL.
-- **Not an agent framework.** It's a coordination surface agents talk to over
-  an API and an event stream — it doesn't run your agents.
-- **Not a hosted, multi-tenant service.** Default deployment is single-user on
-  `localhost`. Auth and isolation belong to the host, by design.
-- **Not a plugin host.** Extensions are independent processes (any language)
-  that talk to the API — the core never loads their code.
-
-If you need a shared, permissioned, hosted tracker with SLAs and org-wide
-reporting, Cards isn't it. The full principles are in
-[Why Cards](concepts/PHILOSOPHY.md).
 
 ---
 

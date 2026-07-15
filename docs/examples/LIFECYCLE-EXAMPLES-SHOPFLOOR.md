@@ -21,6 +21,7 @@ X-Work-Cards-Actor: shop-monitor
 { "type_id": "part-spec", "title": "Bracket rev C", "status": "done",
   "fields": { "part_number": "BRK-42C", "material": "PETG" } }
 ```
+
 → `card_spec_42`. Attach the g-code `artifact`:
 
 > **[proposed]** The `POST /v1/cards/{id}/artifacts` route and the
@@ -45,6 +46,7 @@ POST /v1/cards
 { "type_id": "printer", "title": "X1 Carbon #2", "status": "done",
   "fields": { "serial": "X1-002", "location": "bay-3" } }
 ```
+
 → `card_printer_x1`.
 
 ```bash
@@ -67,16 +69,19 @@ X-Work-Cards-Actor: shop-monitor
 { "type_id": "printer-job", "title": "Run 9001 — 4× bracket", "status": "queued",
   "fields": { "material": "PETG", "quantity": 4 } }
 ```
+
 → `card_job_9001`.
 
 ```http
 POST /v1/cards/card_job_9001/links
 { "type_id": "depends-on", "target": "card_spec_42" }
 ```
+
 ```http
 POST /v1/cards/card_job_9001/links
 { "type_id": "sent-to", "target": "card_printer_x1", "note": "Scheduled overnight" }
 ```
+
 ```http
 PATCH /v1/cards/card_job_9001
 { "fields": { "assigned_printer": "card_printer_x1" }, "version": 1 }
@@ -95,25 +100,27 @@ cards link add card_job_9001 --type sent-to --target card_printer_x1 \
 cards patch card_job_9001 --field assigned_printer=card_printer_x1 --version 1
 ```
 
-### B2.5 — Assign operator and capture context comment
+### B3 — Assign operator and capture context comment
 
 ```http
 PATCH /v1/cards/card_job_9001
 X-Work-Cards-Actor: shop-monitor
 { "owner": "shop-monitor", "version": 2 }
 ```
+
 ```http
 POST /v1/cards/card_job_9001/comments
 X-Work-Cards-Actor: shop-monitor
 { "body": "Queued for overnight run. Operator checks first layer at T+10m." }
 ```
+
 ```bash
 cards patch card_job_9001 --owner shop-monitor --version 2
 cards comment add card_job_9001 \
   --body "Queued for overnight run. Operator checks first layer at T+10m."
 ```
 
-### B3 — View: jobs for this printer (domain URL)
+### B4 — View: jobs for this printer (domain URL)
 
 > **[proposed]** The `GET /v1/views/…` route and the `cards views query`
 > CLI subcommand are not yet implemented. The view-definition format shown
@@ -132,14 +139,16 @@ View definition (in `definitions/views/printer-jobs.json`):
               "status": { "$nin": ["done", "cancelled"] } }
 }
 ```
+
 ```http
 GET /v1/views/printer-jobs/cards?printer_id=card_printer_x1
 ```
+
 ```bash
 cards views query printer-jobs --param printer_id=card_printer_x1
 ```
 
-### B4 — Start print (transition + telemetry)
+### B5 — Start print (transition + telemetry)
 
 Machine starts; monitor appends a `status_updates` entry (getting back an
 `entry_id`) and moves the column:
@@ -155,11 +164,13 @@ X-Work-Cards-Actor: shop-monitor
   }
 }
 ```
+
 ```http
 PATCH /v1/cards/card_job_9001
 X-Work-Cards-Actor: shop-monitor
 { "status": "printing", "version": 2 }
 ```
+
 ```bash
 cards append card_job_9001 status_updates \
   --entry-json '{"state":"printing","reported_at":"2026-06-25T22:05:00Z","note":"Bed 65°C"}'
@@ -172,11 +183,12 @@ replays):
 ```bash
 cards events stream --board fabrication --types=status_changed,item_appended &  # [HTTP only, no CLI]
 ```
+
 ```http
 GET /v1/events/stream?board_id=fabrication&types=status_changed,item_appended
 ```
 
-### B5 — Failure path then recovery
+### B6 — Failure path then recovery
 
 ```http
 POST /v1/cards/card_job_9001/fields/status_updates/append
@@ -212,14 +224,17 @@ X-Work-Cards-Actor: shop-monitor
 { "entry": { "state": "completed", "reported_at": "2026-06-26T01:00:00Z",
              "note": "4/4 OK" } }
 ```
+
 ```http
 PATCH /v1/cards/card_job_9001
 { "status": "qa", "version": 6 }
 ```
+
 ```http
 PATCH /v1/cards/card_job_9001
 { "status": "done", "version": 7 }
 ```
+
 ```bash
 # append failed / queued / completed states similarly (each returns an entry_id)
 cards patch card_job_9001 --status qa --version 6
@@ -233,11 +248,11 @@ cards patch-entry card_job_9001 status_updates ent_01HXYZ \
   --entry-json '{"state":"completed","reported_at":"2026-06-26T01:00:00Z","note":"4/4 OK (corrected)"}'
 ```
 
-### B6 — Query stale blocked queue (ops)
+### B7 — Query stale blocked queue (ops)
 
 Jobs still `queued` not updated in 1 hour — **illustrative only**:
 `updated_before`/`created_before` time filters are **not implemented** in the
-list handler or the CLI (SPEC §9). Today, list `--status queued` and filter on
+list handler or the CLI ([`SPEC-QUERY-DSL.md` §9](../spec/SPEC-QUERY-DSL.md)). Today, list `--status queued` and filter on
 each card's `updated_at` client-side:
 
 ```bash
@@ -251,4 +266,3 @@ cards list --board fabrication --status queued --jsonl \
 failure/requeue path → `qa` → `done`.
 
 ---
-

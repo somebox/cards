@@ -1,152 +1,147 @@
-# Developer Reference — Schema Authoring
+# Card definitions
 
-## 1. Is a card schema fully flexible?
+A card type is one JSON file under `definitions/card-types/`. That file is the
+contract: it drives the web form, the API validation, the CLI flags, and the
+generated MCP tools. This page covers authoring them.
 
-**No.** Every card shares a **universal envelope** managed by the runtime.
-Custom behavior lives in **`fields`** (and optional board/type rules). Card
-types only define the shape of `fields` plus type-level constraints.
+<div class="cards-duo" markdown>
 
-### Universal (every card)
-
-| Property | On create | On update | Notes |
-|---|---|---|---|
-| `id` | Server-generated | Immutable | Stable string; URLs and links |
-| `workspace_id` | Set from workspace | Immutable | One workspace per instance (v1) |
-| `type_id` | Required | Immutable | Must match a defined card type |
-| `schema_version` | Defaults to current | Via `upgrade-schema` only | Pins validation rules |
-| `title` | Required | Optional PATCH | Search, UI, FTS; not in `fields` |
-| `status` | Required (or first allowed column) | PATCH | Always a workspace **column id** |
-| `fields` | Per type schema | PATCH / append APIs | Typed custom data |
-| `owner` | Optional | PATCH | Registered user id; assignment field |
-| `tags` | Optional | PATCH | Subset of workspace `tag_set` |
-| `links` | Optional | Link APIs | Typed edges to other cards |
-| `comments` | — | Comment APIs | Markdown; not part of type schema |
-| `version` | `1` | Increments per mutation | Optimistic concurrency |
-| `created_at`, `updated_at`, `created_by` | System | System | Server-set only |
-
-`owner` is the canonical assignment field used by built-in filters (`owner=me`)
-and `claim`/`take-next`. Multiple assignees or reviewer roles are modeled as
-additional schema fields (`user` or `repeating` with `user` entries).
-
-Agents introspect **card types** for `fields`; they introspect **workspace**
-for `columns`, `link_types`, and `tag_set`. Do not redefine `title` or
-`status` inside `fields`.
-
-### Schema-defined (per card type)
-
-Everything in the card type's `fields[]` array: ids, labels, types, required
-flags, enums, repeating `item_fields`. Values live under `card.fields` keyed by
-field id.
-
-### Flexibility you get
-
-- Any number of custom fields and repeating sequences.
-- **Multi-value enum/user fields**: `"multiple": true` makes the value an
-  array of strings — always an array when present, absent when unset (never
-  `null`/`[]`; writing either unsets it). `default` must then be a non-empty
-  array; `required` means non-empty. Filter with `$has` membership. Not
-  supported inside repeating `item_fields` or on other types (v1); see
-  SPEC-DATA-MODEL "Multi-value fields".
-- Per-type column subset (`allowed_columns`).
-- Per-board or per-type transition graphs (optional; `transitions`).
-- Board-specific presentation without changing types.
-- **`min` / `max` bounds** on `number` fields (numeric) and `date` fields.
-  For dates the same JSON slots hold **Unix seconds (UTC)** — e.g.
-  `"min": 1577836800` for 2020-01-01 — not date strings (a string here is a
-  parse error at load). Rejections render the bound as a date
-  (`"2026-07-01" is before the minimum date "2027-01-01"`). Load-time
-  validation requires `min <= max` when both are set.
-
-### What you do not get (v1)
-
-- Per-type status machines with different column *names* on one workspace
-  (columns are workspace-wide; types restrict **subset** only).
-- Nested `repeating` inside repeating items.
-- Structured-payload field types (`json`/`yaml`/`path`/`command`) — extension
-  territory. Store as `text`/`string`/`artifact`; validate via extension.
-- Agents authoring card types (core definitions are human/harness-owned JSON; extension declarations may use YAML where supported).
-
-### How workspace, board, and type rules merge
-
-Validation is layered (workspace → card type → board → card instance), with
-later layers only adding restrictions. For the normative merge/precedence
-rules and resolution order, see
-[`SPEC.md` §4 “Definition merge and precedence”](../spec/SPEC-DATA-MODEL.md#definition-merge-and-precedence).
-This section adds only the authoring-relevant consequences below.
-
----
-
-## 2. Workspace definition
-
-File: `definitions/workspace.json` (JSON only; of the definition files, only `extensions.{yaml,json}` accepts YAML)
-
-```json
+```json title="definitions/card-types/programming-task.json"
 {
-  "id": "demo",
-  "name": "Demo workspace",
-  "columns": [
-    { "id": "backlog", "name": "Backlog" },
-    { "id": "todo", "name": "To Do" },
-    { "id": "in_progress", "name": "In Progress" },
-    { "id": "review", "name": "Review" },
-    { "id": "done", "name": "Done" }
+  "id": "programming-task",
+  "name": "Programming Task",
+  "schema_version": 1,
+  "fields": [
+    { "id": "description", "type": "text",
+      "required": true, "display": "monospace" },
+    { "id": "branch", "type": "string",
+      "required": true, "display": "badge" },
+    { "id": "kind", "type": "enum",
+      "options": ["feature", "bug", "design", "infra"] },
+    { "id": "work_log", "type": "repeating",
+      "display": "feed",
+      "item_fields": [
+        { "id": "commit_hash", "type": "string",
+          "required": true },
+        { "id": "notes", "type": "text" }
+      ] }
   ],
-  "tag_set": ["urgent", "bug", "feature"],
-  "link_types": [
-    { "id": "depends-on", "name": "Depends on", "type": "directional" },
-    { "id": "blocked-by", "name": "Blocked by", "type": "directional" },
-    { "id": "related", "name": "Related", "type": "bidirectional" },
-    { "id": "sent-to", "name": "Sent to", "type": "directional",
-      "target_types": ["printer"] }
-  ],
-  "settings": {
-    "enforce_transitions": false,
-    "strict_fields": true,
-    "tag_policy": "propose",
-    "default_user": "local-dev"
-  }
+  "allowed_columns": ["backlog", "todo",
+    "in_progress", "review", "done"]
 }
 ```
 
-**Columns** define the only valid `status` values (by column `id`). Array
-order is the lane order. APIs/CLI use ids (`in_progress`, not "In Progress").
+<figure markdown>
+  ![The card detail page this definition renders](../assets/img/card-detail.png){ .cards-shot }
+  <figcaption>What that file renders: required text, a branch badge, the enum, a work-log feed, comments.</figcaption>
+</figure>
 
-**Link types** are workspace-level vocabulary. `source_types`/`target_types`
-are optional arrays of card type ids; mismatched links are rejected with the
-valid set echoed.
+</div>
 
-**Workspace scope:** cards belong to exactly one workspace in v1 (one instance
-= one workspace). Use export/import to move (new card id, optional
-source-reference link).
+## The envelope vs. your fields
 
-Reload **[built]**: `POST /v1/workspace/reload` (CLI: `cards reload`) reloads
-definitions in a running `cards serve` without restarting; `cards serve --watch`
-polls `definitions/` and reloads on change. See
-[`INTEGRATOR-REFERENCE.md`](../reference/INTEGRATOR-REFERENCE.md) and
-[`RELOAD.md`](../architecture/RELOAD.md).
+A schema is not fully free-form: every card shares a universal envelope the
+runtime manages, and your card type defines only the shape of `fields`.
 
-### JSON vs YAML authoring
+| Property | On create | On update | Notes |
+|---|---|---|---|
+| `id` | Server-generated | Immutable | Stable string; used in URLs and links |
+| `type_id` | Required | Immutable | Must match a defined card type |
+| `schema_version` | Defaults to current | Via `upgrade-schema` only | Pins validation rules |
+| `title` | Required | PATCH | Not part of `fields`; always indexed for search |
+| `status` | Required (or first allowed column) | PATCH | Always a workspace **column id** |
+| `fields` | Per type schema | PATCH / entry APIs | Your typed custom data |
+| `owner` | Optional | PATCH | The canonical assignment field (`claim`, `take-next`, `owner=me`) |
+| `tags` | Optional | PATCH | Subset of the workspace `tag_set` |
+| `links` / `comments` | — | Link / comment APIs | Envelope features, not schema fields |
+| `version` | `1` | Increments per mutation | Optimistic concurrency |
 
-Core workspace, board, and card-type definitions are JSON-only. YAML is accepted
-only for extension declarations (`definitions/extensions.{yaml,yml,json}`), where
-supported; use JSON when machine-generating core definitions.
+Don't redefine `title` or `status` inside `fields`. Multiple assignees or
+reviewer roles are extra schema fields (`user`, or `repeating` with a `user`
+item).
 
----
-
-## 6. Schema versioning
-
-Pure **versioned snapshots**: each `schema_version` is an immutable field list;
-a card pins one and validates against it.
-
-- Monotonic `schema_version` per `type_id` (integer, starts at 1).
-- Each card pins `schema_version` (default: current at create).
-- Writes validate `fields` against the **pinned** version.
-
-### Authoring a new version
+## Defining a field
 
 ```json
 {
-  "id": "programming-task", "name": "Programming Task",
+  "id": "machine_key",
+  "label": "Human label",
+  "type": "string",
+  "required": false,
+  "default": null,
+  "description": "Shown in introspection — write it for the agent."
+}
+```
+
+The ten field types, with their extra keys:
+
+| Type | Holds | Extra keys |
+|---|---|---|
+| `string` | Single line | — |
+| `text` | Multi-line, rendered as markdown | — |
+| `number` | Numeric | `min`, `max` |
+| `date` | RFC3339 timestamp | `min`, `max` (as Unix seconds UTC — a date string here is a load error) |
+| `enum` | One of a fixed set | `options: [...]`, `multiple: true`, `option_themes` |
+| `tags` | Workspace tags | uses the workspace `tag_set` |
+| `user` | A registered user id | `multiple: true` |
+| `card_link` | Reference to another card | `target_type`, `link_type` |
+| `repeating` | An append-only feed of typed entries | `item_fields: [FieldDef, ...]` (no nesting); entries get a server `entry_id` |
+| `artifact` | A stored file or URI | `artifact_policy` — `"local"` or `"uri"` |
+
+Details worth knowing:
+
+- **Multi-value** (`enum`/`user` with `multiple: true`) — the value is always
+  an array when present and absent when unset (never `null` or `[]`).
+  `required` means non-empty; filter with `$has`. Not available inside
+  `repeating` items.
+- **Display hints** — a field may carry `display: "badge" | "monospace" |
+  "feed" | "hidden" | "link"` to shape how the UI renders it, and enum fields
+  may map values to icons and colors with `option_themes`. Presentation only;
+  no effect on validation.
+- **`searchable_fields`** — an optional type-level list of field ids (usually
+  `text`/`string`) indexed for full-text search alongside `title`.
+- **`allowed_columns`** — an optional type-level subset of workspace columns;
+  `status` must stay inside it even when no transition graph is enforced.
+- Richer payload validation (JSON schemas, file paths, commands) is not a
+  field type — store as `text`/`artifact` and validate in an
+  [extension](../extensions/EXTENSIONS.md).
+
+!!! tip "It's just JSON — pipe it"
+    Definitions and card output are both plain JSON, so ad-hoc questions are
+    one-liners. What enums does this type have? How is in-flight work
+    distributed?
+
+    ```console
+    $ jq -r '.fields[] | select(.type=="enum") | "\(.id): \(.options|join(", "))"' \
+        definitions/card-types/programming-task.json
+    kind: feature, bug, design, infra
+
+    $ cards list --board engineering | jq -r .status | sort | uniq -c | sort -rn
+       2 in_progress
+       1 todo
+       1 review
+       1 backlog
+    ```
+
+## Layered validation
+
+Rules merge workspace → card type → board → card, and later layers only add
+restrictions — a board can tighten a type's rules, never loosen them. The
+normative merge order lives in
+[the data-model spec](../spec/SPEC-DATA-MODEL.md#definition-merge-and-precedence).
+
+## Schema versioning
+
+Versions are immutable snapshots: each `schema_version` is a fixed field
+list, every card pins one, and writes validate against the pinned version.
+Reloading definitions never migrates existing cards.
+
+To evolve a type, bump `schema_version` and describe the step in
+`migrations`:
+
+```json
+{
+  "id": "programming-task",
   "schema_version": 2,
   "migrations": {
     "2": { "from": 1, "summary": "Track PR URL before review",
@@ -155,43 +150,37 @@ a card pins one and validates against it.
   "fields": [
     { "id": "description", "type": "text", "required": true },
     { "id": "branch", "type": "string", "required": true },
-    { "id": "pull_request_url", "type": "string", "required": false },
-    {
-      "id": "work_log", "type": "repeating", "required": false,
-      "item_fields": [
-        { "id": "commit_hash", "type": "string", "required": true },
-        { "id": "notes", "type": "text", "required": false },
-        { "id": "author", "type": "user", "required": true },
-        { "id": "timestamp", "type": "date", "required": true }
-      ]
-    }
-  ],
-  "allowed_columns": ["todo", "in_progress", "review", "done"]
+    { "id": "pull_request_url", "type": "string" }
+  ]
 }
 ```
 
-Keep immutable snapshots optional: `programming-task.v1.json` for introspection
-of old pins.
+Cards upgrade explicitly, per card (dry-run first):
 
-### Change rules
-
-Schema versioning is pure versioned snapshots; each `schema_version` is an
-immutable field list a card pins and validates against. For the normative
-change rules (add/remove/enum/repeating handling) and the migrations JSON
-shape, see [`SPEC.md` §5 “Schema versioning”](../spec/SPEC-API-SURFACE.md#5-schema-versioning).
-A field may be flagged `deprecated: true` **within the current version** for
-advance warning; this is informational, not how removal works.
-
-### Upgrading a card
-
-```http
-POST /v1/cards/{id}/upgrade-schema
-{ "target_version": 2, "dry_run": false }
+```console
+$ cards upgrade-schema 4430ab22 --target 2 --dry-run
+$ cards upgrade-schema 4430ab22 --target 2
 ```
-```bash
-cards upgrade-schema CARD_ID --target 2
-```
-Emits `schema_upgraded`. Reloading type files does not auto-upgrade cards.
 
----
+Over MCP the `upgrade_schema` tool defaults to dry-run (`confirm: true`
+applies). Each upgrade emits a `schema_upgraded` event. A field may be marked
+`deprecated: true` within a version as advance warning; actual removal is a
+new version. Normative change rules:
+[schema versioning in the spec](../spec/SPEC-API-SURFACE.md#5-schema-versioning).
 
+## What you don't get (v1)
+
+- Per-type column *names* — columns are workspace-wide; types only restrict
+  the subset.
+- Nested `repeating` inside repeating items.
+- Structured-payload field types (`json`, `path`, `command`) — extension
+  territory.
+
+## Next
+
+- [Workspace & boards](DEVELOPER-REFERENCE.md) — columns, link types,
+  transitions, and board configuration.
+- [Card type examples](DEVELOPER-REFERENCE-TYPES-EXAMPLES.md) — complete
+  worked schemas (research goal, fabrication job).
+- [Using Cards](OPERATIONS.md) — creating and updating cards against these
+  schemas from CLI, HTTP, and MCP.

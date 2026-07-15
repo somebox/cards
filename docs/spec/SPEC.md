@@ -1,4 +1,4 @@
-# Work Cards — Design Specification
+# Cards — Design Specification
 
 **Status:** v0.4 — beta, in-progress (not yet stable). The v0.4 pass trimmed
 the field catalog, locked single-workspace-per-instance, fixed link direction
@@ -10,7 +10,7 @@ described below are design-only or not yet wired (see per-section status
 notes). Treat this document as the target contract, not a certification of a
 finished build.
 
-Work Cards is a small substrate for typed-card coordination. It stores cards,
+Cards is a small substrate for typed-card coordination. It stores cards,
 events, links, and comments; validates writes against versioned schemas;
 streams events; and exposes one HTTP/CLI/MCP surface. It is **not** a workflow
 engine or a long-term archive — behavior beyond core CRUD lives in

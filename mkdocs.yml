@@ -45,6 +45,7 @@ theme:
     - search.highlight
     - content.code.copy
     - content.code.annotate
+    - content.tabs.link
 
 extra_css:
   - stylesheets/extra.css
@@ -86,18 +87,21 @@ not_in_nav: |
   architecture/LIFECYCLE-SCHEMA.md
   architecture/RELOAD.md
   design/STYLE-FIELD.md
+  design/THEMES.md
 
 nav:
   - Home: index.md
   - Get started: get-started.md
   - Guide:
       - Concepts: concepts/CONCEPTS.md
-      - Why Cards: concepts/PHILOSOPHY.md
-      - Workspace configuration: reference/DEVELOPER-REFERENCE.md
-      - Schema authoring: reference/DEVELOPER-REFERENCE-SCHEMA-AUTHORING.md
-      - Field types & examples: reference/DEVELOPER-REFERENCE-TYPES-EXAMPLES.md
-      - CLI reference: reference/DEVELOPER-REFERENCE-CLI.md
-      - Themes: design/THEMES.md
+      - Philosophy: concepts/PHILOSOPHY.md
+      - The workflow: concepts/WORKFLOW.md
+      - Card definitions: reference/DEVELOPER-REFERENCE-SCHEMA-AUTHORING.md
+      - Workspace & boards: reference/DEVELOPER-REFERENCE.md
+      - Card type examples: reference/DEVELOPER-REFERENCE-TYPES-EXAMPLES.md
+      - Using Cards (CLI · API · MCP): reference/OPERATIONS.md
+      - CLI usage: reference/DEVELOPER-REFERENCE-CLI.md
+      - Users & auth: guides/users-and-auth.md
       - Walkthroughs:
           - Overview: examples/LIFECYCLE-EXAMPLES.md
           - Shared setup: examples/LIFECYCLE-EXAMPLES-SETUP.md
@@ -105,11 +109,13 @@ nav:
           - Shop floor: examples/LIFECYCLE-EXAMPLES-SHOPFLOOR.md
   - Agents:
       - MCP quickstart: agents/mcp.md
+      - Agent instructions: agents/instructions.md
       - MCP design & ergonomics: extensions/MCP.md
   - Extend:
       - Extensions (hooks & services): extensions/EXTENSIONS.md
       - Consuming events (SSE): events/INTEGRATION.md
       - Events overview: events/EVENTS.md
+      - Making themes: guides/themes.md
   - Reference:
       - Specification: spec/SPEC.md
       - Data model: spec/SPEC-DATA-MODEL.md

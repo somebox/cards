@@ -86,7 +86,7 @@ cards link add card_auth_docs --type blocked-by --target card_auth_cli \
 > on?" The old `blocks` type was removed because agents wired it backwards —
 > see [`NOTES.md`](../NOTES.md) D3.
 
-### A2.5 — Assign ownership and add a kickoff comment
+### A3 — Assign ownership and add a kickoff comment
 
 ```http
 PATCH /v1/cards/card_auth_cli
@@ -108,7 +108,7 @@ cards comment add card_auth_cli \
   --body "Waiting on auth-api card before implementation starts."
 ```
 
-### A3 — Discover blocked / ready work
+### A4 — Discover blocked / ready work
 
 Blocked docs (outgoing `blocked-by` to a non-done card):
 
@@ -128,7 +128,7 @@ GET /v1/cards?board_id=engineering&owner=me&status=todo,in_progress
 cards list --board engineering --owner me --status todo,in_progress
 ```
 
-### A4 — Claim API task and move to in progress
+### A5 — Claim API task and move to in progress
 
 ```http
 POST /v1/cards/card_auth_api/claim
@@ -155,7 +155,7 @@ cards patch card_auth_cli --status review --version 1
 # same validation error (structured JSON to stderr)
 ```
 
-### A5 — Log work (append) and advance API to review
+### A6 — Log work (append) and advance API to review
 
 Appending to a `repeating` field returns a stable `entry_id`; address later
 updates by that id, not array index.
@@ -195,7 +195,7 @@ cards patch card_auth_api --status review --version 2
 > here; the bundled demo workspace does not include it, so the example omits
 > it to stay runnable as-is.
 
-### A6 — Complete API; unblocks dependency chain
+### A7 — Complete API; unblocks dependency chain
 
 ```http
 PATCH /v1/cards/card_auth_api
@@ -259,7 +259,7 @@ X-Work-Cards-Actor: coder-agent
   "fields": { "conclusion": "Published docs/auth-refresh.md" } }
 ```
 
-### A7 — Audit trail and resume
+### A8 — Audit trail and resume
 
 ```http
 GET /v1/cards/card_auth_api/events?limit=20
@@ -274,7 +274,7 @@ cards events stream --board engineering --types status_changed,item_appended  # 
 
 `history` returns a resumption-ready timeline an agent ingests to continue
 interrupted work — the unique value of structured, faithful events
-(see `SPEC.md` §8).
+(see [`SPEC-EVENTS-HISTORY.md` §8](../spec/SPEC-EVENTS-HISTORY.md)).
 
 **Lifecycle summary (A):** create → link (`depends-on`, `blocked-by`, stored
 on the waiting card) → list blocked/owned → claim → append `work_log` (stable

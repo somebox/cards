@@ -109,9 +109,9 @@ escalate. This keeps policy in your domain and mechanism in the core.
 
 ## The event model
 
-Every event has `id`, `type`, `actor`, `at`, `diff`, and a **scope**. Today
-events are card-scoped (`card_id` always set); this proposal adds board-scoped
-events for board-level conditions.
+Every event has `id`, `type`, `actor`, `at`, `diff`, and a **scope**. Card
+events are card-scoped (`card_id` always set); board-scoped events for
+board-level conditions are already built.
 
 There are two **origins** of events:
 
@@ -333,7 +333,7 @@ Two patterns, both built on existing primitives:
    (`todo → in_progress → review → done`) with a hook per stage that dispatches
    the next step.
 2. **Linked-card DAG** — `depends-on` / `blocked-by` links between cards; the
-   `blocked` query hides a card until its blockers are `done`. The proposed
+   `blocked` query hides a card until its blockers are `done`. The built
    `card_unblocked` event turns "a step became ready" into a push signal so a
    coordinator reacts instead of polling.
 
@@ -361,9 +361,11 @@ by priority — the *policy* (which card, when) lives in the extension, the
   monitor has a live consumer and are reconstructible from state, so nothing is
   persisted. It holds no policy; it only emits. See the deadline scheduler and
   lazy-monitor sections above.
-- **Delivery.** All events (both origins, both scopes) publish to the in-process
-  bus and the persisted events table, so SSE, the feed, webhooks, and hooks see
-  a single unified stream.
+- **Delivery.** Mutation events and condition events marked `persist: true`
+  append to the log and publish to the in-process bus. Ephemeral condition
+  signals are published to the bus only, so live consumers (SSE, hooks) see
+  one unified stream, while the durable feed contains only facts plus any
+  explicitly persisted conditions.
 
 ## Build order
 
@@ -375,6 +377,6 @@ by priority — the *policy* (which card, when) lives in the extension, the
 6. ~~`GET /v1/breaches` (current-conditions catch-up for the ephemeral signals).~~ **[done]**
 7. ~~`transition_rejected` (watch friction).~~ **[done]**
 8. Artifact upload (attach files).
-9. `card_ready` (DAG coordination) — `card_unblocked` itself is already **[done]** (seam 3c, see §4 above); `card_ready` (all dependencies satisfied, not just unblocked) remains unbuilt.
+9. `card_ready` (DAG coordination) — `card_unblocked` itself is already **[done]** (seam 3c, see *The event model* above); `card_ready` (all dependencies satisfied, not just unblocked) remains unbuilt.
 10. Priority/rank + reprioritize-on-`lane_drained`.
 11. Webhooks (push delivery).

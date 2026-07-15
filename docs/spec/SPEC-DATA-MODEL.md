@@ -103,9 +103,9 @@ write. (Snapshot export/import shipped first; the markdown mirror is planned.)
   sent); durable catch-up is the feed below, not the stream.
 - **Catch-up feed (v1 design):** `GET /v1/events?actor=&owner=&type=&types=&board_id=&since=&cursor=&limit=`
   → `{ "items": [...], "next_cursor": "<id>" }`. A cursor-paged query over the
-  append-only events table; the log of **facts** (mutation events only;
-  condition/monitor signals with `persist: true` are a proposed future
-  extension of the feed — see EVENTS.md Step 3 — not present in v1). Ordered by event id ascending. `since=` and `cursor=`
+  append-only events table; the log of durable **facts** (mutation events plus
+  any condition/monitor signal whose type is listed in `persist_conditions`)
+  ordered by event id ascending. `since=` and `cursor=`
   are both event-id floors (`id >` value); `cursor=` is the pagination
   continuation and overrides `since=`. `next_cursor` is the last item's id, or
   empty when the feed is exhausted. `limit` defaults to 100, max 500.

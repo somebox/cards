@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to Work Cards are recorded here. The format follows
+All notable changes to Cards are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning follows
 [Semantic Versioning](https://semver.org/); while pre-1.0, a **minor** bump
 (0.x) may contain breaking changes and a **patch** bump (0.x.y) is reserved for
@@ -134,7 +134,7 @@ first board-user capability (browser attachment upload) ships.
 
 ## [0.1.0] - 2026-07-06
 
-First tagged release. Work Cards is a local-first, single-tenant coordination
+First tagged release. Cards is a local-first, single-tenant coordination
 tool: typed work cards on an event-sourced SQLite log, surfaced through an HTTP
 `/v1` API, an htmx web UI, a CLI, and an MCP server — one workspace, no external
 services.

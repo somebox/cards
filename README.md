@@ -207,7 +207,8 @@ scripts/board.sh install-hook      # optional: auto-export before every commit s
 Defaults to `examples/demo-workspace`; set `CARDS_WS=<dir>` for another
 workspace. The event journal, condition marks, and any delivery state are *not*
 in the snapshot by design (they are SQLite-owned durable state) — a restore
-rebuilds card state, not history. See `docs/events/EVENTS.md` §8.7.
+rebuilds card state, not history. See `docs/events/EVENTS-CORE.md` for the
+event contract and `docs/events/EVENTS-ROLLOUT.md` for staged rollout status.
 
 ## API And Runtime Behavior
 

@@ -355,7 +355,8 @@ two mechanisms complement each other.
 
 The core field catalog is intentionally small (`string`, `text`, `number`,
 `date`, `enum`, `tags`, `user`, `card_link`, `repeating`, `artifact` — see
-`SPEC.md` §6). Validation of richer payloads is an extension's job:
+[`SPEC-DATA-MODEL.md` §4](../spec/SPEC-DATA-MODEL.md)). Validation of richer
+payloads is an extension's job:
 
 - **JSON/YAML payloads:** store as `text`; an extension validates against its
   own schema and posts findings as a comment or a `repeating` entry.
@@ -376,5 +377,5 @@ crash-isolated, replaceable process.
 | [`SPEC.md`](../spec/SPEC.md) | Normative API and event types |
 | [`ARCHITECTURE.md`](../architecture/ARCHITECTURE.md) | Go core, packaging, supervisor |
 | [`LIFECYCLE-SCHEMA.md`](../architecture/LIFECYCLE-SCHEMA.md) | Autostart × RestartPolicy × kinds; bimodal supervisor |
-| [`DEVELOPER-REFERENCE.md`](../reference/DEVELOPER-REFERENCE.md) | Schema authoring |
+| [`DEVELOPER-REFERENCE-SCHEMA-AUTHORING.md`](../reference/DEVELOPER-REFERENCE-SCHEMA-AUTHORING.md) | Card definitions (schema authoring) |
 | [`LIFECYCLE-EXAMPLES.md`](../examples/LIFECYCLE-EXAMPLES.md) | End-to-end lifecycles |

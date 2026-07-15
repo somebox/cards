@@ -85,5 +85,34 @@ shot theme-journal.png "$BASE/ui/boards/engineering?theme=journal" 700
 shot theme-labels.png  "$BASE/ui/boards/engineering?theme=labels"  700
 shot theme-jeeruh.png  "$BASE/ui/boards/engineering?theme=jeeruh"  700
 
+# card detail page — a programming-task card from the seeded board, populated
+# so the shot shows real field/work-log/comment content
+CARD_ID=$(curl -s "$BASE/v1/cards" | python3 -c '
+import sys, json
+items = json.load(sys.stdin).get("items", [])
+pts = [c for c in items if c.get("type_id") == "programming-task"]
+print(pts[0]["id"] if pts else "")')
+if [ -n "$CARD_ID" ]; then
+  cli() { CARDS_URL="$BASE" CARDS_USER=local-dev "$WORK/cards" "$@" >/dev/null 2>&1 || true; }
+  cli claim "$CARD_ID" --version 1
+  cli patch "$CARD_ID" --version 2 --field kind=bug
+  cli append "$CARD_ID" work_log --version 3 --entry-json \
+    '{"commit_hash":"4f2a91c","notes":"Rejected transitions now return the board column ids.","author":"local-dev","timestamp":"2026-07-10T14:12:00Z"}'
+  cli comment add "$CARD_ID" --body "Verified against the demo workspace — valid_options lists board columns now."
+  shot card-detail-full.png "$BASE/ui/cards/$CARD_ID" 980
+fi
+
+# zoomed crops used by the landing page (sips is macOS; skip elsewhere)
+if command -v sips >/dev/null; then
+  # board lanes only (drop nav + filter chrome)
+  cp "$OUT/board.png" "$OUT/board-lanes.png"
+  sips -c 470 1240 --cropOffset 280 30 "$OUT/board-lanes.png" >/dev/null 2>&1
+  # card detail: content column, head + fields (full shot is 1600px wide after -Z)
+  if [ -f "$OUT/card-detail-full.png" ]; then
+    cp "$OUT/card-detail-full.png" "$OUT/card-detail.png"
+    sips -c 800 800 --cropOffset 110 420 "$OUT/card-detail.png" >/dev/null 2>&1
+  fi
+fi
+
 echo "done:"
 ls -la "$OUT"
