@@ -75,6 +75,7 @@ exclude_docs: |
   archive/
   README.md
   design/auth.md
+  design/benchmark-suite.md
   design/core-boundaries.md
   design/outbox-gonogo.md
   design/subscribers.md
