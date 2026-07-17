@@ -307,6 +307,45 @@ MCP does not forward idempotency keys or dry-run (except `upgrade_schema`'s
 
 ---
 
+## 3a. Terminal UI (TUI) [built]
+
+Interactive terminal UI in `internal/tui/` (bubbletea v2 + lipgloss v2 +
+glamour). **Entry point:** a bare `cards` with stdin+stdout as TTYs (and no
+`--json`/`--jsonl`) opens it — `cmd/cards/main.go:run` (the `interactive()`
+guard) → `cmd/cards/tui.go:tuiCmd`. Non-interactive callers keep the old
+usage-text behavior, so scripts/agents are unaffected.
+
+**Composition root:** identical to the serverless CLI — `resolveWorkspaceDir`
+→ `initWorkspace` → `openWorkspace` → `core.Service` in-process
+(`cmd/cards/tui.go:tuiCmd`). No server required. Live refresh comes from the
+**in-process event bus** (`svc.Bus().Subscribe`, re-armed as a `tea.Cmd` per
+event).
+
+**Model:** board columns (`board.Columns`, in order) render as tabs — no
+per-lane colors/icons assumed, active tab highlighted. Lanes list cards from
+`svc.ListCards({BoardID, Include: ["links","comments"]})`. The detail pane
+renders the selected card as a **markdown document** via glamour: schema
+fields (from the type's `FieldDef`s), **outbound** links from the card plus
+**inbound** from `svc.ListCards({LinkTarget})`, comments, and activity from
+`svc.ListEvents({CardID})`.
+
+**State machine:** three focus zones (list / header / detail) × three detail
+visibilities (hidden / split / fullscreen) — `enter` reveals and focuses the
+detail and again fullscreens it; `esc` steps fullscreen → split → list-only;
+`tab` toggles panes; `shift+tab` switches boards; `k` at the list top focuses
+the tab bar. Legal transitions come from `board.Transitions` when
+`enforce_transitions` is on (numbered picker), otherwise any column.
+
+**Writes** go through the same service calls as the CLI (`PatchCard`,
+`AddComment`, `Claim`/`Release`, `CreateCard`) with version-based optimistic
+concurrency; the actor is bound via `core.WithActor(ctx, actor)` — the same
+context mechanism as `X-Work-Cards-Actor` on HTTP. Headless tests in
+`internal/tui/tui_test.go`: focus/detail-mode state machines, scroll
+clamping, transition legality, and mutation flows against a temp copy of the
+demo workspace.
+
+---
+
 ## 4. Events
 
 Event shape on every channel: `{ id, type, actor, at, card_id, diff }`. `diff`

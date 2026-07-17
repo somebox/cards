@@ -66,6 +66,34 @@ is an error).
 | `CARDS_WORKSPACE` | Workspace directory for serverless mode |
 | `CARDS_USER` | Default actor for writes (`--as` overrides per command) |
 
+## Terminal UI
+
+A bare `cards` (no command) opens an interactive terminal UI when **stdin and
+stdout are both TTYs** and neither `--json` nor `--jsonl` is set. In scripts,
+pipes, and agent shells it prints usage instead, so automation is unaffected.
+
+The TUI runs **serverless** against the resolved workspace (same precedence:
+`--workspace` → `CARDS_WORKSPACE` → discovery), opens the same in-process
+service as the CLI backend, and refreshes live from the workspace event bus.
+Quit with `q` or `Ctrl-C`.
+
+Layout and keys (full reference on `?` in-app):
+
+- Board columns are **tabs**: `h`/`l` (or `←`/`→`) switches lanes,
+  `shift+tab` switches boards, `k` at the list top focuses the tab bar.
+- `j`/`k` moves the cursor (the list scrolls); `/` filters within the lane.
+- `enter` opens the selected card as a **markdown document** (schema fields,
+  in/outbound links, comments, activity) in a split pane; `enter` again makes
+  it fullscreen; `esc` steps back fullscreen → split → list-only.
+- Actions: `s` set status (numbered legal transitions from the board's
+  transition map), `o` assign owner, `e` edit title, `c` comment, `m`
+  claim/release, `n` new card.
+
+Mutations go through the same service calls as `cards patch`/`comment`/
+`claim`, with optimistic concurrency (a stale write surfaces as a flash and
+the card reloads) and the actor from `--as` / `CARDS_USER` / `$USER` /
+workspace `default_user`.
+
 ## Commands
 
 Global flags on every command: `--url`, `--as`, `--workspace`, `--json`,

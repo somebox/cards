@@ -34,9 +34,12 @@ func run(args []string) error {
 	// Peel leading global flags (e.g. --url=... --as=... --workspace=... list ...).
 	globals, rest := peelGlobals(args)
 	if len(rest) == 0 {
-		// A bare `cards` (no subcommand) prints usage rather than silently
-		// starting a server on 8787 — surprising for scripted callers. Run the
-		// server explicitly with `cards serve`.
+		// A bare `cards` on an interactive terminal opens the TUI against the
+		// resolved workspace. Non-interactive callers (piped streams, --json)
+		// keep the original behavior — print usage and stay script-safe.
+		if interactive(globals) {
+			return tuiCmd(globals)
+		}
 		fmt.Print(usage)
 		return nil
 	}
@@ -181,12 +184,16 @@ func runCLI(cfg cli.Config, rest []string) error {
 const usage = `Cards — typed-card coordination.
 
 Usage:
-  cards                                Show this help
+  cards                                Interactive TUI on a terminal; this help otherwise
   cards version                        Print version, commit, and build info
   cards init [dir] [--global]          Scaffold a new workspace
   cards serve [--workspace <dir>] [--port 8787] [--seed]
   cards <command> [flags]              (serverless by default; CARDS_URL targets a server)
   cards <command> --help               List a command's flags
+
+A bare cards command opens the terminal UI when stdin/stdout are both TTYs
+(and neither --json nor --jsonl is set); it prints this help in scripts
+and pipes. Quit the TUI with q.
 
 Client commands run in-process against the resolved workspace
 ($CARDS_WORKSPACE, else nearest .cards/, else ~/.cards) with no server. Set

@@ -13,6 +13,36 @@ later. The web board is useful, but it is only one view over the same API.
 
 ![Cards board UI](./media/board.png)
 
+## Terminal UI
+
+The same binary also opens a full terminal UI — run `cards` with no command
+on an interactive terminal (it prints usage instead in scripts and pipes, so
+automation is unaffected). It runs against the resolved workspace with no
+server required, and refreshes live from the event bus.
+
+```
+ Demo workspace · Engineering · my 1                                                         ● live 
+  Backlog 23 │ To Do 9 │ In Progress 0 │ Review 0 │ Done 146                                        
+ ─ Done · 146 cards                                                                          119/146
+  Programming… Events seam 1f: Eve… ·          15d ↪2 ▾1  ╭───────────────────────────────────────╮
+  Programming… Events seam 1a: ext… ·          15d ↪1 ▾2  │                                       │
+  Programming… Events seam 1e: mig… ·          15d ↪2 ▾1  │   ## Events: actor/owner stream       │
+  Programming… Events seam 1d: com… ·          15d ↪2 ▾1  │   filters + GET /v1/events catch-up   │
+  Programming… Events seam 1c: Emi… ·          15d ↪3 ▾1  │   feed                                │
+  Programming… UI: tags as chips w… ·          15d ↪1 ▾3  │   Programming Task · Done ·           │
+  Programming… Events: condition e… ·          16d ↪6 ▾4  │   unassigned · v8 · card_cf… · 17d    │
+▌ Programming… Events: actor/owner… ·          17d ↪1 ▾1  │   ## description                      │
+                                                             ╰───────────────────────────────────────╯
+h/← lane ← • l/→ lane → • j/↓ down • enter open • / find • ? keys • q quit                          
+```
+
+Board columns are tabs (`h`/`l` switches lanes, `shift+tab` switches boards).
+`enter` opens the selected card as a markdown document — schema fields, in/
+outbound links, comments, activity — in a split pane; `enter` again makes it
+fullscreen; `esc` steps back out. `s` moves a card through its legal
+transitions, `o` assigns, `e` edits the title, `c` comments, `m` claims, `/`
+searches, and `?` shows the full key reference.
+
 ## How It Works
 
 A card has a fixed envelope and schema-defined fields. The envelope gives every
