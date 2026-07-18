@@ -30,8 +30,8 @@ design, see [`index.md`](../events/index.md).
 - Keep runtime state in SQLite and workspace artifacts on disk.
 - Load git-backed config from `definitions/` in the workspace directory and
   merge them into **one** workspace.
-- Keep the core logic transport-independent so HTTP, CLI, MCP, and library use
-  all share the same validation and storage behavior.
+- Keep the core logic transport-independent so HTTP, CLI, MCP, TUI, and
+  library use all share the same validation and storage behavior.
 
 Non-goals:
 
@@ -52,8 +52,8 @@ Why Go fits:
 - Standard library HTTP server is sufficient for REST and SSE.
 - Cross-compilation is practical for npm/Python packaging.
 - Memory use and startup time are good for agent sidecars.
-- It can expose the same behavior as CLI, HTTP service, MCP subprocess, or Go
-  library without changing the core model.
+- It can expose the same behavior as CLI, HTTP service, MCP subprocess,
+  terminal UI, or Go library without changing the core model.
 
 Recommended dependencies (all in use):
 
@@ -85,8 +85,9 @@ cmd/cards/          CLI binary and subcommand wiring (serve, mcp, extensions, do
 internal/core/      cards, schemas, transitions, validation, events, Store interface
 internal/config/    load/merge/validate JSON core definitions + extension config
 internal/sqlite/    SQLite implementation (FTS5, migrations)
-internal/httpapi/   REST, SSE, and htmx web UI handlers
+internal/httpapi/   REST, SSE, and the server-rendered web UI (Go templates + Alpine.js)
 internal/mcp/       MCP adapter over core services
+internal/tui/       terminal UI behind bare `cards` (serverless; in-process bus refresh)
 internal/hooks/     hook supervisor (spawns subprocesses on events)
 internal/cli/       CLI client (serverless by default — runs the /v1 router
                     in-process; talks to a server only when CARDS_URL is set;
@@ -191,6 +192,15 @@ cards serve --workspace ./examples/demo-workspace --port 8787
 ```
 
 Clients connect to `http://127.0.0.1:8787/v1`. SSE streams use the same process.
+
+Two event fan-outs exist, deliberately distinct: the **SSE stream**
+(`/v1/events/stream`) is the multi-process, cursor-resumable consumer
+contract; the **in-process bus** (`core.Bus`) serves same-process subscribers
+(the TUI's live refresh, the hook supervisor) — ephemeral, slow consumers
+dropped, never cross-process. A serverless TUI does not see a running
+server's writes until its own refresh; multi-process live coordination is
+what SSE (and a future outbox) is for. See
+[`design/tui-bus-disposition.md`](design/tui-bus-disposition.md).
 
 ### CLI
 

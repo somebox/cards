@@ -12,20 +12,14 @@ import (
 	"github.com/somebox/cards/internal/sqlite"
 )
 
-// openDemo builds a service against the demo workspace for a headless render.
+// openDemo builds a service against a COPY of the demo workspace for a
+// headless render. It snapshots like openDemoCopy because content assertions
+// (e.g. the selected card's inbound links) break when the live board moves —
+// the dogfooding server mutates work-cards.db between runs (found when a
+// sprint's card updates flipped TestCardMarkdownSections red).
 func openDemo(t *testing.T) (*core.Service, *config.Result, func()) {
 	t.Helper()
-	dir := "../../examples/demo-workspace"
-	result, err := config.New(dir).Load()
-	if err != nil {
-		t.Fatalf("load workspace: %v", err)
-	}
-	st, err := sqlite.Open(dir+"/work-cards.db", result.Workspace)
-	if err != nil {
-		t.Fatalf("open store: %v", err)
-	}
-	svc := core.NewService(result.Workspace, result.CardTypes, result.Boards, st)
-	return svc, result, func() { st.Close() }
+	return openDemoCopy(t)
 }
 
 func TestRenderDemoWorkspace(t *testing.T) {

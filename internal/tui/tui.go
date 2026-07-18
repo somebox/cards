@@ -467,7 +467,10 @@ func (m *model) syncExtras(ctx context.Context) {
 		return
 	}
 	m.extrasFor = c.ID
-	if page, err := m.svc.ListCards(ctx, core.CardQuery{LinkTarget: c.ID, Limit: 50}); err == nil {
+	// Include links: cardMarkdown renders the inbound relation type from each
+	// inbound card's own link set — without eager-loading, the ← row silently
+	// never renders (found by DEBT-61 review).
+	if page, err := m.svc.ListCards(ctx, core.CardQuery{LinkTarget: c.ID, Limit: 50, Include: []string{"links"}}); err == nil {
 		m.inbound = page.Items
 	} else {
 		m.inbound = nil

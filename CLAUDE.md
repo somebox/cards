@@ -11,13 +11,16 @@ a specific area, read the linked doc before editing — it is the contract.
 **Cards** is a local-first, single-binary coordination service for typed
 "cards" (tasks, bugs, notes, anything you define). A workspace is a directory
 of JSON definitions (`definitions/`) plus a `work-cards.db` SQLite file. The
-same `cards` binary exposes one typed-card model through four transports that
+same `cards` binary exposes one typed-card model through five transports that
 all share one service layer:
 
 - **HTTP/REST API** under `/v1` (with SSE event stream at `/v1/events/stream`)
 - **CLI** (`cards create|list|patch|comment|...`)
 - **MCP** server for agent clients (`cards mcp`)
 - **Web UI** under `/ui` (server-rendered Go templates + Alpine.js, no JS build step)
+- **TUI** (bare `cards` on a terminal; quit with `q`). Serverless, in-process —
+  its live refresh is the in-process bus, **not** the multi-process SSE stream
+  (see `docs/design/tui-bus-disposition.md`)
 
 There is **no separate database server** — SQLite is embedded via the pure-Go
 `modernc.org/sqlite` driver (no CGO). One process serves exactly one workspace.
@@ -72,6 +75,7 @@ Read the full version: [`docs/concepts/philosophy.md`](docs/concepts/philosophy.
 | MCP | `internal/mcp/` | MCP adapter over core services |
 | Hooks | `internal/hooks/` | hook supervisor (spawns subprocesses on events) |
 | Demo workspace | `examples/demo-workspace/` | the dogfooding backlog — definitions + `backlog.jsonl` |
+| TUI | `internal/tui/`, `cmd/cards/tui.go` | terminal UI behind bare `cards` (`interactive()` guard: both streams TTY, no `--json`) |
 | UI templates/CSS | `internal/httpapi/templates/` | `layout.html`, `board.html`, `card_modal.html`, `style.css`, etc. |
 
 ### Doc map (the contract for each area)

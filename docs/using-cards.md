@@ -6,8 +6,14 @@ day to day, which setup fits your situation, how coordination works around
 git (PRs, notifications, changelogs, conflicts), and then documents every
 operation in detail. Everything goes through the same service layer, so
 validation, versioning, and events behave identically whether you use the
-CLI, the HTTP API, or the MCP tools — the examples below show all three, and
-the responses are real output from the bundled demo workspace.
+CLI, the HTTP API, the MCP tools, the web UI, or the terminal UI — the
+examples below show the first three, and the responses are real output from
+the bundled demo workspace.
+
+> **Terminal UI:** a bare `cards` on a terminal opens the TUI against the
+> resolved workspace (quit with `q`; `?` for keys). It's serverless and
+> in-process — in scripts and pipes (`cards </dev/null`, `--json`) you get
+> usage text and machine output instead.
 
 New to Cards? Start with [Get started](get-started.md) to install it and serve
 a board; come back here when you want the full operation reference.
@@ -79,8 +85,8 @@ Unlike a hosted tracker, there's no single website everyone visits — you
 choose where the server runs, and the right choice depends on how
 synchronously people work.
 
-**Solo (one or two machines).** Run serverless CLI commands and
-`cards serve` when you want the board. The snapshot is your backup and your
+**Solo (one or two machines).** Run serverless CLI commands, the TUI (bare
+`cards`) for interactive triage, and `cards serve` when you want the board. The snapshot is your backup and your
 machine-sync: export before switching machines, import on the other side
 (`scripts/board.sh install-hook` makes the export automatic). Agents talk to
 your local server or the workspace folder directly.
