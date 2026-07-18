@@ -539,8 +539,8 @@ workspace's `artifacts/` root with path confinement.
 
 === "HTTP"
 
-    `POST /v1/cards/{id}/artifacts/{field}` (multipart upload);
-    `GET /v1/artifacts/{uri}` fetches bytes.
+    `POST /v1/cards/{id}/artifacts/{field}` (raw request body; optional
+    `?version=N` guard); `GET /v1/artifacts/{uri}` fetches bytes.
 
 === "MCP"
 

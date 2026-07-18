@@ -25,7 +25,6 @@ package sqlitetest
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"testing"
 
 	"github.com/google/uuid"
@@ -36,8 +35,11 @@ import (
 
 // dsn builds the shared-cache memory DSN for name. This is the one code
 // path — both the Store and raw-db variants use it.
+// DSN-MIRROR: package sqlite's internal tests can't import this package
+// (import cycle), so internal/sqlite/sharedcache_test.go mirrors this
+// literal — if you change one, change the other (grep "DSN-MIRROR").
 func dsn(name string) string {
-	return "file:" + name + "?mode=memory&cache=shared&_pragma=busy_timeout(5000)&_pragma=foreign_keys(1)&_txlock=immediate"
+	return "file:" + name + "?mode=memory&cache=shared&_pragma=busy_timeout(5000)&_pragma=foreign_keys(1)&_txlock=immediate" // DSN-MIRROR
 }
 
 // keepAlive holds one connection open so the named memory DB outlives pool
@@ -109,6 +111,3 @@ func OpenRaw(t *testing.T, maxConns int) *sql.DB {
 	t.Cleanup(func() { db.Close() })
 	return db
 }
-
-// Name documents the naming scheme for assertion in tests.
-func Name() string { return fmt.Sprintf("test_<uuid> (mode=memory&cache=shared)") }

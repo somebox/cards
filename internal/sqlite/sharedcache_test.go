@@ -20,7 +20,9 @@ import (
 func openSharedCacheRaw(t *testing.T, maxConns int) *sql.DB {
 	t.Helper()
 	name := "test_" + uuid.NewString()
-	dsn := "file:" + name + "?mode=memory&cache=shared&_pragma=busy_timeout(5000)&_pragma=foreign_keys(1)&_txlock=immediate"
+	// DSN-MIRROR: matches sqlitetest.dsn — if you change one, change the other
+	// (grep "DSN-MIRROR" to find both).
+	dsn := "file:" + name + "?mode=memory&cache=shared&_pragma=busy_timeout(5000)&_pragma=foreign_keys(1)&_txlock=immediate" // DSN-MIRROR
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		t.Fatalf("openSharedCacheRaw: %v", err)

@@ -135,11 +135,14 @@ These ship in core because they need atomicity hard to replicate from outside.
   callers exactly one update affects a row; the rest see zero rows affected and
   do **not** claim. A single card can never be handed to two owners, regardless
   of concurrency (the single writer connection serializes commits as well).
-  Note the current limitation: a racing loser on `take-next` receives
-  `200 { card: null }` (it cannot yet distinguish "raced" from "queue empty");
-  retrying to the *next* candidate within the same call is a tracked
-  enhancement, not yet shipped — until then a caller that got `null` under
-  contention should re-issue `take-next`.
+  A racing loser on `take-next` receives `200 { card: null }` — it cannot
+  distinguish "raced" from "queue empty" at the HTTP boundary. **Race retry
+  [built]:** the service wraps the claim in `claimWithRetry`
+  (`internal/core/service.go`), which catches `ErrClaimRaced`
+  (`internal/core/errors.go`) and retries the next candidate up to 3 times
+  within one call before returning `{ card: null }` (pinned by
+  `internal/core/claimretry_test.go`). A caller that still gets `null` after
+  the in-call retries should re-issue `take-next`.
 
 ### Repeating fields (addressed by `entry_id`)
 - `POST /cards/:id/fields/:field/append` → append; returns `entry_id`.

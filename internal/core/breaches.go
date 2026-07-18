@@ -93,6 +93,9 @@ func (s *Service) Breaches(ctx context.Context, boardID string, types []string) 
 	include := func(t EventType) bool { return wantAll || want[string(t)] }
 
 	now := s.now()
+	// scanRan/truncated track only the card item scans (blocked + temporal,
+	// ListCards-capped); WIP/lane counts are uncapped CountCards and never
+	// truncate.
 	var scanRan, truncated bool
 
 	items := []BreachItem{}

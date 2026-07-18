@@ -24,17 +24,12 @@ X-Work-Cards-Actor: shop-monitor
 
 → `card_spec_42`. Attach the g-code `artifact`:
 
-> **[proposed]** The `POST /v1/cards/{id}/artifacts` route and the
-> `cards artifact upload` CLI subcommand are not yet implemented. Until they
-> ship, store artifact references as a `string` or `card_link` field via
-> `PATCH`.
-
 ```http
-POST /v1/cards/card_spec_42/artifacts
-Content-Type: multipart/form-data
+POST /v1/cards/card_spec_42/artifacts/gcode_ref
+Content-Type: application/octet-stream
 X-Work-Cards-Actor: shop-monitor
 
-field=gcode_ref&file=@./programs/brk-42c.gcode
+<raw bytes of ./programs/brk-42c.gcode>
 ```
 
 (JSON alternative if the file is already in the workspace: PATCH `gcode_ref`
@@ -52,7 +47,7 @@ POST /v1/cards
 ```bash
 cards create --type part-spec --title "Bracket rev C" --status done \
   --field part_number=BRK-42C --field material=PETG --as shop-monitor
-cards artifact upload card_spec_42 gcode_ref --file ./programs/brk-42c.gcode  # [proposed]
+cards attach card_spec_42 gcode_ref ./programs/brk-42c.gcode
 cards create --type printer --title "X1 Carbon #2" --status done \
   --field serial=X1-002 --field location=bay-3
 ```

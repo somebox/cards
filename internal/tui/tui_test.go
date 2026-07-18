@@ -488,8 +488,11 @@ func TestCommentSaveFlow(t *testing.T) {
 	if got == nil || len(got.Comments) != before+1 {
 		t.Fatalf("comments = %d, want %d", len(got.Comments), before+1)
 	}
-	if got.Comments[0].Body != "tui comment flow" {
-		t.Errorf("comment body = %q", got.Comments[0].Body)
+	// Comments come back oldest-first (ORDER BY created_at); the new comment
+	// is the last. (Do not assert [0] — the selected card may already carry
+	// comments from the dogfood board.)
+	if got.Comments[len(got.Comments)-1].Body != "tui comment flow" {
+		t.Errorf("comment body = %q", got.Comments[len(got.Comments)-1].Body)
 	}
 }
 

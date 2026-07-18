@@ -188,7 +188,7 @@ registration must ship with.
 
 ---
 
-## 7. API surface — proposed / unbuilt
+## 7. API surface — *partial* (reload + card delete built; rest proposed)
 
 - **`View` type — orphaned** *(proposed)*. The type is declared in
   `internal/core` ("read-only in v1") but has **no** `Workspace.Views` field,
