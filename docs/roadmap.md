@@ -265,6 +265,9 @@ registration must ship with.
   modeling a lease/lock as a card (`expires_at` + integrator reclaim).
 - **Worked examples** *(proposed)*: CSV → todos with link enrichment
   (`078bf24a`); YouTube pipeline yt-dlp → srt → summarize → classify → rank
-  (`7f56d7c8`); pi-agent extension developing code from a spec (`97cec658`).
+  (`7f56d7c8`); pi-agent extension developing code from a spec
+  (`97cec658`) — **built** as [pi-cards](https://github.com/somebox/pi-cards)
+  (spec `docs/design/pi-extension.md`; the 8-card pi-cards series on this
+  board tracked its own construction).
 - **Research** *(research, card `cf1b96ac`)* — survey agent resume-from-history
   patterns.

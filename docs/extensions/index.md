@@ -369,6 +369,17 @@ payloads is an extension's job:
 This keeps the core small and the security surface where it belongs — in a
 crash-isolated, replaceable process.
 
+### Example 6 — pi agent extension (TypeScript) `[built — external]`
+
+**[pi-cards](https://github.com/somebox/pi-cards)** is a [pi](https://pi.dev)
+coding-agent extension that treats Cards as a first-class surface inside an
+agent session: a `/cards` board view with SSE live refresh, `cards_*` tools
+(read/write/claim/take-next), cards-as-context mentions, subagent card
+execution (`/cards work`), and git board persistence. From the core's
+perspective it is just another `/v1` client — a sixth surface, shipped in
+its own repo per the extensions-over-plugins rule. Spec:
+[`docs/design/pi-extension.md`](../design/pi-extension.md).
+
 ## Related documents
 
 | Doc | Contents |
