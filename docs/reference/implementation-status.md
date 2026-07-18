@@ -23,7 +23,7 @@ The unit is a **card**: a fixed envelope managed by the runtime plus
 schema-validated custom `fields`. Cards live in **one workspace**; **boards are
 filtered views**, not containers (a card has no `board_id`).
 
-### The card object — `internal/core/types.go:187`
+### The card object — `internal/core/types.go:286`
 
 ```go
 type Card struct {
@@ -42,6 +42,7 @@ type Card struct {
 	CreatedAt     time.Time `json:"created_at"`
 	UpdatedAt     time.Time `json:"updated_at"`
 	CreatedBy     string    `json:"created_by"`
+	StatusSince   time.Time `json:"status_since,omitempty"` // server-maintained; set at create + every status change
 }
 ```
 
@@ -69,7 +70,7 @@ type Card struct {
 - `claim` is compare-and-set on `version`; claiming a card already owned by a
   *different* actor → `409 version_conflict`. `release` sets owner back to `""`.
 
-### Boards, columns, statuses — `internal/core/types.go:161`
+### Boards, columns, statuses — `internal/core/types.go:224`
 
 ```go
 type Board struct {
@@ -97,7 +98,7 @@ type Board struct {
   `default_filter`). The demo `engineering.json` uses `presentation.filters[]`;
   `default_filter` is the top-level hard-scope key.
 
-### Links — `internal/core/types.go:87`
+### Links — `internal/core/types.go:113`
 
 ```go
 type Link struct {
@@ -120,7 +121,7 @@ type Link struct {
   optional `source_types`/`target_types` constraints). Adding the same
   `(type_id, target)` twice is idempotent.
 
-### Custom fields — `internal/core/types.go:15` / `:29`
+### Custom fields — `internal/core/types.go:16` / `:32`
 
 Ten field types: `string`, `text`, `number`, `date`, `enum`, `tags`, `user`,
 `card_link`, `repeating`, `artifact`. A `FieldDef` carries `id`, `type`,
@@ -154,7 +155,9 @@ board saved filters, `take-next`, and MCP `list_cards`.)
 ## 2. HTTP API
 
 Base path `/v1`. Server binds `127.0.0.1` by default; **no built-in auth**
-(see §5). All routes registered in `internal/httpapi/httpapi.go:84`.
+(see §5). Routes are registered in `internal/httpapi/server.go:248-280`;
+`POST /v1/workspace/reload` and `POST /v1/boards` are registered on the parent
+mux in `cmd/cards/reload.go:104-112`.
 
 ### Endpoint table
 
@@ -167,6 +170,7 @@ Base path `/v1`. Server binds `127.0.0.1` by default; **no built-in auth**
 | POST | `/v1/cards` | create |
 | GET | `/v1/cards/{id}` | fetch one (with links + comments) |
 | PATCH | `/v1/cards/{id}` | mutate (optimistic concurrency) |
+| DELETE | `/v1/cards/{id}` | delete one |
 | POST | `/v1/cards/{id}/upgrade-schema` | re-pin one card to current schema |
 | POST | `/v1/cards/take-next` | atomically claim oldest unowned match |
 | POST | `/v1/cards/{id}/claim` | claim a specific card |
@@ -175,6 +179,8 @@ Base path `/v1`. Server binds `127.0.0.1` by default; **no built-in auth**
 | DELETE | `/v1/cards/{id}/links/{typeID}/{target}` | remove link |
 | POST | `/v1/cards/{id}/comments` | add comment (201) |
 | PATCH | `/v1/cards/{id}/comments/{commentID}` | edit comment |
+| POST | `/v1/cards/{id}/artifacts/{field}` | attach an artifact blob to a file field |
+| GET | `/v1/artifacts/*` | serve an artifact blob |
 | POST | `/v1/cards/{id}/fields/{field}/append` | append a repeating-field entry |
 | PATCH | `/v1/cards/{id}/fields/{field}/{entryID}` | update a repeating entry |
 | DELETE | `/v1/cards/{id}/fields/{field}/{entryID}` | remove a repeating entry (`?version=N`) |
@@ -182,8 +188,11 @@ Base path `/v1`. Server binds `127.0.0.1` by default; **no built-in auth**
 | GET | `/v1/cards/{id}/history` | rendered timeline (resumption) |
 | GET | `/v1/events` | **catch-up feed** (cursor-paged, durable) — §4 |
 | GET | `/v1/events/stream` | **SSE live stream** — §4 |
+| GET | `/v1/breaches` | active condition breaches (WIP / lane / blocked — §4) |
 | GET | `/v1/openapi.json` | generated OpenAPI 3.1 |
 | POST | `/v1/users` | register a user (open, no auth) |
+| POST | `/v1/workspace/reload` | re-run the definitions loader, swap the composition |
+| POST | `/v1/boards` | write + validate a board definition (see `cmd/cards/reload.go`) |
 
 UI handlers live under `/ui` (reference consumer; not part of the contract).
 **There are NO batch/bulk endpoints** — writes are strictly per-card;
@@ -226,10 +235,12 @@ no match → `200 { "card": null }`. On a match → `200 { "card": {...} }`.
 > connection. Under *N* concurrent callers exactly one wins; a card can never be
 > handed to two owners. Proven by `TestClaimAtomicNoDoubleClaim` (50 claimants /
 > 20 cards, race-tested → exactly 20 successes, zero duplicates).
-> **Current limitation:** a racing *loser* on `take-next` receives
-> `{ card: null }` (it can't yet distinguish "raced" from "queue empty") — under
-> contention, a caller that got `null` should re-issue. Retry-to-next-candidate
-> within one call is a tracked enhancement, not yet shipped.
+> **Race retry [built].** A losing CAS surfaces `ErrClaimRaced`
+> (`internal/core/errors.go:141-145`, raised from the CAS path in
+> `internal/sqlite/sqlite.go:709-714`); `take-next`/`claim` wrap the attempt in
+> `claimWithRetry` (`internal/core/service.go:1500-1510`, called at `:1472`),
+> which retries the next candidate up to 3 times within one call before
+> returning `{ card: null }`. Verified by `internal/core/claimretry_test.go`.
 
 **`POST /v1/cards/{id}/comments`** — `{body}`. Returns the updated card (`201`),
 bumps `version`, and emits `comment_added`.
@@ -247,11 +258,18 @@ Query params actually read by the handler: `board_id`, `type_id`, `status`,
 `cursor`, `limit` (default 50, max 200). Response is
 `{ items: [...], next_cursor: "<opaque>" }`; ordering is `updated_at DESC, id DESC`.
 
-> **Important:** the Mongo-style **filter DSL** (`$and/$or/$eq/$ne/$in/$nin/$gt/$gte/$lt/$lte/$contains`
-> + tag ops) and the `unowned`/`status_in`/`type_id`-CSV dimensions are **not**
-> exposed on the `GET /v1/cards` query string. The DSL is only consumed from a
-> board's `default_filter` and from the `take-next` request `filter`. "Give me
-> unowned cards of a kind" is reachable via `take-next`, not list.
+> **CSV list filters [built].** `status` and `type_id` accept a
+> **comma-separated list** matched as ANY (IN) — e.g.
+> `GET /v1/cards?status=todo,in_progress` — mapped to `CardQuery.StatusIn` /
+> `TypeIDIn` in the handler (`internal/httpapi/api.go:76-89`; landed `8bb59bb`).
+> A bare single value keeps the scalar-equality path.
+>
+> **Still not exposed:** the Mongo-style **filter DSL**
+> (`$and/$or/$eq/$ne/$in/$nin/$gt/$gte/$lt/$lte/$contains` + tag ops) and an
+> `unowned` dimension are **not** on the `GET /v1/cards` query string. The DSL
+> is only consumed from a board's `default_filter` and from the `take-next`
+> request `filter`. "Give me unowned cards of a kind" is reachable via
+> `take-next`, not list.
 
 ### Actor on writes
 
@@ -270,7 +288,7 @@ Transport: **JSON-RPC 2.0 over stdio** (newline-delimited). Launch:
 delegates to the **same `core.Service`** as HTTP, so validation, events, and the
 no-double-claim guarantee are identical.
 
-### Tools — `internal/mcp/mcp.go:217` (`buildTools`)
+### Tools — `internal/mcp/mcp.go:218` (`buildTools`)
 
 **Per card type (generated):** `create_<type_id>` and `update_<type_id>` — input
 schemas derived from the type's fields (`title`/`status`/`tags` + per-field
@@ -357,7 +375,7 @@ shapes per type (`field_updated`: `{field, before, after}`; `item_updated`:
 `{type_id, target, note}`; `link_removed`: `{type_id, target}`). **It is
 `diff.after`, never `diff.to`.**
 
-### Mutation events [built] — `internal/core/types.go:209`
+### Mutation events [built] — `internal/core/types.go:310`
 
 Canonical enumeration — `internal/core/types.go` declares **26** event types:
 17 card/state events plus the 9 condition events (§ below). The **15 durable
@@ -586,10 +604,35 @@ never acts on a condition. Out of scope, by design:
 
 This doc is *code-verified*: each entry below records the `git log` evidence
 for the source paths a section describes, over the range since the doc was
-last verified. **Boundary:** `8d043ea` (rebuild Phase 3 — multi-value fields;
+last verified. **Current boundary:** `b3bfed5` **→ HEAD (`0421efd`,
+2026-07-18 — interactive TUI)** — 46 commits. Reproduce any line with
+`git log --oneline b3bfed5..HEAD -- <paths>`.
+
+### Entry 2026-07-18 (`b3bfed5` → `0421efd`)
+
+Headline: 46 commits since the last verification, with real `/v1` landings the
+doc had missed — CSV `status`/`type_id` list filters (`8bb59bb`), take-next
+race retry (`ErrClaimRaced` / `claimWithRetry`), card delete + artifacts +
+breaches + reload/create-board routes absent from the endpoint table, a ghost
+`internal/httpapi/httpapi.go` citation, and the TUI transport (§3a). This pass
+refreshed §1–§3 anchors and the endpoint table and rolled the boundary;
+§5–§8 reviewed with no change needed.
+
+| § | Section | Change | Evidence |
+|---|---|---|---|
+| 1 | Data model | anchors moved to live structs; `StatusSince` added to the published Card envelope | `internal/core/types.go:113`, `:224`, `:286`, `:302-306` |
+| 2 | HTTP API | ghost `httpapi.go:84` removed (routes register in `internal/httpapi/server.go:248-280`); endpoint table gained `DELETE /v1/cards/{id}`, artifact upload/serve, `GET /v1/breaches`, `POST /v1/workspace/reload`, `POST /v1/boards` | `internal/httpapi/server.go:248-280`; `cmd/cards/reload.go:104-112` |
+| 2 | List filters | comma-separated `status` / `type_id` (→ `StatusIn` / `TypeIDIn`) documented [built] | `internal/httpapi/api.go:76-89`; commit `8bb59bb` |
+| 2 | take-next | race loser signals `ErrClaimRaced`; service retries the next candidate in-call (up to 3) — "not yet shipped" claim removed | `internal/core/errors.go:141-145`; `internal/core/service.go:1472`, `:1500-1510`; `internal/core/claimretry_test.go` |
+| 3 | MCP | `buildTools` anchor corrected | `internal/mcp/mcp.go:218` |
+| 4 | Events | EventType anchor moved to the live declaration | `internal/core/types.go:310` |
+| 5–8 | Actor / workspace / extensions / non-goals | reviewed, no change needed — auth is still the trusted-actor model (§5); reload + service-kind supervision already [built] (§7) | — |
+
+### Entry 2026-07-10 (`8d043ea` → `b3bfed5`)
+
+**Boundary:** `8d043ea` (rebuild Phase 3 — multi-value fields;
 the doc's previous verification point, `b8dda45` before the frontend-rebuild
-branch was rebased into `main`) **→ HEAD (`b3bfed5`, 2026-07-10)**. Reproduce
-any line with `git log --oneline 8d043ea..HEAD -- <paths>`.
+branch was rebased into `main`) **→ HEAD (`b3bfed5`, 2026-07-10)**.
 
 Headline: the only post-Phase-3 code under this doc's purview was the `/ui`
 **reference client** (design-system.md's domain, not this doc — §2 documents zero

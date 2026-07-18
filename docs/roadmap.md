@@ -16,7 +16,7 @@ not commitments for the current milestone.
 
 ---
 
-## 1. Authentication & identity — *needs-design*
+## 1. Authentication & identity — *design frozen / impl parked*
 
 **No authentication exists today, by design.** Actor identity is trusted and
 unauthenticated: the `X-Work-Cards-Actor` header → `CARDS_USER` env →
@@ -27,8 +27,19 @@ host/reverse-proxy/extension concern (`philosophy.md`, `index.md`,
 `events-history.md §12`), and "strong identity/ACL" is a deferred item in
 `design-notes.md`.
 
-This needs **investigation and design thinking before any build**, not a
-mechanical ticket. Open questions to resolve first:
+**The design pass has landed and is frozen.** [`docs/design/auth.md`](design/auth.md)
+(frozen at `c6cb17e`, 2026-07-10) is the RFC: token mode for the
+"exposed beyond localhost" tier, proxy-delegated identity as the recommended
+boundary, authorization explicitly out of scope (§2). It becomes normative
+only when a first implementation lands, and reopening it requires
+implementation discovering reality or an owner re-open — **not** another
+investigation pass. The questions below are kept as the historical record of
+what the frozen design resolved. Implementation is **parked** on
+`card_350b1bac` (bearer-token reference impl — its own future XL, never to be
+stacked with the read pool); the design-review obligation (`card_61040a3e`) was
+discharged in the 2026-07-18 sprint P1 closeout.
+
+<details><summary>Historical: the open questions the frozen RFC resolved</summary>
 
 - **Threat model / deployment tiers.** What are we actually defending against,
   and in which deployments? Keep localhost fully trusted; design auth for the
@@ -46,8 +57,7 @@ mechanical ticket. Open questions to resolve first:
   `httpapi/middleware.go`, MCP's session-bound actor, and the CLI client — a
   design doc should precede code.
 
-Suggested next step: a short design RFC (`docs/design/auth.md`) covering the
-above, reviewed before any implementation card is created.
+</details>
 
 ---
 
@@ -79,7 +89,7 @@ SQLite is the only backend, but the seam is clean. `core.Store`
 only on it, and the concrete `*sqlite.Store` is confined to `cmd/cards/`. An
 in-memory `EventLog` fake already passes the same conformance suite.
 
-- **Concrete near-ish work — SQLite read pool** *(proposed, card `87903967`)*.
+- **Concrete near-ish work — SQLite read pool** *(proposed, card `57e1bde9`)*.
   Today `MaxOpenConns(1)` serializes everything through one connection (single
   writer). Add a separate read pool for concurrent reads while keeping the
   single-writer discipline for mutations.
@@ -180,8 +190,11 @@ registration must ship with.
   `internal/core` ("read-only in v1") but has **no** `Workspace.Views` field,
   route, CLI verb, or service wiring. Read-only parameterized card views
   (`/views/:id/cards`); a real feature to design or explicitly drop.
-- **Workspace reload** *(proposed, card `4b507da7`)*. `POST /v1/workspace/reload`
-  + `definition_reloaded` event so definition edits apply without a restart.
+- **Workspace reload** — **built**. `POST /v1/workspace/reload` re-runs the
+  definitions loader and swaps the composition without a restart
+  (`cmd/cards/reload.go:104-112`), emitting `definition_reloaded`
+  (`internal/core/types.go:328`); `POST /v1/boards` writes + validates a board
+  definition through the same path.
 - **Card delete** — **built** *(card `146260d9`)*: `DELETE /v1/cards/:id` +
   `card_deleted` tombstone event + optional `?version=` guard + idempotency, with
   a `cards delete` CLI verb. Dependent cards are re-evaluated for
@@ -198,11 +211,13 @@ registration must ship with.
 
 ## 8. Surface parity & schema tooling
 
-- **MCP parity** *(proposed, card `fedfacd1`)*. MCP is a strict subset of
-  REST/CLI — no tools for release, remove-entry/link, edit-comment,
-  upgrade-schema, event history/feed/stream, or user registration, and no
-  idempotency-key or dry-run support. Reconcile `mcp.md` with reality and close
-  the gaps that matter.
+- **MCP parity** *(partial)*. MCP now covers release (`internal/mcp/mcp.go:265`),
+  remove-entry (`:296`) and remove-link (`:309`), edit-comment (`:319`),
+  upgrade-schema with dry-run preview (`:324`), card history (`:401`), and the
+  durable event feed (`:411`). Remaining gaps: user registration,
+  idempotency-key support, general mutation dry-run, and SSE subscribe
+  (deliberate — stdio). Reconcile `mcp.md` with reality and close the gaps
+  that matter.
 - **Schema authoring** *(proposed, card `9e3df3f7`)*. Author/edit card types via
   CLI/web with versioning, validation, and migration — instead of hand-editing
   JSON definition files.
@@ -226,9 +241,11 @@ registration must ship with.
 
 ## 10. Extensions
 
-- **Service-kind supervision** *(proposed, card `39f64989`)*. Implement
-  autostart/restart/expose for long-running `service` extensions, or explicitly
-  mark it `[proposed]`.
+- **Service-kind supervision** — **built**. The hook supervisor runs
+  long-running `service` extensions with autostart, backoff restart, and
+  reconcile-on-reload (identity = extension id, fingerprint =
+  run/env/cwd/restart_policy; `internal/hooks/`, decision table in
+  `docs/architecture/reload.md`).
 - **Extensions design review** *(needs-design, card `79bfbebc`)*. Review the
   extension model's design, use cases, and integration points as a whole
   (overlaps the auth/permissions seams in §1–§2).
@@ -237,8 +254,9 @@ registration must ship with.
 
 ## 11. Docs, examples & research
 
-- **GitHub Pages microsite** *(proposed, card `b8c8a7be`)* — landing +
-  reference + examples. (See also `docs/archive/gh-pages-plan.md`.)
+- **GitHub Pages microsite** — **built**: MkDocs site (`mkdocs.yml`) deployed
+  via `.github/workflows/deploy-pages.yml` — landing + reference + examples.
+  (Plan history: `docs/archive/gh-pages-plan.md`.)
 - **Lease/lock modeling pattern** *(proposed, card `4b5fbdc9`)* — document
   modeling a lease/lock as a card (`expires_at` + integrator reclaim).
 - **Worked examples** *(proposed)*: CSV → todos with link enrichment
