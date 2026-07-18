@@ -219,11 +219,20 @@ func (s *Server) uiBreaches(w http.ResponseWriter, r *http.Request) {
 		for _, bID := range it.Blockers {
 			row.Blockers = append(row.Blockers, LinkView{CardID: bID, Title: s.cardTitle(r.Context(), cache, bID)})
 		}
+		// Temporal rows (3e): status/idle deadline context for the detail line.
+		row.Status = it.Status
+		row.Max = it.Max
+		row.Threshold = it.Threshold
+		if it.Since != nil {
+			row.Since = it.Since.Format("2006-01-02T15:04:05Z07:00")
+		}
 		rows = append(rows, row)
 	}
 	data := s.baseData("Breaches")
 	data.Breaches = rows
 	data.BreachAsOf = report.AsOf.Format("2006-01-02 15:04:05 MST")
+	data.BreachLimit = report.Limit
+	data.BreachTruncated = report.Truncated
 	// Fragment mode (rebuild P10): X-Cards-Partial returns only the
 	// breaches list so the breachesPage Alpine component can swap in place
 	// on a condition event (proves $store.live generalizes beyond the board).

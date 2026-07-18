@@ -51,6 +51,10 @@ type BreachRow struct {
 	CardID    string     // links to the card modal (card-scoped rows)
 	CardTitle string     // card display title
 	Blockers  []LinkView // resolved blocker titles (card_blocked rows)
+	Status    string     // status_timeout: the status the card sat in too long
+	Max       string     // status_timeout: configured ceiling (e.g. "72h")
+	Threshold string     // card_idle: configured idle threshold (e.g. "24h")
+	Since     string     // temporal rows: ISO timestamp (status_since / updated_at)
 }
 
 // conditionLabel maps a condition event slug to its human page label.
@@ -62,6 +66,10 @@ func conditionLabel(t core.EventType) string {
 		return "Lane empty"
 	case core.EventCardBlocked:
 		return "Card blocked"
+	case core.EventStatusTimeout:
+		return "Status timeout"
+	case core.EventCardIdle:
+		return "Idle"
 	default:
 		return string(t)
 	}
@@ -186,8 +194,10 @@ type ViewData struct {
 	OutLinks []LinkView
 	InLinks  []LinkView
 	// Breaches page (/ui/breaches): resolved current conditions + snapshot time.
-	Breaches   []BreachRow
-	BreachAsOf string
+	Breaches        []BreachRow
+	BreachAsOf      string
+	BreachLimit     int  // card-scan ceiling echoed by the report (0 = no item scans)
+	BreachTruncated bool // a card scan hit the ceiling — partial catch-up
 	// MaxArtifactBytes is the server's per-upload cap, surfaced so the card
 	// modal's file input can reject an oversize file client-side before POST.
 	MaxArtifactBytes int64

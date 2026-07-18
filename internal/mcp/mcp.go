@@ -403,7 +403,7 @@ func (s *Server) buildTools() []Tool {
 			run: func(ctx context.Context, a map[string]any) (any, error) {
 				return s.svc.History(ctx, strArg(a, "card_id"))
 			}},
-		Tool{Name: "breaches", Description: "Current breaching conditions across boards: columns over their WIP limit, watched lanes drained, and blocked cards. Optionally scope by board_id or a comma-separated type filter.",
+		Tool{Name: "breaches", Description: "Current breaching conditions across boards: WIP-limit overages, drained lanes, blocked cards, and past-due temporal monitors (status_timeout, card_idle). Scope by board_id or comma-separated type filter. Item scans cap at 500 — check truncated/limit before trusting an empty result.",
 			InputSchema: objSchema(map[string]any{"board_id": str(), "type": str()}),
 			run: func(ctx context.Context, a map[string]any) (any, error) {
 				return s.svc.Breaches(ctx, strArg(a, "board_id"), splitCSV(strArg(a, "type")))

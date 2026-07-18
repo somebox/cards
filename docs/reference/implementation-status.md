@@ -188,7 +188,7 @@ mux in `cmd/cards/reload.go:104-112`.
 | GET | `/v1/cards/{id}/history` | rendered timeline (resumption) |
 | GET | `/v1/events` | **catch-up feed** (cursor-paged, durable) — §4 |
 | GET | `/v1/events/stream` | **SSE live stream** — §4 |
-| GET | `/v1/breaches` | active condition breaches (WIP / lane / blocked — §4) |
+| GET | `/v1/breaches` | active condition breaches (WIP / lane / blocked / temporal — §4) |
 | GET | `/v1/openapi.json` | generated OpenAPI 3.1 |
 | POST | `/v1/users` | register a user (open, no auth) |
 | POST | `/v1/workspace/reload` | re-run the definitions loader, swap the composition |
@@ -407,9 +407,21 @@ feed (`persist: true`). See `docs/events/index.md` §12 and `integration.md`.
 ### `GET /v1/breaches` [built]
 
 The on-demand "which conditions are currently true" query — WIP-exceeded
-columns, drained lanes, and blocked cards — the catch-up path for the
-(ephemeral) instant condition events. `?board_id=&type=`. Temporal conditions
-(`status_timeout`/`card_idle`) are not yet included in this report.
+columns, drained lanes, blocked cards, and **past-due temporal monitors** —
+the catch-up path for the (ephemeral) condition events. `?board_id=&type=`.
+Temporal projection (`status_timeout`/`card_idle`) is cold: the same deadline
+math as rebuild/verify (`statusTimeoutDeadline`/`cardIdleDeadline`,
+`internal/core/service.go`), filtered to `At <= now`, read-only — it never
+arms or marks conditions fired (`internal/core/breaches.go`). Type→fields:
+`status_timeout` → `status`/`since`/`max`; `card_idle` → `since`/`threshold`;
+`card_blocked` → `blockers` (nested); WIP/lane → `column`/`count`/`limit`.
+Item scans (blocked + temporal) inherit the `ListCards` **500 ceiling** —
+the report echoes `limit` and sets `truncated: true` when a scan hit it, so
+**catch-up is partial, never tagged "complete"**; WIP/lane counts are
+uncapped (`CountCards`). Pinned by clock-injected tests in
+`internal/core/breaches_temporal_test.go` (projection, golden-vs-verify,
+read-only, truncation) and `internal/httpapi/breaches_temporal_test.go`
+(wire shape + UI row text).
 
 ### Three ways to consume [built]
 
@@ -626,6 +638,7 @@ refreshed §1–§3 anchors and the endpoint table and rolled the boundary;
 | 2 | take-next | race loser signals `ErrClaimRaced`; service retries the next candidate in-call (up to 3) — "not yet shipped" claim removed | `internal/core/errors.go:141-145`; `internal/core/service.go:1472`, `:1500-1510`; `internal/core/claimretry_test.go` |
 | 3 | MCP | `buildTools` anchor corrected | `internal/mcp/mcp.go:218` |
 | 4 | Events | EventType anchor moved to the live declaration | `internal/core/types.go:310` |
+| 4 | Events (same-day Phase 2) | temporal `/breaches` projection landed: `status_timeout`/`card_idle` cold catch-up, additive `BreachItem` fields, `limit`/`truncated` clamp echo | `internal/core/breaches.go`; `internal/core/service.go` (shared deadline helpers) |
 | 5–8 | Actor / workspace / extensions / non-goals | reviewed, no change needed — auth is still the trusted-actor model (§5); reload + service-kind supervision already [built] (§7) | — |
 
 ### Entry 2026-07-10 (`8d043ea` → `b3bfed5`)

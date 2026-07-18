@@ -7,6 +7,7 @@
   <header class="breaches__head">
     <h1>Breaches</h1>
     <p class="muted">Conditions currently true across all boards, as of <span data-as-of>{{.BreachAsOf}}</span>.</p>
+    {{if .BreachTruncated}}<p class="muted">Partial catch-up — a card scan hit the {{.BreachLimit}}-item ceiling; more breaches may exist beyond this page.</p>{{end}}
   </header>
   <div id="breaches-list">
     {{template "breaches_fragment" .}}
@@ -25,6 +26,8 @@
       {{if .Blockers}}<span class="breach__detail">blocked by
         {{range $i, $b := .Blockers}}{{if $i}}, {{end}}<a href="/ui/cards/{{$b.CardID}}" data-card-link="/ui/cards/{{$b.CardID}}/modal">{{$b.Title}}</a>{{end}}
       </span>{{end}}
+      {{if .Status}}<span class="breach__detail">in {{.Status}} beyond {{.Max}} — since <time data-ago="{{.Since}}" datetime="{{.Since}}"></time></span>{{end}}
+      {{if .Threshold}}<span class="breach__detail">no activity beyond {{.Threshold}} — last touched <time data-ago="{{.Since}}" datetime="{{.Since}}"></time></span>{{end}}
     {{else}}
       <a class="breach__subject" href="/ui/boards/{{.BoardID}}">{{.BoardName}}</a>
       <span class="breach__detail">
@@ -35,6 +38,6 @@
   {{end}}
 </div>
 {{else}}
-<p class="breaches__empty muted">Nothing breaching right now — every board is within its limits and no cards are blocked.</p>
+<p class="breaches__empty muted">Nothing breaching right now — every board is within its limits, no cards are blocked, and no status/idle monitors are past due.</p>
 {{end}}
 {{end}}

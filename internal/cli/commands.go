@@ -40,7 +40,7 @@ func Commands() []Command {
 		{Name: "events", Short: "Show events for a card", Run: cmdEvents},
 		{Name: "feed", Short: "Show the workspace event feed (durable, cursor-paged)", Run: cmdFeed},
 		{Name: "history", Short: "Show resumption history for a card", Run: cmdHistory},
-		{Name: "breaches", Short: "Show current breaching conditions (WIP/lane/blocked)", Run: cmdBreaches},
+		{Name: "breaches", Short: "Show current breaching conditions (WIP/lane/blocked/status_timeout/card_idle)", Run: cmdBreaches},
 		{Name: "users", Short: "Manage users (register)", Run: cmdUsers},
 		{Name: "workspace", Short: "Show workspace introspection", Run: cmdWorkspace},
 		{Name: "boards", Short: "Show a board", Run: cmdBoards},
@@ -589,8 +589,9 @@ func cmdFeed(c *Client, args []string) error {
 
 // cmdBreaches shows the current breaching conditions (GET /v1/breaches):
 // which board columns exceed their WIP limit, which watched lanes are
-// drained, and which cards are blocked — the catch-up counterpart to the
-// ephemeral condition signals on the event stream.
+// drained, which cards are blocked, and which monitored cards are past a
+// status/idle deadline — the catch-up counterpart to the ephemeral condition
+// signals on the event stream. Item scans cap at 500 (see truncated/limit).
 func cmdBreaches(c *Client, args []string) error {
 	fs := NewFlagSet()
 	board := fs.String("board", "")

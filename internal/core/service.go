@@ -281,6 +281,27 @@ func (s *Service) monitorObserver(ev *Event) {
 	}
 }
 
+// statusTimeoutKey / cardIdleKey are the identity keys a temporal deadline
+// is armed with; statusTimeoutDeadline / cardIdleDeadline compute when it
+// comes due. Shared by the rebuild (arming), verify (fire-time recheck), and
+// Breaches (cold past-due projection) paths so the three can never diverge.
+// (3e)
+func statusTimeoutKey(c Card) string {
+	return c.Status + "\x00" + c.StatusSince.Format(time.RFC3339Nano)
+}
+
+func statusTimeoutDeadline(c Card, max time.Duration) time.Time {
+	return c.StatusSince.Add(max)
+}
+
+func cardIdleKey(c Card) string {
+	return c.UpdatedAt.Format(time.RFC3339Nano)
+}
+
+func cardIdleDeadline(c Card, idleAfter time.Duration) time.Time {
+	return c.UpdatedAt.Add(idleAfter)
+}
+
 // verifyStatusTimeout re-checks a due status_timeout deadline: fires only if
 // the card is still in the exact (status, status_since) it was armed for —
 // a card that left the status (or re-entered it, getting a fresh
@@ -293,7 +314,7 @@ func (s *Service) verifyStatusTimeout(ctx context.Context, cardID, key string) (
 		}
 		return nil, err
 	}
-	if c.Status+"\x00"+c.StatusSince.Format(time.RFC3339Nano) != key {
+	if statusTimeoutKey(*c) != key {
 		return nil, nil // stale — card moved on
 	}
 	b := s.boardForCard(c)
@@ -326,8 +347,7 @@ func (s *Service) rebuildStatusTimeout(ctx context.Context) ([]MonitorDeadline, 
 				continue
 			}
 			for _, c := range page.Items {
-				key := c.Status + "\x00" + c.StatusSince.Format(time.RFC3339Nano)
-				out = append(out, MonitorDeadline{At: c.StatusSince.Add(max), CardID: c.ID, Key: key})
+				out = append(out, MonitorDeadline{At: statusTimeoutDeadline(c, max), CardID: c.ID, Key: statusTimeoutKey(c)})
 			}
 		}
 	}
@@ -345,7 +365,7 @@ func (s *Service) verifyCardIdle(ctx context.Context, cardID, key string) (*Even
 		}
 		return nil, err
 	}
-	if c.UpdatedAt.Format(time.RFC3339Nano) != key {
+	if cardIdleKey(*c) != key {
 		return nil, nil // stale — card mutated again since this deadline armed
 	}
 	b := s.boardForCard(c)
@@ -378,8 +398,7 @@ func (s *Service) rebuildCardIdle(ctx context.Context) ([]MonitorDeadline, error
 				continue
 			}
 			seen[c.ID] = true
-			key := c.UpdatedAt.Format(time.RFC3339Nano)
-			out = append(out, MonitorDeadline{At: c.UpdatedAt.Add(idleAfter), CardID: c.ID, Key: key})
+			out = append(out, MonitorDeadline{At: cardIdleDeadline(c, idleAfter), CardID: c.ID, Key: cardIdleKey(c)})
 		}
 	}
 	return out, nil

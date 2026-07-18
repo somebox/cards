@@ -81,11 +81,16 @@ implementation — header only.)
 ### Conditions
 - `GET /breaches?board_id=&type=` → **implemented**: the current-conditions
   catch-up query — which board columns exceed their WIP limit, which watched
-  lanes are drained, and which cards are blocked right now. Returns
-  `{as_of, items:[{type, scope, board_id?, card_id?, column?, count?, limit?,
-  blockers?}]}`. The counterpart to the ephemeral condition signals on the
-  SSE stream (`GET /events/stream`); does not yet include temporal conditions
-  (`status_timeout`/`card_idle`). See docs/events/integration.md.
+  lanes are drained, which cards are blocked, and which monitored cards are
+  past a status/idle deadline right now. Returns
+  `{as_of, items:[...], limit?, truncated?}`. Item fields discriminate by
+  `type`: `wip_exceeded`/`lane_limit` → `column`/`count`/`limit`;
+  `card_blocked` → `blockers` (nested array); `status_timeout` → `status`/
+  `since`/`max`; `card_idle` → `since`/`threshold` (flat scalars). Item scans
+  (blocked + temporal) cap at 500 cards — `truncated: true` + `limit` mark a
+  partial catch-up (WIP/lane counts are uncapped). The counterpart to the
+  ephemeral condition signals on the SSE stream (`GET /events/stream`). See
+  docs/events/integration.md.
 
 ### Users
 - `POST /users` → register (workspace-scoped).

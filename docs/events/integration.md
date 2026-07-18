@@ -296,6 +296,18 @@ catch-up path for conditions and doubles as a dashboard's "needs attention"
 panel. A reconnecting integrator does two things: replay missed mutations via
 the feed (`Last-Event-ID`), then query current breaches.
 
+Temporal conditions (`status_timeout`, `card_idle`) are included as a **cold
+projection**: cards past their monitor deadline are reported even if the
+scheduler never fired (no subscriber, server restarted). The projection is
+read-only — it never arms deadlines or marks conditions fired — and uses the
+same deadline math as the live verify path, so "past due" means exactly
+"would fire if the deadline came due now". Item fields discriminate by
+`type`: `status_timeout` → `status`/`since`/`max`; `card_idle` → `since`/
+`threshold`. Item scans cap at 500 cards (the `ListCards` ceiling): when a
+scan clamps, the report carries `truncated: true` and echoes `limit` — treat
+the result as a partial view, not a complete catch-up (WIP/lane counts are
+uncapped).
+
 ### Webhooks **[proposed]**
 A `webhook` extension kind: the core POSTs each matching event to an external
 URL with retry + HMAC signature + cursor replay. For integrators that cannot

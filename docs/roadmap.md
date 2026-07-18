@@ -157,16 +157,20 @@ persist-escalation, board-scoped events, resumable SSE, and `/breaches`
 - **Priority / rank + reprioritize-on-`lane_drained`** *(proposed, card
   `b3e0914b`)*. A rank field feeding `take-next` ordering. Also the prerequisite
   for UI drag-drop reordering (§9).
-- **Temporal coverage in `/breaches`** *(partial)*. `Service.Breaches` reports
-  WIP / lane / blocked only; it omits `status_timeout` / `card_idle`. Fix: reuse
-  the `rebuildStatusTimeout` / `rebuildCardIdle` scans, checking each candidate
-  against `now`. (`design-notes.md`.)
-- **>500-card column census limitation** *(known limitation)*. `ListCards` caps
-  a page at 500, so a column with >500 matching cards under-counts in
-  `evaluateColumn` / `Breaches` / blocked lookups. Fix: an unclamped
-  `CountCards` / iterator path rather than raising the ceiling. Also: census
-  counts by *type* membership, so a board scoped by `DefaultFilter` (not type)
-  isn't counted correctly.
+- **Temporal coverage in `/breaches`** — **built for projection**
+  (2026-07-18, card `e3c63f21`). `Service.Breaches` cold-projects
+  `status_timeout` / `card_idle` past-due cards with the same deadline math
+  as rebuild/verify (`internal/core/breaches.go`), read-only, additive
+  `status`/`since`/`max`/`threshold` fields. **Residual:** item scans inherit
+  the `ListCards` 500 ceiling — the report echoes `limit` + `truncated`
+  (partial catch-up, honestly tagged); the unclamped deep-wash path stays
+  open below.
+- **>500-card column census limitation** *(partial)*. WIP/lane counts are
+  uncapped (`CountCards`); **blocked + temporal item scans** still inherit
+  the `ListCards` 500 ceiling (surfaced as `truncated` on `/v1/breaches`).
+  Fix: an unclamped iterator path for item scans rather than raising the
+  ceiling. Also: census counts by *type* membership, so a board scoped by
+  `DefaultFilter` (not type) isn't counted correctly.
 
 ---
 
