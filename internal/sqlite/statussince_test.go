@@ -2,7 +2,6 @@ package sqlite
 
 import (
 	"context"
-	"database/sql"
 	"testing"
 	"time"
 )
@@ -11,12 +10,7 @@ import (
 // backfills it: from the latest status_changed event's timestamp for a card
 // that has moved, else from created_at for one that hasn't. Idempotent.
 func TestMigrateStatusSince_FromPreSeam3dDB(t *testing.T) {
-	db, err := sql.Open("sqlite", ":memory:")
-	if err != nil {
-		t.Fatal(err)
-	}
-	db.SetMaxOpenConns(1)
-	t.Cleanup(func() { db.Close() })
+	db := openSharedCacheRaw(t, 1)
 	ctx := context.Background()
 
 	if _, err := db.ExecContext(ctx, `CREATE TABLE cards (
@@ -88,12 +82,7 @@ func TestMigrateStatusSince_FromPreSeam3dDB(t *testing.T) {
 // A fresh DB (Init on an empty file) needs no migration and StatusSince is
 // set going forward by InsertCard/UpdateCard/ClaimAtomic — not this migration.
 func TestMigrateStatusSince_NoOpOnFreshDB(t *testing.T) {
-	db, err := sql.Open("sqlite", ":memory:")
-	if err != nil {
-		t.Fatal(err)
-	}
-	db.SetMaxOpenConns(1)
-	t.Cleanup(func() { db.Close() })
+	db := openSharedCacheRaw(t, 1)
 	st := &Store{db: db}
 	if err := st.Init(context.Background()); err != nil {
 		t.Fatalf("init: %v", err)

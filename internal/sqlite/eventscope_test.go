@@ -2,7 +2,6 @@ package sqlite
 
 import (
 	"context"
-	"database/sql"
 	"testing"
 	"time"
 
@@ -13,12 +12,7 @@ import (
 // adds the columns, backfills scope='card', keeps existing rows/queries intact,
 // and relaxes card_id to nullable. Idempotent on re-run.
 func TestMigrateEventsScope_FromPreScopeDB(t *testing.T) {
-	db, err := sql.Open("sqlite", ":memory:")
-	if err != nil {
-		t.Fatal(err)
-	}
-	db.SetMaxOpenConns(1)
-	t.Cleanup(func() { db.Close() })
+	db := openSharedCacheRaw(t, 1)
 	ctx := context.Background()
 
 	if _, err := db.ExecContext(ctx, `CREATE TABLE events (
