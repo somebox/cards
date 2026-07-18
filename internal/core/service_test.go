@@ -10,6 +10,7 @@ import (
 
 	"github.com/somebox/cards/internal/core"
 	"github.com/somebox/cards/internal/sqlite"
+	"github.com/somebox/cards/internal/sqlite/sqlitetest"
 )
 
 // testConfig builds the shared engineering-like workspace/type/board config used
@@ -86,11 +87,7 @@ func newTestServiceWithSettings(t *testing.T, s core.WorkspaceSettings) (*core.S
 
 func newTestServiceWith(t *testing.T, ws *core.Workspace, types map[string]*core.CardType, boards map[string]*core.Board) (*core.Service, *sqlite.Store) {
 	t.Helper()
-	st, err := sqlite.Open(":memory:", ws)
-	if err != nil {
-		t.Fatalf("open store: %v", err)
-	}
-	t.Cleanup(func() { st.Close() })
+	st := sqlitetest.Open(t, ws, 1)
 	// Seed the default user so user-field validation can pass.
 	_ = st.InsertUser(context.Background(), core.User{ID: "u", Kind: "human", CreatedAt: time.Now().UTC()})
 	_ = st.InsertUser(context.Background(), core.User{ID: "alice", Kind: "human", CreatedAt: time.Now().UTC()})
@@ -580,8 +577,7 @@ func TestCardLinkValidation_TargetMissing(t *testing.T) {
 			{ID: "assigned", Type: core.FieldCardLink, TargetType: "printer"},
 		}, AllowedColumns: []string{"todo", "done"}},
 	}
-	st, _ := sqlite.Open(":memory:", ws)
-	defer st.Close()
+	st := sqlitetest.Open(t, ws, 1)
 	_ = st.InsertUser(context.Background(), core.User{ID: "u", Kind: "human", CreatedAt: time.Now().UTC()})
 	svc := core.NewService(ws, types, map[string]*core.Board{}, st)
 
@@ -667,11 +663,7 @@ func TestUpgradeSchema(t *testing.T) {
 		AllowedColumns: []string{"todo"},
 	}
 	types := map[string]*core.CardType{"task": taskType}
-	st, err := sqlite.Open(":memory:", ws)
-	if err != nil {
-		t.Fatalf("open: %v", err)
-	}
-	t.Cleanup(func() { st.Close() })
+	st := sqlitetest.Open(t, ws, 1)
 	_ = st.InsertUser(context.Background(), core.User{ID: "u", Kind: "human", CreatedAt: time.Now().UTC()})
 	svc := core.NewService(ws, types, map[string]*core.Board{}, st)
 	ctx := core.WithActor(context.Background(), "u")

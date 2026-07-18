@@ -8,7 +8,7 @@ import (
 
 	"github.com/somebox/cards/internal/artifacts"
 	"github.com/somebox/cards/internal/core"
-	"github.com/somebox/cards/internal/sqlite"
+	"github.com/somebox/cards/internal/sqlite/sqlitetest"
 )
 
 // artifactService builds a service whose task type has a local-policy artifact
@@ -21,11 +21,7 @@ func artifactService(t *testing.T) *core.Service {
 		core.FieldDef{ID: "screenshot", Type: core.FieldArtifact},
 		core.FieldDef{ID: "external", Type: core.FieldArtifact, ArtifactPolicy: "uri"},
 	)
-	st, err := sqlite.Open(":memory:", ws)
-	if err != nil {
-		t.Fatalf("open store: %v", err)
-	}
-	t.Cleanup(func() { st.Close() })
+	st := sqlitetest.Open(t, ws, 1)
 	if err := st.InsertUser(context.Background(), core.User{ID: "u", Kind: "human"}); err != nil {
 		t.Fatalf("seed user: %v", err)
 	}
@@ -176,11 +172,7 @@ func TestAddArtifactRejectsBadFieldAndPolicy(t *testing.T) {
 func TestAddArtifactRequiresConfiguredStore(t *testing.T) {
 	ws, types, boards := testConfig()
 	types["task"].Fields = append(types["task"].Fields, core.FieldDef{ID: "screenshot", Type: core.FieldArtifact})
-	st, err := sqlite.Open(":memory:", ws)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { st.Close() })
+	st := sqlitetest.Open(t, ws, 1)
 	_ = st.InsertUser(context.Background(), core.User{ID: "u", Kind: "human"})
 	svc := core.NewService(ws, types, boards, st) // no SetArtifacts
 	ctx := core.WithActor(context.Background(), "u")

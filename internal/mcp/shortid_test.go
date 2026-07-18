@@ -16,6 +16,7 @@ import (
 	"github.com/somebox/cards/internal/core/coretest"
 	"github.com/somebox/cards/internal/mcp"
 	"github.com/somebox/cards/internal/sqlite"
+	"github.com/somebox/cards/internal/sqlite/sqlitetest"
 )
 
 func newShortIDHarness(t *testing.T) (*mcp.Server, *core.Service, *sqlite.Store) {
@@ -33,11 +34,7 @@ func newShortIDHarness(t *testing.T) (*mcp.Server, *core.Service, *sqlite.Store)
 	boards := map[string]*core.Board{
 		"eng": {ID: "eng", Name: "Eng", Columns: []string{"todo"}, CardTypeIDs: []string{"task"}},
 	}
-	st, err := sqlite.Open(":memory:", ws)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { st.Close() })
+	st := sqlitetest.Open(t, ws, 1)
 	_ = st.InsertUser(context.Background(), core.User{ID: "u", Kind: "human"})
 	svc := core.NewService(ws, types, boards, st)
 	return mcp.New(svc, ws, types, boards, "agent"), svc, st

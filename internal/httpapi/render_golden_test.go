@@ -14,7 +14,7 @@ import (
 	"github.com/somebox/cards/internal/config"
 	"github.com/somebox/cards/internal/core"
 	"github.com/somebox/cards/internal/httpapi"
-	"github.com/somebox/cards/internal/sqlite"
+	"github.com/somebox/cards/internal/sqlite/sqlitetest"
 )
 
 // Regenerate after an intentional render change:
@@ -63,11 +63,7 @@ func newGoldenServer(t *testing.T) (*httptest.Server, []string) {
 	if err != nil {
 		t.Fatalf("load: %v", err)
 	}
-	st, err := sqlite.Open(":memory:", r.Workspace)
-	if err != nil {
-		t.Fatalf("open store: %v", err)
-	}
-	t.Cleanup(func() { st.Close() })
+	st := sqlitetest.Open(t, r.Workspace, 1)
 	svc := core.NewService(r.Workspace, r.CardTypes, r.Boards, st)
 
 	ctx := context.Background()

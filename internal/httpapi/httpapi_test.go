@@ -17,6 +17,7 @@ import (
 	"github.com/somebox/cards/internal/httpapi"
 	"github.com/somebox/cards/internal/seed"
 	"github.com/somebox/cards/internal/sqlite"
+	"github.com/somebox/cards/internal/sqlite/sqlitetest"
 )
 
 // newServer loads the real demo workspace, opens an in-memory SQLite store,
@@ -27,11 +28,7 @@ func newServer(t *testing.T) (*httptest.Server, *core.Service) {
 	if err != nil {
 		t.Fatalf("load: %v", err)
 	}
-	st, err := sqlite.Open(":memory:", r.Workspace)
-	if err != nil {
-		t.Fatalf("open store: %v", err)
-	}
-	t.Cleanup(func() { st.Close() })
+	st := sqlitetest.Open(t, r.Workspace, 1)
 	svc := core.NewService(r.Workspace, r.CardTypes, r.Boards, st)
 	if err := seed.IfEmpty(context.Background(), st, svc, r.Workspace); err != nil {
 		t.Fatalf("seed: %v", err)
@@ -690,11 +687,7 @@ func newServerStore(t *testing.T) (*httptest.Server, *core.Service, *sqlite.Stor
 	if err != nil {
 		t.Fatalf("load: %v", err)
 	}
-	st, err := sqlite.Open(":memory:", r.Workspace)
-	if err != nil {
-		t.Fatalf("open store: %v", err)
-	}
-	t.Cleanup(func() { st.Close() })
+	st := sqlitetest.Open(t, r.Workspace, 1)
 	svc := core.NewService(r.Workspace, r.CardTypes, r.Boards, st)
 	srv, err := httpapi.New(svc, r.Workspace, r.CardTypes, r.Boards, r.Themes, st)
 	if err != nil {

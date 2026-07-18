@@ -16,6 +16,7 @@ import (
 
 	"github.com/somebox/cards/internal/core"
 	"github.com/somebox/cards/internal/sqlite"
+	"github.com/somebox/cards/internal/sqlite/sqlitetest"
 )
 
 // newLaneWatchedService is newTestService with the "eng" board additionally
@@ -511,11 +512,7 @@ func (e *testAppendError) Error() string { return e.msg }
 func TestConditions_FailedEscalatedAppendIsLoggedNotFailing(t *testing.T) {
 	ws, types, boards := testConfig()
 	ws.Settings.PersistConditions = []string{"wip_exceeded"}
-	st, err := sqlite.Open(":memory:", ws)
-	if err != nil {
-		t.Fatalf("open store: %v", err)
-	}
-	t.Cleanup(func() { st.Close() })
+	st := sqlitetest.Open(t, ws, 1)
 	if err := st.InsertUser(context.Background(), core.User{ID: "u", Kind: "human"}); err != nil {
 		t.Fatalf("seed user: %v", err)
 	}

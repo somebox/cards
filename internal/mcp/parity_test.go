@@ -13,7 +13,7 @@ import (
 	"github.com/somebox/cards/internal/config"
 	"github.com/somebox/cards/internal/core"
 	"github.com/somebox/cards/internal/mcp"
-	"github.com/somebox/cards/internal/sqlite"
+	"github.com/somebox/cards/internal/sqlite/sqlitetest"
 )
 
 // Fixed MCP tools that mirror core.Service coordination methods.
@@ -260,11 +260,7 @@ func newMCPServerWithStaleCard(t *testing.T) (*mcp.Server, string) {
 	if err != nil {
 		t.Fatalf("load: %v", err)
 	}
-	st, err := sqlite.Open(":memory:", r.Workspace)
-	if err != nil {
-		t.Fatalf("open store: %v", err)
-	}
-	t.Cleanup(func() { st.Close() })
+	st := sqlitetest.Open(t, r.Workspace, 1)
 
 	// Generation 1: stock types; create the card at schema_version 1.
 	svc1 := core.NewService(r.Workspace, r.CardTypes, r.Boards, st)

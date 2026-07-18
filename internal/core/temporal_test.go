@@ -15,7 +15,7 @@ import (
 	"github.com/somebox/cards/internal/core"
 	"github.com/somebox/cards/internal/core/clocktest"
 	"github.com/somebox/cards/internal/core/eventlogtest"
-	"github.com/somebox/cards/internal/sqlite"
+	"github.com/somebox/cards/internal/sqlite/sqlitetest"
 )
 
 // newTemporalTestService builds a service whose "eng" board monitors
@@ -29,11 +29,7 @@ func newTemporalTestService(t *testing.T, maxTimeInStatus map[string]string, idl
 		IdleAfter:       idleAfter,
 	}
 	ws.Settings.PersistConditions = []string{"status_timeout", "card_idle"}
-	st, err := sqlite.Open(":memory:", ws)
-	if err != nil {
-		t.Fatalf("open store: %v", err)
-	}
-	t.Cleanup(func() { st.Close() })
+	st := sqlitetest.Open(t, ws, 1)
 	if err := st.InsertUser(context.Background(), core.User{ID: "u", Kind: "human"}); err != nil {
 		t.Fatalf("seed user: %v", err)
 	}
@@ -196,11 +192,7 @@ func TestTemporal_ConditionEventsDoNotResetIdle(t *testing.T) {
 	ws, types, boards := testConfig() // eng: WIPLimits{in_progress: 1}
 	boards["eng"].Monitors = &core.BoardMonitors{IdleAfter: "1h"}
 	ws.Settings.PersistConditions = []string{"card_idle"} // wip_exceeded stays ephemeral
-	st, err := sqlite.Open(":memory:", ws)
-	if err != nil {
-		t.Fatalf("open store: %v", err)
-	}
-	t.Cleanup(func() { st.Close() })
+	st := sqlitetest.Open(t, ws, 1)
 	if err := st.InsertUser(context.Background(), core.User{ID: "u", Kind: "human"}); err != nil {
 		t.Fatalf("seed user: %v", err)
 	}

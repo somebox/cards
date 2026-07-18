@@ -12,7 +12,7 @@ import (
 	"github.com/somebox/cards/internal/core"
 	"github.com/somebox/cards/internal/mcp"
 	"github.com/somebox/cards/internal/seed"
-	"github.com/somebox/cards/internal/sqlite"
+	"github.com/somebox/cards/internal/sqlite/sqlitetest"
 )
 
 func newMCPServer(t *testing.T) *mcp.Server {
@@ -21,11 +21,7 @@ func newMCPServer(t *testing.T) *mcp.Server {
 	if err != nil {
 		t.Fatalf("load: %v", err)
 	}
-	st, err := sqlite.Open(":memory:", r.Workspace)
-	if err != nil {
-		t.Fatalf("open store: %v", err)
-	}
-	t.Cleanup(func() { st.Close() })
+	st := sqlitetest.Open(t, r.Workspace, 1)
 	svc := core.NewService(r.Workspace, r.CardTypes, r.Boards, st)
 	if err := seed.IfEmpty(context.Background(), st, svc, r.Workspace); err != nil {
 		t.Fatalf("seed: %v", err)

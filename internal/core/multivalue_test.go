@@ -11,6 +11,7 @@ import (
 
 	"github.com/somebox/cards/internal/core"
 	"github.com/somebox/cards/internal/sqlite"
+	"github.com/somebox/cards/internal/sqlite/sqlitetest"
 )
 
 // newMultiService builds a service whose "task" type carries a multiple enum
@@ -23,11 +24,7 @@ func newMultiService(t *testing.T) (*core.Service, *sqlite.Store) {
 		core.FieldDef{ID: "reviewers", Type: core.FieldUser, Multiple: true},
 		core.FieldDef{ID: "audience", Type: core.FieldEnum, Multiple: true, Required: true, Options: []string{"dev", "ops"}},
 	)
-	st, err := sqlite.Open(":memory:", ws)
-	if err != nil {
-		t.Fatalf("open store: %v", err)
-	}
-	t.Cleanup(func() { st.Close() })
+	st := sqlitetest.Open(t, ws, 1)
 	if err := st.InsertUser(context.Background(), core.User{ID: "u", Kind: "human"}); err != nil {
 		t.Fatal(err)
 	}

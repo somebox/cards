@@ -10,6 +10,7 @@ import (
 
 	"github.com/somebox/cards/internal/core"
 	"github.com/somebox/cards/internal/sqlite"
+	"github.com/somebox/cards/internal/sqlite/sqlitetest"
 )
 
 // testWorkspace + newStore mirror internal/sqlite's test setup: an in-memory DB
@@ -25,11 +26,7 @@ func newStore(t *testing.T) (*sqlite.Store, *core.Workspace) {
 		},
 		Settings: core.WorkspaceSettings{StrictFields: true, TagPolicy: "propose", DefaultUser: "u"},
 	}
-	st, err := sqlite.Open(":memory:", ws)
-	if err != nil {
-		t.Fatalf("open store: %v", err)
-	}
-	t.Cleanup(func() { st.Close() })
+	st := sqlitetest.Open(t, ws, 1)
 	return st, ws
 }
 

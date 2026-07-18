@@ -18,7 +18,7 @@ import (
 	"github.com/somebox/cards/internal/core"
 	"github.com/somebox/cards/internal/core/clocktest"
 	"github.com/somebox/cards/internal/httpapi"
-	"github.com/somebox/cards/internal/sqlite"
+	"github.com/somebox/cards/internal/sqlite/sqlitetest"
 )
 
 // newTemporalServer builds a minimal workspace whose only board monitors
@@ -48,11 +48,7 @@ func newTemporalServer(t *testing.T) (*httptest.Server, *clocktest.Fake) {
 			Monitors:    &core.BoardMonitors{MaxTimeInStatus: map[string]string{"review": "1h"}},
 		},
 	}
-	st, err := sqlite.Open(":memory:", ws)
-	if err != nil {
-		t.Fatalf("open store: %v", err)
-	}
-	t.Cleanup(func() { st.Close() })
+	st := sqlitetest.Open(t, ws, 1)
 	if err := st.InsertUser(context.Background(), core.User{ID: "u", Kind: "human"}); err != nil {
 		t.Fatalf("seed user: %v", err)
 	}

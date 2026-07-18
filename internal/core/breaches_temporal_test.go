@@ -15,6 +15,7 @@ import (
 	"github.com/somebox/cards/internal/core"
 	"github.com/somebox/cards/internal/core/clocktest"
 	"github.com/somebox/cards/internal/sqlite"
+	"github.com/somebox/cards/internal/sqlite/sqlitetest"
 )
 
 // newColdMonitorService builds a service whose "eng" board monitors
@@ -28,11 +29,7 @@ func newColdMonitorService(t *testing.T, maxTimeInStatus map[string]string, idle
 		MaxTimeInStatus: maxTimeInStatus,
 		IdleAfter:       idleAfter,
 	}
-	st, err := sqlite.Open(":memory:", ws)
-	if err != nil {
-		t.Fatalf("open store: %v", err)
-	}
-	t.Cleanup(func() { st.Close() })
+	st := sqlitetest.Open(t, ws, 1)
 	if err := st.InsertUser(context.Background(), core.User{ID: "u", Kind: "human"}); err != nil {
 		t.Fatalf("seed user: %v", err)
 	}

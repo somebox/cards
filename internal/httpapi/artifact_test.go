@@ -12,7 +12,7 @@ import (
 	"github.com/somebox/cards/internal/artifacts"
 	"github.com/somebox/cards/internal/core"
 	"github.com/somebox/cards/internal/httpapi"
-	"github.com/somebox/cards/internal/sqlite"
+	"github.com/somebox/cards/internal/sqlite/sqlitetest"
 )
 
 // newArtifactServer builds a minimal workspace whose task type has a local
@@ -36,11 +36,7 @@ func newArtifactServer(t *testing.T) (*httptest.Server, string) {
 	boards := map[string]*core.Board{
 		"eng": {ID: "eng", Name: "Eng", Columns: []string{"todo"}, CardTypeIDs: []string{"task"}},
 	}
-	st, err := sqlite.Open(":memory:", ws)
-	if err != nil {
-		t.Fatalf("open: %v", err)
-	}
-	t.Cleanup(func() { st.Close() })
+	st := sqlitetest.Open(t, ws, 1)
 	ctx := context.Background()
 	if err := st.InsertUser(ctx, core.User{ID: "u", Kind: "human"}); err != nil {
 		t.Fatalf("user: %v", err)

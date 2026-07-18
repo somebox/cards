@@ -10,7 +10,7 @@ import (
 	"github.com/somebox/cards/internal/artifacts"
 	"github.com/somebox/cards/internal/core"
 	"github.com/somebox/cards/internal/mcp"
-	"github.com/somebox/cards/internal/sqlite"
+	"github.com/somebox/cards/internal/sqlite/sqlitetest"
 )
 
 // attach_artifact stores base64 content on an artifact field, and get_artifact
@@ -33,11 +33,7 @@ func TestMCPAttachAndGetArtifact(t *testing.T) {
 	boards := map[string]*core.Board{
 		"eng": {ID: "eng", Name: "Eng", Columns: []string{"todo"}, CardTypeIDs: []string{"task"}},
 	}
-	st, err := sqlite.Open(":memory:", ws)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { st.Close() })
+	st := sqlitetest.Open(t, ws, 1)
 	ctx := context.Background()
 	_ = st.InsertUser(ctx, core.User{ID: "u", Kind: "human"})
 	svc := core.NewService(ws, types, boards, st)

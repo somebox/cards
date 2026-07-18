@@ -33,6 +33,20 @@ func Open(path string, ws *core.Workspace) (*Store, error) {
 	// SQLITE_BUSY_SNAPSHOT — which busy_timeout cannot retry away. This matters
 	// across processes too (a `cards serve` and a serverless CLI on one DB).
 	dsn := "file:" + path + "?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&_pragma=synchronous(NORMAL)&_pragma=foreign_keys(1)&_txlock=immediate"
+	return openDSN(dsn, 1, ws)
+}
+
+// OpenDSN opens a Store on an explicit SQLite DSN with an explicit pool size
+// (maxConns <= 0 means unlimited). It is the test-harness seam —
+// internal/sqlite/sqlitetest owns shared-cache memory DSN construction for
+// tests that need per-test isolation with a >1-connection topology.
+// Production opens file-backed single-conn stores via Open; nothing else
+// should call this.
+func OpenDSN(dsn string, maxConns int, ws *core.Workspace) (*Store, error) {
+	return openDSN(dsn, maxConns, ws)
+}
+
+func openDSN(dsn string, maxConns int, ws *core.Workspace) (*Store, error) {
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("open sqlite: %w", err)
@@ -41,7 +55,10 @@ func Open(path string, ws *core.Workspace) (*Store, error) {
 	// scale queries are sub-millisecond, so the simplicity (no in-process write
 	// contention, and a stable handle for :memory:) outweighs lost read
 	// parallelism. A separate read pool is a possible future optimization.
-	db.SetMaxOpenConns(1)
+	// (The test harness passes maxConns > 1 deliberately; production keeps 1.)
+	if maxConns > 0 {
+		db.SetMaxOpenConns(maxConns)
+	}
 	if err := db.Ping(); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("ping sqlite: %w", err)

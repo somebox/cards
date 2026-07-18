@@ -8,17 +8,14 @@ import (
 	"github.com/somebox/cards/internal/core"
 	"github.com/somebox/cards/internal/core/clocktest"
 	"github.com/somebox/cards/internal/sqlite"
+	"github.com/somebox/cards/internal/sqlite/sqlitetest"
 )
 
 // openStatusSinceTestStore opens an in-memory store with the "u" actor
 // seeded, matching the pattern used by clock_test.go.
 func openStatusSinceTestStore(t *testing.T, ws *core.Workspace) *sqlite.Store {
 	t.Helper()
-	st, err := sqlite.Open(":memory:", ws)
-	if err != nil {
-		t.Fatalf("open store: %v", err)
-	}
-	t.Cleanup(func() { st.Close() })
+	st := sqlitetest.Open(t, ws, 1)
 	if err := st.InsertUser(context.Background(), core.User{ID: "u", Kind: "human"}); err != nil {
 		t.Fatalf("seed user: %v", err)
 	}

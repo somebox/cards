@@ -16,7 +16,7 @@ import (
 	"github.com/somebox/cards/internal/core"
 	"github.com/somebox/cards/internal/httpapi"
 	"github.com/somebox/cards/internal/seed"
-	"github.com/somebox/cards/internal/sqlite"
+	"github.com/somebox/cards/internal/sqlite/sqlitetest"
 )
 
 // newBreachesTemporalServer loads the demo workspace but overrides the engineering
@@ -32,11 +32,7 @@ func newBreachesTemporalServer(t *testing.T) *httptest.Server {
 		MaxTimeInStatus: map[string]string{"review": "50ms"},
 		IdleAfter:       "50ms",
 	}
-	st, err := sqlite.Open(":memory:", r.Workspace)
-	if err != nil {
-		t.Fatalf("open store: %v", err)
-	}
-	t.Cleanup(func() { st.Close() })
+	st := sqlitetest.Open(t, r.Workspace, 1)
 	svc := core.NewService(r.Workspace, r.CardTypes, r.Boards, st)
 	if err := seed.IfEmpty(context.Background(), st, svc, r.Workspace); err != nil {
 		t.Fatalf("seed: %v", err)

@@ -22,7 +22,7 @@ import (
 
 	"github.com/somebox/cards/internal/artifacts"
 	"github.com/somebox/cards/internal/core"
-	"github.com/somebox/cards/internal/sqlite"
+	"github.com/somebox/cards/internal/sqlite/sqlitetest"
 )
 
 // artifactServiceRooted is artifactService with the artifacts root exposed so
@@ -33,11 +33,7 @@ func artifactServiceRooted(t *testing.T) (*core.Service, string) {
 	types["task"].Fields = append(types["task"].Fields,
 		core.FieldDef{ID: "screenshot", Type: core.FieldArtifact},
 	)
-	st, err := sqlite.Open(":memory:", ws)
-	if err != nil {
-		t.Fatalf("open store: %v", err)
-	}
-	t.Cleanup(func() { st.Close() })
+	st := sqlitetest.Open(t, ws, 1)
 	if err := st.InsertUser(context.Background(), core.User{ID: "u", Kind: "human"}); err != nil {
 		t.Fatalf("seed user: %v", err)
 	}
