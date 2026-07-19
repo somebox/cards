@@ -74,7 +74,8 @@ Read the full version: [`docs/concepts/philosophy.md`](docs/concepts/philosophy.
 | HTTP + UI | `internal/httpapi/` | REST, SSE, server-rendered web UI (Go templates + Alpine.js) |
 | MCP | `internal/mcp/` | MCP adapter over core services |
 | Hooks | `internal/hooks/` | hook supervisor (spawns subprocesses on events) |
-| Demo workspace | `examples/demo-workspace/` | the dogfooding backlog — definitions + `backlog.jsonl` |
+| Project board | `.cards/` | the live dogfooding backlog — definitions + `backlog.jsonl` (+ `backlog.md` overview) |
+| Demo workspace | `examples/demo-workspace/` | frozen example material (docs, screenshots, what `cards init` scaffolds) |
 | TUI | `internal/tui/`, `cmd/cards/tui.go` | terminal UI behind bare `cards` (`interactive()` guard: both streams TTY, no `--json`) |
 | UI templates/CSS | `internal/httpapi/templates/` | `layout.html`, `board.html`, `card_modal.html`, `style.css`, etc. |
 
@@ -103,7 +104,7 @@ browser. Two ways:
 
 ```bash
 go build -o cards ./cmd/cards
-./cards serve --workspace ./examples/demo-workspace --port 8787 --seed
+./cards serve --workspace ./.cards --port 8787 --seed
 open http://127.0.0.1:8787/ui/boards/engineering
 ```
 
@@ -115,7 +116,7 @@ open 'http://127.0.0.1:8787/ui/boards/engineering?theme=labels'
 ```
 
 `scripts/dev-server.sh` rebuilds and restarts the demo server when files under
-`cmd/`, `internal/`, or `examples/demo-workspace/definitions/` change. If
+`cmd/`, `internal/`, or `.cards/definitions/` change. If
 [`air`](https://github.com/air-verse/air) is installed it delegates to
 `.air.toml`; otherwise it uses a small dependency-free polling watcher. Override
 with `PORT=` / `CARDS_WS=` / `CARDS_DEV_NO_AIR=1`. Logs land in `.pi/run/`.
@@ -123,7 +124,7 @@ with `PORT=` / `CARDS_WS=` / `CARDS_DEV_NO_AIR=1`. Logs land in `.pi/run/`.
 Other entry points (all share the same service layer):
 
 ```bash
-./cards mcp --workspace ./examples/demo-workspace   # stdio MCP server for agents
+./cards mcp --workspace ./.cards                    # stdio MCP server for agents
 ./cards list --board engineering                     # CLI (set CARDS_URL + CARDS_USER to hit a server)
 ./cards export --state-only --out backlog.jsonl      # portable snapshot
 ./cards import --in backlog.jsonl                    # restore into a fresh workspace
@@ -212,7 +213,8 @@ mapping (`option_themes` + board `presentation.style_field`).
   different ports. Don't add a multi-tenant router to the kernel.
 - **The event log is coordination memory, not an archive.** The materialized
   card is the durable work product; the log may be trimmed.
-- **`backlog.jsonl` is the committed, portable state.** The live
+- **`backlog.jsonl` is the committed, portable state** (in `.cards/`,
+  alongside a generated `backlog.md` overview). The live
   `work-cards.db` is gitignored and machine-local. Use
   `scripts/board.sh export|import` to sync boards across machines; never edit
   the JSONL by hand when a server is running against the same workspace.

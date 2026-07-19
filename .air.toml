@@ -12,8 +12,8 @@ tmp_dir = ".pi/tmp/air"
 [build]
 cmd = "go build -o .pi/tmp/air/cards ./cmd/cards"
 bin = ".pi/tmp/air/cards"
-args_bin = ["serve", "--workspace", "./examples/demo-workspace", "--port", "8787", "--seed"]
-include_dir = ["cmd", "internal", "examples/demo-workspace/definitions"]
+args_bin = ["serve", "--workspace", "./.cards", "--port", "8787", "--seed"]
+include_dir = ["cmd", "internal", ".cards/definitions"]
 include_ext = ["go", "html", "css", "js", "json", "yaml", "yml"]
 exclude_dir = [".git", ".pi", "docs", "media", "bin", "dist", "build", "vendor"]
 exclude_regex = ["_test\\.go"]

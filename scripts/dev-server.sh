@@ -19,7 +19,7 @@ cd "$repo_root"
 
 PORT="${PORT:-8787}"
 HOST="${HOST:-127.0.0.1}"
-WS="${CARDS_WS:-./examples/demo-workspace}"
+WS="${CARDS_WS:-./.cards}"
 BIN="${DEV_CARDS_BIN:-.pi/tmp/dev/cards}"
 LOG="${DEV_CARDS_LOG:-.pi/run/cards-${PORT}.log}"
 PIDFILE="${DEV_CARDS_PID:-.pi/run/cards-${PORT}.pid}"
@@ -31,7 +31,7 @@ if command -v air >/dev/null 2>&1 && [ -f .air.toml ] && [ -z "${CARDS_DEV_NO_AI
   # Air's args are fixed in .air.toml for the common 8787 demo case. If callers
   # override PORT/WS, use the fallback so the args can vary without generating
   # config files.
-  if [ "$PORT" = "8787" ] && [ "$WS" = "./examples/demo-workspace" ]; then
+  if [ "$PORT" = "8787" ] && [ "$WS" = "./.cards" ]; then
     exec air -c .air.toml
   fi
   echo "dev-server: PORT/CARDS_WS override detected; using fallback watcher"

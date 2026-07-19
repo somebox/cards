@@ -1,0 +1,35 @@
+{
+  "id": "data-task",
+  "name": "Data Task",
+  "description": "Storage, schema, migration, export/import — changes where the risk is the data itself, so reversibility is a first-class field.",
+  "schema_version": 1,
+  "type_theme": { "icon": "flask", "accent": "#079b43", "muted": "#d8efe0" },
+  "fields": [
+    { "id": "description", "type": "text", "required": true, "display": "monospace" },
+    { "id": "migration", "type": "enum", "required": true, "default": "none",
+      "options": ["none", "schema", "backfill", "schema+backfill"],
+      "description": "What the change does to existing data" },
+    { "id": "safety", "type": "text", "required": false,
+      "description": "Reversibility: backup taken? refuses non-empty? tombstones? What happens to a v0.1.x DB opened by this build?" },
+    { "id": "acceptance", "type": "text", "required": false,
+      "description": "Done when — include the round-trip check (export → import → identical state)" },
+    { "id": "verify", "type": "string", "required": false, "display": "monospace",
+      "description": "One command that proves it, e.g. `go test ./internal/sqlite/ -run TestMigration`" },
+    { "id": "volume", "type": "number", "required": false, "min": 0,
+      "description": "Rows/cards/artifacts affected (order of magnitude is fine)" },
+    { "id": "branch", "type": "string", "required": false, "display": "badge" },
+    {
+      "id": "work_log", "type": "repeating", "required": false, "display": "feed",
+      "item_fields": [
+        { "id": "commit_hash", "type": "string", "required": true },
+        { "id": "notes", "type": "text", "required": false },
+        { "id": "author", "type": "user", "required": true },
+        { "id": "timestamp", "type": "date", "required": true }
+      ]
+    },
+    { "id": "evidence", "type": "artifact", "artifact_policy": "local", "required": false,
+      "description": "Before/after row counts, EXPLAIN output, or a diffed export" }
+  ],
+  "allowed_columns": ["backlog", "todo", "in_progress", "review", "done"],
+  "searchable_fields": ["description", "acceptance", "safety"]
+}

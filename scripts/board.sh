@@ -14,7 +14,8 @@
 #   scripts/board.sh import --force      # WIPE the local DB first, then restore (re-sync a machine)
 #   scripts/board.sh install-hook        # add a git pre-commit hook that auto-exports before each commit
 #
-# Workspace defaults to examples/demo-workspace; override with CARDS_WS=<dir>.
+# Workspace defaults to .cards (the project board); override with CARDS_WS=<dir>.
+# The example workspace lives at examples/demo-workspace.
 # The cards binary is auto-detected (./cards, then $PATH, then `go run`);
 # override with CARDS_BIN="/path/to/cards".
 
@@ -23,7 +24,7 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
 
-WS="${CARDS_WS:-examples/demo-workspace}"
+WS="${CARDS_WS:-.cards}"
 SNAP="$WS/backlog.jsonl"
 
 # Resolve a cards command: prefer a built ./cards, then one on PATH, else go run.

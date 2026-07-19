@@ -1,0 +1,34 @@
+{
+  "id": "infra-task",
+  "name": "Infra Task",
+  "description": "Build, CI/CD, release, packaging, environments. Anything where the blast radius is the pipeline rather than the product.",
+  "schema_version": 1,
+  "type_theme": { "icon": "wrench", "accent": "#596469", "muted": "#e2e6e8" },
+  "fields": [
+    { "id": "description", "type": "text", "required": true, "display": "monospace" },
+    { "id": "environment", "type": "enum", "required": true, "default": "ci",
+      "options": ["local", "ci", "release", "prod"],
+      "description": "Where this lands — `release`/`prod` changes need a rollback note" },
+    { "id": "rollback", "type": "text", "required": false,
+      "description": "How to undo it (required in review for release/prod scope)" },
+    { "id": "acceptance", "type": "text", "required": false,
+      "description": "Done when — e.g. a green run link, a published artifact, a resolving URL" },
+    { "id": "verify", "type": "string", "required": false, "display": "monospace",
+      "description": "One command or URL that proves it, e.g. `gh run watch <id>` or the release asset link" },
+    { "id": "branch", "type": "string", "required": false, "display": "badge" },
+    {
+      "id": "change_log", "type": "repeating", "required": false, "display": "feed",
+      "item_fields": [
+        { "id": "action", "type": "string", "required": true },
+        { "id": "target", "type": "string", "required": false },
+        { "id": "result", "type": "string", "required": false },
+        { "id": "author", "type": "user", "required": true },
+        { "id": "timestamp", "type": "date", "required": true }
+      ]
+    },
+    { "id": "evidence", "type": "artifact", "artifact_policy": "local", "required": false,
+      "description": "Run log, workflow output, or checksum listing" }
+  ],
+  "allowed_columns": ["backlog", "todo", "in_progress", "review", "done"],
+  "searchable_fields": ["description", "acceptance", "rollback"]
+}

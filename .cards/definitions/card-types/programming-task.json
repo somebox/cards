@@ -1,0 +1,32 @@
+{
+  "id": "programming-task",
+  "name": "Programming Task",
+  "schema_version": 1,
+  "fields": [
+    { "id": "description", "type": "text", "required": true, "display": "monospace" },
+    { "id": "branch", "type": "string", "required": true, "display": "badge" },
+    {
+      "id": "kind",
+      "type": "enum",
+      "required": false,
+      "options": ["feature", "bug", "design", "infra"],
+      "description": "Category for board legibility when style_field=kind (optional; unset falls through to type theme)",
+      "option_themes": {
+        "feature": { "icon": "star",   "accent": "#005bd3", "muted": "#d9e8ff" },
+        "bug":     { "icon": "bug",    "accent": "#b00000", "muted": "#ffd9d6" },
+        "design":  { "icon": "pen",    "accent": "#8a5200", "muted": "#ffe8bf" },
+        "infra":   { "icon": "wrench", "accent": "#596469", "muted": "#e0e4e5" }
+      }
+    },
+    {
+      "id": "work_log", "type": "repeating", "required": false, "display": "feed",
+      "item_fields": [
+        { "id": "commit_hash", "type": "string", "required": true },
+        { "id": "notes", "type": "text", "required": false },
+        { "id": "author", "type": "user", "required": true },
+        { "id": "timestamp", "type": "date", "required": true }
+      ]
+    }
+  ],
+  "allowed_columns": ["backlog", "todo", "in_progress", "review", "done"]
+}

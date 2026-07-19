@@ -1,0 +1,35 @@
+{
+  "id": "api-task",
+  "name": "API Task",
+  "description": "Change to the HTTP /v1 surface, CLI verbs, or MCP tools — anything that moves a machine-facing contract.",
+  "schema_version": 1,
+  "type_theme": { "icon": "target", "accent": "#0f5d78", "muted": "#d9e6ec" },
+  "fields": [
+    { "id": "description", "type": "text", "required": true, "display": "monospace" },
+    { "id": "endpoint", "type": "string", "required": true, "display": "badge",
+      "description": "The surface being changed, e.g. `PATCH /v1/cards/{id}` or `cards attach --version`" },
+    { "id": "api_change", "type": "enum", "required": true, "default": "additive",
+      "options": ["additive", "breaking", "fix", "internal"],
+      "description": "Contract impact — `breaking` must be called out in CHANGELOG and reviewed as such" },
+    { "id": "acceptance", "type": "text", "required": false,
+      "description": "Done when — the observable checks a reviewer (or agent) verifies before done" },
+    { "id": "verify", "type": "string", "required": false, "display": "monospace",
+      "description": "One command that proves it, e.g. `go test ./internal/httpapi/ -run TestX`" },
+    { "id": "branch", "type": "string", "required": false, "display": "badge" },
+    { "id": "spec", "type": "card_link", "required": false, "display": "link",
+      "description": "The design/spec card this implements" },
+    {
+      "id": "work_log", "type": "repeating", "required": false, "display": "feed",
+      "item_fields": [
+        { "id": "commit_hash", "type": "string", "required": true },
+        { "id": "notes", "type": "text", "required": false },
+        { "id": "author", "type": "user", "required": true },
+        { "id": "timestamp", "type": "date", "required": true }
+      ]
+    },
+    { "id": "evidence", "type": "artifact", "artifact_policy": "local", "required": false,
+      "description": "Proof: a curl transcript, test output, or diff" }
+  ],
+  "allowed_columns": ["backlog", "todo", "in_progress", "review", "done"],
+  "searchable_fields": ["description", "endpoint", "acceptance"]
+}
