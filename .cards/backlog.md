@@ -8,394 +8,394 @@
 
 ### backlog (23)
 
-| Card | Type | Title | Owner | Tags | Summary |
-|---|---|---|---|---|---|
-| **8fc028ad** | programming-task | Census follow-ups: unclamped paging for item-iterating… | · | #feature | Deferred from Sprint P2 (column-census fix). P2 fixed ONLY the scalar count in countColumn via… |
-| **3d8ed6d9** | frontend-task | Extract embedded journal/labels themes into… | · | #feature | Deferred from Sprint P4 (workspace themes). P4 shipped the loader, per-board assignment, nav… |
-| **b3e07b9d** | programming-task | UI: expand link chips to reveal target cards (hover/preview) | · | #feature | Related cards and dependencies (depends-on, blocked-by) should be visually identifiable on the… |
-| **0707a008** | programming-task | UI: board settings editor (columns, types, theme, filters,… | · | #feature | Edit an existing board's definition from the UI (not hand-edited JSON). |
-| **f6ed4e10** | programming-task | Tags: management tooling (CLI/UI) + propose flow +… | · | #feature | P1 — fixes the 'tag_set too small to categorize workstreams' pain. Currently tags are a closed set… |
-| **b4190873** | programming-task | Docs: update SPEC + DEVELOPER-REFERENCE for schema-driven… | · | #feature | Capture the schema-driven UI strategy in the docs. (1) SPEC §6 FieldDef: add optional `display`… |
-| **069ec1d1** | api-task | CLI: patch/claim without a preceding GET (--if-match latest… | · | · | The last open item from the agent-CLI feedback: patch/claim REQUIRE --version, so every scripted… |
-| **30026459** | infra-task | release workflow: clear the Node 20 deprecation warnings… | · | · | Both v0.1.2/v0.1.3 release runs warn: upload-artifact@v4, download-artifact@v4,… |
-| **34e45cd9** | frontend-task | UI: manual reorder within a lane (needs rank-field design) | · | · | Tracks the unbuilt half of ROADMAP §9 card ordering so it lives on the board instead of only in… |
-| **d25f1975** | frontend-task | UI chore: split components.js into board / fields / forms /… | · | #feature | Groundwork for maintainability after rebuild. components.js is ~919 lines / all Alpine factories. |
-| **f570b35b** | programming-task | Design RFC: transitions-as-callbacks + trigger seam… | · | · | Planted for NEXT sprint. First-pass sketch for docs/design/BOARD-BEHAVIOR.md. GOVERNING DOCS… |
-| **8b3e83d9** | programming-task | UI/schema: style_field legibility — OptionThemes + board… | · | · | Sprint 07-11 Phase 4 home for docs/design/STYLE-FIELD.md — LEGIBILITY only (color+icon). Plan:… |
-| **8fea3fc0** | frontend-task | a11y: enforce type/option accent contrast floor on… | · | · | Found during the P4 a11y pass (card_25023962). .card__type-badge paints the type name in the… |
-| **8903f9aa** | frontend-task | UI: /ui/definitions — read-only JSON view of authored… | · | · | Scoped implementation from investigation card_cec11535 (concluded 2026-07-12; decision recorded in… |
-| **57e1bde9** | programming-task | Sprint 07-12 P3: reader pool (or write-hold reduction), proven on… | · | · | Phase 3 of docs/plans/sprint-2026-07-12.md — CANONICAL read-pool card (reconciled from the… |
-| **32ca9b13** | programming-task | Snapshot merge driver: semantic git merge for backlog.jsonl | · | · | A 'cards merge-snapshot' command registered as a git merge driver (.gitattributes) for… |
-| **fa6d5c2f** | programming-task | Extension example: PR sync - move linked card on merge | · | · | Shippable example extension: watch GitHub (webhook service or a GitHub Action running the CLI) and… |
-| **469c93e2** | programming-task | Docs example: changelog generated from cards (kind-grouped,… | · | · | Small scripts/changelog.sh + docs snippet: cards closed since the last tag grouped by kind enum… |
-| **700b2dfe** | programming-task | Export bundle: cards export --with-artifacts (portable… | · | · | Today the snapshot carries artifact pointers ({uri,mime,size,sha256}) but artifacts/ is gitignored… |
-| **c7a70b64** | programming-task | P2 residuals: config semantic validation (date min/max +… | · | #feature | Cross-sprint residual bag from the original code-review cleanup. STATUS 2026-07-11 after sprint… |
-| **350b1bac** | api-task | AUTH reference impl: register issues bearer token; --auth… | · | · | Reference implementation of docs/design/AUTH.md (frozen 2026-07-10 — the doc is normative for this… |
-| **2680d5f7** | programming-task | AUTH stopgap debt: replace v0 first-registered-user-is-admin… | · | · | Tracking card so the AUTH.md v0 stopgap cannot calcify unnoticed (filed by sprint 2026-07-18 P1b).… |
-| **495d2e09** | infra-task | Sprint 07-12 P2b: measured file-WAL read-under-write… | · | · | Phase 2 of docs/plans/sprint-2026-07-12.md — the measured baseline that decides P3's scope.… |
+| Card | Title | Summary |
+|---|---|---|
+| **8fc028ad**<br>programming-task | Census follow-ups: unclamped paging for item-iterating scans +… | Deferred from Sprint P2 (column-census fix). P2 fixed ONLY the scalar count in countColumn via… |
+| **3d8ed6d9**<br>frontend-task | Extract embedded journal/labels themes into definitions/themes/ files… | Deferred from Sprint P4 (workspace themes). P4 shipped the loader, per-board assignment, nav… |
+| **b3e07b9d**<br>programming-task | UI: expand link chips to reveal target cards (hover/preview) · #feature | Related cards and dependencies (depends-on, blocked-by) should be visually identifiable on the… |
+| **0707a008**<br>programming-task | UI: board settings editor (columns, types, theme, filters,… | Edit an existing board's definition from the UI (not hand-edited JSON). |
+| **f6ed4e10**<br>programming-task | Tags: management tooling (CLI/UI) + propose flow + tag_policy UX ·… | P1 — fixes the 'tag_set too small to categorize workstreams' pain. Currently tags are a closed set… |
+| **b4190873**<br>programming-task | Docs: update SPEC + DEVELOPER-REFERENCE for schema-driven UI + display… | Capture the schema-driven UI strategy in the docs. (1) SPEC §6 FieldDef: add optional `display`… |
+| **069ec1d1**<br>api-task | CLI: patch/claim without a preceding GET (--if-match latest… | The last open item from the agent-CLI feedback: patch/claim REQUIRE --version, so every scripted… |
+| **30026459**<br>infra-task | release workflow: clear the Node 20 deprecation warnings… | Both v0.1.2/v0.1.3 release runs warn: upload-artifact@v4, download-artifact@v4,… |
+| **34e45cd9**<br>frontend-task | UI: manual reorder within a lane (needs rank-field design) | Tracks the unbuilt half of ROADMAP §9 card ordering so it lives on the board instead of only in… |
+| **d25f1975**<br>frontend-task | UI chore: split components.js into board / fields / forms / feed… | Groundwork for maintainability after rebuild. components.js is ~919 lines / all Alpine factories. |
+| **f570b35b**<br>programming-task | Design RFC: transitions-as-callbacks + trigger seam… | Planted for NEXT sprint. First-pass sketch for docs/design/BOARD-BEHAVIOR.md. GOVERNING DOCS… |
+| **8b3e83d9**<br>programming-task | UI/schema: style_field legibility — OptionThemes + board… | Sprint 07-11 Phase 4 home for docs/design/STYLE-FIELD.md — LEGIBILITY only (color+icon). Plan:… |
+| **8fea3fc0**<br>frontend-task | a11y: enforce type/option accent contrast floor on… | Found during the P4 a11y pass (card_25023962). .card__type-badge paints the type name in the… |
+| **8903f9aa**<br>frontend-task | UI: /ui/definitions — read-only JSON view of authored… | Scoped implementation from investigation card_cec11535 (concluded 2026-07-12; decision recorded in… |
+| **57e1bde9**<br>programming-task | Sprint 07-12 P3: reader pool (or write-hold reduction), proven on… | Phase 3 of docs/plans/sprint-2026-07-12.md — CANONICAL read-pool card (reconciled from the… |
+| **32ca9b13**<br>programming-task | Snapshot merge driver: semantic git merge for backlog.jsonl | A 'cards merge-snapshot' command registered as a git merge driver (.gitattributes) for… |
+| **fa6d5c2f**<br>programming-task | Extension example: PR sync - move linked card on merge | Shippable example extension: watch GitHub (webhook service or a GitHub Action running the CLI) and… |
+| **469c93e2**<br>programming-task | Docs example: changelog generated from cards (kind-grouped,… | Small scripts/changelog.sh + docs snippet: cards closed since the last tag grouped by kind enum… |
+| **700b2dfe**<br>programming-task | Export bundle: cards export --with-artifacts (portable… | Today the snapshot carries artifact pointers ({uri,mime,size,sha256}) but artifacts/ is gitignored… |
+| **c7a70b64**<br>programming-task | P2 residuals: config semantic validation (date min/max + warn tier) +… | Cross-sprint residual bag from the original code-review cleanup. STATUS 2026-07-11 after sprint… |
+| **350b1bac**<br>api-task | AUTH reference impl: register issues bearer token; --auth… | Reference implementation of docs/design/AUTH.md (frozen 2026-07-10 — the doc is normative for this… |
+| **2680d5f7**<br>programming-task | AUTH stopgap debt: replace v0 first-registered-user-is-admin… | Tracking card so the AUTH.md v0 stopgap cannot calcify unnoticed (filed by sprint 2026-07-18 P1b).… |
+| **495d2e09**<br>infra-task | Sprint 07-12 P2b: measured file-WAL read-under-write… | Phase 2 of docs/plans/sprint-2026-07-12.md — the measured baseline that decides P3's scope.… |
 
 ### todo (5)
 
-| Card | Type | Title | Owner | Tags | Summary |
-|---|---|---|---|---|---|
-| **81086204** | programming-task | UI: home polish — board counts, breadcrumb, brand mark | · | #feature | Home shell already exists (home.html). Finish the product edges: |
-| **51c0facf** | programming-task | Docs: ADR — Alpine division of labor + Pinemix is… | · | #feature | Close the open planning debt from docs/plans/frontend-rebuild-plan.md Phase 0 exit criteria. |
-| **86515fd2** | programming-task | Wave: post-rebuild UI polish (forms, nav, density, a11y) | jeremy | #feature | Parent tracker for the post-frontend-rebuild polish wave. NOW GOVERNED BY sprint tracker… |
-| **33fe9763** | task | 👋 Welcome to Cards | · | · |  |
-| **b3079e56** | programming-task | Sprint 2026-07-12: concurrent reads on an honest ledger… | · | · | SPRINT TRACKER — plan doc: docs/plans/sprint-2026-07-12.md. The board IS the plan: card bodies… |
+| Card | Title | Summary |
+|---|---|---|
+| **81086204**<br>programming-task | UI: home polish — board counts, breadcrumb, brand mark · #feature | Home shell already exists (home.html). Finish the product edges: |
+| **51c0facf**<br>programming-task | Docs: ADR — Alpine division of labor + Pinemix is reference-only ·… | Close the open planning debt from docs/plans/frontend-rebuild-plan.md Phase 0 exit criteria. |
+| **86515fd2**<br>programming-task · jeremy | Wave: post-rebuild UI polish (forms, nav, density, a11y) · #feature | Parent tracker for the post-frontend-rebuild polish wave. NOW GOVERNED BY sprint tracker… |
+| **33fe9763**<br>task | 👋 Welcome to Cards |  |
+| **b3079e56**<br>programming-task | Sprint 2026-07-12: concurrent reads on an honest ledger… | SPRINT TRACKER — plan doc: docs/plans/sprint-2026-07-12.md. The board IS the plan: card bodies… |
 
 ### review (1)
 
-| Card | Type | Title | Owner | Tags | Summary |
-|---|---|---|---|---|---|
-| **57901d57** | programming-task | pi-cards dogfood probe: confirm end-to-end works, change… | pi | · | Acceptance: |
+| Card | Title | Summary |
+|---|---|---|
+| **57901d57**<br>programming-task · pi | pi-cards dogfood probe: confirm end-to-end works, change… | Acceptance: |
 
 ### done (164)
 
-| Card | Type | Title | Owner | Tags | Summary |
-|---|---|---|---|---|---|
-| **a21414e3** | programming-task | Hooks: parse extensions.yaml + declare hook table | foz | #feature | Hooks: parse extensions.yaml + declare hook table |
-| **ce63538e** | programming-task | UI Improvements | foz | · | Rather than showing the status and "move" on the card overview, lets allow drag and drop for status… |
-| **c9574816** | programming-task | UI: drag-drop target must be the column, not cards | · | #bug | Bug: drop target is .card-aware so an empty destination column can't accept a drop (no card to… |
-| **ac6576db** | programming-task | UI: design system + CSS architecture (tokens, components,… | foz | #feature | Foundational: extract inline CSS to a stylesheet, establish design tokens… |
-| **39f0ea14** | programming-task | Core: release/unclaim primitive + force-move… | pi | #bug | P0 — fixes the one-way-door problem found in dogfooding. (1) POST /cards/:id/release: clears owner,… |
-| **a1bd49a3** | programming-task | Fix idempotency: wrong actor + schema PK allows cross-actor… | pi | #bug | Two compounding bugs. (1) The idempotent() wrapper calls actorFromCtx() which reads context+default… |
-| **8e263901** | programming-task | Guard nil/empty-index panics: main.run rest[0] +… | pi | #bug | Two panic paths on bad input. (1) cmd/cards main.run: peelGlobals consumes global flags (e.g.… |
-| **27232d27** | programming-task | Harden store error mapping: GetCard/ClaimAtomic swallow DB… | pi | #bug | Two fail-soft paths mask infrastructure failures. (1) Service.GetCard maps ANY store error to… |
-| **f809d58d** | programming-task | Reconsider RemoveEntry CAS: HTTP DELETE passes version=0,… | pi | #bug | Service.RemoveEntry treats version==0 as 'no CAS' (skip the version check), and the HTTP DELETE… |
-| **30fbc175** | programming-task | Return 400 on invalid cursor / SSE Last-Event-ID instead of… | pi | #bug | ListCards and the SSE handler silently ignore unparseable cursors (DecodeCursor error → no filter →… |
-| **2973e7dc** | programming-task | Infra: organize test suite + GitHub Actions workflow (push… | pi | #feature | Audit test organization: ensure consistent table-driven tests, shared fixtures, no skipped… |
-| **2578a31e** | programming-task | Enforce hook filter.type_id in MatchesEvent (parsed but… | pi | #bug | config.HookFilter has a TypeID field parsed from extensions.yaml, but Extension.MatchesEvent never… |
-| **efec7e5f** | programming-task | UI: schema-driven rendering + field display hints… | pi | #feature | ARCHITECTURAL — foundation for the UI work. Today the board card, modal, and detail view are partly… |
-| **55405c93** | programming-task | Storage: import/export + git-backed mirror + checkpoint… | pi | #feature | Review the storage layer for portability. (1) Export workspace to a git-friendly format (markdown… |
-| **b01ee035** | programming-task | Schema: drop unused programming-task fields… | · | · | Measured field population across the 46 programming-task cards: pull_request_url 0/46,… |
-| **5008ee9d** | programming-task | Docs: CONCEPTS.md — workspaces/boards/card definitions +… | · | · | New docs/CONCEPTS.md defining the vocabulary (workspace, definitions, card types, cards, boards)… |
-| **e79fb682** | programming-task | Core/Board: enforce board default_filter (parsed but never… | · | · | Board.default_filter was declared + documented (SPEC §9) but applyBoardScope never applied it, so… |
-| **b86c7fe9** | programming-task | Ergonomics: zero-config start — cards init, .cards/… | · | · | Make Cards easy to start (the genesis of the workspace-concepts thread). Git-like model: `cards`… |
-| **e5952a89** | programming-task | Core/Schema: upgrade-schema + migrations (field_defaults) | · | · | Implement SPEC §6 schema upgrade: CardType.Migrations (target->{from,summary,field_defaults});… |
-| **92893455** | programming-task | Fix cursor pagination off-by-one | foz | #bug #urgent | ListCards returns one extra row when cursor is empty. |
-| **8c04883d** | programming-task | Harden transition_illegal error | · | · | Ensure valid_options are board column ids, not workspace ids. |
-| **ded1a923** | research-goal | Evaluate SQLite FTS5 vs LIKE for POC scale | · | · |  |
-| **cc445cc6** | programming-task | Add OpenAPI spec for /v1/cards | · | #feature | Generate an OpenAPI document from the existing handlers and serve it at /v1/openapi.json. |
-| **a9cc1a1d** | programming-task | Core/CLI: serverless CLI — auto-select backend (direct… | · | · | Let read/write CLI commands work without a running HTTP server, in addition to (not instead of) the… |
-| **5a0db35d** | programming-task | Core/SQLite: IMMEDIATE txns + synchronous=NORMAL + single… | · | · | Concurrency hardening prompted by the serverless CLI (server + direct CLI can write one DB file).… |
-| **bb0552e9** | programming-task | Docs: INTEGRATION.md — event taxonomy + integration contract | · | · | Define observe/act/coordinate planes and the mutation-vs-condition event taxonomy; monitors as… |
-| **cf592ae1** | programming-task | Events: actor/owner stream filters + GET /v1/events… | · | · | Add actor= (events a user caused) and owner= (events on a user's cards) to EventFilter/SSE, plus a… |
-| **b9661aef** | programming-task | Docs/SPEC: confirm + document integrator guarantees… | · | · | From picraft feedback (§3). Behavior already exists; make it normative in SPEC. (1) take-next:… |
-| **66abd5e1** | programming-task | Docs: INTEGRATOR-REFERENCE.md — single-page code-verified… | · | · | Single-page reference requested by picraft: data model, HTTP API, MCP surface, events, actor model,… |
-| **9f019476** | programming-task | Docs: EVENTS.md — events core design (revised, seam +… | · | · | Authored docs/EVENTS.md: single emission seam (Emitter), persist-before-publish,… |
-| **ef299ab9** | programming-task | UI: easy release/unclaim + force-move via click/drag | pi | #bug | P0 — the human surface for the release/force-move core primitives. (1) On a card, a small 'release'… |
-| **2ffcda5a** | programming-task | Demo hook: notifier on status_changed to review | · | #feature | Demo hook: notifier on status_changed to review |
-| **ea7ea2a3** | programming-task | CLI: cards run-extensions + cards do + cards extensions list | · | #feature | CLI: cards run-extensions + cards do + cards extensions list |
-| **03c836c3** | programming-task | Hooks: supervisor spawns subprocesses on event, at-most-once | · | #feature | Hooks: supervisor spawns subprocesses on event, at-most-once |
-| **168fa8c5** | programming-task | UI: live board updates via SSE (htmx event-source) | foz | #feature | UI: live board updates via SSE (htmx event-source) |
-| **f2afceb8** | programming-task | SSE: GET /v1/events/stream with Last-Event-ID replay | foz | #feature | SSE: GET /v1/events/stream with Last-Event-ID replay |
-| **21ef7213** | programming-task | Events: board-scoped event model (scope card\|board,… | · | · | events.card_id is currently NOT NULL, so board-level condition events (lane_drained, wip_exceeded)… |
-| **34b5ee95** | programming-task | b1 | · | · | d |
-| **da1c8658** | programming-task | a1 | · | · | d |
-| **88d226a8** | programming-task | Bob card | · | · | d |
-| **71fe97fe** | programming-task | Alice card | · | · | d |
-| **f30a6618** | programming-task | Events: condition events + monitors (WIP, time-in-status,… | · | · | Declarative board 'monitors' -> condition events on the bus. Instant (eval synchronously after the… |
-| **6a5cdf1c** | programming-task | UI: click-to-edit card presentation (modal + detail page) | jeremy | #feature | Current modal is a stack of per-field forms. Redesign: header with title/owner/status (clean, no… |
-| **69b21b14** | programming-task | UI: search / find cards (global on dashboard + local on… | · | · | Add a consistently-placed shared search component. Global on the main dashboard (home.html), local… |
-| **e644e482** | programming-task | UI: short-ID standardization (last 8 hex chars, alias… | · | · | Standardize on the last 8 hex chars of the card id as the user-facing short id (e.g. fca1f3d5).… |
-| **a06e0a24** | programming-task | UI: tags as chips with comma-separated edit mode +… | · | #feature | Tags currently render as a plain text input. Show existing tags as chips (as on the board). In edit… |
-| **d03203cd** | programming-task | Events seam 1b: promote Bus to an interface + recording… | · | · | docs/EVENTS.md §6.2. Promote the concrete `Bus` type to a `Bus` interface; keep the existing… |
-| **9f5a5d9a** | programming-task | Events seam 1c: Emitter with stamp/dispatchCommitted… | · | · | docs/EVENTS.md §6.3/§7. Introduce `Emitter` wrapping EventLog+Bus+clock+observers. Internal… |
-| **758aaad3** | programming-task | Events seam 1d: commitCard helper; migrate ONE call site… | · | · | docs/EVENTS.md §7.1. Add `Service.commitCard(ctx, next, evs)` = stamp + store.UpdateCard (atomic) +… |
-| **c53b4535** | programming-task | Events seam 1e: migrate remaining 10 call sites to… | · | · | docs/EVENTS.md §7.1/§12 Step 1. Mechanically repeat the 1d pattern across the remaining mutation… |
-| **032e529b** | programming-task | Events seam 1a: extract EventLog interface + in-memory fake… | · | · | docs/EVENTS.md §6.1. Define `EventLog` interface (Append/List/Page/Replay) on top of the existing… |
-| **c8f5da3d** | programming-task | Events seam 1f: EventObserver chain + Recorder test helper | · | · | docs/EVENTS.md §6.4/§9 Recorder. Add `EventObserver func(*Event)` registered on Emitter, invoked… |
-| **22a83455** | programming-task | Events seam 1g: event contracts — typed diffs, golden JSON… | · | · | docs/EVENTS.md §4 (Event contracts and compatibility). Add named Go structs for each built-in diff… |
-| **97b29005** | programming-task | Events seam 2a: schema migration — nullable card_id, add… | · | · | docs/EVENTS.md §11.3/§12 Step 2. Migrate `events.card_id` to nullable; add `board_id` and `scope`… |
-| **f0569b62** | programming-task | Events seam 2b: BoardEvent(...) constructor + Emitter.Emit… | · | · | docs/EVENTS.md §3/§7.2. Add `BoardEvent(boardID, type, diff) *Event` constructor (Scope=board,… |
-| **6de97848** | programming-task | Events seam 2c: Bus/Feed filtering by scope + board_id | · | · | docs/EVENTS.md §6.2/§9. Extend `EventFilter.Matches` (already board_id-aware from seam 1b, now with… |
-| **1767f1e8** | programming-task | Events seam 3a: Signal path — one instant condition event… | · | · | docs/EVENTS.md §4/§11.2. Implement the smallest possible condition event end-to-end using… |
-| **18a67d08** | programming-task | Events seam 3b: persist:true escalation path for instant… | · | · | docs/EVENTS.md §4/§11.2, INTEGRATION.md §2.2 picraft feedback. picraft needs escalations… |
-| **996194d0** | programming-task | Events seam 3c: remaining instant conditions… | · | · | docs/EVENTS.md §11.2. Repeat the 3a/3b pattern for the remaining synchronously-evaluable condition… |
-| **2a221329** | programming-task | Events: transition_rejected (opt-in, watch failed… | · | · | Today transition_illegal is an API error only. Add an opt-in (monitors.emit_rejections) card-scoped… |
-| **6cc5a423** | programming-task | Events: GET /v1/breaches — current-conditions catch-up query | · | · | Catch-up path for ephemeral condition events. GET /v1/breaches?board_id=&type= (alias GET… |
-| **2f42b53c** | programming-task | Events seam 3d: deadline min-heap scheduler for temporal… | · | · | docs/EVENTS.md §11.2; design already refined in INTEGRATION.md comments (deadline min-heap, no… |
-| **abdf1c7e** | programming-task | Events seam 3e: wire status_timeout/card_idle onto the… | · | · | docs/EVENTS.md §11.2. With the scheduler validated in isolation (3d), wire the two temporal… |
-| **47ab05bc** | programming-task | take-next: retry to next candidate on a raced/lost claim | · | · | ClaimAtomic returns nil on a lost CAS (another claimant won); TakeNext then returns empty even if… |
-| **fca1f3d5** | programming-task | UI: multi-type visual design language (color/icons for… | · | #feature | Establish a consistent design language: each card type gets a color + icon (e.g. feature=blue/✨,… |
-| **440a2bed** | programming-task | UI: theme contract — html[data-theme] hook + named themes +… | · | #feature | Implement the theme contract documented in docs/DESIGN.md §Theming. Add the… |
-| **c46dfc21** | programming-task | UI: type chip is too prominent — minimal corner / icon… | · | #feature | The white-on-black type stamp dominates every board card. Reduce it: a small corner indicator (icon… |
-| **b06b62f1** | programming-task | UI: match view/edit sizing + font for text fields and… | · | #feature | Inline edit controls must not shift size or font when clicked into. The edit input/textarea/select… |
-| **e897dc07** | programming-task | UI: restyle select / enum controls (tags, enums) to match… | · | #feature | Native select boxes for enums and the tags control look out of place against the print-shop design… |
-| **5227ba05** | programming-task | Docs: restructure docs/ directory for clarity | · | #feature | Review docs/ and reorganize: split into clear top-level areas (e.g. docs/concepts, docs/reference,… |
-| **600d1bf2** | programming-task | CLI/MCP: surface breaches + event feed | · | · | Add cards breaches + cards feed CLI commands and MCP breaches/events tools so the reactive engine… |
-| **c502c19e** | programming-task | Cleanup: remove dead UI server code + board actor identity | · | #feature | Frontend audit (2026-07) surfaced dead/stale server code: (1) unreachable UI handlers uiMoveCard… |
-| **512ad27b** | programming-task | UI: blocked badges + breaches page + live conditions | · | · | Phase 3: surface the reactive-coordination engine on the board — blocked badges (bulk… |
-| **a9bfec52** | programming-task | DEMO blocker | · | · | d |
-| **60927518** | programming-task | DEMO blocked task | · | · | d |
-| **9e6c5c5f** | programming-task | Core/UI: configured card ordering (sort param + lane_sort) | · | · | Phase 4: flat sort grammar (core.ParseSort, whitelist created_at/updated_at/title/fields.<id>),… |
-| **7aa92400** | programming-task | UI: board filter dropdowns (assignee, type, dynamic fields)… | local-dev | #feature | Add filter controls to the board view. Dropdowns for assignee (owner) and card type, plus dynamic… |
-| **146260d9** | programming-task | Core/HTTP: card delete (DELETE /v1/cards/:id + tombstone… | · | · | Add a first-class card-delete path so junk/test/superseded cards can be hard-removed instead of… |
-| **b49d550a** | programming-task | Sprint 07-06 P1: short-id parity across all write verbs +… | · | · | Phase 1 of docs/plans/sprint-2026-07-06.md. Make "a card reference is a full id OR a last-8 short… |
-| **6545f8cd** | programming-task | CLI/demo: workspace init-vs-target friction + no artifact… | · | · | ADOPTED AS PHASE 2 of docs/plans/sprint-2026-07-06.md (depends on P1). Original Sprint A dogfood… |
-| **310b7a34** | programming-task | Sprint 07-06 P3: contract honesty — JSON-only pinned,… | · | · | Phase 3 of docs/plans/sprint-2026-07-06.md (decision checkpoint — depends on P1). Make the… |
-| **82a361c6** | programming-task | Sprint 07-06 P4: browser attachment upload — whole feature… | · | · | Phase 4 of docs/plans/sprint-2026-07-06.md (the payoff — depends on P2 + P3). Browser attachment… |
-| **cb9e2ca9** | programming-task | Schema: dogfood 3+ card types on engineering board… | · | #feature | Add feature, bug, task card types to the demo workspace and use them on the engineering board.… |
-| **1aa43739** | programming-task | Infra: app + core versioning, release process, changelog,… | · | #feature | Establish versioning: a VERSION file or version package (semantic versioning), surfaced in… |
-| **a09f0455** | programming-task | UI: add comments + append repeating entries from the card… | · | #feature | Comments and repeating fields (e.g. work_log) render read-only in the modal today (card_body:… |
-| **b9e17b9e** | programming-task | UI: improve layout + display of repeating elements (feed /… | · | #feature | Polish how repeating fields and comments display: the .entry/.feed layout, reverse-chrono for… |
-| **e71a64fa** | programming-task | UI/themes: remove labels template branch — make themes… | · | · | Prerequisite for extracting themes out of the embedded style.css (see docs/design/THEMES.md). The… |
-| **adb1ebcf** | programming-task | UI: new-card creation via the modal (placeholder +… | · | #feature | Replace the separate full-page new-card form with the same modal card view used for editing. Empty… |
-| **e0a66371** | frontend-task | Rebuild P0 — Alpine foundation, swapHTML seam, JS… | jeremy | #feature | Done in efbebd0. Alpine 3.15.0 self-hosted+embedded; ONE swapHTML seam… |
-| **f638d7a2** | frontend-task | Rebuild P1 — one field_control partial (canonical… | jeremy | #feature | Done in b91a024. Three duplicated type→control switches (create form / modal click-to-edit / entry… |
-| **21bbb513** | frontend-task | Rebuild P2 — htmx removed, X-Cards-Partial header | jeremy | #feature | Done in e783092. htmx issued zero requests (no hx-* ever existed): dead listeners deleted (all real… |
-| **0595e67c** | frontend-task | Rebuild P3 — multi-value core PR (FieldDef.Multiple + $has… | jeremy | #feature | Done in b8dda45 — and THIS CARD dogfoods the feature (its platforms field is a multi-value enum). |
-| **f4e2b74e** | frontend-task | Rebuild P4 — leaf components on Alpine (comments, entries,… | jeremy | #feature | Done in aa62b36. cardsAPI (api.js): one fetch seam — actor header, structured-error parse,… |
-| **7dbed16e** | frontend-task | Rebuild P6 — chip multiselect (multi enum/user) +… | jeremy | #feature | Done in 0212631 (this card's own platforms field was set with the new chip control's data shape).… |
-| **7f0dd456** | frontend-task | Rebuild P5 — unified combobox (enum/user) + user-control… | jeremy | #feature | Done in b86d0d3. One filter-as-you-type combobox across create/edit/entry for single enum+user… |
-| **6624625b** | frontend-task | Rebuild P7 — create-card + create-board forms on Alpine | jeremy | #feature | Done in bb71d68. createModal + boardCreate Alpine components replace wireCreateModal +… |
-| **037a6f64** | frontend-task | Rebuild P8 — edit modal on Alpine + honest 4xx… | jeremy | #feature | Done in 3ff4361. editField per [data-field] (x-show/x-cloak/clean-blur revert), editForm on… |
-| **096261c3** | programming-task | Bug: stale-version modal save toasts 'Saved' while dropping… | jeremy | #bug | Found during rebuild Phase 2 verification (pre-existing, NOT a rebuild regression — reproduced… |
-| **3845a834** | frontend-task | Sprint P4 — Workspace-loaded, discoverable, shareable themes | jeremy | #feature | User-value payoff (depends on P3). Make the theme sharing story real AND usable. |
-| **93ef776d** | frontend-task | Rebuild P9 — board UI 2.0: $store.live + fragment swap +… | jeremy | #feature | Done in 1af2dc2. Server: SSE keepalive as a ticker case in the SAME single-writer for/select (never… |
-| **60f2e6a8** | programming-task | Bug: board filter stalls after several rapid changes (SSE… | jeremy | #bug | REPORTED (review): changing a board's Type filter several times in a row makes filtering stop… |
-| **c5ce8635** | frontend-task | Rebuild P10 — finale: detail-page save fix + breaches on… | jeremy | #feature | Done in a623c6c. Fixed a real regression: card_detail.html still called… |
-| **1f9bf7c4** | programming-task | Sprint P3 — Theme foundations (stamp seam, validator,… | jeremy | #feature | Foundation phase. Land precursors that make workspace themes safe. |
-| **519e1688** | programming-task | Sprint P1 — Restore drift audit (doc truth) | jeremy | #feature | Foundation phase. Make source-of-truth docs describe the workspace-reload feature that actually… |
-| **82d71fdf** | programming-task | Sprint 07-10 P1a: docs + audit reconciliation (htmx→Alpine,… | · | · | Phase 1a of docs/plans/sprint-2026-07-10.md — make the entry docs tell the truth about the shipped… |
-| **deb93778** | programming-task | Sprint 07-10 P1b: backlog.jsonl reconcile + merge… | · | · | Phase 1b of docs/plans/sprint-2026-07-10.md — restore the 'committed JSONL is the portable state'… |
-| **fa239a92** | api-task | Sprint 07-10 P2: serve warns on non-loopback bind (tested) | · | · | The ONLY Go change of sprint Phase 2 (carve-out from the AUTH RFC — cheap, wanted under every… |
-| **79afdb51** | programming-task | Sprint 07-10 P3a: debt paydown cascade — containsStr merge… | · | · | Phase 3a of docs/plans/sprint-2026-07-10.md — the safe half of the P2 code-review batch… |
-| **96bc1d56** | frontend-task | UI: create-card form correctness — labels, tags chips,… | jeremy | #feature | Create modal still reads unfinished after rebuild P7. |
-| **0a642f56** | frontend-task | UI: harden $store.live reconnect (single socket, generation… | · | #bug | Sprint 07-10 P4 must-ship #4 (tracker card_3f225267). Follow-on to P9 filter-stall fix and closed… |
-| **25023962** | frontend-task | UI: a11y pass on custom field controls + form errors | · | #feature | Custom combobox/multiselect/tag chips are progressive-enhancement wins but a11y is incomplete. |
-| **1aaa4611** | frontend-task | UI: header nav — active board, theme label, boards… | · | #feature | Nav works for 2 demo boards; will fail for real workspaces. |
-| **72ebfbee** | programming-task | UI: spacing RULES + consistency pass (shipped PR #26; was… | · | #feature | Sprint 07-10 P4 must-ship #2 (tracker card_3f225267). PROMOTED from 'density polish' 2026-07-10:… |
-| **9174c0ea** | programming-task | Sprint 07-11 P0a: drain the review pile (~17) — per-card… | · | · | Phase 0 of docs/plans/sprint-2026-07-11.md — hygiene/unblocking gate. NO M-sized sprint work starts… |
-| **bac18224** | programming-task | Sprint 07-11 P0b: doc-truth sync — INTEGRATOR-REFERENCE,… | · | · | Phase 0 of docs/plans/sprint-2026-07-11.md — doc fixes ONLY, no code. Make the drift audit actually… |
-| **c3c0fac5** | api-task | Sprint 07-11 P2a: six MCP tools (remove_entry, remove_link,… | · | · | Phase 2 of docs/plans/sprint-2026-07-11.md. Audience: agents/MCP clients. Make MCP a first-class… |
-| **8b25cef9** | programming-task | Sprint 07-11 P2b: config semantic validation hardening —… | · | · | Phase 2 of docs/plans/sprint-2026-07-11.md. Enabling work for P4 (style_field load-time checks) and… |
-| **524c5758** | programming-task | Sprint 07-11 P3a: fix hook-supervisor stale-generation bug… | · | #bug | Phase 3 of docs/plans/sprint-2026-07-11.md, first step — a LIVE BUG today, and the --watch poller… |
-| **ec61b093** | programming-task | Sprint 07-11 P3b: --watch definitions poller +… | · | · | Phase 3 of docs/plans/sprint-2026-07-11.md. Audience: the definition author with a BROWSER open —… |
-| **1af1fd87** | frontend-task | Sprint 07-11 P4a: golden-render harness + TypeTheme… | · | · | Phase 4 of docs/plans/sprint-2026-07-11.md, steps 1-3 — the safety net and refactor BEFORE the… |
-| **4bdd3586** | frontend-task | Sprint 07-11 P4b: style_field — FieldDef.OptionThemes +… | · | · | Phase 4 of docs/plans/sprint-2026-07-11.md, final step. Audience: the board viewer —… |
-| **abb13ae0** | programming-task | Sprint 07-11 P5a: lifecycle-schema ADR — RestartPolicy x… | · | · | Phase 5 of docs/plans/sprint-2026-07-11.md, first step — authored BEFORE the supervisor code so the… |
-| **23c7070a** | programming-task | Sprint 07-11 P5b: supervise kind:service — listener-ready… | · | · | Phase 5 of docs/plans/sprint-2026-07-11.md. Audience: the extension developer — judged on 'an… |
-| **eecf0e03** | programming-task | Sprint 07-11 P5c: reconcile-on-reload — service identity… | · | · | Phase 5 of docs/plans/sprint-2026-07-11.md, final step — its own design + implementation, DESIGNED… |
-| **f20e87d5** | api-task | Sprint 07-10 P4: board-create idempotency — server first,… | · | · | Phase 4 must-ship of docs/plans/sprint-2026-07-10.md. Verified 2026-07-10: no POST board-create… |
-| **506c1e9a** | task | Back up and move your workspace | · | · |  |
-| **9d28d311** | task | Make it yours: edit boards and card types | · | · |  |
-| **8b5a4937** | programming-task | Design: user-defined columns/card-types — how far does the… | · | #feature | QUESTION (review): when creating a board, columns and card types look fixed. Are they… |
-| **a810025b** | api-task | Security: escape/validate filter key paths in the filter… | · | · | Found by the Copilot review of PR #18 (https://github.com/somebox/cards/pull/18#issuecomment-4935628… |
-| **fec18019** | data-task | SQLite read pool: concurrent reads, single-writer… | · | · | ROADMAP §3 (card 87903967): MaxOpenConns(1) serializes ALL queries through one connection. Add a… |
-| **57db13a6** | frontend-task | labels theme: restore comment/link counts + blocked badge… | · | · | The density pass hides .card__stats entirely in the labels theme, losing comment/link counts and… |
-| **f6d2f5ea** | programming-task | UI: create a new board | · | #feature | A flow to create a board from the UI: name, columns (chosen from workspace.columns), card types,… |
-| **06a1c3c6** | frontend-task | Themes step 2: workspace-loaded theme files + sharing… | · | · | THEMES.md step 2 + sharing story. STATUS 2026-07-11 reconciliation with what shipped in Sprint P4… |
-| **0391870a** | infra-task | Test groundwork: Node unit coverage for create collect +… | · | #feature | Sprint 07-10 P4 must-ship #3 (tracker card_3f225267) — THIN harness: tests/js/ already has… |
-| **d39fd119** | programming-task | Sprint P2 — Accurate column census (>500 undercount) | jeremy | #feature | First user-visible win. Fix the 500-card undercount in the single shared countColumn so WIP/lane… |
-| **261891a2** | programming-task | Sprint 07-10 P5: sprint close — end-to-end walkthrough +… | · | · | Sprint-close gate (~30 min) of docs/plans/sprint-2026-07-10.md — the moment a human actually uses… |
-| **3f225267** | programming-task | Sprint 2026-07-10 tracker (closing map) — active plan is… | · | · | SPRINT TRACKER (CLOSING MAP) — plan: docs/plans/sprint-2026-07-10.md. |
-| **c08a6ead** | programming-task | Sprint 07-11 close: end-to-end walkthrough + export/import… | · | · | Sprint-close gate of docs/plans/sprint-2026-07-11.md (~30 min) — the moment a human uses the… |
-| **1b528909** | programming-task | Sprint 2026-07-11: make the composition substrate real… | · | · | SPRINT TRACKER — plan doc: docs/plans/sprint-2026-07-11.md. The board IS the plan: card bodies… |
-| **5bb8da43** | programming-task | Supervisor hardening: WaitDelay on service children,… | · | #bug | From the sprint 07-11 post-merge review (b23aff8) of the P5 service supervisor. Two… |
-| **4e443f8d** | api-task | MCP parity honesty: reflective Service enumeration,… | · | · | From the sprint 07-11 post-merge review (b23aff8) of the P2 MCP epic. The confirm gate and tools… |
-| **69c986cc** | frontend-task | style_field edges: deterministic modal board context +… | · | · | From the sprint 07-11 post-merge review (b23aff8) of the P4 style_field epic. Core feature is… |
-| **0f002686** | programming-task | Review minors batch: watch/reload startup races +… | · | · | Batch of small correctness/polish items from the sprint 07-11 post-merge review (b23aff8) —… |
-| **4455eb34** | programming-task | Land column-census COUNT(*) fix on main (e8b5565 stranded… | · | #bug | Residual from card_d39fd119 (accurate column census, closed done 2026-07-12): the fix… |
-| **3ec2c649** | infra-task | tests/js: createModal.collect() / create-payload unit… | · | · | Residual from card_0391870a (JS test harness, closed done 2026-07-12 against commit 8447cb7): the… |
-| **5ea0d5ef** | frontend-task | Board-create form: columns/types checkbox soup → shared… | · | · | Residual from card_f6d2f5ea (UI: create a new board, closed done 2026-07-12). Shipped: modal + POST… |
-| **cec11535** | research-goal | Investigate: read-only JSON view of definitions in the web… | · | · |  |
-| **8f8cbde7** | programming-task | Sprint 07-12 P1c: reconcile read-pool card IDs to one… | · | · | Phase 1 of docs/plans/sprint-2026-07-12.md — reconcile the read-pool card sprawl to ONE canonical… |
-| **29200d8b** | programming-task | Sprint 07-12 P1a: ledger truth — date min/max is shipped… | · | · | Phase 1 of docs/plans/sprint-2026-07-12.md — ledger truth (parallel bookkeeping, not the spine).… |
-| **61040a3e** | programming-task | Sprint 07-10 P2: AUTH.md (proposed) — identity &… | · | · | Phase 2 of docs/plans/sprint-2026-07-10.md. STATUS 2026-07-10: the RFC has been WRITTEN and FROZEN… |
-| **7a3f4ebd** | programming-task | Sprint 07-12 P1b: auth closeout — ROADMAP §1 → frozen… | · | · | Phase 1 of docs/plans/sprint-2026-07-12.md — auth closeout in ONE pass. S-sized: review + crosslink… |
-| **e3c63f21** | data-task | Sprint 07-10 P3b (go/no-go): temporal breaches as… | · | · | Phase 3b of docs/plans/sprint-2026-07-10.md — OPTIONAL expansion, not load-bearing for sprint… |
-| **77d6c663** | infra-task | Sprint 07-12 P2a: shared-cache test harness — one… | · | · | Phase 2 of docs/plans/sprint-2026-07-12.md — build the one seam the pool needs. Starts immediately;… |
-| **582f3072** | programming-task | Core: in-process event bus + subscriber fan-out | · | #feature | Core: in-process event bus + subscriber fan-out |
-| **6b9135f2** | programming-task | pi-cards: scaffold repo, pi package manifest, stub /cards… | pi | · | pi-cards series 1/8 — repo scaffold. Spec: docs/design/pi-extension.md (cards repo) §4, §10 P0. |
-| **fc89916f** | programming-task | pi-cards: CardsClient with HTTP + CLI backends, resolve… | pi | · | pi-cards series 2/8 — CardsClient with HTTP + CLI backends. Spec §5.1, §5.2, §5.4, §5.5, §8.… |
-| **470df9d7** | programming-task | pi-cards: read surface — list/get/search tools + text board… | pi | · | pi-cards series 3/8 — read surface: cards_list/get/search tools + text board (P0 exit). Spec §5.3,… |
-| **857194ea** | programming-task | pi-cards: write surface — create/update/comment/claim/releas… | pi | · | pi-cards series 4/8 — write surface + config file (P1). Spec §5.5, §6.3 rows 4-9, §7. Blocked by… |
-| **bda7cb6e** | programming-task | pi-cards: interactive board UI, SSE live refresh, /cards… | pi | · | pi-cards series 5/8 — interactive board UI, SSE live refresh, /cards show, #id mentions (P2). Spec… |
-| **00581679** | programming-task | pi-cards: card execution — cards_work tool + /cards work… | pi | · | pi-cards series 6/8 — card execution: cards_work tool + /cards work [--todo] (P3). Spec §6.5, §6.7.… |
-| **a3751720** | programming-task | pi-cards: git board persistence + interim worklog activity… | pi | · | pi-cards series 7/8 — git board persistence + interim worklog activity (P4a). Spec §6.6, §6.7.… |
-| **baff356d** | programming-task | pi-cards: typed per-type tools, dynamic-loading decision,… | pi | · | pi-cards series 8/8 — typed per-type tools, dynamic-loading decision, README/install + dogfood… |
-| **13d9342f** | infra-task | Move project board from examples/demo-workspace to .cards/… | pi | · | The project's live dogfooding board moves to the standard .cards/ workspace at repo root (walk-up… |
-| **277ea67b** | programming-task | Export: markdown roadmap artifact committed alongside… | pi | · | pi-cards sync: when exporting board state to git, also render a human-readable markdown overview… |
+| Card | Title | Summary |
+|---|---|---|
+| **a21414e3**<br>programming-task · foz | Hooks: parse extensions.yaml + declare hook table · #feature | Hooks: parse extensions.yaml + declare hook table |
+| **ce63538e**<br>programming-task · foz | UI Improvements | Rather than showing the status and "move" on the card overview, lets allow drag and drop for status… |
+| **c9574816**<br>programming-task | UI: drag-drop target must be the column, not cards · #bug | Bug: drop target is .card-aware so an empty destination column can't accept a drop (no card to… |
+| **ac6576db**<br>programming-task · foz | UI: design system + CSS architecture (tokens, components, layout) ·… | Foundational: extract inline CSS to a stylesheet, establish design tokens… |
+| **39f0ea14**<br>programming-task · pi | Core: release/unclaim primitive + force-move (transition-exempt) ·… | P0 — fixes the one-way-door problem found in dogfooding. (1) POST /cards/:id/release: clears owner,… |
+| **a1bd49a3**<br>programming-task · pi | Fix idempotency: wrong actor + schema PK allows cross-actor… | Two compounding bugs. (1) The idempotent() wrapper calls actorFromCtx() which reads context+default… |
+| **8e263901**<br>programming-task · pi | Guard nil/empty-index panics: main.run rest[0] + uiCreateCard… | Two panic paths on bad input. (1) cmd/cards main.run: peelGlobals consumes global flags (e.g.… |
+| **27232d27**<br>programming-task · pi | Harden store error mapping: GetCard/ClaimAtomic swallow DB errors… | Two fail-soft paths mask infrastructure failures. (1) Service.GetCard maps ANY store error to… |
+| **f809d58d**<br>programming-task · pi | Reconsider RemoveEntry CAS: HTTP DELETE passes version=0, skipping… | Service.RemoveEntry treats version==0 as 'no CAS' (skip the version check), and the HTTP DELETE… |
+| **30fbc175**<br>programming-task · pi | Return 400 on invalid cursor / SSE Last-Event-ID instead of… | ListCards and the SSE handler silently ignore unparseable cursors (DecodeCursor error → no filter →… |
+| **2973e7dc**<br>programming-task · pi | Infra: organize test suite + GitHub Actions workflow (push + PR) ·… | Audit test organization: ensure consistent table-driven tests, shared fixtures, no skipped… |
+| **2578a31e**<br>programming-task · pi | Enforce hook filter.type_id in MatchesEvent (parsed but never… | config.HookFilter has a TypeID field parsed from extensions.yaml, but Extension.MatchesEvent never… |
+| **efec7e5f**<br>programming-task · pi | UI: schema-driven rendering + field display hints… | ARCHITECTURAL — foundation for the UI work. Today the board card, modal, and detail view are partly… |
+| **55405c93**<br>programming-task · pi | Storage: import/export + git-backed mirror + checkpoint strategy ·… | Review the storage layer for portability. (1) Export workspace to a git-friendly format (markdown… |
+| **b01ee035**<br>programming-task | Schema: drop unused programming-task fields… | Measured field population across the 46 programming-task cards: pull_request_url 0/46,… |
+| **5008ee9d**<br>programming-task | Docs: CONCEPTS.md — workspaces/boards/card definitions +… | New docs/CONCEPTS.md defining the vocabulary (workspace, definitions, card types, cards, boards)… |
+| **e79fb682**<br>programming-task | Core/Board: enforce board default_filter (parsed but never… | Board.default_filter was declared + documented (SPEC §9) but applyBoardScope never applied it, so… |
+| **b86c7fe9**<br>programming-task | Ergonomics: zero-config start — cards init, .cards/… | Make Cards easy to start (the genesis of the workspace-concepts thread). Git-like model: `cards`… |
+| **e5952a89**<br>programming-task | Core/Schema: upgrade-schema + migrations (field_defaults) | Implement SPEC §6 schema upgrade: CardType.Migrations (target->{from,summary,field_defaults});… |
+| **92893455**<br>programming-task · foz | Fix cursor pagination off-by-one · #bug #urgent | ListCards returns one extra row when cursor is empty. |
+| **8c04883d**<br>programming-task | Harden transition_illegal error | Ensure valid_options are board column ids, not workspace ids. |
+| **ded1a923**<br>research-goal | Evaluate SQLite FTS5 vs LIKE for POC scale |  |
+| **cc445cc6**<br>programming-task | Add OpenAPI spec for /v1/cards · #feature | Generate an OpenAPI document from the existing handlers and serve it at /v1/openapi.json. |
+| **a9cc1a1d**<br>programming-task | Core/CLI: serverless CLI — auto-select backend (direct… | Let read/write CLI commands work without a running HTTP server, in addition to (not instead of) the… |
+| **5a0db35d**<br>programming-task | Core/SQLite: IMMEDIATE txns + synchronous=NORMAL + single… | Concurrency hardening prompted by the serverless CLI (server + direct CLI can write one DB file).… |
+| **bb0552e9**<br>programming-task | Docs: INTEGRATION.md — event taxonomy + integration contract | Define observe/act/coordinate planes and the mutation-vs-condition event taxonomy; monitors as… |
+| **cf592ae1**<br>programming-task | Events: actor/owner stream filters + GET /v1/events… | Add actor= (events a user caused) and owner= (events on a user's cards) to EventFilter/SSE, plus a… |
+| **b9661aef**<br>programming-task | Docs/SPEC: confirm + document integrator guarantees… | From picraft feedback (§3). Behavior already exists; make it normative in SPEC. (1) take-next:… |
+| **66abd5e1**<br>programming-task | Docs: INTEGRATOR-REFERENCE.md — single-page code-verified… | Single-page reference requested by picraft: data model, HTTP API, MCP surface, events, actor model,… |
+| **9f019476**<br>programming-task | Docs: EVENTS.md — events core design (revised, seam +… | Authored docs/EVENTS.md: single emission seam (Emitter), persist-before-publish,… |
+| **ef299ab9**<br>programming-task · pi | UI: easy release/unclaim + force-move via click/drag · #bug | P0 — the human surface for the release/force-move core primitives. (1) On a card, a small 'release'… |
+| **2ffcda5a**<br>programming-task | Demo hook: notifier on status_changed to review · #feature | Demo hook: notifier on status_changed to review |
+| **ea7ea2a3**<br>programming-task | CLI: cards run-extensions + cards do + cards extensions list · #feature | CLI: cards run-extensions + cards do + cards extensions list |
+| **03c836c3**<br>programming-task | Hooks: supervisor spawns subprocesses on event, at-most-once · #feature | Hooks: supervisor spawns subprocesses on event, at-most-once |
+| **168fa8c5**<br>programming-task · foz | UI: live board updates via SSE (htmx event-source) · #feature | UI: live board updates via SSE (htmx event-source) |
+| **f2afceb8**<br>programming-task · foz | SSE: GET /v1/events/stream with Last-Event-ID replay · #feature | SSE: GET /v1/events/stream with Last-Event-ID replay |
+| **21ef7213**<br>programming-task | Events: board-scoped event model (scope card\|board,… | events.card_id is currently NOT NULL, so board-level condition events (lane_drained, wip_exceeded)… |
+| **34b5ee95**<br>programming-task | b1 | d |
+| **da1c8658**<br>programming-task | a1 | d |
+| **88d226a8**<br>programming-task | Bob card | d |
+| **71fe97fe**<br>programming-task | Alice card | d |
+| **f30a6618**<br>programming-task | Events: condition events + monitors (WIP, time-in-status,… | Declarative board 'monitors' -> condition events on the bus. Instant (eval synchronously after the… |
+| **6a5cdf1c**<br>programming-task · jeremy | UI: click-to-edit card presentation (modal + detail page) · #feature | Current modal is a stack of per-field forms. Redesign: header with title/owner/status (clean, no… |
+| **69b21b14**<br>programming-task | UI: search / find cards (global on dashboard + local on… | Add a consistently-placed shared search component. Global on the main dashboard (home.html), local… |
+| **e644e482**<br>programming-task | UI: short-ID standardization (last 8 hex chars, alias… | Standardize on the last 8 hex chars of the card id as the user-facing short id (e.g. fca1f3d5).… |
+| **a06e0a24**<br>programming-task | UI: tags as chips with comma-separated edit mode + autocomplete ·… | Tags currently render as a plain text input. Show existing tags as chips (as on the board). In edit… |
+| **d03203cd**<br>programming-task | Events seam 1b: promote Bus to an interface + recording… | docs/EVENTS.md §6.2. Promote the concrete `Bus` type to a `Bus` interface; keep the existing… |
+| **9f5a5d9a**<br>programming-task | Events seam 1c: Emitter with stamp/dispatchCommitted… | docs/EVENTS.md §6.3/§7. Introduce `Emitter` wrapping EventLog+Bus+clock+observers. Internal… |
+| **758aaad3**<br>programming-task | Events seam 1d: commitCard helper; migrate ONE call site… | docs/EVENTS.md §7.1. Add `Service.commitCard(ctx, next, evs)` = stamp + store.UpdateCard (atomic) +… |
+| **c53b4535**<br>programming-task | Events seam 1e: migrate remaining 10 call sites to… | docs/EVENTS.md §7.1/§12 Step 1. Mechanically repeat the 1d pattern across the remaining mutation… |
+| **032e529b**<br>programming-task | Events seam 1a: extract EventLog interface + in-memory fake… | docs/EVENTS.md §6.1. Define `EventLog` interface (Append/List/Page/Replay) on top of the existing… |
+| **c8f5da3d**<br>programming-task | Events seam 1f: EventObserver chain + Recorder test helper | docs/EVENTS.md §6.4/§9 Recorder. Add `EventObserver func(*Event)` registered on Emitter, invoked… |
+| **22a83455**<br>programming-task | Events seam 1g: event contracts — typed diffs, golden JSON… | docs/EVENTS.md §4 (Event contracts and compatibility). Add named Go structs for each built-in diff… |
+| **97b29005**<br>programming-task | Events seam 2a: schema migration — nullable card_id, add… | docs/EVENTS.md §11.3/§12 Step 2. Migrate `events.card_id` to nullable; add `board_id` and `scope`… |
+| **f0569b62**<br>programming-task | Events seam 2b: BoardEvent(...) constructor + Emitter.Emit… | docs/EVENTS.md §3/§7.2. Add `BoardEvent(boardID, type, diff) *Event` constructor (Scope=board,… |
+| **6de97848**<br>programming-task | Events seam 2c: Bus/Feed filtering by scope + board_id | docs/EVENTS.md §6.2/§9. Extend `EventFilter.Matches` (already board_id-aware from seam 1b, now with… |
+| **1767f1e8**<br>programming-task | Events seam 3a: Signal path — one instant condition event… | docs/EVENTS.md §4/§11.2. Implement the smallest possible condition event end-to-end using… |
+| **18a67d08**<br>programming-task | Events seam 3b: persist:true escalation path for instant… | docs/EVENTS.md §4/§11.2, INTEGRATION.md §2.2 picraft feedback. picraft needs escalations… |
+| **996194d0**<br>programming-task | Events seam 3c: remaining instant conditions… | docs/EVENTS.md §11.2. Repeat the 3a/3b pattern for the remaining synchronously-evaluable condition… |
+| **2a221329**<br>programming-task | Events: transition_rejected (opt-in, watch failed… | Today transition_illegal is an API error only. Add an opt-in (monitors.emit_rejections) card-scoped… |
+| **6cc5a423**<br>programming-task | Events: GET /v1/breaches — current-conditions catch-up query | Catch-up path for ephemeral condition events. GET /v1/breaches?board_id=&type= (alias GET… |
+| **2f42b53c**<br>programming-task | Events seam 3d: deadline min-heap scheduler for temporal… | docs/EVENTS.md §11.2; design already refined in INTEGRATION.md comments (deadline min-heap, no… |
+| **abdf1c7e**<br>programming-task | Events seam 3e: wire status_timeout/card_idle onto the… | docs/EVENTS.md §11.2. With the scheduler validated in isolation (3d), wire the two temporal… |
+| **47ab05bc**<br>programming-task | take-next: retry to next candidate on a raced/lost claim | ClaimAtomic returns nil on a lost CAS (another claimant won); TakeNext then returns empty even if… |
+| **fca1f3d5**<br>programming-task | UI: multi-type visual design language (color/icons for type, state,… | Establish a consistent design language: each card type gets a color + icon (e.g. feature=blue/✨,… |
+| **440a2bed**<br>programming-task | UI: theme contract — html[data-theme] hook + named themes + reference… | Implement the theme contract documented in docs/DESIGN.md §Theming. Add the… |
+| **c46dfc21**<br>programming-task | UI: type chip is too prominent — minimal corner / icon indicator ·… | The white-on-black type stamp dominates every board card. Reduce it: a small corner indicator (icon… |
+| **b06b62f1**<br>programming-task | UI: match view/edit sizing + font for text fields and selects ·… | Inline edit controls must not shift size or font when clicked into. The edit input/textarea/select… |
+| **e897dc07**<br>programming-task | UI: restyle select / enum controls (tags, enums) to match the design… | Native select boxes for enums and the tags control look out of place against the print-shop design… |
+| **5227ba05**<br>programming-task | Docs: restructure docs/ directory for clarity · #feature | Review docs/ and reorganize: split into clear top-level areas (e.g. docs/concepts, docs/reference,… |
+| **600d1bf2**<br>programming-task | CLI/MCP: surface breaches + event feed | Add cards breaches + cards feed CLI commands and MCP breaches/events tools so the reactive engine… |
+| **c502c19e**<br>programming-task | Cleanup: remove dead UI server code + board actor identity · #feature | Frontend audit (2026-07) surfaced dead/stale server code: (1) unreachable UI handlers uiMoveCard… |
+| **512ad27b**<br>programming-task | UI: blocked badges + breaches page + live conditions | Phase 3: surface the reactive-coordination engine on the board — blocked badges (bulk… |
+| **a9bfec52**<br>programming-task | DEMO blocker | d |
+| **60927518**<br>programming-task | DEMO blocked task | d |
+| **9e6c5c5f**<br>programming-task | Core/UI: configured card ordering (sort param + lane_sort) | Phase 4: flat sort grammar (core.ParseSort, whitelist created_at/updated_at/title/fields.<id>),… |
+| **7aa92400**<br>programming-task · local-dev | UI: board filter dropdowns (assignee, type, dynamic fields) with clear… | Add filter controls to the board view. Dropdowns for assignee (owner) and card type, plus dynamic… |
+| **146260d9**<br>programming-task | Core/HTTP: card delete (DELETE /v1/cards/:id + tombstone… | Add a first-class card-delete path so junk/test/superseded cards can be hard-removed instead of… |
+| **b49d550a**<br>programming-task | Sprint 07-06 P1: short-id parity across all write verbs +… | Phase 1 of docs/plans/sprint-2026-07-06.md. Make "a card reference is a full id OR a last-8 short… |
+| **6545f8cd**<br>programming-task | CLI/demo: workspace init-vs-target friction + no artifact… | ADOPTED AS PHASE 2 of docs/plans/sprint-2026-07-06.md (depends on P1). Original Sprint A dogfood… |
+| **310b7a34**<br>programming-task | Sprint 07-06 P3: contract honesty — JSON-only pinned,… | Phase 3 of docs/plans/sprint-2026-07-06.md (decision checkpoint — depends on P1). Make the… |
+| **82a361c6**<br>programming-task | Sprint 07-06 P4: browser attachment upload — whole feature… | Phase 4 of docs/plans/sprint-2026-07-06.md (the payoff — depends on P2 + P3). Browser attachment… |
+| **cb9e2ca9**<br>programming-task | Schema: dogfood 3+ card types on engineering board (feature/bug/task)… | Add feature, bug, task card types to the demo workspace and use them on the engineering board.… |
+| **1aa43739**<br>programming-task | Infra: app + core versioning, release process, changelog,… | Establish versioning: a VERSION file or version package (semantic versioning), surfaced in… |
+| **a09f0455**<br>programming-task | UI: add comments + append repeating entries from the card modal ·… | Comments and repeating fields (e.g. work_log) render read-only in the modal today (card_body:… |
+| **b9e17b9e**<br>programming-task | UI: improve layout + display of repeating elements (feed / entries) ·… | Polish how repeating fields and comments display: the .entry/.feed layout, reverse-chrono for… |
+| **e71a64fa**<br>programming-task | UI/themes: remove labels template branch — make themes… | Prerequisite for extracting themes out of the embedded style.css (see docs/design/THEMES.md). The… |
+| **adb1ebcf**<br>programming-task | UI: new-card creation via the modal (placeholder + click-to-edit) ·… | Replace the separate full-page new-card form with the same modal card view used for editing. Empty… |
+| **e0a66371**<br>frontend-task · jeremy | Rebuild P0 — Alpine foundation, swapHTML seam, JS extraction,… | Done in efbebd0. Alpine 3.15.0 self-hosted+embedded; ONE swapHTML seam… |
+| **f638d7a2**<br>frontend-task · jeremy | Rebuild P1 — one field_control partial (canonical schema→control… | Done in b91a024. Three duplicated type→control switches (create form / modal click-to-edit / entry… |
+| **21bbb513**<br>frontend-task · jeremy | Rebuild P2 — htmx removed, X-Cards-Partial header · #feature | Done in e783092. htmx issued zero requests (no hx-* ever existed): dead listeners deleted (all real… |
+| **0595e67c**<br>frontend-task · jeremy | Rebuild P3 — multi-value core PR (FieldDef.Multiple + $has filter) ·… | Done in b8dda45 — and THIS CARD dogfoods the feature (its platforms field is a multi-value enum). |
+| **f4e2b74e**<br>frontend-task · jeremy | Rebuild P4 — leaf components on Alpine (comments, entries, artifacts)… | Done in aa62b36. cardsAPI (api.js): one fetch seam — actor header, structured-error parse,… |
+| **7dbed16e**<br>frontend-task · jeremy | Rebuild P6 — chip multiselect (multi enum/user) + policy-aware tag… | Done in 0212631 (this card's own platforms field was set with the new chip control's data shape).… |
+| **7f0dd456**<br>frontend-task · jeremy | Rebuild P5 — unified combobox (enum/user) + user-control normalization… | Done in b86d0d3. One filter-as-you-type combobox across create/edit/entry for single enum+user… |
+| **6624625b**<br>frontend-task · jeremy | Rebuild P7 — create-card + create-board forms on Alpine · #feature | Done in bb71d68. createModal + boardCreate Alpine components replace wireCreateModal +… |
+| **037a6f64**<br>frontend-task · jeremy | Rebuild P8 — edit modal on Alpine + honest 4xx save-conflict fix ·… | Done in 3ff4361. editField per [data-field] (x-show/x-cloak/clean-blur revert), editForm on… |
+| **096261c3**<br>programming-task · jeremy | Bug: stale-version modal save toasts 'Saved' while dropping the… | Found during rebuild Phase 2 verification (pre-existing, NOT a rebuild regression — reproduced… |
+| **3845a834**<br>frontend-task · jeremy | Sprint P4 — Workspace-loaded, discoverable, shareable themes · #feature | User-value payoff (depends on P3). Make the theme sharing story real AND usable. |
+| **93ef776d**<br>frontend-task · jeremy | Rebuild P9 — board UI 2.0: $store.live + fragment swap + reactive drag… | Done in 1af2dc2. Server: SSE keepalive as a ticker case in the SAME single-writer for/select (never… |
+| **60f2e6a8**<br>programming-task · jeremy | Bug: board filter stalls after several rapid changes (SSE… | REPORTED (review): changing a board's Type filter several times in a row makes filtering stop… |
+| **c5ce8635**<br>frontend-task · jeremy | Rebuild P10 — finale: detail-page save fix + breaches on $store.live +… | Done in a623c6c. Fixed a real regression: card_detail.html still called… |
+| **1f9bf7c4**<br>programming-task · jeremy | Sprint P3 — Theme foundations (stamp seam, validator, contract) ·… | Foundation phase. Land precursors that make workspace themes safe. |
+| **519e1688**<br>programming-task · jeremy | Sprint P1 — Restore drift audit (doc truth) · #feature | Foundation phase. Make source-of-truth docs describe the workspace-reload feature that actually… |
+| **82d71fdf**<br>programming-task | Sprint 07-10 P1a: docs + audit reconciliation (htmx→Alpine,… | Phase 1a of docs/plans/sprint-2026-07-10.md — make the entry docs tell the truth about the shipped… |
+| **deb93778**<br>programming-task | Sprint 07-10 P1b: backlog.jsonl reconcile + merge… | Phase 1b of docs/plans/sprint-2026-07-10.md — restore the 'committed JSONL is the portable state'… |
+| **fa239a92**<br>api-task | Sprint 07-10 P2: serve warns on non-loopback bind (tested) | The ONLY Go change of sprint Phase 2 (carve-out from the AUTH RFC — cheap, wanted under every… |
+| **79afdb51**<br>programming-task | Sprint 07-10 P3a: debt paydown cascade — containsStr merge… | Phase 3a of docs/plans/sprint-2026-07-10.md — the safe half of the P2 code-review batch… |
+| **96bc1d56**<br>frontend-task · jeremy | UI: create-card form correctness — labels, tags chips, open-on-create,… | Create modal still reads unfinished after rebuild P7. |
+| **0a642f56**<br>frontend-task | UI: harden $store.live reconnect (single socket, generation guard)… | Sprint 07-10 P4 must-ship #4 (tracker card_3f225267). Follow-on to P9 filter-stall fix and closed… |
+| **25023962**<br>frontend-task | UI: a11y pass on custom field controls + form errors · #feature | Custom combobox/multiselect/tag chips are progressive-enhancement wins but a11y is incomplete. |
+| **1aaa4611**<br>frontend-task | UI: header nav — active board, theme label, boards overflow, CTA… | Nav works for 2 demo boards; will fail for real workspaces. |
+| **72ebfbee**<br>programming-task | UI: spacing RULES + consistency pass (shipped PR #26; was CSS gate) ·… | Sprint 07-10 P4 must-ship #2 (tracker card_3f225267). PROMOTED from 'density polish' 2026-07-10:… |
+| **9174c0ea**<br>programming-task | Sprint 07-11 P0a: drain the review pile (~17) — per-card… | Phase 0 of docs/plans/sprint-2026-07-11.md — hygiene/unblocking gate. NO M-sized sprint work starts… |
+| **bac18224**<br>programming-task | Sprint 07-11 P0b: doc-truth sync — INTEGRATOR-REFERENCE,… | Phase 0 of docs/plans/sprint-2026-07-11.md — doc fixes ONLY, no code. Make the drift audit actually… |
+| **c3c0fac5**<br>api-task | Sprint 07-11 P2a: six MCP tools (remove_entry, remove_link,… | Phase 2 of docs/plans/sprint-2026-07-11.md. Audience: agents/MCP clients. Make MCP a first-class… |
+| **8b25cef9**<br>programming-task | Sprint 07-11 P2b: config semantic validation hardening —… | Phase 2 of docs/plans/sprint-2026-07-11.md. Enabling work for P4 (style_field load-time checks) and… |
+| **524c5758**<br>programming-task | Sprint 07-11 P3a: fix hook-supervisor stale-generation bug… | Phase 3 of docs/plans/sprint-2026-07-11.md, first step — a LIVE BUG today, and the --watch poller… |
+| **ec61b093**<br>programming-task | Sprint 07-11 P3b: --watch definitions poller +… | Phase 3 of docs/plans/sprint-2026-07-11.md. Audience: the definition author with a BROWSER open —… |
+| **1af1fd87**<br>frontend-task | Sprint 07-11 P4a: golden-render harness + TypeTheme… | Phase 4 of docs/plans/sprint-2026-07-11.md, steps 1-3 — the safety net and refactor BEFORE the… |
+| **4bdd3586**<br>frontend-task | Sprint 07-11 P4b: style_field — FieldDef.OptionThemes +… | Phase 4 of docs/plans/sprint-2026-07-11.md, final step. Audience: the board viewer —… |
+| **abb13ae0**<br>programming-task | Sprint 07-11 P5a: lifecycle-schema ADR — RestartPolicy x… | Phase 5 of docs/plans/sprint-2026-07-11.md, first step — authored BEFORE the supervisor code so the… |
+| **23c7070a**<br>programming-task | Sprint 07-11 P5b: supervise kind:service — listener-ready… | Phase 5 of docs/plans/sprint-2026-07-11.md. Audience: the extension developer — judged on 'an… |
+| **eecf0e03**<br>programming-task | Sprint 07-11 P5c: reconcile-on-reload — service identity… | Phase 5 of docs/plans/sprint-2026-07-11.md, final step — its own design + implementation, DESIGNED… |
+| **f20e87d5**<br>api-task | Sprint 07-10 P4: board-create idempotency — server first,… | Phase 4 must-ship of docs/plans/sprint-2026-07-10.md. Verified 2026-07-10: no POST board-create… |
+| **506c1e9a**<br>task | Back up and move your workspace |  |
+| **9d28d311**<br>task | Make it yours: edit boards and card types |  |
+| **8b5a4937**<br>programming-task | Design: user-defined columns/card-types — how far does the UI go? ·… | QUESTION (review): when creating a board, columns and card types look fixed. Are they… |
+| **a810025b**<br>api-task | Security: escape/validate filter key paths in the filter… | Found by the Copilot review of PR #18 (https://github.com/somebox/cards/pull/18#issuecomment-4935628… |
+| **fec18019**<br>data-task | SQLite read pool: concurrent reads, single-writer… | ROADMAP §3 (card 87903967): MaxOpenConns(1) serializes ALL queries through one connection. Add a… |
+| **57db13a6**<br>frontend-task | labels theme: restore comment/link counts + blocked badge… | The density pass hides .card__stats entirely in the labels theme, losing comment/link counts and… |
+| **f6d2f5ea**<br>programming-task | UI: create a new board · #feature | A flow to create a board from the UI: name, columns (chosen from workspace.columns), card types,… |
+| **06a1c3c6**<br>frontend-task | Themes step 2: workspace-loaded theme files + sharing… | THEMES.md step 2 + sharing story. STATUS 2026-07-11 reconciliation with what shipped in Sprint P4… |
+| **0391870a**<br>infra-task | Test groundwork: Node unit coverage for create collect + live state… | Sprint 07-10 P4 must-ship #3 (tracker card_3f225267) — THIN harness: tests/js/ already has… |
+| **d39fd119**<br>programming-task · jeremy | Sprint P2 — Accurate column census (>500 undercount) · #feature | First user-visible win. Fix the 500-card undercount in the single shared countColumn so WIP/lane… |
+| **261891a2**<br>programming-task | Sprint 07-10 P5: sprint close — end-to-end walkthrough +… | Sprint-close gate (~30 min) of docs/plans/sprint-2026-07-10.md — the moment a human actually uses… |
+| **3f225267**<br>programming-task | Sprint 2026-07-10 tracker (closing map) — active plan is… | SPRINT TRACKER (CLOSING MAP) — plan: docs/plans/sprint-2026-07-10.md. |
+| **c08a6ead**<br>programming-task | Sprint 07-11 close: end-to-end walkthrough + export/import… | Sprint-close gate of docs/plans/sprint-2026-07-11.md (~30 min) — the moment a human uses the… |
+| **1b528909**<br>programming-task | Sprint 2026-07-11: make the composition substrate real… | SPRINT TRACKER — plan doc: docs/plans/sprint-2026-07-11.md. The board IS the plan: card bodies… |
+| **5bb8da43**<br>programming-task | Supervisor hardening: WaitDelay on service children, bounded log… | From the sprint 07-11 post-merge review (b23aff8) of the P5 service supervisor. Two… |
+| **4e443f8d**<br>api-task | MCP parity honesty: reflective Service enumeration,… | From the sprint 07-11 post-merge review (b23aff8) of the P2 MCP epic. The confirm gate and tools… |
+| **69c986cc**<br>frontend-task | style_field edges: deterministic modal board context +… | From the sprint 07-11 post-merge review (b23aff8) of the P4 style_field epic. Core feature is… |
+| **0f002686**<br>programming-task | Review minors batch: watch/reload startup races +… | Batch of small correctness/polish items from the sprint 07-11 post-merge review (b23aff8) —… |
+| **4455eb34**<br>programming-task | Land column-census COUNT(*) fix on main (e8b5565 stranded on… | Residual from card_d39fd119 (accurate column census, closed done 2026-07-12): the fix… |
+| **3ec2c649**<br>infra-task | tests/js: createModal.collect() / create-payload unit… | Residual from card_0391870a (JS test harness, closed done 2026-07-12 against commit 8447cb7): the… |
+| **5ea0d5ef**<br>frontend-task | Board-create form: columns/types checkbox soup → shared… | Residual from card_f6d2f5ea (UI: create a new board, closed done 2026-07-12). Shipped: modal + POST… |
+| **cec11535**<br>research-goal | Investigate: read-only JSON view of definitions in the web… |  |
+| **8f8cbde7**<br>programming-task | Sprint 07-12 P1c: reconcile read-pool card IDs to one… | Phase 1 of docs/plans/sprint-2026-07-12.md — reconcile the read-pool card sprawl to ONE canonical… |
+| **29200d8b**<br>programming-task | Sprint 07-12 P1a: ledger truth — date min/max is shipped… | Phase 1 of docs/plans/sprint-2026-07-12.md — ledger truth (parallel bookkeeping, not the spine).… |
+| **61040a3e**<br>programming-task | Sprint 07-10 P2: AUTH.md (proposed) — identity &… | Phase 2 of docs/plans/sprint-2026-07-10.md. STATUS 2026-07-10: the RFC has been WRITTEN and FROZEN… |
+| **7a3f4ebd**<br>programming-task | Sprint 07-12 P1b: auth closeout — ROADMAP §1 → frozen… | Phase 1 of docs/plans/sprint-2026-07-12.md — auth closeout in ONE pass. S-sized: review + crosslink… |
+| **e3c63f21**<br>data-task | Sprint 07-10 P3b (go/no-go): temporal breaches as… | Phase 3b of docs/plans/sprint-2026-07-10.md — OPTIONAL expansion, not load-bearing for sprint… |
+| **77d6c663**<br>infra-task | Sprint 07-12 P2a: shared-cache test harness — one… | Phase 2 of docs/plans/sprint-2026-07-12.md — build the one seam the pool needs. Starts immediately;… |
+| **582f3072**<br>programming-task | Core: in-process event bus + subscriber fan-out · #feature | Core: in-process event bus + subscriber fan-out |
+| **6b9135f2**<br>programming-task · pi | pi-cards: scaffold repo, pi package manifest, stub /cards… | pi-cards series 1/8 — repo scaffold. Spec: docs/design/pi-extension.md (cards repo) §4, §10 P0. |
+| **fc89916f**<br>programming-task · pi | pi-cards: CardsClient with HTTP + CLI backends, resolve… | pi-cards series 2/8 — CardsClient with HTTP + CLI backends. Spec §5.1, §5.2, §5.4, §5.5, §8.… |
+| **470df9d7**<br>programming-task · pi | pi-cards: read surface — list/get/search tools + text board… | pi-cards series 3/8 — read surface: cards_list/get/search tools + text board (P0 exit). Spec §5.3,… |
+| **857194ea**<br>programming-task · pi | pi-cards: write surface — create/update/comment/claim/releas… | pi-cards series 4/8 — write surface + config file (P1). Spec §5.5, §6.3 rows 4-9, §7. Blocked by… |
+| **bda7cb6e**<br>programming-task · pi | pi-cards: interactive board UI, SSE live refresh, /cards… | pi-cards series 5/8 — interactive board UI, SSE live refresh, /cards show, #id mentions (P2). Spec… |
+| **00581679**<br>programming-task · pi | pi-cards: card execution — cards_work tool + /cards work… | pi-cards series 6/8 — card execution: cards_work tool + /cards work [--todo] (P3). Spec §6.5, §6.7.… |
+| **a3751720**<br>programming-task · pi | pi-cards: git board persistence + interim worklog activity… | pi-cards series 7/8 — git board persistence + interim worklog activity (P4a). Spec §6.6, §6.7.… |
+| **baff356d**<br>programming-task · pi | pi-cards: typed per-type tools, dynamic-loading decision,… | pi-cards series 8/8 — typed per-type tools, dynamic-loading decision, README/install + dogfood… |
+| **13d9342f**<br>infra-task · pi | Move project board from examples/demo-workspace to .cards/… | The project's live dogfooding board moves to the standard .cards/ workspace at repo root (walk-up… |
+| **277ea67b**<br>programming-task · pi | Export: markdown roadmap artifact committed alongside… | pi-cards sync: when exporting board state to git, also render a human-readable markdown overview… |
 
 ## Welcome
 
 ### todo (5)
 
-| Card | Type | Title | Owner | Tags | Summary |
-|---|---|---|---|---|---|
-| **81086204** | programming-task | UI: home polish — board counts, breadcrumb, brand mark | · | #feature | Home shell already exists (home.html). Finish the product edges: |
-| **51c0facf** | programming-task | Docs: ADR — Alpine division of labor + Pinemix is… | · | #feature | Close the open planning debt from docs/plans/frontend-rebuild-plan.md Phase 0 exit criteria. |
-| **86515fd2** | programming-task | Wave: post-rebuild UI polish (forms, nav, density, a11y) | jeremy | #feature | Parent tracker for the post-frontend-rebuild polish wave. NOW GOVERNED BY sprint tracker… |
-| **33fe9763** | task | 👋 Welcome to Cards | · | · |  |
-| **b3079e56** | programming-task | Sprint 2026-07-12: concurrent reads on an honest ledger… | · | · | SPRINT TRACKER — plan doc: docs/plans/sprint-2026-07-12.md. The board IS the plan: card bodies… |
+| Card | Title | Summary |
+|---|---|---|
+| **81086204**<br>programming-task | UI: home polish — board counts, breadcrumb, brand mark · #feature | Home shell already exists (home.html). Finish the product edges: |
+| **51c0facf**<br>programming-task | Docs: ADR — Alpine division of labor + Pinemix is reference-only ·… | Close the open planning debt from docs/plans/frontend-rebuild-plan.md Phase 0 exit criteria. |
+| **86515fd2**<br>programming-task · jeremy | Wave: post-rebuild UI polish (forms, nav, density, a11y) · #feature | Parent tracker for the post-frontend-rebuild polish wave. NOW GOVERNED BY sprint tracker… |
+| **33fe9763**<br>task | 👋 Welcome to Cards |  |
+| **b3079e56**<br>programming-task | Sprint 2026-07-12: concurrent reads on an honest ledger… | SPRINT TRACKER — plan doc: docs/plans/sprint-2026-07-12.md. The board IS the plan: card bodies… |
 
 ### done (164)
 
-| Card | Type | Title | Owner | Tags | Summary |
-|---|---|---|---|---|---|
-| **a21414e3** | programming-task | Hooks: parse extensions.yaml + declare hook table | foz | #feature | Hooks: parse extensions.yaml + declare hook table |
-| **ce63538e** | programming-task | UI Improvements | foz | · | Rather than showing the status and "move" on the card overview, lets allow drag and drop for status… |
-| **c9574816** | programming-task | UI: drag-drop target must be the column, not cards | · | #bug | Bug: drop target is .card-aware so an empty destination column can't accept a drop (no card to… |
-| **ac6576db** | programming-task | UI: design system + CSS architecture (tokens, components,… | foz | #feature | Foundational: extract inline CSS to a stylesheet, establish design tokens… |
-| **39f0ea14** | programming-task | Core: release/unclaim primitive + force-move… | pi | #bug | P0 — fixes the one-way-door problem found in dogfooding. (1) POST /cards/:id/release: clears owner,… |
-| **a1bd49a3** | programming-task | Fix idempotency: wrong actor + schema PK allows cross-actor… | pi | #bug | Two compounding bugs. (1) The idempotent() wrapper calls actorFromCtx() which reads context+default… |
-| **8e263901** | programming-task | Guard nil/empty-index panics: main.run rest[0] +… | pi | #bug | Two panic paths on bad input. (1) cmd/cards main.run: peelGlobals consumes global flags (e.g.… |
-| **27232d27** | programming-task | Harden store error mapping: GetCard/ClaimAtomic swallow DB… | pi | #bug | Two fail-soft paths mask infrastructure failures. (1) Service.GetCard maps ANY store error to… |
-| **f809d58d** | programming-task | Reconsider RemoveEntry CAS: HTTP DELETE passes version=0,… | pi | #bug | Service.RemoveEntry treats version==0 as 'no CAS' (skip the version check), and the HTTP DELETE… |
-| **30fbc175** | programming-task | Return 400 on invalid cursor / SSE Last-Event-ID instead of… | pi | #bug | ListCards and the SSE handler silently ignore unparseable cursors (DecodeCursor error → no filter →… |
-| **2973e7dc** | programming-task | Infra: organize test suite + GitHub Actions workflow (push… | pi | #feature | Audit test organization: ensure consistent table-driven tests, shared fixtures, no skipped… |
-| **2578a31e** | programming-task | Enforce hook filter.type_id in MatchesEvent (parsed but… | pi | #bug | config.HookFilter has a TypeID field parsed from extensions.yaml, but Extension.MatchesEvent never… |
-| **efec7e5f** | programming-task | UI: schema-driven rendering + field display hints… | pi | #feature | ARCHITECTURAL — foundation for the UI work. Today the board card, modal, and detail view are partly… |
-| **55405c93** | programming-task | Storage: import/export + git-backed mirror + checkpoint… | pi | #feature | Review the storage layer for portability. (1) Export workspace to a git-friendly format (markdown… |
-| **b01ee035** | programming-task | Schema: drop unused programming-task fields… | · | · | Measured field population across the 46 programming-task cards: pull_request_url 0/46,… |
-| **5008ee9d** | programming-task | Docs: CONCEPTS.md — workspaces/boards/card definitions +… | · | · | New docs/CONCEPTS.md defining the vocabulary (workspace, definitions, card types, cards, boards)… |
-| **e79fb682** | programming-task | Core/Board: enforce board default_filter (parsed but never… | · | · | Board.default_filter was declared + documented (SPEC §9) but applyBoardScope never applied it, so… |
-| **b86c7fe9** | programming-task | Ergonomics: zero-config start — cards init, .cards/… | · | · | Make Cards easy to start (the genesis of the workspace-concepts thread). Git-like model: `cards`… |
-| **e5952a89** | programming-task | Core/Schema: upgrade-schema + migrations (field_defaults) | · | · | Implement SPEC §6 schema upgrade: CardType.Migrations (target->{from,summary,field_defaults});… |
-| **92893455** | programming-task | Fix cursor pagination off-by-one | foz | #bug #urgent | ListCards returns one extra row when cursor is empty. |
-| **8c04883d** | programming-task | Harden transition_illegal error | · | · | Ensure valid_options are board column ids, not workspace ids. |
-| **ded1a923** | research-goal | Evaluate SQLite FTS5 vs LIKE for POC scale | · | · |  |
-| **cc445cc6** | programming-task | Add OpenAPI spec for /v1/cards | · | #feature | Generate an OpenAPI document from the existing handlers and serve it at /v1/openapi.json. |
-| **a9cc1a1d** | programming-task | Core/CLI: serverless CLI — auto-select backend (direct… | · | · | Let read/write CLI commands work without a running HTTP server, in addition to (not instead of) the… |
-| **5a0db35d** | programming-task | Core/SQLite: IMMEDIATE txns + synchronous=NORMAL + single… | · | · | Concurrency hardening prompted by the serverless CLI (server + direct CLI can write one DB file).… |
-| **bb0552e9** | programming-task | Docs: INTEGRATION.md — event taxonomy + integration contract | · | · | Define observe/act/coordinate planes and the mutation-vs-condition event taxonomy; monitors as… |
-| **cf592ae1** | programming-task | Events: actor/owner stream filters + GET /v1/events… | · | · | Add actor= (events a user caused) and owner= (events on a user's cards) to EventFilter/SSE, plus a… |
-| **b9661aef** | programming-task | Docs/SPEC: confirm + document integrator guarantees… | · | · | From picraft feedback (§3). Behavior already exists; make it normative in SPEC. (1) take-next:… |
-| **66abd5e1** | programming-task | Docs: INTEGRATOR-REFERENCE.md — single-page code-verified… | · | · | Single-page reference requested by picraft: data model, HTTP API, MCP surface, events, actor model,… |
-| **9f019476** | programming-task | Docs: EVENTS.md — events core design (revised, seam +… | · | · | Authored docs/EVENTS.md: single emission seam (Emitter), persist-before-publish,… |
-| **ef299ab9** | programming-task | UI: easy release/unclaim + force-move via click/drag | pi | #bug | P0 — the human surface for the release/force-move core primitives. (1) On a card, a small 'release'… |
-| **2ffcda5a** | programming-task | Demo hook: notifier on status_changed to review | · | #feature | Demo hook: notifier on status_changed to review |
-| **ea7ea2a3** | programming-task | CLI: cards run-extensions + cards do + cards extensions list | · | #feature | CLI: cards run-extensions + cards do + cards extensions list |
-| **03c836c3** | programming-task | Hooks: supervisor spawns subprocesses on event, at-most-once | · | #feature | Hooks: supervisor spawns subprocesses on event, at-most-once |
-| **168fa8c5** | programming-task | UI: live board updates via SSE (htmx event-source) | foz | #feature | UI: live board updates via SSE (htmx event-source) |
-| **f2afceb8** | programming-task | SSE: GET /v1/events/stream with Last-Event-ID replay | foz | #feature | SSE: GET /v1/events/stream with Last-Event-ID replay |
-| **21ef7213** | programming-task | Events: board-scoped event model (scope card\|board,… | · | · | events.card_id is currently NOT NULL, so board-level condition events (lane_drained, wip_exceeded)… |
-| **34b5ee95** | programming-task | b1 | · | · | d |
-| **da1c8658** | programming-task | a1 | · | · | d |
-| **88d226a8** | programming-task | Bob card | · | · | d |
-| **71fe97fe** | programming-task | Alice card | · | · | d |
-| **f30a6618** | programming-task | Events: condition events + monitors (WIP, time-in-status,… | · | · | Declarative board 'monitors' -> condition events on the bus. Instant (eval synchronously after the… |
-| **6a5cdf1c** | programming-task | UI: click-to-edit card presentation (modal + detail page) | jeremy | #feature | Current modal is a stack of per-field forms. Redesign: header with title/owner/status (clean, no… |
-| **69b21b14** | programming-task | UI: search / find cards (global on dashboard + local on… | · | · | Add a consistently-placed shared search component. Global on the main dashboard (home.html), local… |
-| **e644e482** | programming-task | UI: short-ID standardization (last 8 hex chars, alias… | · | · | Standardize on the last 8 hex chars of the card id as the user-facing short id (e.g. fca1f3d5).… |
-| **a06e0a24** | programming-task | UI: tags as chips with comma-separated edit mode +… | · | #feature | Tags currently render as a plain text input. Show existing tags as chips (as on the board). In edit… |
-| **d03203cd** | programming-task | Events seam 1b: promote Bus to an interface + recording… | · | · | docs/EVENTS.md §6.2. Promote the concrete `Bus` type to a `Bus` interface; keep the existing… |
-| **9f5a5d9a** | programming-task | Events seam 1c: Emitter with stamp/dispatchCommitted… | · | · | docs/EVENTS.md §6.3/§7. Introduce `Emitter` wrapping EventLog+Bus+clock+observers. Internal… |
-| **758aaad3** | programming-task | Events seam 1d: commitCard helper; migrate ONE call site… | · | · | docs/EVENTS.md §7.1. Add `Service.commitCard(ctx, next, evs)` = stamp + store.UpdateCard (atomic) +… |
-| **c53b4535** | programming-task | Events seam 1e: migrate remaining 10 call sites to… | · | · | docs/EVENTS.md §7.1/§12 Step 1. Mechanically repeat the 1d pattern across the remaining mutation… |
-| **032e529b** | programming-task | Events seam 1a: extract EventLog interface + in-memory fake… | · | · | docs/EVENTS.md §6.1. Define `EventLog` interface (Append/List/Page/Replay) on top of the existing… |
-| **c8f5da3d** | programming-task | Events seam 1f: EventObserver chain + Recorder test helper | · | · | docs/EVENTS.md §6.4/§9 Recorder. Add `EventObserver func(*Event)` registered on Emitter, invoked… |
-| **22a83455** | programming-task | Events seam 1g: event contracts — typed diffs, golden JSON… | · | · | docs/EVENTS.md §4 (Event contracts and compatibility). Add named Go structs for each built-in diff… |
-| **97b29005** | programming-task | Events seam 2a: schema migration — nullable card_id, add… | · | · | docs/EVENTS.md §11.3/§12 Step 2. Migrate `events.card_id` to nullable; add `board_id` and `scope`… |
-| **f0569b62** | programming-task | Events seam 2b: BoardEvent(...) constructor + Emitter.Emit… | · | · | docs/EVENTS.md §3/§7.2. Add `BoardEvent(boardID, type, diff) *Event` constructor (Scope=board,… |
-| **6de97848** | programming-task | Events seam 2c: Bus/Feed filtering by scope + board_id | · | · | docs/EVENTS.md §6.2/§9. Extend `EventFilter.Matches` (already board_id-aware from seam 1b, now with… |
-| **1767f1e8** | programming-task | Events seam 3a: Signal path — one instant condition event… | · | · | docs/EVENTS.md §4/§11.2. Implement the smallest possible condition event end-to-end using… |
-| **18a67d08** | programming-task | Events seam 3b: persist:true escalation path for instant… | · | · | docs/EVENTS.md §4/§11.2, INTEGRATION.md §2.2 picraft feedback. picraft needs escalations… |
-| **996194d0** | programming-task | Events seam 3c: remaining instant conditions… | · | · | docs/EVENTS.md §11.2. Repeat the 3a/3b pattern for the remaining synchronously-evaluable condition… |
-| **2a221329** | programming-task | Events: transition_rejected (opt-in, watch failed… | · | · | Today transition_illegal is an API error only. Add an opt-in (monitors.emit_rejections) card-scoped… |
-| **6cc5a423** | programming-task | Events: GET /v1/breaches — current-conditions catch-up query | · | · | Catch-up path for ephemeral condition events. GET /v1/breaches?board_id=&type= (alias GET… |
-| **2f42b53c** | programming-task | Events seam 3d: deadline min-heap scheduler for temporal… | · | · | docs/EVENTS.md §11.2; design already refined in INTEGRATION.md comments (deadline min-heap, no… |
-| **abdf1c7e** | programming-task | Events seam 3e: wire status_timeout/card_idle onto the… | · | · | docs/EVENTS.md §11.2. With the scheduler validated in isolation (3d), wire the two temporal… |
-| **47ab05bc** | programming-task | take-next: retry to next candidate on a raced/lost claim | · | · | ClaimAtomic returns nil on a lost CAS (another claimant won); TakeNext then returns empty even if… |
-| **fca1f3d5** | programming-task | UI: multi-type visual design language (color/icons for… | · | #feature | Establish a consistent design language: each card type gets a color + icon (e.g. feature=blue/✨,… |
-| **440a2bed** | programming-task | UI: theme contract — html[data-theme] hook + named themes +… | · | #feature | Implement the theme contract documented in docs/DESIGN.md §Theming. Add the… |
-| **c46dfc21** | programming-task | UI: type chip is too prominent — minimal corner / icon… | · | #feature | The white-on-black type stamp dominates every board card. Reduce it: a small corner indicator (icon… |
-| **b06b62f1** | programming-task | UI: match view/edit sizing + font for text fields and… | · | #feature | Inline edit controls must not shift size or font when clicked into. The edit input/textarea/select… |
-| **e897dc07** | programming-task | UI: restyle select / enum controls (tags, enums) to match… | · | #feature | Native select boxes for enums and the tags control look out of place against the print-shop design… |
-| **5227ba05** | programming-task | Docs: restructure docs/ directory for clarity | · | #feature | Review docs/ and reorganize: split into clear top-level areas (e.g. docs/concepts, docs/reference,… |
-| **600d1bf2** | programming-task | CLI/MCP: surface breaches + event feed | · | · | Add cards breaches + cards feed CLI commands and MCP breaches/events tools so the reactive engine… |
-| **c502c19e** | programming-task | Cleanup: remove dead UI server code + board actor identity | · | #feature | Frontend audit (2026-07) surfaced dead/stale server code: (1) unreachable UI handlers uiMoveCard… |
-| **512ad27b** | programming-task | UI: blocked badges + breaches page + live conditions | · | · | Phase 3: surface the reactive-coordination engine on the board — blocked badges (bulk… |
-| **a9bfec52** | programming-task | DEMO blocker | · | · | d |
-| **60927518** | programming-task | DEMO blocked task | · | · | d |
-| **9e6c5c5f** | programming-task | Core/UI: configured card ordering (sort param + lane_sort) | · | · | Phase 4: flat sort grammar (core.ParseSort, whitelist created_at/updated_at/title/fields.<id>),… |
-| **7aa92400** | programming-task | UI: board filter dropdowns (assignee, type, dynamic fields)… | local-dev | #feature | Add filter controls to the board view. Dropdowns for assignee (owner) and card type, plus dynamic… |
-| **146260d9** | programming-task | Core/HTTP: card delete (DELETE /v1/cards/:id + tombstone… | · | · | Add a first-class card-delete path so junk/test/superseded cards can be hard-removed instead of… |
-| **b49d550a** | programming-task | Sprint 07-06 P1: short-id parity across all write verbs +… | · | · | Phase 1 of docs/plans/sprint-2026-07-06.md. Make "a card reference is a full id OR a last-8 short… |
-| **6545f8cd** | programming-task | CLI/demo: workspace init-vs-target friction + no artifact… | · | · | ADOPTED AS PHASE 2 of docs/plans/sprint-2026-07-06.md (depends on P1). Original Sprint A dogfood… |
-| **310b7a34** | programming-task | Sprint 07-06 P3: contract honesty — JSON-only pinned,… | · | · | Phase 3 of docs/plans/sprint-2026-07-06.md (decision checkpoint — depends on P1). Make the… |
-| **82a361c6** | programming-task | Sprint 07-06 P4: browser attachment upload — whole feature… | · | · | Phase 4 of docs/plans/sprint-2026-07-06.md (the payoff — depends on P2 + P3). Browser attachment… |
-| **cb9e2ca9** | programming-task | Schema: dogfood 3+ card types on engineering board… | · | #feature | Add feature, bug, task card types to the demo workspace and use them on the engineering board.… |
-| **1aa43739** | programming-task | Infra: app + core versioning, release process, changelog,… | · | #feature | Establish versioning: a VERSION file or version package (semantic versioning), surfaced in… |
-| **a09f0455** | programming-task | UI: add comments + append repeating entries from the card… | · | #feature | Comments and repeating fields (e.g. work_log) render read-only in the modal today (card_body:… |
-| **b9e17b9e** | programming-task | UI: improve layout + display of repeating elements (feed /… | · | #feature | Polish how repeating fields and comments display: the .entry/.feed layout, reverse-chrono for… |
-| **e71a64fa** | programming-task | UI/themes: remove labels template branch — make themes… | · | · | Prerequisite for extracting themes out of the embedded style.css (see docs/design/THEMES.md). The… |
-| **adb1ebcf** | programming-task | UI: new-card creation via the modal (placeholder +… | · | #feature | Replace the separate full-page new-card form with the same modal card view used for editing. Empty… |
-| **e0a66371** | frontend-task | Rebuild P0 — Alpine foundation, swapHTML seam, JS… | jeremy | #feature | Done in efbebd0. Alpine 3.15.0 self-hosted+embedded; ONE swapHTML seam… |
-| **f638d7a2** | frontend-task | Rebuild P1 — one field_control partial (canonical… | jeremy | #feature | Done in b91a024. Three duplicated type→control switches (create form / modal click-to-edit / entry… |
-| **21bbb513** | frontend-task | Rebuild P2 — htmx removed, X-Cards-Partial header | jeremy | #feature | Done in e783092. htmx issued zero requests (no hx-* ever existed): dead listeners deleted (all real… |
-| **0595e67c** | frontend-task | Rebuild P3 — multi-value core PR (FieldDef.Multiple + $has… | jeremy | #feature | Done in b8dda45 — and THIS CARD dogfoods the feature (its platforms field is a multi-value enum). |
-| **f4e2b74e** | frontend-task | Rebuild P4 — leaf components on Alpine (comments, entries,… | jeremy | #feature | Done in aa62b36. cardsAPI (api.js): one fetch seam — actor header, structured-error parse,… |
-| **7dbed16e** | frontend-task | Rebuild P6 — chip multiselect (multi enum/user) +… | jeremy | #feature | Done in 0212631 (this card's own platforms field was set with the new chip control's data shape).… |
-| **7f0dd456** | frontend-task | Rebuild P5 — unified combobox (enum/user) + user-control… | jeremy | #feature | Done in b86d0d3. One filter-as-you-type combobox across create/edit/entry for single enum+user… |
-| **6624625b** | frontend-task | Rebuild P7 — create-card + create-board forms on Alpine | jeremy | #feature | Done in bb71d68. createModal + boardCreate Alpine components replace wireCreateModal +… |
-| **037a6f64** | frontend-task | Rebuild P8 — edit modal on Alpine + honest 4xx… | jeremy | #feature | Done in 3ff4361. editField per [data-field] (x-show/x-cloak/clean-blur revert), editForm on… |
-| **096261c3** | programming-task | Bug: stale-version modal save toasts 'Saved' while dropping… | jeremy | #bug | Found during rebuild Phase 2 verification (pre-existing, NOT a rebuild regression — reproduced… |
-| **3845a834** | frontend-task | Sprint P4 — Workspace-loaded, discoverable, shareable themes | jeremy | #feature | User-value payoff (depends on P3). Make the theme sharing story real AND usable. |
-| **93ef776d** | frontend-task | Rebuild P9 — board UI 2.0: $store.live + fragment swap +… | jeremy | #feature | Done in 1af2dc2. Server: SSE keepalive as a ticker case in the SAME single-writer for/select (never… |
-| **60f2e6a8** | programming-task | Bug: board filter stalls after several rapid changes (SSE… | jeremy | #bug | REPORTED (review): changing a board's Type filter several times in a row makes filtering stop… |
-| **c5ce8635** | frontend-task | Rebuild P10 — finale: detail-page save fix + breaches on… | jeremy | #feature | Done in a623c6c. Fixed a real regression: card_detail.html still called… |
-| **1f9bf7c4** | programming-task | Sprint P3 — Theme foundations (stamp seam, validator,… | jeremy | #feature | Foundation phase. Land precursors that make workspace themes safe. |
-| **519e1688** | programming-task | Sprint P1 — Restore drift audit (doc truth) | jeremy | #feature | Foundation phase. Make source-of-truth docs describe the workspace-reload feature that actually… |
-| **82d71fdf** | programming-task | Sprint 07-10 P1a: docs + audit reconciliation (htmx→Alpine,… | · | · | Phase 1a of docs/plans/sprint-2026-07-10.md — make the entry docs tell the truth about the shipped… |
-| **deb93778** | programming-task | Sprint 07-10 P1b: backlog.jsonl reconcile + merge… | · | · | Phase 1b of docs/plans/sprint-2026-07-10.md — restore the 'committed JSONL is the portable state'… |
-| **fa239a92** | api-task | Sprint 07-10 P2: serve warns on non-loopback bind (tested) | · | · | The ONLY Go change of sprint Phase 2 (carve-out from the AUTH RFC — cheap, wanted under every… |
-| **79afdb51** | programming-task | Sprint 07-10 P3a: debt paydown cascade — containsStr merge… | · | · | Phase 3a of docs/plans/sprint-2026-07-10.md — the safe half of the P2 code-review batch… |
-| **96bc1d56** | frontend-task | UI: create-card form correctness — labels, tags chips,… | jeremy | #feature | Create modal still reads unfinished after rebuild P7. |
-| **0a642f56** | frontend-task | UI: harden $store.live reconnect (single socket, generation… | · | #bug | Sprint 07-10 P4 must-ship #4 (tracker card_3f225267). Follow-on to P9 filter-stall fix and closed… |
-| **25023962** | frontend-task | UI: a11y pass on custom field controls + form errors | · | #feature | Custom combobox/multiselect/tag chips are progressive-enhancement wins but a11y is incomplete. |
-| **1aaa4611** | frontend-task | UI: header nav — active board, theme label, boards… | · | #feature | Nav works for 2 demo boards; will fail for real workspaces. |
-| **72ebfbee** | programming-task | UI: spacing RULES + consistency pass (shipped PR #26; was… | · | #feature | Sprint 07-10 P4 must-ship #2 (tracker card_3f225267). PROMOTED from 'density polish' 2026-07-10:… |
-| **9174c0ea** | programming-task | Sprint 07-11 P0a: drain the review pile (~17) — per-card… | · | · | Phase 0 of docs/plans/sprint-2026-07-11.md — hygiene/unblocking gate. NO M-sized sprint work starts… |
-| **bac18224** | programming-task | Sprint 07-11 P0b: doc-truth sync — INTEGRATOR-REFERENCE,… | · | · | Phase 0 of docs/plans/sprint-2026-07-11.md — doc fixes ONLY, no code. Make the drift audit actually… |
-| **c3c0fac5** | api-task | Sprint 07-11 P2a: six MCP tools (remove_entry, remove_link,… | · | · | Phase 2 of docs/plans/sprint-2026-07-11.md. Audience: agents/MCP clients. Make MCP a first-class… |
-| **8b25cef9** | programming-task | Sprint 07-11 P2b: config semantic validation hardening —… | · | · | Phase 2 of docs/plans/sprint-2026-07-11.md. Enabling work for P4 (style_field load-time checks) and… |
-| **524c5758** | programming-task | Sprint 07-11 P3a: fix hook-supervisor stale-generation bug… | · | #bug | Phase 3 of docs/plans/sprint-2026-07-11.md, first step — a LIVE BUG today, and the --watch poller… |
-| **ec61b093** | programming-task | Sprint 07-11 P3b: --watch definitions poller +… | · | · | Phase 3 of docs/plans/sprint-2026-07-11.md. Audience: the definition author with a BROWSER open —… |
-| **1af1fd87** | frontend-task | Sprint 07-11 P4a: golden-render harness + TypeTheme… | · | · | Phase 4 of docs/plans/sprint-2026-07-11.md, steps 1-3 — the safety net and refactor BEFORE the… |
-| **4bdd3586** | frontend-task | Sprint 07-11 P4b: style_field — FieldDef.OptionThemes +… | · | · | Phase 4 of docs/plans/sprint-2026-07-11.md, final step. Audience: the board viewer —… |
-| **abb13ae0** | programming-task | Sprint 07-11 P5a: lifecycle-schema ADR — RestartPolicy x… | · | · | Phase 5 of docs/plans/sprint-2026-07-11.md, first step — authored BEFORE the supervisor code so the… |
-| **23c7070a** | programming-task | Sprint 07-11 P5b: supervise kind:service — listener-ready… | · | · | Phase 5 of docs/plans/sprint-2026-07-11.md. Audience: the extension developer — judged on 'an… |
-| **eecf0e03** | programming-task | Sprint 07-11 P5c: reconcile-on-reload — service identity… | · | · | Phase 5 of docs/plans/sprint-2026-07-11.md, final step — its own design + implementation, DESIGNED… |
-| **f20e87d5** | api-task | Sprint 07-10 P4: board-create idempotency — server first,… | · | · | Phase 4 must-ship of docs/plans/sprint-2026-07-10.md. Verified 2026-07-10: no POST board-create… |
-| **506c1e9a** | task | Back up and move your workspace | · | · |  |
-| **9d28d311** | task | Make it yours: edit boards and card types | · | · |  |
-| **8b5a4937** | programming-task | Design: user-defined columns/card-types — how far does the… | · | #feature | QUESTION (review): when creating a board, columns and card types look fixed. Are they… |
-| **a810025b** | api-task | Security: escape/validate filter key paths in the filter… | · | · | Found by the Copilot review of PR #18 (https://github.com/somebox/cards/pull/18#issuecomment-4935628… |
-| **fec18019** | data-task | SQLite read pool: concurrent reads, single-writer… | · | · | ROADMAP §3 (card 87903967): MaxOpenConns(1) serializes ALL queries through one connection. Add a… |
-| **57db13a6** | frontend-task | labels theme: restore comment/link counts + blocked badge… | · | · | The density pass hides .card__stats entirely in the labels theme, losing comment/link counts and… |
-| **f6d2f5ea** | programming-task | UI: create a new board | · | #feature | A flow to create a board from the UI: name, columns (chosen from workspace.columns), card types,… |
-| **06a1c3c6** | frontend-task | Themes step 2: workspace-loaded theme files + sharing… | · | · | THEMES.md step 2 + sharing story. STATUS 2026-07-11 reconciliation with what shipped in Sprint P4… |
-| **0391870a** | infra-task | Test groundwork: Node unit coverage for create collect +… | · | #feature | Sprint 07-10 P4 must-ship #3 (tracker card_3f225267) — THIN harness: tests/js/ already has… |
-| **d39fd119** | programming-task | Sprint P2 — Accurate column census (>500 undercount) | jeremy | #feature | First user-visible win. Fix the 500-card undercount in the single shared countColumn so WIP/lane… |
-| **261891a2** | programming-task | Sprint 07-10 P5: sprint close — end-to-end walkthrough +… | · | · | Sprint-close gate (~30 min) of docs/plans/sprint-2026-07-10.md — the moment a human actually uses… |
-| **3f225267** | programming-task | Sprint 2026-07-10 tracker (closing map) — active plan is… | · | · | SPRINT TRACKER (CLOSING MAP) — plan: docs/plans/sprint-2026-07-10.md. |
-| **c08a6ead** | programming-task | Sprint 07-11 close: end-to-end walkthrough + export/import… | · | · | Sprint-close gate of docs/plans/sprint-2026-07-11.md (~30 min) — the moment a human uses the… |
-| **1b528909** | programming-task | Sprint 2026-07-11: make the composition substrate real… | · | · | SPRINT TRACKER — plan doc: docs/plans/sprint-2026-07-11.md. The board IS the plan: card bodies… |
-| **5bb8da43** | programming-task | Supervisor hardening: WaitDelay on service children,… | · | #bug | From the sprint 07-11 post-merge review (b23aff8) of the P5 service supervisor. Two… |
-| **4e443f8d** | api-task | MCP parity honesty: reflective Service enumeration,… | · | · | From the sprint 07-11 post-merge review (b23aff8) of the P2 MCP epic. The confirm gate and tools… |
-| **69c986cc** | frontend-task | style_field edges: deterministic modal board context +… | · | · | From the sprint 07-11 post-merge review (b23aff8) of the P4 style_field epic. Core feature is… |
-| **0f002686** | programming-task | Review minors batch: watch/reload startup races +… | · | · | Batch of small correctness/polish items from the sprint 07-11 post-merge review (b23aff8) —… |
-| **4455eb34** | programming-task | Land column-census COUNT(*) fix on main (e8b5565 stranded… | · | #bug | Residual from card_d39fd119 (accurate column census, closed done 2026-07-12): the fix… |
-| **3ec2c649** | infra-task | tests/js: createModal.collect() / create-payload unit… | · | · | Residual from card_0391870a (JS test harness, closed done 2026-07-12 against commit 8447cb7): the… |
-| **5ea0d5ef** | frontend-task | Board-create form: columns/types checkbox soup → shared… | · | · | Residual from card_f6d2f5ea (UI: create a new board, closed done 2026-07-12). Shipped: modal + POST… |
-| **cec11535** | research-goal | Investigate: read-only JSON view of definitions in the web… | · | · |  |
-| **8f8cbde7** | programming-task | Sprint 07-12 P1c: reconcile read-pool card IDs to one… | · | · | Phase 1 of docs/plans/sprint-2026-07-12.md — reconcile the read-pool card sprawl to ONE canonical… |
-| **29200d8b** | programming-task | Sprint 07-12 P1a: ledger truth — date min/max is shipped… | · | · | Phase 1 of docs/plans/sprint-2026-07-12.md — ledger truth (parallel bookkeeping, not the spine).… |
-| **61040a3e** | programming-task | Sprint 07-10 P2: AUTH.md (proposed) — identity &… | · | · | Phase 2 of docs/plans/sprint-2026-07-10.md. STATUS 2026-07-10: the RFC has been WRITTEN and FROZEN… |
-| **7a3f4ebd** | programming-task | Sprint 07-12 P1b: auth closeout — ROADMAP §1 → frozen… | · | · | Phase 1 of docs/plans/sprint-2026-07-12.md — auth closeout in ONE pass. S-sized: review + crosslink… |
-| **e3c63f21** | data-task | Sprint 07-10 P3b (go/no-go): temporal breaches as… | · | · | Phase 3b of docs/plans/sprint-2026-07-10.md — OPTIONAL expansion, not load-bearing for sprint… |
-| **77d6c663** | infra-task | Sprint 07-12 P2a: shared-cache test harness — one… | · | · | Phase 2 of docs/plans/sprint-2026-07-12.md — build the one seam the pool needs. Starts immediately;… |
-| **582f3072** | programming-task | Core: in-process event bus + subscriber fan-out | · | #feature | Core: in-process event bus + subscriber fan-out |
-| **6b9135f2** | programming-task | pi-cards: scaffold repo, pi package manifest, stub /cards… | pi | · | pi-cards series 1/8 — repo scaffold. Spec: docs/design/pi-extension.md (cards repo) §4, §10 P0. |
-| **fc89916f** | programming-task | pi-cards: CardsClient with HTTP + CLI backends, resolve… | pi | · | pi-cards series 2/8 — CardsClient with HTTP + CLI backends. Spec §5.1, §5.2, §5.4, §5.5, §8.… |
-| **470df9d7** | programming-task | pi-cards: read surface — list/get/search tools + text board… | pi | · | pi-cards series 3/8 — read surface: cards_list/get/search tools + text board (P0 exit). Spec §5.3,… |
-| **857194ea** | programming-task | pi-cards: write surface — create/update/comment/claim/releas… | pi | · | pi-cards series 4/8 — write surface + config file (P1). Spec §5.5, §6.3 rows 4-9, §7. Blocked by… |
-| **bda7cb6e** | programming-task | pi-cards: interactive board UI, SSE live refresh, /cards… | pi | · | pi-cards series 5/8 — interactive board UI, SSE live refresh, /cards show, #id mentions (P2). Spec… |
-| **00581679** | programming-task | pi-cards: card execution — cards_work tool + /cards work… | pi | · | pi-cards series 6/8 — card execution: cards_work tool + /cards work [--todo] (P3). Spec §6.5, §6.7.… |
-| **a3751720** | programming-task | pi-cards: git board persistence + interim worklog activity… | pi | · | pi-cards series 7/8 — git board persistence + interim worklog activity (P4a). Spec §6.6, §6.7.… |
-| **baff356d** | programming-task | pi-cards: typed per-type tools, dynamic-loading decision,… | pi | · | pi-cards series 8/8 — typed per-type tools, dynamic-loading decision, README/install + dogfood… |
-| **13d9342f** | infra-task | Move project board from examples/demo-workspace to .cards/… | pi | · | The project's live dogfooding board moves to the standard .cards/ workspace at repo root (walk-up… |
-| **277ea67b** | programming-task | Export: markdown roadmap artifact committed alongside… | pi | · | pi-cards sync: when exporting board state to git, also render a human-readable markdown overview… |
+| Card | Title | Summary |
+|---|---|---|
+| **a21414e3**<br>programming-task · foz | Hooks: parse extensions.yaml + declare hook table · #feature | Hooks: parse extensions.yaml + declare hook table |
+| **ce63538e**<br>programming-task · foz | UI Improvements | Rather than showing the status and "move" on the card overview, lets allow drag and drop for status… |
+| **c9574816**<br>programming-task | UI: drag-drop target must be the column, not cards · #bug | Bug: drop target is .card-aware so an empty destination column can't accept a drop (no card to… |
+| **ac6576db**<br>programming-task · foz | UI: design system + CSS architecture (tokens, components, layout) ·… | Foundational: extract inline CSS to a stylesheet, establish design tokens… |
+| **39f0ea14**<br>programming-task · pi | Core: release/unclaim primitive + force-move (transition-exempt) ·… | P0 — fixes the one-way-door problem found in dogfooding. (1) POST /cards/:id/release: clears owner,… |
+| **a1bd49a3**<br>programming-task · pi | Fix idempotency: wrong actor + schema PK allows cross-actor… | Two compounding bugs. (1) The idempotent() wrapper calls actorFromCtx() which reads context+default… |
+| **8e263901**<br>programming-task · pi | Guard nil/empty-index panics: main.run rest[0] + uiCreateCard… | Two panic paths on bad input. (1) cmd/cards main.run: peelGlobals consumes global flags (e.g.… |
+| **27232d27**<br>programming-task · pi | Harden store error mapping: GetCard/ClaimAtomic swallow DB errors… | Two fail-soft paths mask infrastructure failures. (1) Service.GetCard maps ANY store error to… |
+| **f809d58d**<br>programming-task · pi | Reconsider RemoveEntry CAS: HTTP DELETE passes version=0, skipping… | Service.RemoveEntry treats version==0 as 'no CAS' (skip the version check), and the HTTP DELETE… |
+| **30fbc175**<br>programming-task · pi | Return 400 on invalid cursor / SSE Last-Event-ID instead of… | ListCards and the SSE handler silently ignore unparseable cursors (DecodeCursor error → no filter →… |
+| **2973e7dc**<br>programming-task · pi | Infra: organize test suite + GitHub Actions workflow (push + PR) ·… | Audit test organization: ensure consistent table-driven tests, shared fixtures, no skipped… |
+| **2578a31e**<br>programming-task · pi | Enforce hook filter.type_id in MatchesEvent (parsed but never… | config.HookFilter has a TypeID field parsed from extensions.yaml, but Extension.MatchesEvent never… |
+| **efec7e5f**<br>programming-task · pi | UI: schema-driven rendering + field display hints… | ARCHITECTURAL — foundation for the UI work. Today the board card, modal, and detail view are partly… |
+| **55405c93**<br>programming-task · pi | Storage: import/export + git-backed mirror + checkpoint strategy ·… | Review the storage layer for portability. (1) Export workspace to a git-friendly format (markdown… |
+| **b01ee035**<br>programming-task | Schema: drop unused programming-task fields… | Measured field population across the 46 programming-task cards: pull_request_url 0/46,… |
+| **5008ee9d**<br>programming-task | Docs: CONCEPTS.md — workspaces/boards/card definitions +… | New docs/CONCEPTS.md defining the vocabulary (workspace, definitions, card types, cards, boards)… |
+| **e79fb682**<br>programming-task | Core/Board: enforce board default_filter (parsed but never… | Board.default_filter was declared + documented (SPEC §9) but applyBoardScope never applied it, so… |
+| **b86c7fe9**<br>programming-task | Ergonomics: zero-config start — cards init, .cards/… | Make Cards easy to start (the genesis of the workspace-concepts thread). Git-like model: `cards`… |
+| **e5952a89**<br>programming-task | Core/Schema: upgrade-schema + migrations (field_defaults) | Implement SPEC §6 schema upgrade: CardType.Migrations (target->{from,summary,field_defaults});… |
+| **92893455**<br>programming-task · foz | Fix cursor pagination off-by-one · #bug #urgent | ListCards returns one extra row when cursor is empty. |
+| **8c04883d**<br>programming-task | Harden transition_illegal error | Ensure valid_options are board column ids, not workspace ids. |
+| **ded1a923**<br>research-goal | Evaluate SQLite FTS5 vs LIKE for POC scale |  |
+| **cc445cc6**<br>programming-task | Add OpenAPI spec for /v1/cards · #feature | Generate an OpenAPI document from the existing handlers and serve it at /v1/openapi.json. |
+| **a9cc1a1d**<br>programming-task | Core/CLI: serverless CLI — auto-select backend (direct… | Let read/write CLI commands work without a running HTTP server, in addition to (not instead of) the… |
+| **5a0db35d**<br>programming-task | Core/SQLite: IMMEDIATE txns + synchronous=NORMAL + single… | Concurrency hardening prompted by the serverless CLI (server + direct CLI can write one DB file).… |
+| **bb0552e9**<br>programming-task | Docs: INTEGRATION.md — event taxonomy + integration contract | Define observe/act/coordinate planes and the mutation-vs-condition event taxonomy; monitors as… |
+| **cf592ae1**<br>programming-task | Events: actor/owner stream filters + GET /v1/events… | Add actor= (events a user caused) and owner= (events on a user's cards) to EventFilter/SSE, plus a… |
+| **b9661aef**<br>programming-task | Docs/SPEC: confirm + document integrator guarantees… | From picraft feedback (§3). Behavior already exists; make it normative in SPEC. (1) take-next:… |
+| **66abd5e1**<br>programming-task | Docs: INTEGRATOR-REFERENCE.md — single-page code-verified… | Single-page reference requested by picraft: data model, HTTP API, MCP surface, events, actor model,… |
+| **9f019476**<br>programming-task | Docs: EVENTS.md — events core design (revised, seam +… | Authored docs/EVENTS.md: single emission seam (Emitter), persist-before-publish,… |
+| **ef299ab9**<br>programming-task · pi | UI: easy release/unclaim + force-move via click/drag · #bug | P0 — the human surface for the release/force-move core primitives. (1) On a card, a small 'release'… |
+| **2ffcda5a**<br>programming-task | Demo hook: notifier on status_changed to review · #feature | Demo hook: notifier on status_changed to review |
+| **ea7ea2a3**<br>programming-task | CLI: cards run-extensions + cards do + cards extensions list · #feature | CLI: cards run-extensions + cards do + cards extensions list |
+| **03c836c3**<br>programming-task | Hooks: supervisor spawns subprocesses on event, at-most-once · #feature | Hooks: supervisor spawns subprocesses on event, at-most-once |
+| **168fa8c5**<br>programming-task · foz | UI: live board updates via SSE (htmx event-source) · #feature | UI: live board updates via SSE (htmx event-source) |
+| **f2afceb8**<br>programming-task · foz | SSE: GET /v1/events/stream with Last-Event-ID replay · #feature | SSE: GET /v1/events/stream with Last-Event-ID replay |
+| **21ef7213**<br>programming-task | Events: board-scoped event model (scope card\|board,… | events.card_id is currently NOT NULL, so board-level condition events (lane_drained, wip_exceeded)… |
+| **34b5ee95**<br>programming-task | b1 | d |
+| **da1c8658**<br>programming-task | a1 | d |
+| **88d226a8**<br>programming-task | Bob card | d |
+| **71fe97fe**<br>programming-task | Alice card | d |
+| **f30a6618**<br>programming-task | Events: condition events + monitors (WIP, time-in-status,… | Declarative board 'monitors' -> condition events on the bus. Instant (eval synchronously after the… |
+| **6a5cdf1c**<br>programming-task · jeremy | UI: click-to-edit card presentation (modal + detail page) · #feature | Current modal is a stack of per-field forms. Redesign: header with title/owner/status (clean, no… |
+| **69b21b14**<br>programming-task | UI: search / find cards (global on dashboard + local on… | Add a consistently-placed shared search component. Global on the main dashboard (home.html), local… |
+| **e644e482**<br>programming-task | UI: short-ID standardization (last 8 hex chars, alias… | Standardize on the last 8 hex chars of the card id as the user-facing short id (e.g. fca1f3d5).… |
+| **a06e0a24**<br>programming-task | UI: tags as chips with comma-separated edit mode + autocomplete ·… | Tags currently render as a plain text input. Show existing tags as chips (as on the board). In edit… |
+| **d03203cd**<br>programming-task | Events seam 1b: promote Bus to an interface + recording… | docs/EVENTS.md §6.2. Promote the concrete `Bus` type to a `Bus` interface; keep the existing… |
+| **9f5a5d9a**<br>programming-task | Events seam 1c: Emitter with stamp/dispatchCommitted… | docs/EVENTS.md §6.3/§7. Introduce `Emitter` wrapping EventLog+Bus+clock+observers. Internal… |
+| **758aaad3**<br>programming-task | Events seam 1d: commitCard helper; migrate ONE call site… | docs/EVENTS.md §7.1. Add `Service.commitCard(ctx, next, evs)` = stamp + store.UpdateCard (atomic) +… |
+| **c53b4535**<br>programming-task | Events seam 1e: migrate remaining 10 call sites to… | docs/EVENTS.md §7.1/§12 Step 1. Mechanically repeat the 1d pattern across the remaining mutation… |
+| **032e529b**<br>programming-task | Events seam 1a: extract EventLog interface + in-memory fake… | docs/EVENTS.md §6.1. Define `EventLog` interface (Append/List/Page/Replay) on top of the existing… |
+| **c8f5da3d**<br>programming-task | Events seam 1f: EventObserver chain + Recorder test helper | docs/EVENTS.md §6.4/§9 Recorder. Add `EventObserver func(*Event)` registered on Emitter, invoked… |
+| **22a83455**<br>programming-task | Events seam 1g: event contracts — typed diffs, golden JSON… | docs/EVENTS.md §4 (Event contracts and compatibility). Add named Go structs for each built-in diff… |
+| **97b29005**<br>programming-task | Events seam 2a: schema migration — nullable card_id, add… | docs/EVENTS.md §11.3/§12 Step 2. Migrate `events.card_id` to nullable; add `board_id` and `scope`… |
+| **f0569b62**<br>programming-task | Events seam 2b: BoardEvent(...) constructor + Emitter.Emit… | docs/EVENTS.md §3/§7.2. Add `BoardEvent(boardID, type, diff) *Event` constructor (Scope=board,… |
+| **6de97848**<br>programming-task | Events seam 2c: Bus/Feed filtering by scope + board_id | docs/EVENTS.md §6.2/§9. Extend `EventFilter.Matches` (already board_id-aware from seam 1b, now with… |
+| **1767f1e8**<br>programming-task | Events seam 3a: Signal path — one instant condition event… | docs/EVENTS.md §4/§11.2. Implement the smallest possible condition event end-to-end using… |
+| **18a67d08**<br>programming-task | Events seam 3b: persist:true escalation path for instant… | docs/EVENTS.md §4/§11.2, INTEGRATION.md §2.2 picraft feedback. picraft needs escalations… |
+| **996194d0**<br>programming-task | Events seam 3c: remaining instant conditions… | docs/EVENTS.md §11.2. Repeat the 3a/3b pattern for the remaining synchronously-evaluable condition… |
+| **2a221329**<br>programming-task | Events: transition_rejected (opt-in, watch failed… | Today transition_illegal is an API error only. Add an opt-in (monitors.emit_rejections) card-scoped… |
+| **6cc5a423**<br>programming-task | Events: GET /v1/breaches — current-conditions catch-up query | Catch-up path for ephemeral condition events. GET /v1/breaches?board_id=&type= (alias GET… |
+| **2f42b53c**<br>programming-task | Events seam 3d: deadline min-heap scheduler for temporal… | docs/EVENTS.md §11.2; design already refined in INTEGRATION.md comments (deadline min-heap, no… |
+| **abdf1c7e**<br>programming-task | Events seam 3e: wire status_timeout/card_idle onto the… | docs/EVENTS.md §11.2. With the scheduler validated in isolation (3d), wire the two temporal… |
+| **47ab05bc**<br>programming-task | take-next: retry to next candidate on a raced/lost claim | ClaimAtomic returns nil on a lost CAS (another claimant won); TakeNext then returns empty even if… |
+| **fca1f3d5**<br>programming-task | UI: multi-type visual design language (color/icons for type, state,… | Establish a consistent design language: each card type gets a color + icon (e.g. feature=blue/✨,… |
+| **440a2bed**<br>programming-task | UI: theme contract — html[data-theme] hook + named themes + reference… | Implement the theme contract documented in docs/DESIGN.md §Theming. Add the… |
+| **c46dfc21**<br>programming-task | UI: type chip is too prominent — minimal corner / icon indicator ·… | The white-on-black type stamp dominates every board card. Reduce it: a small corner indicator (icon… |
+| **b06b62f1**<br>programming-task | UI: match view/edit sizing + font for text fields and selects ·… | Inline edit controls must not shift size or font when clicked into. The edit input/textarea/select… |
+| **e897dc07**<br>programming-task | UI: restyle select / enum controls (tags, enums) to match the design… | Native select boxes for enums and the tags control look out of place against the print-shop design… |
+| **5227ba05**<br>programming-task | Docs: restructure docs/ directory for clarity · #feature | Review docs/ and reorganize: split into clear top-level areas (e.g. docs/concepts, docs/reference,… |
+| **600d1bf2**<br>programming-task | CLI/MCP: surface breaches + event feed | Add cards breaches + cards feed CLI commands and MCP breaches/events tools so the reactive engine… |
+| **c502c19e**<br>programming-task | Cleanup: remove dead UI server code + board actor identity · #feature | Frontend audit (2026-07) surfaced dead/stale server code: (1) unreachable UI handlers uiMoveCard… |
+| **512ad27b**<br>programming-task | UI: blocked badges + breaches page + live conditions | Phase 3: surface the reactive-coordination engine on the board — blocked badges (bulk… |
+| **a9bfec52**<br>programming-task | DEMO blocker | d |
+| **60927518**<br>programming-task | DEMO blocked task | d |
+| **9e6c5c5f**<br>programming-task | Core/UI: configured card ordering (sort param + lane_sort) | Phase 4: flat sort grammar (core.ParseSort, whitelist created_at/updated_at/title/fields.<id>),… |
+| **7aa92400**<br>programming-task · local-dev | UI: board filter dropdowns (assignee, type, dynamic fields) with clear… | Add filter controls to the board view. Dropdowns for assignee (owner) and card type, plus dynamic… |
+| **146260d9**<br>programming-task | Core/HTTP: card delete (DELETE /v1/cards/:id + tombstone… | Add a first-class card-delete path so junk/test/superseded cards can be hard-removed instead of… |
+| **b49d550a**<br>programming-task | Sprint 07-06 P1: short-id parity across all write verbs +… | Phase 1 of docs/plans/sprint-2026-07-06.md. Make "a card reference is a full id OR a last-8 short… |
+| **6545f8cd**<br>programming-task | CLI/demo: workspace init-vs-target friction + no artifact… | ADOPTED AS PHASE 2 of docs/plans/sprint-2026-07-06.md (depends on P1). Original Sprint A dogfood… |
+| **310b7a34**<br>programming-task | Sprint 07-06 P3: contract honesty — JSON-only pinned,… | Phase 3 of docs/plans/sprint-2026-07-06.md (decision checkpoint — depends on P1). Make the… |
+| **82a361c6**<br>programming-task | Sprint 07-06 P4: browser attachment upload — whole feature… | Phase 4 of docs/plans/sprint-2026-07-06.md (the payoff — depends on P2 + P3). Browser attachment… |
+| **cb9e2ca9**<br>programming-task | Schema: dogfood 3+ card types on engineering board (feature/bug/task)… | Add feature, bug, task card types to the demo workspace and use them on the engineering board.… |
+| **1aa43739**<br>programming-task | Infra: app + core versioning, release process, changelog,… | Establish versioning: a VERSION file or version package (semantic versioning), surfaced in… |
+| **a09f0455**<br>programming-task | UI: add comments + append repeating entries from the card modal ·… | Comments and repeating fields (e.g. work_log) render read-only in the modal today (card_body:… |
+| **b9e17b9e**<br>programming-task | UI: improve layout + display of repeating elements (feed / entries) ·… | Polish how repeating fields and comments display: the .entry/.feed layout, reverse-chrono for… |
+| **e71a64fa**<br>programming-task | UI/themes: remove labels template branch — make themes… | Prerequisite for extracting themes out of the embedded style.css (see docs/design/THEMES.md). The… |
+| **adb1ebcf**<br>programming-task | UI: new-card creation via the modal (placeholder + click-to-edit) ·… | Replace the separate full-page new-card form with the same modal card view used for editing. Empty… |
+| **e0a66371**<br>frontend-task · jeremy | Rebuild P0 — Alpine foundation, swapHTML seam, JS extraction,… | Done in efbebd0. Alpine 3.15.0 self-hosted+embedded; ONE swapHTML seam… |
+| **f638d7a2**<br>frontend-task · jeremy | Rebuild P1 — one field_control partial (canonical schema→control… | Done in b91a024. Three duplicated type→control switches (create form / modal click-to-edit / entry… |
+| **21bbb513**<br>frontend-task · jeremy | Rebuild P2 — htmx removed, X-Cards-Partial header · #feature | Done in e783092. htmx issued zero requests (no hx-* ever existed): dead listeners deleted (all real… |
+| **0595e67c**<br>frontend-task · jeremy | Rebuild P3 — multi-value core PR (FieldDef.Multiple + $has filter) ·… | Done in b8dda45 — and THIS CARD dogfoods the feature (its platforms field is a multi-value enum). |
+| **f4e2b74e**<br>frontend-task · jeremy | Rebuild P4 — leaf components on Alpine (comments, entries, artifacts)… | Done in aa62b36. cardsAPI (api.js): one fetch seam — actor header, structured-error parse,… |
+| **7dbed16e**<br>frontend-task · jeremy | Rebuild P6 — chip multiselect (multi enum/user) + policy-aware tag… | Done in 0212631 (this card's own platforms field was set with the new chip control's data shape).… |
+| **7f0dd456**<br>frontend-task · jeremy | Rebuild P5 — unified combobox (enum/user) + user-control normalization… | Done in b86d0d3. One filter-as-you-type combobox across create/edit/entry for single enum+user… |
+| **6624625b**<br>frontend-task · jeremy | Rebuild P7 — create-card + create-board forms on Alpine · #feature | Done in bb71d68. createModal + boardCreate Alpine components replace wireCreateModal +… |
+| **037a6f64**<br>frontend-task · jeremy | Rebuild P8 — edit modal on Alpine + honest 4xx save-conflict fix ·… | Done in 3ff4361. editField per [data-field] (x-show/x-cloak/clean-blur revert), editForm on… |
+| **096261c3**<br>programming-task · jeremy | Bug: stale-version modal save toasts 'Saved' while dropping the… | Found during rebuild Phase 2 verification (pre-existing, NOT a rebuild regression — reproduced… |
+| **3845a834**<br>frontend-task · jeremy | Sprint P4 — Workspace-loaded, discoverable, shareable themes · #feature | User-value payoff (depends on P3). Make the theme sharing story real AND usable. |
+| **93ef776d**<br>frontend-task · jeremy | Rebuild P9 — board UI 2.0: $store.live + fragment swap + reactive drag… | Done in 1af2dc2. Server: SSE keepalive as a ticker case in the SAME single-writer for/select (never… |
+| **60f2e6a8**<br>programming-task · jeremy | Bug: board filter stalls after several rapid changes (SSE… | REPORTED (review): changing a board's Type filter several times in a row makes filtering stop… |
+| **c5ce8635**<br>frontend-task · jeremy | Rebuild P10 — finale: detail-page save fix + breaches on $store.live +… | Done in a623c6c. Fixed a real regression: card_detail.html still called… |
+| **1f9bf7c4**<br>programming-task · jeremy | Sprint P3 — Theme foundations (stamp seam, validator, contract) ·… | Foundation phase. Land precursors that make workspace themes safe. |
+| **519e1688**<br>programming-task · jeremy | Sprint P1 — Restore drift audit (doc truth) · #feature | Foundation phase. Make source-of-truth docs describe the workspace-reload feature that actually… |
+| **82d71fdf**<br>programming-task | Sprint 07-10 P1a: docs + audit reconciliation (htmx→Alpine,… | Phase 1a of docs/plans/sprint-2026-07-10.md — make the entry docs tell the truth about the shipped… |
+| **deb93778**<br>programming-task | Sprint 07-10 P1b: backlog.jsonl reconcile + merge… | Phase 1b of docs/plans/sprint-2026-07-10.md — restore the 'committed JSONL is the portable state'… |
+| **fa239a92**<br>api-task | Sprint 07-10 P2: serve warns on non-loopback bind (tested) | The ONLY Go change of sprint Phase 2 (carve-out from the AUTH RFC — cheap, wanted under every… |
+| **79afdb51**<br>programming-task | Sprint 07-10 P3a: debt paydown cascade — containsStr merge… | Phase 3a of docs/plans/sprint-2026-07-10.md — the safe half of the P2 code-review batch… |
+| **96bc1d56**<br>frontend-task · jeremy | UI: create-card form correctness — labels, tags chips, open-on-create,… | Create modal still reads unfinished after rebuild P7. |
+| **0a642f56**<br>frontend-task | UI: harden $store.live reconnect (single socket, generation guard)… | Sprint 07-10 P4 must-ship #4 (tracker card_3f225267). Follow-on to P9 filter-stall fix and closed… |
+| **25023962**<br>frontend-task | UI: a11y pass on custom field controls + form errors · #feature | Custom combobox/multiselect/tag chips are progressive-enhancement wins but a11y is incomplete. |
+| **1aaa4611**<br>frontend-task | UI: header nav — active board, theme label, boards overflow, CTA… | Nav works for 2 demo boards; will fail for real workspaces. |
+| **72ebfbee**<br>programming-task | UI: spacing RULES + consistency pass (shipped PR #26; was CSS gate) ·… | Sprint 07-10 P4 must-ship #2 (tracker card_3f225267). PROMOTED from 'density polish' 2026-07-10:… |
+| **9174c0ea**<br>programming-task | Sprint 07-11 P0a: drain the review pile (~17) — per-card… | Phase 0 of docs/plans/sprint-2026-07-11.md — hygiene/unblocking gate. NO M-sized sprint work starts… |
+| **bac18224**<br>programming-task | Sprint 07-11 P0b: doc-truth sync — INTEGRATOR-REFERENCE,… | Phase 0 of docs/plans/sprint-2026-07-11.md — doc fixes ONLY, no code. Make the drift audit actually… |
+| **c3c0fac5**<br>api-task | Sprint 07-11 P2a: six MCP tools (remove_entry, remove_link,… | Phase 2 of docs/plans/sprint-2026-07-11.md. Audience: agents/MCP clients. Make MCP a first-class… |
+| **8b25cef9**<br>programming-task | Sprint 07-11 P2b: config semantic validation hardening —… | Phase 2 of docs/plans/sprint-2026-07-11.md. Enabling work for P4 (style_field load-time checks) and… |
+| **524c5758**<br>programming-task | Sprint 07-11 P3a: fix hook-supervisor stale-generation bug… | Phase 3 of docs/plans/sprint-2026-07-11.md, first step — a LIVE BUG today, and the --watch poller… |
+| **ec61b093**<br>programming-task | Sprint 07-11 P3b: --watch definitions poller +… | Phase 3 of docs/plans/sprint-2026-07-11.md. Audience: the definition author with a BROWSER open —… |
+| **1af1fd87**<br>frontend-task | Sprint 07-11 P4a: golden-render harness + TypeTheme… | Phase 4 of docs/plans/sprint-2026-07-11.md, steps 1-3 — the safety net and refactor BEFORE the… |
+| **4bdd3586**<br>frontend-task | Sprint 07-11 P4b: style_field — FieldDef.OptionThemes +… | Phase 4 of docs/plans/sprint-2026-07-11.md, final step. Audience: the board viewer —… |
+| **abb13ae0**<br>programming-task | Sprint 07-11 P5a: lifecycle-schema ADR — RestartPolicy x… | Phase 5 of docs/plans/sprint-2026-07-11.md, first step — authored BEFORE the supervisor code so the… |
+| **23c7070a**<br>programming-task | Sprint 07-11 P5b: supervise kind:service — listener-ready… | Phase 5 of docs/plans/sprint-2026-07-11.md. Audience: the extension developer — judged on 'an… |
+| **eecf0e03**<br>programming-task | Sprint 07-11 P5c: reconcile-on-reload — service identity… | Phase 5 of docs/plans/sprint-2026-07-11.md, final step — its own design + implementation, DESIGNED… |
+| **f20e87d5**<br>api-task | Sprint 07-10 P4: board-create idempotency — server first,… | Phase 4 must-ship of docs/plans/sprint-2026-07-10.md. Verified 2026-07-10: no POST board-create… |
+| **506c1e9a**<br>task | Back up and move your workspace |  |
+| **9d28d311**<br>task | Make it yours: edit boards and card types |  |
+| **8b5a4937**<br>programming-task | Design: user-defined columns/card-types — how far does the UI go? ·… | QUESTION (review): when creating a board, columns and card types look fixed. Are they… |
+| **a810025b**<br>api-task | Security: escape/validate filter key paths in the filter… | Found by the Copilot review of PR #18 (https://github.com/somebox/cards/pull/18#issuecomment-4935628… |
+| **fec18019**<br>data-task | SQLite read pool: concurrent reads, single-writer… | ROADMAP §3 (card 87903967): MaxOpenConns(1) serializes ALL queries through one connection. Add a… |
+| **57db13a6**<br>frontend-task | labels theme: restore comment/link counts + blocked badge… | The density pass hides .card__stats entirely in the labels theme, losing comment/link counts and… |
+| **f6d2f5ea**<br>programming-task | UI: create a new board · #feature | A flow to create a board from the UI: name, columns (chosen from workspace.columns), card types,… |
+| **06a1c3c6**<br>frontend-task | Themes step 2: workspace-loaded theme files + sharing… | THEMES.md step 2 + sharing story. STATUS 2026-07-11 reconciliation with what shipped in Sprint P4… |
+| **0391870a**<br>infra-task | Test groundwork: Node unit coverage for create collect + live state… | Sprint 07-10 P4 must-ship #3 (tracker card_3f225267) — THIN harness: tests/js/ already has… |
+| **d39fd119**<br>programming-task · jeremy | Sprint P2 — Accurate column census (>500 undercount) · #feature | First user-visible win. Fix the 500-card undercount in the single shared countColumn so WIP/lane… |
+| **261891a2**<br>programming-task | Sprint 07-10 P5: sprint close — end-to-end walkthrough +… | Sprint-close gate (~30 min) of docs/plans/sprint-2026-07-10.md — the moment a human actually uses… |
+| **3f225267**<br>programming-task | Sprint 2026-07-10 tracker (closing map) — active plan is… | SPRINT TRACKER (CLOSING MAP) — plan: docs/plans/sprint-2026-07-10.md. |
+| **c08a6ead**<br>programming-task | Sprint 07-11 close: end-to-end walkthrough + export/import… | Sprint-close gate of docs/plans/sprint-2026-07-11.md (~30 min) — the moment a human uses the… |
+| **1b528909**<br>programming-task | Sprint 2026-07-11: make the composition substrate real… | SPRINT TRACKER — plan doc: docs/plans/sprint-2026-07-11.md. The board IS the plan: card bodies… |
+| **5bb8da43**<br>programming-task | Supervisor hardening: WaitDelay on service children, bounded log… | From the sprint 07-11 post-merge review (b23aff8) of the P5 service supervisor. Two… |
+| **4e443f8d**<br>api-task | MCP parity honesty: reflective Service enumeration,… | From the sprint 07-11 post-merge review (b23aff8) of the P2 MCP epic. The confirm gate and tools… |
+| **69c986cc**<br>frontend-task | style_field edges: deterministic modal board context +… | From the sprint 07-11 post-merge review (b23aff8) of the P4 style_field epic. Core feature is… |
+| **0f002686**<br>programming-task | Review minors batch: watch/reload startup races +… | Batch of small correctness/polish items from the sprint 07-11 post-merge review (b23aff8) —… |
+| **4455eb34**<br>programming-task | Land column-census COUNT(*) fix on main (e8b5565 stranded on… | Residual from card_d39fd119 (accurate column census, closed done 2026-07-12): the fix… |
+| **3ec2c649**<br>infra-task | tests/js: createModal.collect() / create-payload unit… | Residual from card_0391870a (JS test harness, closed done 2026-07-12 against commit 8447cb7): the… |
+| **5ea0d5ef**<br>frontend-task | Board-create form: columns/types checkbox soup → shared… | Residual from card_f6d2f5ea (UI: create a new board, closed done 2026-07-12). Shipped: modal + POST… |
+| **cec11535**<br>research-goal | Investigate: read-only JSON view of definitions in the web… |  |
+| **8f8cbde7**<br>programming-task | Sprint 07-12 P1c: reconcile read-pool card IDs to one… | Phase 1 of docs/plans/sprint-2026-07-12.md — reconcile the read-pool card sprawl to ONE canonical… |
+| **29200d8b**<br>programming-task | Sprint 07-12 P1a: ledger truth — date min/max is shipped… | Phase 1 of docs/plans/sprint-2026-07-12.md — ledger truth (parallel bookkeeping, not the spine).… |
+| **61040a3e**<br>programming-task | Sprint 07-10 P2: AUTH.md (proposed) — identity &… | Phase 2 of docs/plans/sprint-2026-07-10.md. STATUS 2026-07-10: the RFC has been WRITTEN and FROZEN… |
+| **7a3f4ebd**<br>programming-task | Sprint 07-12 P1b: auth closeout — ROADMAP §1 → frozen… | Phase 1 of docs/plans/sprint-2026-07-12.md — auth closeout in ONE pass. S-sized: review + crosslink… |
+| **e3c63f21**<br>data-task | Sprint 07-10 P3b (go/no-go): temporal breaches as… | Phase 3b of docs/plans/sprint-2026-07-10.md — OPTIONAL expansion, not load-bearing for sprint… |
+| **77d6c663**<br>infra-task | Sprint 07-12 P2a: shared-cache test harness — one… | Phase 2 of docs/plans/sprint-2026-07-12.md — build the one seam the pool needs. Starts immediately;… |
+| **582f3072**<br>programming-task | Core: in-process event bus + subscriber fan-out · #feature | Core: in-process event bus + subscriber fan-out |
+| **6b9135f2**<br>programming-task · pi | pi-cards: scaffold repo, pi package manifest, stub /cards… | pi-cards series 1/8 — repo scaffold. Spec: docs/design/pi-extension.md (cards repo) §4, §10 P0. |
+| **fc89916f**<br>programming-task · pi | pi-cards: CardsClient with HTTP + CLI backends, resolve… | pi-cards series 2/8 — CardsClient with HTTP + CLI backends. Spec §5.1, §5.2, §5.4, §5.5, §8.… |
+| **470df9d7**<br>programming-task · pi | pi-cards: read surface — list/get/search tools + text board… | pi-cards series 3/8 — read surface: cards_list/get/search tools + text board (P0 exit). Spec §5.3,… |
+| **857194ea**<br>programming-task · pi | pi-cards: write surface — create/update/comment/claim/releas… | pi-cards series 4/8 — write surface + config file (P1). Spec §5.5, §6.3 rows 4-9, §7. Blocked by… |
+| **bda7cb6e**<br>programming-task · pi | pi-cards: interactive board UI, SSE live refresh, /cards… | pi-cards series 5/8 — interactive board UI, SSE live refresh, /cards show, #id mentions (P2). Spec… |
+| **00581679**<br>programming-task · pi | pi-cards: card execution — cards_work tool + /cards work… | pi-cards series 6/8 — card execution: cards_work tool + /cards work [--todo] (P3). Spec §6.5, §6.7.… |
+| **a3751720**<br>programming-task · pi | pi-cards: git board persistence + interim worklog activity… | pi-cards series 7/8 — git board persistence + interim worklog activity (P4a). Spec §6.6, §6.7.… |
+| **baff356d**<br>programming-task · pi | pi-cards: typed per-type tools, dynamic-loading decision,… | pi-cards series 8/8 — typed per-type tools, dynamic-loading decision, README/install + dogfood… |
+| **13d9342f**<br>infra-task · pi | Move project board from examples/demo-workspace to .cards/… | The project's live dogfooding board moves to the standard .cards/ workspace at repo root (walk-up… |
+| **277ea67b**<br>programming-task · pi | Export: markdown roadmap artifact committed alongside… | pi-cards sync: when exporting board state to git, also render a human-readable markdown overview… |
