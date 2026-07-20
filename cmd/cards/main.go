@@ -12,9 +12,11 @@ import (
 	"os"
 
 	"github.com/somebox/cards/internal/cli"
+	"github.com/somebox/cards/internal/httpapi"
 )
 
 func main() {
+	httpapi.SetVersion(shortVersion()) // web UI nav shows the same version as --help
 	if err := run(os.Args[1:]); err != nil {
 		// A --help request is a successful, zero-exit outcome; the flags were
 		// already printed to stdout by the command's FlagSet.
@@ -181,7 +183,11 @@ func runCLI(cfg cli.Config, rest []string) error {
 	return cmd.Run(cli.NewWithTransport(cfg, backend), rest[1:])
 }
 
-const usage = `Cards — typed-card coordination.
+// usage is built at init so the header carries the running build's version —
+// the same string the web UI nav shows (httpapi.SetVersion in serve.go).
+var usage = "Cards " + shortVersion() + " — typed-card coordination." + usageBody
+
+const usageBody = `
 
 Usage:
   cards                                Interactive TUI on a terminal; this help otherwise

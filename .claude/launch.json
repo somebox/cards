@@ -6,6 +6,12 @@
       "runtimeExecutable": "./cards",
       "runtimeArgs": ["serve", "--workspace", "examples/demo-workspace", "--port", "8788"],
       "port": 8788
+    },
+    {
+      "name": "cards-preview",
+      "runtimeExecutable": "go",
+      "runtimeArgs": ["run", "./cmd/cards", "serve", "--workspace", "./.cards", "--port", "8799"],
+      "port": 8799
     }
   ]
 }

@@ -271,6 +271,8 @@ a:hover { text-decoration: underline; }
   font-family: var(--font-mono); letter-spacing: .01em;
 }
 .app-nav .spacer { flex: 1; }
+/* Binary version — quiet reference text, never a control. */
+.app-nav .app-version { color: var(--c-faint); font-family: var(--font-mono); font-size: var(--t-xs); }
 /* New-card CTA — white overprint on the ink bar, so the action stands out.
    Fixed light/ink (lives on the always-dark nav) — not theme-remapped. */
 /* Scoped to .app-nav so it outranks `.app-nav a` (0,1,1) without !important. */
@@ -652,6 +654,11 @@ main { padding: var(--s-5); max-width: 100%; }
   -webkit-mask: var(--ico) center / contain no-repeat; mask: var(--ico) center / contain no-repeat;
 }
 .card__stat[data-stat="comments"] { --ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z'/%3E%3C/svg%3E"); }
+/* Attachment count (paperclip). Hidden in the default theme, where the
+   thumbnails/file chips in .card__artifacts already make attachments
+   visible at grid level; dense themes that suppress thumbnails (labels)
+   promote this chip instead — same pattern as .card__secondary. */
+.card__stat[data-stat="attachments"] { display: none; --ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48'/%3E%3C/svg%3E"); }
 .card__stat[data-stat="out"] { color: var(--rel-out); --ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7 17 17 7'/%3E%3Cpath d='M8 7h9v9'/%3E%3C/svg%3E"); }
 .card__stat[data-stat="in"] { color: var(--rel-in); --ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M17 7 7 17'/%3E%3Cpath d='M16 17H7V8'/%3E%3C/svg%3E"); }
 .card__stat[data-stat="blocked"] { color: var(--link-blocked-by); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; --ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='m5.6 5.6 12.8 12.8'/%3E%3C/svg%3E"); }
@@ -1405,6 +1412,10 @@ html[data-theme="labels"] .card__title a {
 }
 html[data-theme="labels"] .card__meta,
 html[data-theme="labels"] .card__preview { display: none; }
+/* No thumbnails on adhesive labels — attachments surface as the paperclip
+   count in the stats strip instead (never invisible at grid level). */
+html[data-theme="labels"] .card__artifacts { display: none; }
+html[data-theme="labels"] .card__stat[data-stat="attachments"] { display: inline-flex; }
 /* Stats strip (57db13a6): counts + blocked return in a slim third row —
    the time stat stays hidden (the secondary row shows updated), and with
    nothing visible the strip collapses to zero height. Blocked keeps its

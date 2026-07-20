@@ -8,7 +8,39 @@ backwards-compatible fixes.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-07-20
+
 ### Added
+- **TUI filter/sort parity.** The terminal UI slices a board the way the web
+  UI does: `f` opens a server-side filter prompt (saved filters, `owner:me`
+  substitution), `F` cycles the sort presets, `T` narrows by card type, and
+  `/` stays local find. The presets are shared code with the web UI
+  (`internal/uioptions`), so the two surfaces cannot drift; active directives
+  survive live refreshes.
+- **Portable artifact bundles.** `cards export --with-artifacts` copies the
+  referenced attachment blobs (sha256-verified) into an `artifacts/`
+  directory beside the JSONL snapshot; `cards import --with-artifacts`
+  restores them into a fresh workspace and fails loudly — before any card
+  state lands — on a tampered, corrupt, or missing blob. Default export and
+  import stay pointer-only. `scripts/board.sh` exports bundles and
+  auto-detects committed blobs on import, re-verifying them on every sync.
+- **A runnable extension seed.** The demo workspace ships `review-bot.mjs`
+  (~150 lines, zero dependencies): a supervised `service` extension that
+  listens on the SSE stream, picks up cards reaching review, and comments on
+  them — with an end-to-end test covering SSE resumption across a server
+  restart. The copy-me template for "extensions over plugins".
+- **Headless TUI screenshots.** `tui.Snapshot` renders a frame without a
+  terminal (keys can open modals for the capture); `scripts/tui-screenshots.sh`
+  converts the ANSI frame to HTML and captures it with the same headless
+  Chrome the web-UI screenshots use. `docs/assets/img/tui-*.png` are generated.
+- **The web UI and `cards --help` show the binary version.** The nav carries
+  a quiet version chip and the help header reads
+  `Cards v0.2.0 (<commit>) — typed-card coordination.` — the same string
+  `cards version` reports.
+- **Attachments are visible in dense themes.** Board cards gained a
+  paperclip count in the stats strip for themes that suppress thumbnails —
+  the labels theme shows it (and now explicitly hides thumbnail blocks);
+  the default theme keeps its image thumbnails and download chips.
 - **Create boards from the UI, and reload definitions without a restart.**
   `POST /v1/workspace/reload` (and `cards reload`) re-runs the definitions
   loader and atomically swaps the workspace: a load error returns the
@@ -50,6 +82,21 @@ backwards-compatible fixes.
   "card changed — reload" instead of clobbering. Entry feeds got a layout
   pass: author chip, right-aligned timestamp, aligned key/value grid,
   hover-revealed actions.
+
+### Changed
+- **The ocean example theme was removed** from the demo workspace and the
+  project board; `jeeruh` remains the workspace-theme starting point and the
+  themes guide now uses a neutral `my-theme` example.
+- **Release workflow actions bumped to their Node 24 majors**
+  (`upload-artifact` v7, `download-artifact` v8, `action-gh-release` v3);
+  artifact downloads now fail on digest mismatch by default.
+
+### Internal
+- **Docs-integrity guards grew teeth.** `docs/reference/implementation-status.md`
+  anchors are symbol-pinned (`<!-- guard: symbol=... -->`) and a docaudit
+  test fails when a cited symbol moves away from its cited line; strict mode
+  runs under `-tags strictdoc`. The JSONL snapshot contract is pinned by
+  byte-stability and frozen-fixture tests plus a `board.sh` smoke test.
 
 ## [0.1.3] - 2026-07-06
 
@@ -192,7 +239,8 @@ SSE — to a shippable baseline, and adds the following.
   already fixed); completed review/planning artifacts were archived under
   `docs/archive/`.
 
-[Unreleased]: https://github.com/somebox/cards/compare/v0.1.3...HEAD
+[Unreleased]: https://github.com/somebox/cards/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/somebox/cards/compare/v0.1.3...v0.2.0
 [0.1.3]: https://github.com/somebox/cards/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/somebox/cards/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/somebox/cards/compare/v0.1.0...v0.1.1

@@ -78,6 +78,20 @@ func sortedThemeNames(loaded map[string]*core.Theme) []string {
 	return names
 }
 
+// appVersion is the process-wide binary version shown in the web UI nav.
+// A package var (not per-Server state) on purpose: the version is immutable
+// for the life of the process and must read the same across workspace-reload
+// Server generations. cmd/cards sets it once at startup.
+var appVersion = "dev"
+
+// SetVersion records the binary's version string for the UI (call once at
+// process start, before serving).
+func SetVersion(v string) {
+	if v != "" {
+		appVersion = v
+	}
+}
+
 // New constructs the Server, parsing embedded templates into per-page sets.
 // themes are the workspace-loaded themes (config.Result.Themes); nil is fine
 // (only the embedded themes are then available).
@@ -112,6 +126,9 @@ func New(svc *core.Service, ws *core.Workspace, types map[string]*core.CardType,
 		// workspace reload (each a new Server generation) serves fresh CSS to
 		// returning tabs. Captures this generation's stamp.
 		"assetStamp": func() int64 { return assetStamp },
+		// appVersion is the running binary's version for the nav (set once at
+		// process start via SetVersion; identical across reload generations).
+		"appVersion": func() string { return appVersion },
 		// shortID returns the leading 8 hex chars of a card id (matches substr(id,6,8) resolution) for compact display;
 		// the full id is kept canonical in store/API JSON and in title="". (1e)
 		"shortID": shortID,

@@ -23,22 +23,22 @@ theme applies when `html[data-theme="my-theme"]` is set. The base UI is
 complete on its own — a theme is pure override, and deleting every theme file
 leaves a working UI.
 
-```css title="definitions/themes/ocean.css (from the demo workspace)"
-html[data-theme="ocean"] {
+```css title="definitions/themes/my-theme.css (a minimal example)"
+html[data-theme="my-theme"] {
   --c-accent: #1c7ed6;
   --c-flat: #dbeafe;
   --c-surface: #f2f8fd;
   --type-task: #1c7ed6;
 }
-html[data-theme="ocean"] .card { border-radius: 10px; }
-html[data-theme="ocean"] .app-nav {
+html[data-theme="my-theme"] .card { border-radius: 10px; }
+html[data-theme="my-theme"] .app-nav {
   background: linear-gradient(90deg, #0b4a86, #1c7ed6);
 }
 ```
 
-```json title="definitions/themes/ocean.json"
+```json title="definitions/themes/my-theme.json"
 {
-  "name": "ocean",
+  "name": "my-theme",
   "contract": 1,
   "description": "Cool blues, soft surfaces.",
   "fonts": "https://fonts.googleapis.com/css2?family=Sono:wght@200;400;600&display=swap"
@@ -134,6 +134,6 @@ targets a future version of the hook catalog.
 
 - `journal` and `labels` ship in the binary (view with `?theme=journal` /
   `?theme=labels` on any workspace).
-- `ocean` and `jeeruh` ship as workspace themes in
+- `jeeruh` ships as a workspace theme in
   [`examples/demo-workspace/definitions/themes/`](https://github.com/somebox/cards/tree/main/examples/demo-workspace/definitions/themes)
-  — the best starting points to copy.
+  — the best starting point to copy.
