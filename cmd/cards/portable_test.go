@@ -16,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/somebox/cards/internal/artifacts"
 	"github.com/somebox/cards/internal/core"
 	"github.com/somebox/cards/internal/sqlite"
 	"github.com/somebox/cards/internal/sqlite/sqlitetest"
@@ -734,5 +735,226 @@ func TestBoardScriptSmoke(t *testing.T) {
 	body, _ := os.ReadFile(hook)
 	if !strings.Contains(string(body), "board.sh export") || !strings.Contains(string(body), "git add") {
 		t.Errorf("installed hook missing the auto-export dance:\n%s", body)
+	}
+}
+
+// --- artifact bundles (--with-artifacts) -------------------------------------
+
+// bundleTypes is the minimal type map for artifact-ref discovery: one type
+// with a top-level artifact field and a repeating field with an artifact item.
+func bundleTypes() map[string]*core.CardType {
+	return map[string]*core.CardType{
+		"programming-task": {
+			ID: "programming-task", SchemaVersion: 2,
+			Fields: []core.FieldDef{
+				{ID: "branch", Type: core.FieldString},
+				{ID: "screenshot", Type: core.FieldArtifact},
+				{ID: "work_log", Type: core.FieldRepeating, ItemFields: []core.FieldDef{
+					{ID: "notes", Type: core.FieldText},
+					{ID: "capture", Type: core.FieldArtifact},
+				}},
+			},
+		},
+	}
+}
+
+// seedArtifactCard stores blob bytes in root and inserts a card whose
+// screenshot field points at it. Returns the pointer meta.
+func seedArtifactCard(t *testing.T, st *sqlite.Store, root string, content string) artifacts.Meta {
+	t.Helper()
+	am, err := artifacts.New(root)
+	if err != nil {
+		t.Fatalf("artifacts root: %v", err)
+	}
+	meta, err := am.Put(strings.NewReader(content))
+	if err != nil {
+		t.Fatalf("put blob: %v", err)
+	}
+	at := time.Date(2026, 7, 20, 12, 0, 0, 0, time.UTC)
+	c := &core.Card{
+		ID: "card_shot", WorkspaceID: "demo", TypeID: "programming-task", SchemaVersion: 2,
+		Title: "Card with a screenshot", Status: "done",
+		Fields: map[string]any{
+			"branch": "main",
+			"screenshot": map[string]any{
+				"uri": meta.URI, "mime": meta.MIME, "size": meta.Size, "sha256": meta.SHA256,
+			},
+		},
+		Version: 1, CreatedAt: at, UpdatedAt: at, CreatedBy: "foz",
+	}
+	if err := st.InsertCard(context.Background(), c, nil); err != nil {
+		t.Fatalf("seed artifact card: %v", err)
+	}
+	return meta
+}
+
+// TestExportImportWithArtifacts is the card's DONE-WHEN: a bundle export's
+// artifact bytes round-trip through import into a fresh workspace, and the
+// restored blob resolves sha256-verified.
+func TestExportImportWithArtifacts(t *testing.T) {
+	ctx := context.Background()
+	srcSt, ws := newStore(t)
+	defer srcSt.Close()
+	srcRoot := filepath.Join(t.TempDir(), "artifacts")
+	meta := seedArtifactCard(t, srcSt, srcRoot, "png bytes, allegedly")
+	types := bundleTypes()
+
+	// Export: JSONL + blobs into a bundle dir.
+	bundleDir := t.TempDir()
+	var buf bytes.Buffer
+	if _, err := exportJSONL(ctx, srcSt, &buf, ws, true); err != nil {
+		t.Fatalf("export jsonl: %v", err)
+	}
+	am, err := artifacts.New(srcRoot)
+	if err != nil {
+		t.Fatalf("artifacts: %v", err)
+	}
+	n, err := exportArtifacts(ctx, srcSt, types, am, filepath.Join(bundleDir, "artifacts"))
+	if err != nil {
+		t.Fatalf("export artifacts: %v", err)
+	}
+	if n != 1 {
+		t.Fatalf("exported %d blobs, want 1", n)
+	}
+	blobPath := filepath.Join(bundleDir, "artifacts", filepath.FromSlash(meta.URI))
+	if _, err := os.Stat(blobPath); err != nil {
+		t.Fatalf("bundle blob missing: %v", err)
+	}
+
+	// Import into a fresh workspace: blobs first, then state.
+	dstSt, _ := newStore(t)
+	defer dstSt.Close()
+	dstRoot := filepath.Join(t.TempDir(), "artifacts")
+	dstAM, err := artifacts.New(dstRoot)
+	if err != nil {
+		t.Fatalf("artifacts: %v", err)
+	}
+	n, err = restoreArtifacts(bytes.NewReader(buf.Bytes()), types, filepath.Join(bundleDir, "artifacts"), dstAM)
+	if err != nil {
+		t.Fatalf("restore artifacts: %v", err)
+	}
+	if n != 1 {
+		t.Fatalf("restored %d blobs, want 1", n)
+	}
+	if _, err := importJSONL(ctx, dstSt, bytes.NewReader(buf.Bytes())); err != nil {
+		t.Fatalf("import jsonl: %v", err)
+	}
+
+	// The restored card's pointer resolves in the destination workspace and
+	// the bytes hash to the pointer's sha256.
+	got, err := dstSt.GetCard(ctx, "card_shot")
+	if err != nil {
+		t.Fatalf("get imported card: %v", err)
+	}
+	refs := artifactRefs(got, types)
+	if len(refs) != 1 || refs[0].SHA256 != meta.SHA256 {
+		t.Fatalf("imported refs = %+v, want sha %s", refs, meta.SHA256)
+	}
+	p, err := dstAM.Resolve(refs[0].URI)
+	if err != nil {
+		t.Fatalf("restored blob does not resolve: %v", err)
+	}
+	sum, err := fileSHA256(p)
+	if err != nil {
+		t.Fatalf("hash restored blob: %v", err)
+	}
+	if sum != meta.SHA256 {
+		t.Fatalf("restored blob sha %s, want %s", sum, meta.SHA256)
+	}
+}
+
+// TestRestoreArtifactsTamperedFailsLoudly is the card's negative proof: a
+// bundle blob whose bytes do not hash to the card's pointer must fail the
+// import before any state lands.
+func TestRestoreArtifactsTamperedFailsLoudly(t *testing.T) {
+	ctx := context.Background()
+	srcSt, ws := newStore(t)
+	defer srcSt.Close()
+	srcRoot := filepath.Join(t.TempDir(), "artifacts")
+	meta := seedArtifactCard(t, srcSt, srcRoot, "original bytes")
+	types := bundleTypes()
+
+	bundleDir := t.TempDir()
+	var buf bytes.Buffer
+	if _, err := exportJSONL(ctx, srcSt, &buf, ws, true); err != nil {
+		t.Fatalf("export jsonl: %v", err)
+	}
+	am, _ := artifacts.New(srcRoot)
+	if _, err := exportArtifacts(ctx, srcSt, types, am, filepath.Join(bundleDir, "artifacts")); err != nil {
+		t.Fatalf("export artifacts: %v", err)
+	}
+
+	// Tamper with the bundle blob.
+	blobPath := filepath.Join(bundleDir, "artifacts", filepath.FromSlash(meta.URI))
+	if err := os.WriteFile(blobPath, []byte("tampered bytes"), 0o644); err != nil {
+		t.Fatalf("tamper: %v", err)
+	}
+
+	dstAM, _ := artifacts.New(filepath.Join(t.TempDir(), "artifacts"))
+	_, err := restoreArtifacts(bytes.NewReader(buf.Bytes()), types, filepath.Join(bundleDir, "artifacts"), dstAM)
+	if err == nil {
+		t.Fatal("tampered bundle imported without error")
+	}
+	if !strings.Contains(err.Error(), meta.SHA256) {
+		t.Fatalf("error should name the expected sha256; got: %v", err)
+	}
+}
+
+// TestExportArtifactsSelfSafe covers the dogfooding layout where the bundle
+// artifacts dir IS the workspace artifacts root (.cards/backlog.jsonl beside
+// .cards/artifacts/): export must verify in place, never copy a blob onto
+// itself, and leave the bytes intact.
+func TestExportArtifactsSelfSafe(t *testing.T) {
+	ctx := context.Background()
+	st, _ := newStore(t)
+	defer st.Close()
+	root := filepath.Join(t.TempDir(), "artifacts")
+	meta := seedArtifactCard(t, st, root, "self-hosted bytes")
+	types := bundleTypes()
+
+	am, _ := artifacts.New(root)
+	n, err := exportArtifacts(ctx, st, types, am, root) // destRoot == workspace root
+	if err != nil {
+		t.Fatalf("self export: %v", err)
+	}
+	if n != 1 {
+		t.Fatalf("verified %d blobs, want 1", n)
+	}
+	p, err := am.Resolve(meta.URI)
+	if err != nil {
+		t.Fatalf("blob vanished: %v", err)
+	}
+	sum, _ := fileSHA256(p)
+	if sum != meta.SHA256 {
+		t.Fatalf("blob corrupted in place: sha %s, want %s", sum, meta.SHA256)
+	}
+}
+
+// TestExportArtifactsMissingBlobFailsLoudly: a pointer whose bytes are absent
+// from the workspace artifacts root must fail the bundle export — silently
+// dropping bytes would produce a bundle that lies about its completeness.
+func TestExportArtifactsMissingBlobFailsLoudly(t *testing.T) {
+	ctx := context.Background()
+	st, _ := newStore(t)
+	defer st.Close()
+	root := filepath.Join(t.TempDir(), "artifacts")
+	meta := seedArtifactCard(t, st, root, "soon to vanish")
+	types := bundleTypes()
+
+	am, _ := artifacts.New(root)
+	p, err := am.Resolve(meta.URI)
+	if err != nil {
+		t.Fatalf("resolve: %v", err)
+	}
+	if err := os.Remove(p); err != nil {
+		t.Fatalf("remove blob: %v", err)
+	}
+
+	_, err = exportArtifacts(ctx, st, types, am, filepath.Join(t.TempDir(), "artifacts"))
+	if err == nil {
+		t.Fatal("export succeeded with missing blob")
+	}
+	if !strings.Contains(err.Error(), "missing") {
+		t.Fatalf("error should say the bytes are missing; got: %v", err)
 	}
 }

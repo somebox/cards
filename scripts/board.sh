@@ -42,8 +42,12 @@ die() { echo "board.sh: $*" >&2; exit 1; }
 
 cmd_export() {
   [ -d "$WS/definitions" ] || die "no workspace at $WS (missing definitions/)"
-  "${CARDS[@]}" export --workspace "$WS" --state-only --out "$SNAP"
-  echo "board.sh: wrote $SNAP — commit it to share the board."
+  # --with-artifacts: the snapshot lives inside the workspace dir, so the
+  # bundle's artifacts/ IS the workspace artifacts root — the flag verifies
+  # every referenced blob's sha256 in place (and fails loudly on rot) so the
+  # committed artifacts stay trustworthy.
+  "${CARDS[@]}" export --workspace "$WS" --state-only --with-artifacts --out "$SNAP"
+  echo "board.sh: wrote $SNAP — commit it (with $WS/artifacts/) to share the board."
 }
 
 cmd_import() {
@@ -55,8 +59,14 @@ cmd_import() {
   fi
   # import refuses a non-empty workspace (never a silent overwrite); on a fresh
   # clone the DB is absent/empty, so this just works. Use --force to re-sync a
-  # machine that already has board state.
-  "${CARDS[@]}" import --workspace "$WS" --in "$SNAP"
+  # machine that already has board state. When the repo carries committed
+  # artifact bytes (artifacts/ beside the snapshot), --with-artifacts
+  # re-verifies each blob against its card's sha256 pointer while restoring;
+  # without the directory this stays the pointer-only restore.
+  local wa=""
+  [ -d "$WS/artifacts" ] && wa="--with-artifacts"
+  # shellcheck disable=SC2086 — $wa is one flag or empty, splitting intended
+  "${CARDS[@]}" import --workspace "$WS" $wa --in "$SNAP"
   echo "board.sh: restored $SNAP into $WS."
 }
 

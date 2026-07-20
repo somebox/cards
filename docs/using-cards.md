@@ -164,11 +164,16 @@ share a server, or partition who touches what.
 holds `{uri, mime, size, sha256}`, and local artifact bytes live under the
 workspace's `artifacts/` directory, which is gitignored by default and not
 part of the snapshot. On a fresh clone, artifact links from other machines
-don't resolve. Your options: commit `artifacts/` (or put it under git LFS)
-if the attachments are small evidence files worth versioning; use
-`artifact_policy: "uri"` to reference files in shared storage (S3, a NAS)
-for heavy payloads; or treat artifacts as machine-local working files. The
-`sha256` in the field lets you verify bytes that traveled separately.
+don't resolve. Your options: export a **bundle** — `cards export
+--with-artifacts --out backlog.jsonl` copies the referenced blobs
+(sha256-verified) into an `artifacts/` directory beside the snapshot, and
+`cards import --with-artifacts --in backlog.jsonl` restores them into the
+target workspace, failing loudly on any hash mismatch; commit `artifacts/`
+(or put it under git LFS) if the attachments are small evidence files worth
+versioning; use `artifact_policy: "uri"` to reference files in shared
+storage (S3, a NAS) for heavy payloads; or treat artifacts as machine-local
+working files. The `sha256` in the field lets you verify bytes that
+traveled separately.
 
 ## The operations
 

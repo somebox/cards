@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"github.com/somebox/cards/internal/artifacts"
 )
 
 // exportCmd dumps all card data (cards, events, comments, links, users) as
@@ -18,6 +20,7 @@ func exportCmd(args []string) error {
 	out := fs.String("out", "", "output file (default: stdout)")
 	format := fs.String("format", "jsonl", "output format: jsonl (default)")
 	stateOnly := fs.Bool("state-only", false, "omit the event journal — canonical card-state export (events are SQLite-owned)")
+	withArtifacts := fs.Bool("with-artifacts", false, "also copy referenced artifact bytes into an artifacts/ dir beside --out (sha256-verified bundle)")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -26,6 +29,9 @@ func exportCmd(args []string) error {
 	}
 	if *format != "jsonl" {
 		return fmt.Errorf("unsupported format %q (only jsonl)", *format)
+	}
+	if *withArtifacts && *out == "" {
+		return fmt.Errorf("--with-artifacts requires --out (artifact bytes are written beside the output file)")
 	}
 	abs, err := filepath.Abs(*workspace)
 	if err != nil {
@@ -60,8 +66,28 @@ func exportCmd(args []string) error {
 		return err
 	}
 
+	blobs := 0
+	if *withArtifacts {
+		am, err := artifacts.New(artifactsRoot(abs))
+		if err != nil {
+			return err
+		}
+		absOut, err := filepath.Abs(*out)
+		if err != nil {
+			return err
+		}
+		blobs, err = exportArtifacts(ctx, st, result.CardTypes, am, filepath.Join(filepath.Dir(absOut), "artifacts"))
+		if err != nil {
+			return err
+		}
+	}
+
 	// Summary to stderr (so stdout stays clean JSONL).
-	fmt.Fprintf(os.Stderr, "exported: %d cards, %d events, %d comments, %d links, %d users\n",
+	fmt.Fprintf(os.Stderr, "exported: %d cards, %d events, %d comments, %d links, %d users",
 		stats.Cards, stats.Events, stats.Comments, stats.Links, stats.Users)
+	if *withArtifacts {
+		fmt.Fprintf(os.Stderr, ", %d artifact blobs", blobs)
+	}
+	fmt.Fprintln(os.Stderr)
 	return nil
 }

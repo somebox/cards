@@ -136,8 +136,8 @@ Global flags on every command: `--url`, `--as`, `--workspace`, `--json`,
 | `serve` | `[--workspace] [--port 8787] [--seed] [--run-extensions] [--watch]` |
 | `mcp` | stdio MCP server (`[--workspace]`) |
 | `reload` | Reload definitions on a running server |
-| `export` | Snapshot to JSONL: `[--out F] [--state-only]` — see [the workflow](../using-cards.md) |
-| `import` | Restore a snapshot (`--in F`; refuses a non-empty DB) |
+| `export` | Snapshot to JSONL: `[--out F] [--state-only] [--with-artifacts]` — see [the workflow](../using-cards.md) |
+| `import` | Restore a snapshot (`--in F [--with-artifacts]`; refuses a non-empty DB) |
 | `users register` | `--id ID [--kind human\|agent] [--display-name N]` |
 | `run-extensions` | Run the hook supervisor standalone |
 | `do <id> [--param k=v]` | Invoke a `run` extension |
