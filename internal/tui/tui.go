@@ -874,9 +874,10 @@ func (m model) updateDetail(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case "enter":
 		// split → fullscreen; fullscreen → split (toggle)
-		if m.dmode == detailSplit {
+		switch m.dmode {
+		case detailSplit:
 			m.dmode = detailFull
-		} else if m.dmode == detailFull {
+		case detailFull:
 			m.dmode = detailSplit
 		}
 		return m, nil
@@ -1558,9 +1559,10 @@ func (m model) rowView(c *core.Card, selected bool, w int) string {
 		owner = "·"
 	}
 	ownerS := padR(trunc(owner, 8), 8)
-	if c.Owner == m.actor {
+	switch c.Owner {
+	case m.actor:
 		ownerS = sty(cGreen, ownerS)
-	} else if c.Owner == "" {
+	case "":
 		ownerS = dim(ownerS)
 	}
 
@@ -1713,7 +1715,7 @@ func (m model) statusPicker() string {
 			b.WriteString(dim("  no legal transitions\n"))
 		}
 		for i, t := range targets {
-			b.WriteString(fmt.Sprintf("  %s %s\n", sty(cYellow, fmt.Sprintf("(%d)", i+1)), sty(cFg, m.columnName(t))))
+			fmt.Fprintf(&b, "  %s %s\n", sty(cYellow, fmt.Sprintf("(%d)", i+1)), sty(cFg, m.columnName(t)))
 		}
 	}
 	b.WriteString("\n" + dim("press number · esc cancel"))

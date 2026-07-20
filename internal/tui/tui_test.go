@@ -250,7 +250,7 @@ func TestCardMarkdownSections(t *testing.T) {
 		t.Errorf("markdown missing status name")
 	}
 	// fields section renders schema fields (demo cards all have them)
-	if !strings.Contains(md, "## ") || !(strings.Contains(md, "description") || strings.Contains(md, "## fields")) {
+	if !strings.Contains(md, "## ") || (!strings.Contains(md, "description") && !strings.Contains(md, "## fields")) {
 		t.Logf("markdown:\n%s", md)
 		t.Errorf("markdown missing fields section")
 	}

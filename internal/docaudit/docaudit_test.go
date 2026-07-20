@@ -212,6 +212,13 @@ func TestImplStatusBoundaryCommit(t *testing.T) {
 	if err != nil {
 		t.Skipf("cannot assert boundary freshness without git history: %v", err)
 	}
+	// A shallow clone truncates rev-list, so cited commits look missing when
+	// they merely predate the fetch depth. The jobs that enforce this test
+	// check out with fetch-depth: 0 (ci.yml); anywhere else, skip rather
+	// than fail on an artifact of the checkout.
+	if isShallowClone() {
+		t.Skip("shallow git clone — boundary freshness needs full history (fetch-depth: 0)")
+	}
 
 	indexOf := func(hash string) int {
 		for i, h := range revList {
@@ -267,6 +274,14 @@ func liveDocsPaths(t *testing.T) map[string]bool {
 		t.Fatal("docs/ tree appears empty — walked the wrong root?")
 	}
 	return live
+}
+
+// isShallowClone reports whether the repo checkout has truncated history.
+func isShallowClone() bool {
+	cmd := exec.Command("git", "rev-parse", "--is-shallow-repository")
+	cmd.Dir = "../../"
+	out, err := cmd.Output()
+	return err == nil && strings.TrimSpace(string(out)) == "true"
 }
 
 // gitRevListHEAD returns the full hashes of `git rev-list HEAD`, HEAD first.

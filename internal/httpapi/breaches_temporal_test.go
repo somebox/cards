@@ -23,14 +23,22 @@ import (
 // board monitors with a 50ms status_timeout threshold so tests can cross it
 // with a short sleep.
 func newBreachesTemporalServer(t *testing.T) *httptest.Server {
+	return newBreachesTemporalServerWith(t, "50ms")
+}
+
+// newBreachesTemporalServerWith parameterizes the monitor threshold: "50ms"
+// to cross a breach with a short sleep, a long duration ("1h") for
+// assertions that need the seeded board to stay breach-free no matter how
+// slow the runner is between seed and request.
+func newBreachesTemporalServerWith(t *testing.T, threshold string) *httptest.Server {
 	t.Helper()
 	r, err := config.New("../../examples/demo-workspace").Load()
 	if err != nil {
 		t.Fatalf("load: %v", err)
 	}
 	r.Boards["engineering"].Monitors = &core.BoardMonitors{
-		MaxTimeInStatus: map[string]string{"review": "50ms"},
-		IdleAfter:       "50ms",
+		MaxTimeInStatus: map[string]string{"review": threshold},
+		IdleAfter:       threshold,
 	}
 	st := sqlitetest.Open(t, r.Workspace, 1)
 	svc := core.NewService(r.Workspace, r.CardTypes, r.Boards, st)
@@ -150,8 +158,12 @@ func TestUIBreachesTemporalRow(t *testing.T) {
 	ts := newBreachesTemporalServer(t)
 	H := map[string]string{"X-Work-Cards-Actor": "tester", "Content-Type": "application/json"}
 
-	// Empty state mentions temporal monitors.
-	resp, body := doGet(t, ts, "/ui/breaches")
+	// Empty state mentions temporal monitors. Asserted against a server whose
+	// monitors cannot plausibly fire mid-test: with the 50ms server, a slow
+	// runner breaches the seeded board between seed and request and the empty
+	// state legitimately disappears (a real CI flake, not a copy bug).
+	calm := newBreachesTemporalServerWith(t, "1h")
+	resp, body := doGet(t, calm, "/ui/breaches")
 	if resp.StatusCode != 200 {
 		t.Fatalf("status %d", resp.StatusCode)
 	}
