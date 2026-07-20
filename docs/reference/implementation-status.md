@@ -618,9 +618,27 @@ never acts on a condition. Out of scope, by design:
 
 This doc is *code-verified*: each entry below records the `git log` evidence
 for the source paths a section describes, over the range since the doc was
-last verified. **Current boundary:** `0421efd` **→ HEAD (`bb6ffc5`,
-2026-07-19 — drop welcome board from project workspace)** — 17 commits.
-Reproduce any line with `git log --oneline 0421efd..HEAD -- <paths>`.
+last verified. **Current boundary:** `bb6ffc5` **→ HEAD (`67e613f`,
+2026-07-20 — board sync after the v0.2.0 release)** — 6 commits.
+Reproduce any line with `git log --oneline bb6ffc5..HEAD -- <paths>`.
+
+### Entry 2026-07-20 (`bb6ffc5` → `67e613f`)
+
+Headline: 6 commits — the sprint 07-19 landing (`276800b`: TUI filter/sort
+parity via the new shared `internal/uioptions`, the review-bot extension
+seed, snapshot-contract tests, and the docaudit guards this changelog is
+checked by), portable artifact bundles (`0f3529a`: `cards export/import
+--with-artifacts`, sha256-verified, in `cmd/cards/bundle.go`), headless TUI
+screenshots (`fe9db62`: `tui.Snapshot` + `cmd/tui-shot`), version surfacing
+in the web nav and `--help` (`c348037`), and CI hygiene (`1dd54d0`). This
+entry rolls the boundary; the anchor guards stayed green across the range
+(the moved-symbol tripwire this doc gained in `276800b` did its job), and
+§4–§8 were not re-audited.
+
+| § | Section | Change | Evidence |
+|---|---|---|---|
+| 3 | CLI | `export`/`import` gained `--with-artifacts` (content-addressed bundle beside the JSONL snapshot; pointer-only remains the default) | `cmd/cards/bundle.go`; `cmd/cards/portable_test.go` (round-trip, tamper, self-safe, missing-blob) |
+| 3a | TUI | filter/sort landed: `f`/`F`/`T` bindings, sort presets shared with the web UI via `internal/uioptions` (compile-time parity), `me` substitution | `internal/tui/tui.go`; `internal/uioptions/uioptions.go` |
 
 ### Entry 2026-07-19 (`0421efd` → `bb6ffc5`)
 

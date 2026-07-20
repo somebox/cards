@@ -1,7 +1,7 @@
 package tui
 
 import (
-	"os"
+	"context"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -9,6 +9,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/somebox/cards/internal/config"
 	"github.com/somebox/cards/internal/core"
+	"github.com/somebox/cards/internal/seed"
 	"github.com/somebox/cards/internal/sqlite"
 	"github.com/somebox/cards/internal/uioptions"
 )
@@ -90,6 +91,26 @@ func TestTransitionsFromBoardConfig(t *testing.T) {
 	if len(got) != 2 {
 		t.Errorf("legalTargets(review) = %v, want 2 targets", got)
 	}
+}
+
+// claimCards assigns up to n seeded cards to local-dev (seed material ships
+// every card unowned) so owner-filter tests have a deterministic slice to
+// narrow to. Returns the owner id.
+func claimCards(t *testing.T, svc *core.Service, n int) string {
+	t.Helper()
+	ctx := context.Background()
+	page, err := svc.ListCards(ctx, core.CardQuery{Limit: n})
+	if err != nil || len(page.Items) == 0 {
+		t.Fatalf("list seeded cards: %v (%d found)", err, len(page.Items))
+	}
+	owner := "local-dev"
+	for i := range page.Items {
+		c := page.Items[i]
+		if _, err := svc.PatchCard(ctx, c.ID, core.PatchCardRequest{Version: c.Version, Owner: &owner, Actor: owner}); err != nil {
+			t.Fatalf("claim %s: %v", c.ID, err)
+		}
+	}
+	return owner
 }
 
 // press feeds one key into Update and returns the resulting model.
@@ -249,10 +270,21 @@ func TestCardMarkdownSections(t *testing.T) {
 	if !strings.Contains(md, m.columnName(c.Status)) {
 		t.Errorf("markdown missing status name")
 	}
-	// fields section renders schema fields (demo cards all have them)
-	if !strings.Contains(md, "## ") || (!strings.Contains(md, "description") && !strings.Contains(md, "## fields")) {
-		t.Logf("markdown:\n%s", md)
-		t.Errorf("markdown missing fields section")
+	// fields section renders schema fields: at least one of the selected
+	// card's own field ids must appear as a section heading (seed cards may
+	// lead with a research-goal, whose only field is hypothesis).
+	if fields, ok := c.Fields.(map[string]any); ok && len(fields) > 0 {
+		found := false
+		for id := range fields {
+			if strings.Contains(md, "## "+id) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Logf("markdown:\n%s", md)
+			t.Errorf("markdown missing a schema-field section")
+		}
 	}
 	// transitions line
 	if len(m.legalTargets(c.Status)) > 0 && !strings.Contains(md, "next →") {
@@ -442,25 +474,23 @@ func TestShiftTabSwitchesBoard(t *testing.T) {
 // mutation tests never touch the checked-out database.
 func openDemoCopy(t *testing.T) (*core.Service, *config.Result, func()) {
 	t.Helper()
-	src := "../../examples/demo-workspace"
-	dst := t.TempDir()
-
-	result, err := config.New(src).Load()
+	// Definitions come from the committed demo workspace; the DB is built
+	// fresh from the seed material in a temp dir. The local
+	// examples/demo-workspace/work-cards.db is gitignored and machine-local,
+	// so copying it worked on a dev machine and always failed in CI.
+	result, err := config.New("../../examples/demo-workspace").Load()
 	if err != nil {
 		t.Fatalf("load workspace: %v", err)
 	}
-	data, err := os.ReadFile(filepath.Join(src, "work-cards.db"))
-	if err != nil {
-		t.Fatalf("read demo db: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(dst, "work-cards.db"), data, 0o644); err != nil {
-		t.Fatalf("copy db: %v", err)
-	}
-	st, err := sqlite.Open(filepath.Join(dst, "work-cards.db"), result.Workspace)
+	st, err := sqlite.Open(filepath.Join(t.TempDir(), "work-cards.db"), result.Workspace)
 	if err != nil {
 		t.Fatalf("open store: %v", err)
 	}
 	svc := core.NewService(result.Workspace, result.CardTypes, result.Boards, st)
+	if err := seed.IfEmpty(context.Background(), st, svc, result.Workspace); err != nil {
+		st.Close()
+		t.Fatalf("seed demo db: %v", err)
+	}
 	return svc, result, func() { st.Close() }
 }
 
@@ -605,16 +635,19 @@ func TestMeSubstitutionFilter(t *testing.T) {
 	svc, result, done := openDemo(t)
 	defer done()
 
-	// jeremy owns 20 cards in the demo snapshot, so the filter provably
-	// narrows (not vacuously empty).
-	m := newModel(svc, result, "jeremy")
+	// Seeded cards ship unowned, so give the actor a deterministic slice to
+	// filter: claim two cards for local-dev (a seeded user). The filter must
+	// then provably narrow (not vacuously empty, not everything).
+	actor := claimCards(t, svc, 2)
+
+	m := newModel(svc, result, actor)
 	m.filter = "owner == me"
 	m.refresh(m.ctx())
 	if m.loadErr != "" {
 		t.Fatalf("refresh: %s", m.loadErr)
 	}
 	if len(m.cards) == 0 {
-		t.Fatal("owner == me returned no cards for jeremy")
+		t.Fatal("owner == me returned no cards for the actor")
 	}
 	for _, c := range m.cards {
 		if c.Owner != m.actor {
@@ -623,7 +656,7 @@ func TestMeSubstitutionFilter(t *testing.T) {
 	}
 
 	// And via the query's Owner field (the lifted term path).
-	m2 := newModel(svc, result, "jeremy")
+	m2 := newModel(svc, result, actor)
 	if err := m2.setFilter("owner:me"); err != nil {
 		t.Fatalf("setFilter: %v", err)
 	}
@@ -632,7 +665,7 @@ func TestMeSubstitutionFilter(t *testing.T) {
 	}
 	m2.refresh(m2.ctx())
 	if len(m2.cards) == 0 {
-		t.Fatal("owner:me returned no cards for jeremy")
+		t.Fatal("owner:me returned no cards for the actor")
 	}
 	for _, c := range m2.cards {
 		if c.Owner != m2.actor {
@@ -649,7 +682,8 @@ func TestFilterSortDirectivesSurviveRefresh(t *testing.T) {
 	svc, result, done := openDemo(t)
 	defer done()
 
-	m := newModel(svc, result, "jeremy")
+	actor := claimCards(t, svc, 2)
+	m := newModel(svc, result, actor)
 	m.sort = "-created_at"
 	m.filter = "owner == me"
 	m.refresh(m.ctx())
@@ -688,7 +722,10 @@ func TestFilterModal(t *testing.T) {
 	svc, result, done := openDemoCopy(t)
 	defer done()
 
-	m := newModel(svc, result, "jeremy")
+	// Claim every seeded card so the bug-tagged one is owned by the actor —
+	// the combined owner+tag narrowing below must not be vacuously empty.
+	actor := claimCards(t, svc, 500)
+	m := newModel(svc, result, actor)
 	m.width = 120
 	m.height = 30
 
@@ -722,7 +759,7 @@ func TestFilterModal(t *testing.T) {
 	}
 
 	// Enter applies the modal text and narrows server-side: every returned
-	// card carries the bug tag and jeremy as owner.
+	// card carries the bug tag and the actor as owner.
 	m = press(t, m, 'f', "f")
 	m.in.SetValue("owner:me, tag:bug")
 	next, _ := m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
@@ -734,11 +771,11 @@ func TestFilterModal(t *testing.T) {
 		t.Fatalf("refresh: %s", m.loadErr)
 	}
 	if len(m.cards) == 0 {
-		t.Skip("no bug-tagged jeremy cards in the demo snapshot")
+		t.Fatal("no bug-tagged owned cards after claiming the seeded board")
 	}
 	for _, c := range m.cards {
-		if c.Owner != "jeremy" {
-			t.Errorf("card %s owner = %q, want jeremy", c.ID, c.Owner)
+		if c.Owner != actor {
+			t.Errorf("card %s owner = %q, want %q", c.ID, c.Owner, actor)
 		}
 		tagged := false
 		for _, tg := range c.Tags {
