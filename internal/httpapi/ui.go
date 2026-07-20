@@ -15,6 +15,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/somebox/cards/internal/core"
+	"github.com/somebox/cards/internal/uioptions"
 )
 
 // --- UI handlers ---
@@ -274,7 +275,7 @@ func (s *Server) boardData(r *http.Request, b *core.Board) (ViewData, error) {
 	if activeFilter != "" && b.Presentation != nil {
 		for _, bf := range b.Presentation.Filters {
 			if bf.ID == activeFilter {
-				cq.Filter = resolveMeFilter(bf.Filter, actor)
+				cq.Filter = uioptions.ResolveMeFilter(bf.Filter, actor)
 				break
 			}
 		}
@@ -348,7 +349,7 @@ func (s *Server) boardData(r *http.Request, b *core.Board) (ViewData, error) {
 		active = "-updated_at"
 	}
 	data.ActiveSort = active
-	data.SortOptions = boardSortOptions(active, b)
+	data.SortOptions = uioptions.SortOptions(active, b)
 	// Filter header: saved-filter chips + owner/type dropdowns, each carrying
 	// its active state so the UI reflects the current query.
 	data.SavedFilters = boardSavedFilters(b, activeFilter)
@@ -391,32 +392,6 @@ func boardTypeOptions(types map[string]*core.CardType, b *core.Board, active str
 			label = ct.Name
 		}
 		opts = append(opts, Option{Value: tid, Label: label, Selected: tid == active})
-	}
-	return opts
-}
-
-// boardSortOptions builds the board header's sort selector. The presets cover
-// the common orders; a board-declared lane_sort that isn't one of them is
-// surfaced as a leading "Board default" option so the configured order is
-// selectable by name.
-func boardSortOptions(active string, b *core.Board) []Option {
-	presets := []Option{
-		{Value: "-updated_at", Label: "Recently updated"},
-		{Value: "-created_at", Label: "Newest"},
-		{Value: "created_at", Label: "Oldest"},
-		{Value: "title", Label: "Title (A–Z)"},
-	}
-	known := map[string]bool{}
-	for _, o := range presets {
-		known[o.Value] = true
-	}
-	opts := []Option{}
-	if b.Presentation != nil && b.Presentation.LaneSort != "" && !known[b.Presentation.LaneSort] {
-		opts = append(opts, Option{Value: b.Presentation.LaneSort, Label: "Board default"})
-	}
-	opts = append(opts, presets...)
-	for i := range opts {
-		opts[i].Selected = opts[i].Value == active
 	}
 	return opts
 }

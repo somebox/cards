@@ -8,7 +8,7 @@ import (
 )
 
 // MinContrastRatio is the WCAG AA normal-text floor (4.5:1) enforced on
-// OptionThemes accent/muted pairs at definition load. See docs/design/STYLE-FIELD.md.
+// OptionThemes accent/muted pairs at definition load. See docs/design/style-field.md.
 const MinContrastRatio = 4.5
 
 // ParseHexColor parses #RGB or #RRGGBB into gamma-encoded sRGB channels in

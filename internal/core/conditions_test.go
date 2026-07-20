@@ -4,7 +4,7 @@ package core_test
 // WIP-limit crossing (3a) and the drained-lane crossing (3c) from one
 // ListCards query, and fires from every mutation path that can change a
 // column's membership — PatchCard, CreateCard, and TakeNext (the latter two
-// were gaps before this seam; see docs/events/EVENTS.md §12 Step 3).
+// were gaps before this seam; see docs/events/rollout.md §12 Step 3).
 
 import (
 	"bytes"

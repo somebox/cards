@@ -2,7 +2,7 @@
 //   - cards serve ...        : run the HTTP+UI server (see serveCmd)
 //   - cards <cmd> ...        : CLI client against a running server (CARDS_URL)
 //
-// The CLI mirrors the HTTP API (docs/DEVELOPER-REFERENCE.md §9). Global flags
+// The CLI mirrors the HTTP API (docs/spec/api-surface.md). Global flags
 // --url/--as/--json/--jsonl/--quiet may appear before the subcommand.
 package main
 

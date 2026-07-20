@@ -79,6 +79,14 @@ to engineer away — multi-process live coordination is what the SSE stream
 it (stdio transport, serverless posture). If multi-process TUI refresh is
 ever wanted, the honest path is `CARDS_URL` client mode, not a bus redesign.
 
+**Filter/sort directives (sprint 2026-07-19 P4):** the TUI's active
+sort/owner/type/filter directives are client-side query composition — changing
+them triggers a local re-fetch (`refresh` rebuilds the `CardQuery` from the
+model fields), **not** a bus round-trip. Because directives live on the model,
+bus-driven re-fetches preserve them; that invariant is machine-checked by
+`TestFilterSortDirectivesSurviveRefresh` (`internal/tui/tui_test.go`), not
+narrated.
+
 ## Cap honored
 
 Per the sprint plan this review was capped at: subscribe-teardown observe,

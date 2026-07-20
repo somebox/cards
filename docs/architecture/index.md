@@ -200,7 +200,7 @@ contract; the **in-process bus** (`core.Bus`) serves same-process subscribers
 dropped, never cross-process. A serverless TUI does not see a running
 server's writes until its own refresh; multi-process live coordination is
 what SSE (and a future outbox) is for. See
-[`design/tui-bus-disposition.md`](design/tui-bus-disposition.md).
+[`design/tui-bus-disposition.md`](../design/tui-bus-disposition.md).
 
 ### CLI
 

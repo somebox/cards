@@ -1,9 +1,9 @@
 // Package config loads and validates workspace definitions from JSON files
 // in definitions/ (only definitions/extensions.{yaml,json} accepts YAML).
 // This package does not watch files; `cards serve --watch` and
-// POST /v1/workspace/reload re-invoke Load (see docs/architecture/RELOAD.md).
+// POST /v1/workspace/reload re-invoke Load (see docs/architecture/reload.md).
 //
-// See docs/ARCHITECTURE.md (Config Contexts) and docs/DEVELOPER-REFERENCE.md.
+// See docs/architecture/index.md (Workspace Loading).
 package config
 
 import (

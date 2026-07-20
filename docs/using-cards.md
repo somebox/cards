@@ -126,6 +126,10 @@ the primitives are the event stream and hooks. The demo workspace ships a
 working example: the `review-notify` hook runs a script whenever a card
 reaches `review` on the engineering board
 ([`extensions.json`](https://github.com/somebox/cards/blob/main/examples/demo-workspace/definitions/extensions.json)).
+The same file also declares `review-bot`, a supervised Node **service** that
+subscribes to the event stream itself and claims review cards — one
+transition, two extension kinds (see [Extensions](extensions/index.md),
+Example 7).
 Point the same pattern at `ntfy.sh`, a Slack webhook, or a desktop
 notification. In the git-synced setup, "notification" is often just the
 pull — asynchronous by nature. Post-commit hooks and GitHub Actions work

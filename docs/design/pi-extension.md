@@ -1,6 +1,8 @@
 # pi-agent extension for Cards — design spec
 
-**Status:** proposed (design exploration; nothing built) — 2026-07-19
+**Status:** built externally — shipped as the
+[pi-cards](https://github.com/somebox/pi-cards) package in its own repo per
+§4; this document remains the design spec — 2026-07-19
 **References:** [`docs/extensions/index.md`](../extensions/index.md) (cards
 extension model), [`docs/spec/api-surface.md`](../spec/api-surface.md) §11/§13,
 [`tui-bus-disposition.md`](tui-bus-disposition.md), roadmap §10–§11,

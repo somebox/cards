@@ -236,9 +236,11 @@ no match → `200 { "card": null }`. On a match → `200 { "card": {...} }`.
 > handed to two owners. Proven by `TestClaimAtomicNoDoubleClaim` (50 claimants /
 > 20 cards, race-tested → exactly 20 successes, zero duplicates).
 > **Race retry [built].** A losing CAS surfaces `ErrClaimRaced`
-> (`internal/core/errors.go:141-145`, raised from the CAS path in
-> `internal/sqlite/sqlite.go:709-714`); `take-next`/`claim` wrap the attempt in
-> `claimWithRetry` (`internal/core/service.go:1500-1510`, called at `:1472`),
+> (`internal/core/errors.go:141-145`, raised from the CAS path at
+> `internal/sqlite/sqlite.go:730` <!-- guard: internal/sqlite/sqlite.go:730 symbol=ErrClaimRaced -->);
+> `take-next`/`claim` wrap the attempt in `claimWithRetry`
+> (`internal/core/service.go:1526` <!-- guard: internal/core/service.go:1526 symbol=claimWithRetry -->,
+> called at `:1491` <!-- guard: internal/core/service.go:1491 symbol=claimWithRetry -->),
 > which retries the next candidate up to 3 times within one call before
 > returning `{ card: null }`. Verified by `internal/core/claimretry_test.go`.
 
@@ -616,9 +618,30 @@ never acts on a condition. Out of scope, by design:
 
 This doc is *code-verified*: each entry below records the `git log` evidence
 for the source paths a section describes, over the range since the doc was
-last verified. **Current boundary:** `b3bfed5` **→ HEAD (`0421efd`,
-2026-07-18 — interactive TUI)** — 46 commits. Reproduce any line with
-`git log --oneline b3bfed5..HEAD -- <paths>`.
+last verified. **Current boundary:** `0421efd` **→ HEAD (`bb6ffc5`,
+2026-07-19 — drop welcome board from project workspace)** — 17 commits.
+Reproduce any line with `git log --oneline 0421efd..HEAD -- <paths>`.
+
+### Entry 2026-07-19 (`0421efd` → `bb6ffc5`)
+
+Headline: 17 commits since the last verification — the temporal-breaches
+cold catch-up (`1247e3b`), the sqlite shared-cache memory-test harness and
+migration-test routing, TUI inbound-link rendering, the project-board move
+to `.cards/`, and docs/plans churn. Scope discipline (sprint 2026-07-19
+Phase 1): §4–§8 were **not** re-audited across this range. This entry rolls
+the boundary, splits the `1247e3b` evidence row out of the previous entry
+(whose stated HEAD it post-dated — the row contradicted that entry's
+range), and re-pins the three §2 take-next anchors, which had rotted to
+stale line numbers. The re-pinned anchors now carry explicit
+`<!-- guard: <path>:<line> symbol=<ident> -->` markers, machine-checked by
+`TestImplStatusAnchorsResolve` in `internal/docaudit` (strict in every
+`go test` run), so the moved-and-renumbered rot class now fails loudly
+instead of green-lighting.
+
+| § | Section | Change | Evidence |
+|---|---|---|---|
+| 4 | Events | temporal `/breaches` projection landed: `status_timeout`/`card_idle` cold catch-up, additive `BreachItem` fields, `limit`/`truncated` clamp echo — row split out of Entry 2026-07-18, whose stated range (`b3bfed5` → `0421efd`) the commit post-dates | `internal/core/breaches.go`; `internal/core/service.go` (shared deadline helpers); commit `1247e3b` |
+| 2 | take-next | anchors re-pinned against HEAD `bb6ffc5` (`internal/sqlite/sqlite.go:730`, `internal/core/service.go:1526`, called at `:1491`) and annotated with guard markers; `internal/docaudit` gained `TestImplStatusAnchorsResolve`, `TestCodeCommentDocPathsResolve`, and the boundary-commit tripwire (warning in normal `go test`, strict under `-tags=strictdoc`) | `internal/docaudit/docaudit_test.go` |
 
 ### Entry 2026-07-18 (`b3bfed5` → `0421efd`)
 
@@ -638,7 +661,6 @@ refreshed §1–§3 anchors and the endpoint table and rolled the boundary;
 | 2 | take-next | race loser signals `ErrClaimRaced`; service retries the next candidate in-call (up to 3) — "not yet shipped" claim removed | `internal/core/errors.go:141-145`; `internal/core/service.go:1472`, `:1500-1510`; `internal/core/claimretry_test.go` |
 | 3 | MCP | `buildTools` anchor corrected | `internal/mcp/mcp.go:218` |
 | 4 | Events | EventType anchor moved to the live declaration | `internal/core/types.go:310` |
-| 4 | Events (same-day Phase 2) | temporal `/breaches` projection landed: `status_timeout`/`card_idle` cold catch-up, additive `BreachItem` fields, `limit`/`truncated` clamp echo | `internal/core/breaches.go`; `internal/core/service.go` (shared deadline helpers) |
 | 5–8 | Actor / workspace / extensions / non-goals | reviewed, no change needed — auth is still the trusted-actor model (§5); reload + service-kind supervision already [built] (§7) | — |
 
 ### Entry 2026-07-10 (`8d043ea` → `b3bfed5`)

@@ -42,8 +42,9 @@ open http://127.0.0.1:8787/ui/boards/welcome
 
 That's the whole system: one `.cards/` folder holding your definitions and a
 `work-cards.db` SQLite file, with a web UI, a `/v1` REST API, and an MCP
-interface over it. `cards serve` with no `--workspace` walks up for a `.cards/`
-directory the way git finds `.git/`, falling back to `~/.cards`.
+interface over it. A bare `cards` on a terminal opens the TUI against the same
+workspace (no server required). `cards serve` with no `--workspace` walks up
+for a `.cards/` directory the way git finds `.git/`, falling back to `~/.cards`.
 
 <figure markdown>
   ![The welcome board right after cards init](assets/img/welcome.png){ .cards-shot }
@@ -101,7 +102,8 @@ defining your own types.
 ---
 
 !!! info "Beta"
-    Cards is `v0.1.x`. The core service, HTTP API, CLI, MCP server, web UI, and
-    hook system are implemented; treat the API as project-local unless a release
-    says otherwise. For a code-verified map of what's built vs. proposed, see the
+    Cards is `v0.1.x`. The core service, HTTP API, CLI, MCP server, web UI, TUI,
+    and hook system are implemented; treat the API as project-local unless a
+    release says otherwise. For a code-verified map of what's built vs.
+    proposed, see the
     [built-vs-proposed audit](reference/implementation-status.md).

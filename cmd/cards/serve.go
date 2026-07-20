@@ -22,7 +22,7 @@ import (
 // loopbackWarning returns a two-line stderr warning when host binds beyond the
 // loopback interface — where the API and UI become reachable from the network
 // with no authentication (the default deployment is unauthenticated;
-// docs/design/AUTH.md is the proposed identity story). It returns "" for
+// docs/design/auth.md is the proposed identity story). It returns "" for
 // loopback binds, which stay quiet. Kept as a pure function so a test can
 // exercise the decision without starting a server.
 func loopbackWarning(host string) string {
@@ -33,7 +33,7 @@ func loopbackWarning(host string) string {
 		"WARNING: binding to a non-loopback address (%s) — the API and UI are reachable "+
 			"from the network with no authentication.\n"+
 			"         Bind to 127.0.0.1 for local-only use, or put an authenticating reverse "+
-			"proxy in front. See docs/design/AUTH.md.",
+			"proxy in front. See docs/design/auth.md.",
 		host)
 }
 

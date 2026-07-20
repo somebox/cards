@@ -1,7 +1,7 @@
 // Package sqlite is the default storage implementation: cards, events, links,
 // comments, users, idempotency keys, and an FTS5 virtual table for search.
 //
-// One workspace = one SQLite file. See docs/ARCHITECTURE.md (Storage).
+// One workspace = one SQLite file. See docs/architecture/index.md (Storage).
 package sqlite
 
 import (
@@ -435,7 +435,7 @@ const cardCols = "id, workspace_id, type_id, schema_version, title, status, owne
 // asking for more; the census/breach queries (Limit: 500) are honored up to
 // this ceiling, matching the "caps at 500" contract documented on
 // Service.evaluateColumn / Service.Breaches. Columns with >500 matching cards
-// are a documented limitation (see docs/NOTES.md).
+// are a documented limitation (see docs/design-notes.md).
 const maxCardLimit = 500
 
 // clampCardLimit applies the default (unset/≤0 → 50) and the hard ceiling

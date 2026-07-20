@@ -1,7 +1,7 @@
 // Shared extension-supervisor construction for `cards serve --run-extensions`
 // (supported home) and standalone `cards run-extensions`. Both entry points
 // must call newExtensionSupervisor — do not construct hooks.Supervisor inline.
-// See docs/architecture/LIFECYCLE-SCHEMA.md.
+// See docs/architecture/lifecycle-schema.md.
 package main
 
 import (

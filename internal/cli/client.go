@@ -1,10 +1,10 @@
 // Package cli implements the `cards` command-line client. It mirrors the
-// HTTP API (docs/SPEC.md §11, docs/DEVELOPER-REFERENCE.md §9) over a small
+// HTTP API (docs/spec/api-surface.md §11) over a small
 // HTTP client, so the same paths/flags work against a `cards serve` sidecar.
 //
 // Output modes: --json (single object), --jsonl (newline-delimited, default
 // for list/events), --quiet (ids only). Errors go to stderr as structured
-// JSON per SPEC §10.
+// JSON per the structured-error contract in docs/spec/api-surface.md.
 package cli
 
 import (

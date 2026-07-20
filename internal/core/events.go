@@ -5,7 +5,7 @@
 // through the Emitter, which stamps identity/time, persists (for durable
 // facts), publishes to the Bus, and notifies observers, in that order.
 //
-// Design: docs/EVENTS.md. Invariants enforced here:
+// Design: docs/events/core.md. Invariants enforced here:
 //   - persist before publish (dispatch is package-private; durable card
 //     writes go through Service.commitCard);
 //   - call sites never assign ID/Actor/At (the store assigns ID; the seam

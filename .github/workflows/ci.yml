@@ -42,6 +42,26 @@ jobs:
       - name: Test (with race detector)
         run: go test -race -count=1 ./...
 
+  docaudit:
+    # Strict doc guards. The anchor and doc-path tests are strict in every
+    # `go test` run already; this job additionally builds with -tags=strictdoc
+    # so the boundary-commit tripwire (implementation-status.md may lag HEAD
+    # by at most 20 commits) FAILS here instead of warning — without turning
+    # unrelated PRs red on commit count alone.
+    name: Doc audit (strict)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.26"
+          cache: true
+
+      - name: Strict doc guards
+        run: go test ./internal/docaudit -tags=strictdoc -count=1
+
   lint:
     name: Lint
     runs-on: ubuntu-latest

@@ -479,7 +479,8 @@ func (s *Server) apiCardEvents(w http.ResponseWriter, r *http.Request) {
 // since= and cursor= are both event-id floors (events with id > value); cursor=
 // is the pagination continuation (the prior page's next_cursor) and overrides
 // since= when present. This is the durable recovery path — replay missed facts,
-// then resume the live SSE stream. SPEC §11, docs/INTEGRATION.md.
+// then resume the live SSE stream. docs/spec/api-surface.md §11,
+// docs/events/integration.md.
 func (s *Server) apiEventFeed(w http.ResponseWriter, r *http.Request) {
 	qv := r.URL.Query()
 	q := core.EventQuery{

@@ -14,6 +14,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/somebox/cards/internal/core"
+	"github.com/somebox/cards/internal/uioptions"
 )
 
 // --- view building ---
@@ -90,13 +91,10 @@ type PreviewField struct {
 	Kind  string // item-field type (user|date|...) — lets entry layout place chips/timestamps without knowing field ids
 }
 
-// Option is a select option.
-type Option struct {
-	Value    string
-	Label    string
-	Selected bool
-	Disabled bool
-}
+// Option is a select option — an alias of the shared uioptions.Option so the
+// web UI and the TUI render the same option lists by construction (compile-
+// time parity; see internal/uioptions).
+type Option = uioptions.Option
 
 // RecentCard is a card summary for the home page's recent-activity list.
 type RecentCard struct {
@@ -420,7 +418,7 @@ func typeTheme(ct *core.CardType) core.TypeTheme {
 
 // resolveCardTheme is the single per-card theme resolution path for board
 // cards (cardView) and modal/detail (ViewData.CardTheme). Precedence is
-// option-theme → type-theme → CSS-default (docs/design/STYLE-FIELD.md).
+// option-theme → type-theme → CSS-default (docs/design/style-field.md).
 func (s *Server) resolveCardTheme(c *core.Card, b *core.Board) core.TypeTheme {
 	if c == nil {
 		return core.TypeTheme{}
@@ -800,7 +798,7 @@ func (s *Server) renderPage(w http.ResponseWriter, r *http.Request, name string,
 // highest first: an explicit ?theme= (persisted in a cookie so it sticks across
 // navigation; ?theme=default clears it), else the cookie, else the board's
 // presentation.theme (board may be nil), else the workspace default. Empty
-// string = the built-in default theme. See docs/design/THEMES.md.
+// string = the built-in default theme. See docs/design/themes.md.
 func (s *Server) resolveTheme(w http.ResponseWriter, r *http.Request, board *core.Board) string {
 	if t := r.URL.Query().Get("theme"); t != "" {
 		if t == "default" {

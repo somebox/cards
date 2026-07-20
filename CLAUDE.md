@@ -74,6 +74,13 @@ Read the full version: [`docs/concepts/philosophy.md`](docs/concepts/philosophy.
 | HTTP + UI | `internal/httpapi/` | REST, SSE, server-rendered web UI (Go templates + Alpine.js) |
 | MCP | `internal/mcp/` | MCP adapter over core services |
 | Hooks | `internal/hooks/` | hook supervisor (spawns subprocesses on events) |
+| Artifacts | `internal/artifacts/` | content-addressed artifact blob storage with path confinement |
+| CLI client | `internal/cli/` | CLI commands over the HTTP API (wired into `cmd/cards/`) |
+| Doc audit | `internal/docaudit/` | docs-integrity guards as ordinary Go tests (no non-test code) |
+| OpenAPI | `internal/openapi/` | OpenAPI 3.1 document generated from live workspace definitions |
+| Seed | `internal/seed/` | demo users/cards inserted into an empty workspace DB (`--seed`) |
+| Starter | `internal/starter/` | embedded starter material (welcome cards) scaffolded by `cards init` |
+| Theme CSS | `internal/themecss/` | workspace theme CSS validation against the `docs/design/themes.md` contract |
 | Project board | `.cards/` | the live dogfooding backlog — definitions + `backlog.jsonl` (+ `backlog.md` overview) |
 | Demo workspace | `examples/demo-workspace/` | frozen example material (docs, screenshots, what `cards init` scaffolds) |
 | TUI | `internal/tui/`, `cmd/cards/tui.go` | terminal UI behind bare `cards` (`interactive()` guard: both streams TTY, no `--json`) |

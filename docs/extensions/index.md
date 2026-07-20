@@ -165,7 +165,9 @@ logged, but does not roll back the originating event.
 > integrations). Until it ships, substitute raw HTTP calls to the `/v1/*`
 > API using `requests`/`httpx` (Python) or `fetch` (Node), as shown in
 > [`integration.md`](../events/integration.md). **Example 5** uses only the CLI and is
-> runnable today **[built]**.
+> runnable today **[built]**; **Example 6** is built but ships in its own repo
+> **[built — external]**; **Example 7** is a runnable Node service seed in the
+> demo workspace **[built]**.
 
 ### Example 1 — CI dispatcher (Python hook) `[proposed]`
 
@@ -379,6 +381,32 @@ execution (`/cards work`), and git board persistence. From the core's
 perspective it is just another `/v1` client — a sixth surface, shipped in
 its own repo per the extensions-over-plugins rule. Spec:
 [`docs/design/pi-extension.md`](../design/pi-extension.md).
+
+### Example 7 — Runnable SSE worker (Node service) `[built]`
+
+The demo workspace ships a supervised `service` that runs the worker loop
+from [`integration.md`](../events/integration.md) (§ Quickstart, "3. The
+worker loop", line 37) as a real process:
+[`review-bot.mjs`](https://github.com/somebox/cards/blob/main/examples/demo-workspace/.cards/ext/review-bot.mjs)
+subscribes to `/v1/events/stream?board_id=engineering&types=status_changed`
+and, on every `status_changed` into `review`, claims the oldest unowned
+review card via `POST /v1/cards/take-next` and comments back as actor
+`review-bot`. Reconnects send `Last-Event-ID`, so a server restart
+mid-stream replays the gap instead of losing events. It is declared in
+[`extensions.json`](https://github.com/somebox/cards/blob/main/examples/demo-workspace/definitions/extensions.json)
+with `autostart: true` and `restart_policy: on-failure`, starts under
+`cards serve --workspace examples/demo-workspace --run-extensions`, and
+**requires Node on `PATH`** (stdlib `fetch` + a hand-rolled SSE reader —
+zero npm dependencies). The `review-bot.sh` launcher gates the runtime: on
+a Node-less machine it logs `node: not found — service review-bot skipped`
+and exits 0, so the restart policy does not loop. The same transition also
+fires the `review-notify` hook declared above it — one event, two
+extension kinds (hook: bus JSON on stdin; service: dials SSE itself).
+[`scripts/review-bot_test.sh`](https://github.com/somebox/cards/blob/main/scripts/review-bot_test.sh)
+(also `go test ./cmd/cards -run TestReviewBotScript`) proves the loop:
+card → `review` ⇒ bot comment asserted by author; kill/restart mid-stream
+⇒ resumption from the last event id; supervisor stability (≤1 restart in a
+5s window). See `examples/demo-workspace/README.md`.
 
 ## Related documents
 

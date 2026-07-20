@@ -64,7 +64,7 @@ func SeedWelcome(ctx context.Context, st core.Store, svc *core.Service, ws *core
 }
 
 // welcomeCards is the onboarding tutorial, authored as cards so a fresh
-// workspace is self-documenting. They reference docs/CONCEPTS.md for depth.
+// workspace is self-documenting. They reference docs/concepts/index.md for depth.
 func welcomeCards(actor string) []core.CreateCardRequest {
 	card := func(title, status, notes string) core.CreateCardRequest {
 		return core.CreateCardRequest{
@@ -78,7 +78,7 @@ func welcomeCards(actor string) []core.CreateCardRequest {
 		card("Make it yours: edit boards and card types", "todo",
 			"Your definitions live next to this database under definitions/: workspace.json (columns + settings), card-types/ (field shapes), and boards/ (these views). Edit the JSON and restart the server to change the model. Card types are shared by every board; boards select and filter."),
 		card("Add a board per project", "todo",
-			"One workspace can hold many boards — one per project or area. Add a file under definitions/boards/ that picks the card types and columns to show. To isolate a board to a slice of cards, give it a default_filter. See docs/CONCEPTS.md."),
+			"One workspace can hold many boards — one per project or area. Add a file under definitions/boards/ that picks the card types and columns to show. To isolate a board to a slice of cards, give it a default_filter. See docs/concepts/index.md."),
 		card("Drive it from the CLI and agents (MCP)", "todo",
 			"Set CARDS_URL and CARDS_USER, then `cards list`, `cards create`, `cards take-next`. Agents can use the same model over MCP: `cards mcp`. The HTTP API, CLI, MCP tools, and this UI are all the same contract, generated from your definitions."),
 		card("Back up and move your workspace", "doing",

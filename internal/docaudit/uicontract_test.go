@@ -49,7 +49,7 @@ func TestTemplatesAreThemeBlind(t *testing.T) {
 		for _, forbidden := range []string{`eq .Theme "`, `eq $.Theme "`} {
 			if strings.Contains(src, forbidden) {
 				t.Errorf("%s branches markup on the theme name (%s…) — themes are CSS-only "+
-					"(docs/design/THEMES.md); add a stable hook and style it per theme instead",
+					"(docs/design/themes.md); add a stable hook and style it per theme instead",
 					filepath.Base(f), forbidden)
 			}
 		}

@@ -2,7 +2,8 @@
 //
 // The Store interface is defined here (consumer-side) to avoid an import
 // cycle between core and storage implementations. internal/sqlite implements
-// this interface. See docs/ARCHITECTURE.md (Storage) and docs/SPEC.md (§3, §8).
+// this interface. See docs/architecture/index.md (Storage) and
+// docs/spec/data-model.md (§3 Workspace/storage, §4 Core data model).
 package core
 
 import (

@@ -1,23 +1,22 @@
 ---
-title: A local-first issue tracker for people and agents
+title: A local coordination service for people and agents
 hide:
   - navigation
 ---
 
 # Cards
 
-Describe the things you need to organize — a room and its contents, a
-storyboard scene, a print job and its printer, a research goal, or a task —
-and Cards gives each kind its own validated fields. Every card also has a
-status, comments, links, and change history. Boards are saved views that filter
-and arrange cards from the workspace; they do not own or duplicate them.
+Cards is a local coordination service for defining, reviewing, and assigning
+work. A project defines its card types, boards, columns, transitions, and
+extensions in JSON (extensions may also be YAML). The `cards` binary loads
+those definitions, stores card state and events in SQLite, and exposes the
+same model through HTTP, CLI, MCP, a web UI, and a terminal UI.
 
-Write each type once in JSON. Cards uses that definition in its web UI, CLI,
-REST API, and MCP tools, so people, scripts, and agents work with the same
-model and rules. One local binary and SQLite handle live use, while JSON
-definitions and JSONL exports keep the workspace portable and git-friendly.
-Documented APIs, events, and hooks let outside programs extend it without
-changing the core.
+It was built for projects where plain todos are too little structure and a
+hosted tracker is more process than the team needs. Humans, scripts, and
+agents can claim cards, update typed fields, append evidence, and resume from
+the card history later. The web board and TUI are useful, but each is only one
+view over the same API.
 
 <span class="cards-badge">v0.1.x · beta</span>
 &nbsp;Local-only by default · SQLite-backed · git-portable · MIT.
@@ -50,7 +49,9 @@ from that. There is no separate UI configuration.
       "item_fields": [
         { "id": "commit_hash", "type": "string",
           "required": true },
-        { "id": "notes", "type": "text" }
+        { "id": "notes", "type": "text" },
+        { "id": "author", "type": "user",
+          "required": true }
       ] }
   ],
   "allowed_columns": ["backlog", "todo",
@@ -94,71 +95,63 @@ from that. There is no separate UI configuration.
 
     ---
 
-    Your tracker runs on your machine and answers to you. Cards persist to
-    plain files and a SQLite database inside your project — no account, no
-    service, and nothing between you and your tasks.
+    Runs on your machine. Definitions and a SQLite database live in the
+    project folder — no account and no hosted service.
 
 -   :material-shape-outline:{ .ic-schema } **Schemas drive everything**
 
     ---
 
-    A workspace is a folder of JSON definitions: card types (one file each),
-    boards that combine them, columns, and tags. A card type's definition is
-    the web form, the API contract, the CLI surface, and the generated MCP
-    tools — change it once and every interface follows.
+    A workspace is a folder of JSON definitions: card types, boards, columns,
+    and tags. One card-type file is the web form, API contract, CLI surface,
+    and generated MCP tools.
 
 -   :material-source-branch:{ .ic-nav } **Git-portable**
 
     ---
 
-    `cards export` snapshots the whole board — cards, comments, links — into a
-    `backlog.jsonl` you commit next to the definitions. A collaborator pulls,
-    imports the same board, and keeps working.
+    `cards export` writes cards, comments, and links to a `backlog.jsonl` you
+    commit next to the definitions. A collaborator pulls, imports, and
+    continues.
 
--   :material-tune-variant:{ .ic-nav } **Customizable**
+-   :material-tune-variant:{ .ic-nav } **Extensible**
 
     ---
 
-    The core stays simple: cards, columns, events. Themes restyle the UI,
-    transitions and WIP limits add process where you want it, new card types
-    model your work, and hooks and extensions connect outside tools. All
-    optional.
+    The core stays small: cards, columns, events. Themes, transitions, WIP
+    limits, new card types, hooks, and extensions are optional.
 
 </div>
 
 ## :material-source-branch:{ .ic-nav } Your work stays in your repo
 
-If you are doing agentic dev work, the key property is that the cards live
-with the code.
+If you are coordinating people and agents on a project, the useful property is
+that the cards live with the code.
 
 `definitions/` is plain JSON under version control. Live state is one SQLite
 file, and `cards export --state-only` snapshots it — every card, comment, and
 link — into a `backlog.jsonl` that diffs cleanly in review. This repo does
 exactly that: the bundled demo workspace is the project's real backlog.
 
-Compare that with how agent-task coordination usually goes. Copilot
-coordinates through GitHub Issues; Hermes ships its own kanban plugin; most
-harnesses accumulate a private task list. Those work well inside their own
-ecosystems, but the board is tied to the vendor's AI or the harness's format,
-and moving your work means starting over.
+Many agent setups keep work in a private list, a vendor issue tracker, or a
+markdown plan the agent rewrites each pass. Those can work inside one
+ecosystem, but the board is then tied to that tool's format.
 
-Cards keeps coordination in an HTTP API and an MCP server over files in your
-repo. Any agent that can speak either one can read and write the board — you
-can switch harnesses, run two side by side, or `grep` your own backlog. No
-tool owns your work.
+Cards keeps the same board behind an HTTP API and an MCP server over files in
+your repo. Any client that speaks either one can read and write it — including
+two harnesses side by side, or a `grep` of your own backlog.
 
 → [The workflow](using-cards.md) — a working session end to end, and
 what the committed snapshot buys you
 
 ## :material-robot-outline:{ .ic-agent } A board beats a markdown plan
 
-If you run multi-agent or subagent workflows, you have probably coordinated
-them through a markdown file — a `plan.md` the agent rewrites every pass until
-the diff is unreadable, and that breaks down entirely when two agents edit it
-at once. A board is a better shared surface:
+Multi-agent work often ends up in a `plan.md` that gets rewritten until the
+diff is unreadable, and that falls apart when two agents edit it at once. A
+shared board holds the same information with less collision:
 
 - **Typed fields hold the state.** A bad write is rejected with the field, the
-  value, and what was allowed — an agent cannot accidentally reformat the plan.
+  value, and what was allowed.
 - **Comments hold the conversation.** You can read back why a card moved, not
   just that it did.
 - **Work logs and attachments hold the evidence.** A `repeating` field collects
@@ -200,11 +193,11 @@ can claim a card, work it, log what it did, and move on.
 
 → [Connect an agent](agents/mcp.md) · [Agent instructions](agents/instructions.md)
 
-## :material-console:{ .ic-cli } The same board from your terminal
+## :material-console:{ .ic-cli } CLI and terminal UI
 
-Every operation works from the CLI — serverless against the workspace folder,
-or pointed at a running server with `CARDS_URL`. Output is JSON (`-q` prints
-just the id), so it pipes.
+Every mutating operation works from the CLI — serverless against the workspace
+folder, or pointed at a running server with `CARDS_URL`. Output is JSON (`-q`
+prints just the id), so it pipes.
 
 <div class="cards-term">
 <div class="cards-term__bar"><span class="cards-term__dot cards-term__dot--r"></span><span class="cards-term__dot cards-term__dot--y"></span><span class="cards-term__dot cards-term__dot--g"></span></div>
@@ -218,8 +211,24 @@ just the id), so it pipes.
 <span class="to">card_7e090c38</span></pre>
 </div>
 
-→ [Using Cards](using-cards.md) — every operation with CLI, HTTP,
-and MCP examples side by side
+A bare `cards` on an interactive terminal opens the TUI against the same
+workspace — no server required. Lane tabs, card list, and a markdown detail
+pane share the service layer with the CLI; `q` quits. In scripts and pipes,
+bare `cards` still prints usage.
+
+```text
+ Demo workspace · Engineering · my 1                                                         ● live
+  Backlog 23 │ To Do 9 │ In Progress 0 │ Review 0 │ Done 146
+ ─ Done · 146 cards                                                                          119/146
+  Programming… Events seam 1f: Eve… ·          15d ↪2 ▾1  ╭───────────────────────────────────────╮
+  Programming… Events seam 1a: ext… ·          15d ↪1 ▾2  │                                       │
+  Programming… Events seam 1e: mig… ·          15d ↪2 ▾1  │   ## Events: actor/owner stream       │
+▌ Programming… Events: actor/owner… ·          17d ↪1 ▾1  │   filters + GET /v1/events catch-up   │
+                                                             ╰───────────────────────────────────────╯
+h/← lane ← • l/→ lane → • j/↓ down • enter open • / find • ? keys • q quit
+```
+
+→ [Using Cards](using-cards.md) · [CLI reference](reference/cli.md)
 
 ## :material-palette-outline:{ .ic-board } Themes
 

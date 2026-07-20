@@ -4,7 +4,7 @@
 //
 // All transports (HTTP, CLI, MCP, RPC) call into this package so that
 // validation and storage behavior are identical across surfaces. See
-// docs/SPEC.md (v0.4) for the normative contract.
+// docs/spec/index.md for the normative contract.
 package core
 
 import (
@@ -54,7 +54,7 @@ type FieldDef struct {
 	Deprecated     bool       `json:"deprecated,omitempty"`
 	// OptionThemes maps enum option values to visual themes (icon/accent/muted).
 	// Declared on the field (type-global); a board activates them via
-	// BoardPresentation.StyleField. Clients may ignore. See docs/design/STYLE-FIELD.md.
+	// BoardPresentation.StyleField. Clients may ignore. See docs/design/style-field.md.
 	OptionThemes map[string]TypeTheme `json:"option_themes,omitempty"`
 }
 
@@ -150,10 +150,10 @@ type WorkspaceSettings struct {
 	TagPolicy          string `json:"tag_policy"`
 	EventRetentionDays int    `json:"event_retention_days,omitempty"`
 	DefaultUser        string `json:"default_user,omitempty"`
-	Theme              string `json:"theme,omitempty"` // default UI theme (html[data-theme]); see docs/DESIGN.md
+	Theme              string `json:"theme,omitempty"` // default UI theme (html[data-theme]); see docs/architecture/design-system.md
 	// PersistConditions escalates the named condition event types (e.g.
 	// "wip_exceeded") from ephemeral signals to durable, replayable facts. See
-	// docs/EVENTS.md §11.2 and seam 3b.
+	// docs/events/core.md §11.2 and seam 3b.
 	PersistConditions []string `json:"persist_conditions,omitempty"`
 }
 
@@ -169,8 +169,8 @@ type Workspace struct {
 }
 
 // BoardPresentation carries optional UI hints. Clients may ignore unknown keys
-// (CORE-BOUNDARIES §3.2). These hints never branch write paths. See SPEC.md §4,
-// DEVELOPER-REFERENCE.md §7, and docs/design/STYLE-FIELD.md.
+// (docs/design/core-boundaries.md §3.2). These hints never branch write paths.
+// See docs/spec/data-model.md §4 and docs/design/style-field.md.
 type BoardPresentation struct {
 	LaneGroupBy    string              `json:"lane_group_by,omitempty"`    // status (default) or an enum field id
 	CardPreview    map[string][]string `json:"card_preview,omitempty"`     // per-type: field ids to show on the board card
@@ -178,7 +178,7 @@ type BoardPresentation struct {
 	// StyleField is the enum field id whose OptionThemes a board opts into for
 	// card accent/icon. FieldDef.OptionThemes define; this activates. Same card
 	// may render differently on two boards. Replaces the unused card_accent_field
-	// name. See docs/design/STYLE-FIELD.md.
+	// name. See docs/design/style-field.md.
 	StyleField     string          `json:"style_field,omitempty"`
 	DetailSections []DetailSection `json:"detail_sections,omitempty"` // ordered sections for the detail/modal view
 	Filters        []BoardFilter   `json:"filters,omitempty"`
@@ -187,7 +187,7 @@ type BoardPresentation struct {
 	// named theme ("assign it to a board to try it out"), distinct from
 	// Board.Theme (a map of inline hue tokens). It sits between the visitor's
 	// ?theme cookie and the workspace default in the resolution chain (see
-	// httpapi.resolveTheme, docs/design/THEMES.md).
+	// httpapi.resolveTheme, docs/design/themes.md).
 	Theme string `json:"theme,omitempty"`
 }
 
@@ -195,7 +195,7 @@ type BoardPresentation struct {
 // the base stylesheet) plus its font/metadata manifest. Built-in themes are
 // embedded in style.css; workspace themes are loaded from
 // definitions/themes/<name>.{css,json} by internal/config and validated by
-// internal/themecss. See docs/design/THEMES.md.
+// internal/themecss. See docs/design/themes.md.
 type Theme struct {
 	Name        string `json:"name"`
 	CSS         string `json:"-"`                     // scoped theme CSS; served, not JSON-marshaled
@@ -249,7 +249,7 @@ type Board struct {
 // BoardMonitors declares which condition events (Events seam 3c+) a board
 // watches for. Fields are added incrementally as each condition type is
 // implemented; an unset field means that watcher is off. See
-// docs/events/EVENTS.md §12 Step 3 and docs/events/INTEGRATION.md.
+// docs/events/rollout.md §12 Step 3 and docs/events/integration.md.
 type BoardMonitors struct {
 	// AlertWhenEmpty lists columns to watch for lane_drained/lane_refilled:
 	// a column crossing to/from zero matching cards fires the corresponding

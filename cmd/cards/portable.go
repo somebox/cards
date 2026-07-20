@@ -32,7 +32,7 @@ type portStats struct {
 // stateOnly omits the event journal: definitions + current card state are the
 // canonical, git-portable form, while the event journal (and condition_marks,
 // and future delivery state) are SQLite-owned durable ground truth that an
-// import must never reconstruct (docs/events/EVENTS.md). A state-only export is
+// import must never reconstruct (docs/events/core.md). A state-only export is
 // also sorted by id so a committed snapshot diffs cleanly across re-exports.
 func exportJSONL(ctx context.Context, st *sqlite.Store, w io.Writer, ws *core.Workspace, stateOnly bool) (portStats, error) {
 	var stats portStats

@@ -2,14 +2,15 @@
 
 ## The sixty-second version
 
-Cards is this project's issue tracker, and it lives in the repo. A folder of
-JSON definitions describes the kinds of work we track (card types), the states
-work moves through (columns), and the views we look at it through (boards).
-The `cards` binary turns that folder into a web board, a REST API, a CLI, and
-MCP tools for agents — all enforcing the same schema. Board state is
-snapshotted to a JSONL file and committed alongside the definitions, so
-cloning the repo gets you the whole board: cards, comments, links, history of
-decisions. There is no account, no hosted service, and nothing to sign into.
+Cards is this project's coordination board, and it lives in the repo. A folder
+of JSON definitions describes the kinds of cards you track (card types), the
+states they move through (columns), and the views you look at them through
+(boards). The `cards` binary turns that folder into a web board, a REST API, a
+CLI, MCP tools for agents, and a terminal UI — all enforcing the same schema.
+Board state is snapshotted to a JSONL file and committed alongside the
+definitions, so cloning the repo gets you the whole board: cards, comments,
+links, history of decisions. There is no account, no hosted service, and
+nothing to sign into.
 
 That's the whole pitch. The rest of this page is the vocabulary and the
 reasoning.

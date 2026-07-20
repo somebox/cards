@@ -12,7 +12,7 @@ import (
 )
 
 // Service identity + declaration fingerprint for reconcile-on-reload (P5c).
-// Normative table: docs/architecture/RELOAD.md §"Service reconcile-on-reload".
+// Normative table: docs/architecture/reload.md §"Service reconcile-on-reload".
 //
 // Identity key = extension id.
 // Same id + different ServiceDeclFingerprint ⇒ declaration-changed → drain+restart.

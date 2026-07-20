@@ -3,7 +3,8 @@
 // type (typed input from the field schema), plus generic coordination tools.
 //
 // Mutations delegate to the same service layer as HTTP/CLI, so validation,
-// events, and concurrency are identical. See docs/MCP.md and docs/SPEC.md §13.
+// events, and concurrency are identical. See docs/extensions/mcp.md and
+// docs/spec/api-surface.md §13.
 //
 // The server speaks JSON-RPC 2.0 over stdio (newline-delimited) and implements
 // the MCP subset: initialize, notifications/initialized, tools/list, tools/call.

@@ -45,7 +45,7 @@ func TestObserver_RecorderCapturesEvents(t *testing.T) {
 }
 
 // A panicking observer must never crash the write path or starve later
-// observers (docs/EVENTS.md §8; notifyObserver recovers per observer).
+// observers (docs/events/core.md §8; notifyObserver recovers per observer).
 func TestObserver_PanicIsolation(t *testing.T) {
 	svc, _ := newTestService(t)
 	ctx := context.Background()

@@ -7,7 +7,7 @@
 // both are shared across swaps, so SQLite state, live SSE subscribers, and the
 // hook supervisor all survive a reload.
 //
-// Normative contract (also docs/architecture/RELOAD.md):
+// Normative contract (also docs/architecture/reload.md):
 //
 //   - Store + bus survive; each successful reload builds a new *core.Service
 //     and closes the previous generation (stops its deadline scheduler).
@@ -18,7 +18,7 @@
 //     the initial Service. Condition evaluation goes through
 //     reloadableApp.currentService. Hook/run declarations stay FROZEN at
 //     construction; kind:service decls are reconciled AFTER mu is released
-//     (afterReload → Supervisor.Reconcile). See docs/architecture/RELOAD.md.
+//     (afterReload → Supervisor.Reconcile). See docs/architecture/reload.md.
 //   - Debounce (--watch): fingerprint must be stable for watchDebounce before
 //     one reload fires; editor bursts coalesce.
 //   - Self-write suppression: handleCreateBoard sets a token on selfWriteGate

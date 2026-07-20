@@ -1,5 +1,5 @@
 // Package hooks is the optional extension supervisor. It is deliberately
-// bimodal (see docs/architecture/LIFECYCLE-SCHEMA.md):
+// bimodal (see docs/architecture/lifecycle-schema.md):
 //
 //   - kind:hook — subscribe to the core event bus; on filter match, spawn
 //     run[] with event JSON on stdin (at-most-once, not retried).
@@ -7,7 +7,7 @@
 //     RestartPolicy / bounded drain). No in-process event feeding; services
 //     dial /v1/events/stream themselves.
 //
-// See docs/EXTENSIONS.md.
+// See docs/extensions/index.md.
 package hooks
 
 import (
@@ -49,7 +49,7 @@ type ServiceFunc func() *core.Service
 // path so a reload that closes the prior Service cannot leave the supervisor
 // reading a dead generation. Hook/run declarations stay frozen at
 // construction; kind:service decls are reconciled after each successful
-// reload (see Reconcile / docs/architecture/RELOAD.md).
+// reload (see Reconcile / docs/architecture/reload.md).
 type Supervisor struct {
 	getSvc       ServiceFunc
 	ws           *core.Workspace

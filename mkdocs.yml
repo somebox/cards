@@ -86,6 +86,8 @@ not_in_nav: |
   architecture/reload.md
   design/style-field.md
   design/themes.md
+  design/tui-bus-disposition.md
+  plans/2026-07-18-sprint-plan.md
 
 nav:
   - Home: index.md

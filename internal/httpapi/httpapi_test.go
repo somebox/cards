@@ -792,7 +792,7 @@ func getHTML(t *testing.T, ts *httptest.Server, path string) (*http.Response, st
 }
 
 // TestUnknownThemeDegradesToDefault pins theme-contract guarantee 3
-// (docs/design/THEMES.md): selecting a theme that doesn't exist — a typo, a
+// (docs/design/themes.md): selecting a theme that doesn't exist — a typo, a
 // stale cookie, a shared theme not yet installed — renders fine. The unknown
 // name lands on html[data-theme] where it matches no CSS rules, so the
 // default theme's complete base styling applies. A broken theme can at worst

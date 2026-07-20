@@ -19,10 +19,13 @@ package tui
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"image/color"
 	"os"
+	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -36,6 +39,7 @@ import (
 
 	"github.com/somebox/cards/internal/config"
 	"github.com/somebox/cards/internal/core"
+	"github.com/somebox/cards/internal/uioptions"
 )
 
 // ── palette ────────────────────────────────────────────────────────────────
@@ -203,7 +207,7 @@ func mdEsc(s string) string {
 // ── keymap ─────────────────────────────────────────────────────────────────
 
 type keyMap struct {
-	Up, Down, Left, Right, Open, Board, Search, Status, Owner, Edit, Comment, Claim, New, Help, Quit key.Binding
+	Up, Down, Left, Right, Open, Board, Search, Filter, SortCycle, TypeCycle, Status, Owner, Edit, Comment, Claim, New, Help, Quit key.Binding
 }
 
 func newKeyMap() keyMap {
@@ -214,15 +218,18 @@ func newKeyMap() keyMap {
 		Right:   key.NewBinding(key.WithKeys("l", "right"), key.WithHelp("l/→", "lane →")),
 		Open:    key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "open")),
 		Board:   key.NewBinding(key.WithKeys("shift+tab"), key.WithHelp("shift+tab", "board")),
-		Search:  key.NewBinding(key.WithKeys("/"), key.WithHelp("/", "find")),
-		Status:  key.NewBinding(key.WithKeys("s"), key.WithHelp("s", "status")),
-		Owner:   key.NewBinding(key.WithKeys("o"), key.WithHelp("o", "owner")),
-		Edit:    key.NewBinding(key.WithKeys("e"), key.WithHelp("e", "edit")),
-		Comment: key.NewBinding(key.WithKeys("c"), key.WithHelp("c", "comment")),
-		Claim:   key.NewBinding(key.WithKeys("m"), key.WithHelp("m", "mine")),
-		New:     key.NewBinding(key.WithKeys("n"), key.WithHelp("n", "new")),
-		Help:    key.NewBinding(key.WithKeys("?"), key.WithHelp("?", "keys")),
-		Quit:    key.NewBinding(key.WithKeys("q", "ctrl+c"), key.WithHelp("q", "quit")),
+		Search:    key.NewBinding(key.WithKeys("/"), key.WithHelp("/", "find")),
+		Filter:    key.NewBinding(key.WithKeys("f"), key.WithHelp("f", "filter")),
+		SortCycle: key.NewBinding(key.WithKeys("F"), key.WithHelp("F", "sort")),
+		TypeCycle: key.NewBinding(key.WithKeys("T"), key.WithHelp("T", "type")),
+		Status:    key.NewBinding(key.WithKeys("s"), key.WithHelp("s", "status")),
+		Owner:     key.NewBinding(key.WithKeys("o"), key.WithHelp("o", "owner")),
+		Edit:      key.NewBinding(key.WithKeys("e"), key.WithHelp("e", "edit")),
+		Comment:   key.NewBinding(key.WithKeys("c"), key.WithHelp("c", "comment")),
+		Claim:     key.NewBinding(key.WithKeys("m"), key.WithHelp("m", "mine")),
+		New:       key.NewBinding(key.WithKeys("n"), key.WithHelp("n", "new")),
+		Help:      key.NewBinding(key.WithKeys("?"), key.WithHelp("?", "keys")),
+		Quit:      key.NewBinding(key.WithKeys("q", "ctrl+c"), key.WithHelp("q", "quit")),
 	}
 }
 
@@ -232,7 +239,7 @@ func (k keyMap) ShortHelp() []key.Binding {
 func (k keyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
 		{k.Up, k.Down, k.Left, k.Right, k.Board},
-		{k.Open, k.Search, k.Status, k.Owner, k.Edit, k.Comment},
+		{k.Open, k.Filter, k.SortCycle, k.TypeCycle, k.Search, k.Status, k.Owner, k.Edit, k.Comment},
 		{k.Claim, k.New, k.Help, k.Quit},
 	}
 }
@@ -244,6 +251,7 @@ type modeKind int
 const (
 	modeBrowse modeKind = iota
 	modeSearch
+	modeFilter
 	modeStatus
 	modeOwner
 	modeTitle
@@ -292,6 +300,15 @@ type model struct {
 	laneIdx  int
 	cursor   int
 	cards    []core.Card // cards for the active board (all lanes)
+
+	// Active query directives, composed into refresh's CardQuery. They live
+	// on the model precisely so a bus-driven refresh (which rebuilds the
+	// query from scratch) preserves them — see
+	// TestFilterSortDirectivesSurviveRefresh.
+	sort   string // ParseSort grammar; "" = board lane_sort, else store default
+	owner  string // exact owner ("me" resolves to m.actor at refresh); "" = anyone
+	typeID string // single type narrow (T cycles the board's types); "" = all
+	filter string // raw filter-modal text: terms, a saved-filter id, or JSON DSL
 
 	// extras for the selected card (refetched when the selection changes)
 	extrasFor string
@@ -434,25 +451,291 @@ func (m *model) selected() *core.Card {
 	return nil
 }
 
-// refresh reloads the active board's cards from the service.
+// refresh reloads the active board's cards from the service, composing the
+// model's active directives (sort/owner/type/filter) into the query. The TUI
+// is serverless/in-process — there is no HTTP 422; a bad sort key or filter
+// DSL comes back as a *core.Error from ListCards (service.go validates sort
+// via ParseSort up front) and is surfaced via notifyErr + the persistent
+// loadErr line.
 func (m *model) refresh(ctx context.Context) {
 	b := m.board()
 	if b == nil {
 		return
 	}
-	page, err := m.svc.ListCards(ctx, core.CardQuery{
+	q := core.CardQuery{
 		BoardID: b.ID,
 		Limit:   500,
 		Include: []string{"links", "comments"},
-	})
+		Sort:    m.activeSort(),
+		TypeID:  m.typeID,
+	}
+	if m.owner != "" {
+		q.Owner = m.owner
+		if q.Owner == "me" && m.actor != "" {
+			q.Owner = m.actor
+		}
+	}
+	f, err := compileFilterText(m.filter, b, m.actor)
 	if err != nil {
 		m.loadErr = err.Error()
+		m.notifyErr(err)
+		return
+	}
+	q.Filter = f
+	page, err := m.svc.ListCards(ctx, q)
+	if err != nil {
+		m.loadErr = err.Error()
+		m.notifyErr(err)
 		return
 	}
 	m.loadErr = ""
 	m.cards = page.Items
 	m.extrasFor = "" // force extras re-sync (inbound/activity may have changed)
 	m.syncExtras(ctx)
+}
+
+// activeSort resolves the effective sort directive: the explicit m.sort, else
+// the board's presentation.lane_sort, else "" (the store's default order,
+// updated_at DESC — displayed as "Recently updated").
+func (m *model) activeSort() string {
+	if m.sort != "" {
+		return m.sort
+	}
+	if b := m.board(); b != nil && b.Presentation != nil {
+		return b.Presentation.LaneSort
+	}
+	return ""
+}
+
+// sortLabel maps a directive to its shared preset label for display.
+func (m *model) sortLabel(value string) string {
+	for _, o := range uioptions.SortOptions(value, m.board()) {
+		if o.Selected {
+			return o.Label
+		}
+	}
+	return value
+}
+
+// cycleSort advances the active sort through the shared preset list (the same
+// labeled options the web UI's board header offers — uioptions.SortOptions,
+// compile-time parity) and re-fetches.
+func (m *model) cycleSort(d int) {
+	opts := uioptions.SortOptions("", m.board())
+	if len(opts) == 0 {
+		return
+	}
+	active := m.activeSort()
+	if active == "" {
+		active = "-updated_at" // store default, displayed as "Recently updated"
+	}
+	idx := -1
+	for i, o := range opts {
+		if o.Value == active {
+			idx = i
+			break
+		}
+	}
+	next := opts[(idx+d+len(opts))%len(opts)]
+	m.sort = next.Value
+	m.cursor, m.listScroll = 0, 0
+	m.refresh(m.ctx())
+	if m.loadErr == "" {
+		m.notify("sort → " + next.Label)
+	}
+}
+
+// cycleType advances the type narrow through the active board's card types
+// ("" = all types) and re-fetches.
+func (m *model) cycleType(d int) {
+	b := m.board()
+	if b == nil || len(b.CardTypeIDs) == 0 {
+		return
+	}
+	ids := append([]string{""}, b.CardTypeIDs...)
+	idx := 0
+	for i, id := range ids {
+		if id == m.typeID {
+			idx = i
+			break
+		}
+	}
+	m.typeID = ids[(idx+d+len(ids))%len(ids)]
+	m.cursor, m.listScroll = 0, 0
+	m.refresh(m.ctx())
+	if m.loadErr != "" {
+		return
+	}
+	if m.typeID == "" {
+		m.notify("type → all")
+	} else if ct := m.types[m.typeID]; ct != nil {
+		m.notify("type → " + ct.Name)
+	} else {
+		m.notify("type → " + m.typeID)
+	}
+}
+
+// savedFilter returns the active board's saved filter with the given id.
+func (m *model) savedFilter(id string) *core.BoardFilter {
+	b := m.board()
+	if b == nil || b.Presentation == nil {
+		return nil
+	}
+	for i := range b.Presentation.Filters {
+		if b.Presentation.Filters[i].ID == id {
+			return &b.Presentation.Filters[i]
+		}
+	}
+	return nil
+}
+
+// filterExpression renders the active owner+filter directives as the filter
+// modal's editable text (used to prefill the modal on open).
+func (m *model) filterExpression() string {
+	var parts []string
+	if m.owner != "" {
+		parts = append(parts, "owner:"+m.owner)
+	}
+	if m.filter != "" {
+		parts = append(parts, m.filter)
+	}
+	return strings.Join(parts, ", ")
+}
+
+// ownerEqTerm matches an owner-equality term: `owner:v` or `owner == v`.
+var ownerEqTerm = regexp.MustCompile(`^owner\s*(:|==)\s*(\S+)$`)
+
+// setFilter parses the filter modal's text into the model's owner + filter
+// directives. The first owner-equality term lifts into m.owner (composed as
+// CardQuery.Owner — the owner narrow has no keybinding of its own; it lives
+// here); everything else stays raw in m.filter and compiles at refresh. The
+// text is validated before committing, so a typo leaves the previous
+// directives untouched. Empty text clears both.
+func (m *model) setFilter(text string) error {
+	text = strings.TrimSpace(text)
+	owner, rest := "", ""
+	if text != "" {
+		if m.savedFilter(text) != nil || strings.HasPrefix(text, "{") {
+			rest = text // whole-text forms never lift owner terms
+		} else {
+			var terms []string
+			for _, p := range strings.Split(text, ",") {
+				p = strings.TrimSpace(p)
+				if p == "" {
+					continue
+				}
+				if owner == "" {
+					if mm := ownerEqTerm.FindStringSubmatch(p); mm != nil {
+						owner = mm[2]
+						continue
+					}
+				}
+				terms = append(terms, p)
+			}
+			rest = strings.Join(terms, ", ")
+		}
+	}
+	if _, err := compileFilterText(rest, m.board(), m.actor); err != nil {
+		return err
+	}
+	m.owner, m.filter = owner, rest
+	return nil
+}
+
+// termRE matches one filter term: a DSL path, an operator, and a bare value
+// (e.g. `tag:bug`, `status != done`, `fields.priority >= 2`).
+var termRE = regexp.MustCompile(`^([A-Za-z_][A-Za-z0-9_.]*)\s*(==|!=|>=|<=|>|<|:)\s*(\S+)$`)
+
+// compileFilterText compiles the filter modal's text into the jq-like filter
+// DSL (core.CardQuery.Filter). Three forms:
+//
+//	""             → nil (no filter)
+//	saved id       → the board saved filter's map (whole-text match)
+//	{"$and":[...]}  → JSON DSL object, passed through
+//	term, term...  → comma-separated terms ANDed together
+//
+// `me` under identity keys resolves to actor via the shared
+// uioptions.ResolveMeFilter (same substitution as the web UI). Term values
+// stay strings for equality; range operators coerce numerics so
+// `fields.priority >= 2` compares as a number. Anything richer is what the
+// JSON form is for.
+func compileFilterText(text string, b *core.Board, actor string) (map[string]any, error) {
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return nil, nil
+	}
+	if b != nil && b.Presentation != nil {
+		for _, bf := range b.Presentation.Filters {
+			if bf.ID == text {
+				return uioptions.ResolveMeFilter(bf.Filter, actor), nil
+			}
+		}
+	}
+	if strings.HasPrefix(text, "{") {
+		var f map[string]any
+		if err := json.Unmarshal([]byte(text), &f); err != nil {
+			return nil, core.NewValidationError("filter", "invalid JSON filter: "+err.Error())
+		}
+		return uioptions.ResolveMeFilter(f, actor), nil
+	}
+	var terms []any
+	for _, p := range strings.Split(text, ",") {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		node, err := parseFilterTerm(p)
+		if err != nil {
+			return nil, err
+		}
+		terms = append(terms, node)
+	}
+	if len(terms) == 0 {
+		return nil, nil
+	}
+	var out map[string]any
+	if len(terms) == 1 {
+		out = terms[0].(map[string]any)
+	} else {
+		out = map[string]any{"$and": terms}
+	}
+	return uioptions.ResolveMeFilter(out, actor), nil
+}
+
+// parseFilterTerm compiles one `path op value` term into a DSL node.
+func parseFilterTerm(s string) (map[string]any, error) {
+	mm := termRE.FindStringSubmatch(s)
+	if mm == nil {
+		return nil, core.NewValidationError("filter", "cannot parse filter term "+strconv.Quote(s)+" (want path:value or path == v / != / > / >= / < / <=; comma-separate terms)")
+	}
+	path, op, val := mm[1], mm[2], mm[3]
+	if path == "type" {
+		path = "type_id" // convenience alias; the DSL path is type_id
+	}
+	var v any = val
+	switch op {
+	case ":", "==":
+		return map[string]any{path: map[string]any{"$eq": v}}, nil
+	case "!=":
+		return map[string]any{path: map[string]any{"$ne": v}}, nil
+	}
+	// Range operators: coerce numbers so numeric fields compare numerically;
+	// RFC3339 timestamps stay strings (they order lexicographically).
+	if n, err := strconv.ParseFloat(val, 64); err == nil {
+		v = n
+	}
+	var dslOp string
+	switch op {
+	case ">":
+		dslOp = "$gt"
+	case ">=":
+		dslOp = "$gte"
+	case "<":
+		dslOp = "$lt"
+	case "<=":
+		dslOp = "$lte"
+	}
+	return map[string]any{path: map[string]any{dslOp: v}}, nil
 }
 
 // syncExtras fetches inbound links + recent activity for the selected card,
@@ -702,6 +985,19 @@ func (m model) updateBrowse(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.mode = modeSearch
 		m.in.Focus()
 		return m, textinput.Blink
+	case msg.String() == "f":
+		// Filter modal (server-side DSL) — deliberately NOT `/`, which stays
+		// local find. Owner narrows live here too (owner:me), folded in to
+		// avoid an o/O muscle-memory collision with edit-owner.
+		m.openModal(modeFilter)
+		m.in.SetValue(m.filterExpression())
+		return m, textinput.Blink
+	case msg.String() == "F":
+		m.cycleSort(1)
+		return m, nil
+	case msg.String() == "T":
+		m.cycleType(1)
+		return m, nil
 	case key.Matches(msg, m.keys.Status):
 		if m.selected() != nil {
 			m.openModal(modeStatus)
@@ -921,6 +1217,26 @@ func (m model) updateModal(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		case modeSearch:
 			m.mode = modeBrowse
 			m.in.Blur()
+			return m, nil
+		case modeFilter:
+			if err := m.setFilter(v); err != nil {
+				// Bad term syntax: flash the structured error and stay in the
+				// modal so the user can fix it (previous directives untouched).
+				m.notifyErr(err)
+				return m, nil
+			}
+			m.mode = modeBrowse
+			m.in.Blur()
+			m.in.SetValue("")
+			m.cursor, m.listScroll = 0, 0
+			m.refresh(ctx)
+			if m.loadErr == "" {
+				if expr := m.filterExpression(); expr == "" {
+					m.notify("filter cleared")
+				} else {
+					m.notify("filter → " + expr + fmt.Sprintf(" (%d)", len(m.cards)))
+				}
+			}
 			return m, nil
 		case modeOwner:
 			if c := m.selected(); c != nil {
@@ -1159,9 +1475,39 @@ func (m model) laneLine(w int) string {
 		hint = dim(" · ") + sty(cPurple, "reading detail")
 	}
 	left := dim(" ─ " + m.columnName(m.lane()) + " · " + fmt.Sprint(n) + " cards")
+	if ds := m.directiveSummary(); ds != "" {
+		left += dim(" · ") + sty(cCyan, ds)
+	}
 	right := pos + hint
 	gap := max(1, w-lipgloss.Width(left)-lipgloss.Width(right))
 	return left + strings.Repeat(" ", gap) + right
+}
+
+// directiveSummary renders the active sort/owner/type/filter directives for
+// the lane line, so an applied narrow is visible after the modal closes.
+func (m *model) directiveSummary() string {
+	var parts []string
+	if m.sort != "" {
+		parts = append(parts, "sort:"+m.sortLabel(m.sort))
+	}
+	if m.owner != "" {
+		parts = append(parts, "owner:"+m.owner)
+	}
+	if m.typeID != "" {
+		name := m.typeID
+		if ct := m.types[m.typeID]; ct != nil && ct.Name != "" {
+			name = ct.Name
+		}
+		parts = append(parts, "type:"+name)
+	}
+	if m.filter != "" {
+		label := m.filter
+		if bf := m.savedFilter(m.filter); bf != nil {
+			label = bf.Label
+		}
+		parts = append(parts, "filter:"+label)
+	}
+	return strings.Join(parts, " · ")
 }
 
 // ── list ───────────────────────────────────────────────────────────────────
@@ -1300,6 +1646,8 @@ func (m model) detailView(w, h int) string {
 	switch m.mode {
 	case modeStatus:
 		content = m.statusPicker()
+	case modeFilter:
+		content = m.filterModal(innerW)
 	case modeOwner, modeTitle, modeComment:
 		var label string
 		switch m.mode {
@@ -1331,6 +1679,27 @@ func (m model) detailView(w, h int) string {
 		Padding(0, 1).
 		Width(boxW)
 	return box.Render(content)
+}
+
+// filterModal renders the filter editor: the text input plus the board's
+// saved filters and the term grammar, so the DSL is discoverable in place.
+func (m model) filterModal(innerW int) string {
+	var b strings.Builder
+	b.WriteString(bold("filter cards") + dim("  (server-side; / stays local find)") + "\n")
+	if bd := m.board(); bd != nil && bd.Presentation != nil && len(bd.Presentation.Filters) > 0 {
+		var saved []string
+		for _, bf := range bd.Presentation.Filters {
+			saved = append(saved, bf.ID+" (“"+bf.Label+"”)")
+		}
+		b.WriteString(dim("saved: "+strings.Join(saved, " · ")) + "\n")
+	}
+	b.WriteString("\n")
+	m.in.SetWidth(innerW - 3)
+	b.WriteString(m.in.View() + "\n\n")
+	b.WriteString(dim("owner:me · tag:bug · status != done · fields.priority >= 2") + "\n")
+	b.WriteString(dim("comma-separate terms · {\"$and\":[…]} JSON · saved id · me = you") + "\n")
+	b.WriteString(dim("enter apply · empty clears · esc cancel"))
+	return b.String()
 }
 
 func (m model) statusPicker() string {
@@ -1544,6 +1913,8 @@ func (m model) footer(w int) string {
 		switch m.mode {
 		case modeSearch:
 			return lipgloss.NewStyle().Width(w).Render(dim(" type to filter · enter keep · esc cancel"))
+		case modeFilter:
+			return lipgloss.NewStyle().Width(w).Render(dim(" enter apply · empty clears · esc cancel"))
 		case modeStatus:
 			return lipgloss.NewStyle().Width(w).Render(dim(" number to move · esc cancel"))
 		default:
@@ -1602,8 +1973,11 @@ func (m model) helpView(w int) string {
 			{"ctrl+d / ctrl+u", "half page"},
 			{"g / G", "top / bottom"},
 		}},
-		{"find", [][2]string{
-			{"/", "search within lane (live filter)"},
+		{"find & filter", [][2]string{
+			{"f", "filter modal (server-side DSL; owner:me folds in here)"},
+			{"F", "cycle sort presets (shared with the web UI)"},
+			{"T", "cycle type filter"},
+			{"/", "find within lane (live local substring)"},
 			{"esc", "clear search / hide detail / cancel"},
 		}},
 		{"meta", [][2]string{

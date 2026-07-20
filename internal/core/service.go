@@ -2,8 +2,8 @@
 //
 // The Service layer owns schema lookup, validation, transition evaluation,
 // optimistic concurrency, idempotency (HTTP-layer), and event writing. All
-// transports call into this package. See docs/ARCHITECTURE.md (Core Service
-// Boundary) and docs/SPEC.md (§10, §11).
+// transports call into this package. See docs/architecture/index.md (Core
+// Service Boundary) and docs/spec/api-surface.md.
 package core
 
 import (
@@ -1545,7 +1545,7 @@ func (s *Service) ListEvents(ctx context.Context, q EventQuery) ([]Event, error)
 // ListEventsPage is the cursor-paged catch-up feed (GET /v1/events): the
 // durable path for an integrator to replay what it missed while disconnected,
 // then resume the live SSE stream. Ordered by id ASC; NextCursor is the last
-// event id. See docs/INTEGRATION.md.
+// event id. See docs/events/integration.md.
 func (s *Service) ListEventsPage(ctx context.Context, q EventQuery) (*Page[Event], error) {
 	return s.store.Page(ctx, q)
 }

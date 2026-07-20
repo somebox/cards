@@ -1,7 +1,7 @@
 // Package config — extensions.go
 //
 // Parses definitions/extensions.yaml (or .json): hook, service, and run
-// declarations. Validated at load time. See docs/EXTENSIONS.md.
+// declarations. Validated at load time. See docs/extensions/index.md.
 package config
 
 import (
@@ -15,7 +15,7 @@ import (
 )
 
 // Valid restart_policy values for kind:service. Empty means omitted (supervisor
-// default on-failure). See docs/architecture/LIFECYCLE-SCHEMA.md.
+// default on-failure). See docs/architecture/lifecycle-schema.md.
 const (
 	RestartOnFailure = "on-failure"
 	RestartAlways    = "always"

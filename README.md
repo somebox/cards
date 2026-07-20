@@ -1,15 +1,16 @@
 # Cards
 
-Cards is a local coordination service for defining, reviewing and assigning tasks. A project defines
-its card types, boards, columns, transitions, and extensions in a JSON schema
-(extensions may also be declared in YAML).
-The `cards` binary loads those definitions, stores card state and events in
-SQLite, and exposes the same model through HTTP, CLI, MCP, and a small web UI.
+Cards is a local coordination service for defining, reviewing, and assigning
+work. A project defines its card types, boards, columns, transitions, and
+extensions in JSON (extensions may also be YAML). The `cards` binary loads
+those definitions, stores card state and events in SQLite, and exposes the
+same model through HTTP, CLI, MCP, a web UI, and a terminal UI.
 
-It was built for projects where plain todos are too local, but a hosted tracker
-is more process than the team needs. Humans, scripts, and agents can claim
-cards, update typed fields, append evidence, and resume from the card history
-later. The web board is useful, but it is only one view over the same API.
+It was built for projects where plain todos are too little structure and a
+hosted tracker is more process than the team needs. Humans, scripts, and
+agents can claim cards, update typed fields, append evidence, and resume from
+the card history later. The web board and TUI are useful, but each is only one
+view over the same API.
 
 ![Cards board UI](./media/board.png)
 
@@ -135,14 +136,15 @@ export CARDS_USER=me                     # actor for writes
 
 cards create --type task --title "My first task" --status todo
 cards list                               # the board as JSON lines
-cards patch <id> --status doing --version 1
+cards patch <id> --status in_progress --version 1
 cards comment add <id> --body "on it"
 ```
 
 `cards serve` with no `--workspace` walks up for a `.cards/` workspace like git
-finds `.git/`, falling back to a personal workspace at `~/.cards`. (Bare `cards`
-prints usage; run the server explicitly.) To run the bundled demo board (the
-project's own dogfooding backlog) instead, point at it explicitly:
+finds `.git/`, falling back to a personal workspace at `~/.cards`. A bare
+`cards` on a terminal opens the TUI against that same workspace; in scripts and
+pipes it prints usage instead. To run the bundled demo board (the project's own
+dogfooding backlog), point at it explicitly:
 
 ```bash
 cards serve --workspace ./examples/demo-workspace --port 8787 --seed
@@ -281,13 +283,21 @@ Run declared hooks with the server, or run the supervisor separately:
 ./cards run-extensions --workspace ./examples/demo-workspace
 ```
 
+The demo workspace also declares a supervised service, `review-bot`: a small
+SSE worker (Node stdlib only, no npm dependencies) that claims cards reaching
+`review` and comments — see `examples/demo-workspace/README.md`. **It
+requires Node on `PATH`**; on a Node-less machine its launcher logs
+`node: not found — service review-bot skipped` and stays down instead of
+restart-looping. `scripts/review-bot_test.sh` proves the loop end to end.
+
 ## Project Layout
 
 The binary entry points live in `cmd/cards/`. The service model is in
-`internal/core/`, with transports in `internal/httpapi/`, `internal/cli/`, and
-`internal/mcp/`. Workspace loading, SQLite storage, and hooks live in
-`internal/config/`, `internal/sqlite/`, and `internal/hooks/`. The demo
-workspace is under `examples/`, and the longer design references are in `docs/`.
+`internal/core/`, with transports in `internal/httpapi/`, `internal/cli/`,
+`internal/mcp/`, and `internal/tui/`. Workspace loading, SQLite storage, and
+hooks live in `internal/config/`, `internal/sqlite/`, and `internal/hooks/`.
+The demo workspace is under `examples/`, and the longer design references are
+in `docs/`.
 
 ## Documentation And Development
 
@@ -302,8 +312,8 @@ The site is built from the Markdown in [`docs/`](docs/) with MkDocs Material
 of what's actually built vs. proposed is in
 [`docs/reference/implementation-status.md`](docs/reference/implementation-status.md).
 
-Cards is in beta. The core service, HTTP API, CLI, MCP server, web UI, and
-hook system are implemented, but the API should still be treated as
+Cards is in beta. The core service, HTTP API, CLI, MCP server, web UI, TUI,
+and hook system are implemented, but the API should still be treated as
 project-local unless a release notes otherwise.
 
 PRs and issue reports are welcome. Start with

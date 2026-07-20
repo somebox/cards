@@ -5,8 +5,9 @@
 // so identical content stores once and a URI can never be overwritten with
 // different bytes. Local artifact URIs are relative and must resolve under
 // the workspace artifacts root (artifact_policy: "local") — Resolve enforces
-// that boundary, including symlink escapes. See docs/SPEC.md §6 and
-// docs/ARCHITECTURE.md (Security and Trust Boundary).
+// that boundary, including symlink escapes. See docs/spec/card-types.md
+// (`artifact` field) and docs/architecture/index.md (Security and Trust
+// Boundary).
 //
 // This package is wired through every surface (HTTP POST
 // /v1/cards/{id}/artifacts/{field} + GET /v1/artifacts/*, the CLI `attach`

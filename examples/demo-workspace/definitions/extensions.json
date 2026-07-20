@@ -7,6 +7,15 @@
       "on": "status_changed",
       "filter": { "board_id": "engineering", "to_status": "review" },
       "run": ["bash", ".cards/ext/notify.sh"]
+    },
+    {
+      "id": "review-bot",
+      "kind": "service",
+      "description": "SSE worker: claims engineering cards that reach review and comments (the docs/events/integration.md worker loop as a supervised process). Requires Node on PATH.",
+      "autostart": true,
+      "restart_policy": "on-failure",
+      "run": ["bash", ".cards/ext/review-bot.sh"],
+      "env": { "CARDS_USER": "review-bot" }
     }
   ]
 }
