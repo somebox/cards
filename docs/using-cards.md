@@ -15,6 +15,8 @@ the bundled demo workspace.
 > in-process — in scripts and pipes (`cards </dev/null`, `--json`) you get
 > usage text and machine output instead.
 
+![The terminal UI on the demo board — filter with f, cycle sorts with F, narrow by type with T](assets/img/tui-board.png)
+
 New to Cards? Start with [Get started](get-started.md) to install it and serve
 a board; come back here when you want the full operation reference.
 

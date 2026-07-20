@@ -33,20 +33,11 @@
     "idle_after": "336h"
   },
   "transitions": {
-    "backlog": [
-      "todo"
-    ],
-    "todo": [
-      "in_progress"
-    ],
-    "in_progress": [
-      "review"
-    ],
-    "review": [
-      "done",
-      "in_progress"
-    ],
-    "done": []
+    "backlog": ["todo", "in_progress", "review"],
+    "todo": ["backlog", "in_progress", "review"],
+    "in_progress": ["backlog", "todo", "review"],
+    "review": ["backlog", "todo", "in_progress", "done"],
+    "done": ["review", "in_progress"]
   },
   "presentation": {
     "lane_group_by": "status",
