@@ -213,20 +213,11 @@ prints just the id), so it pipes.
 
 A bare `cards` on an interactive terminal opens the TUI against the same
 workspace — no server required. Lane tabs, card list, and a markdown detail
-pane share the service layer with the CLI; `q` quits. In scripts and pipes,
-bare `cards` still prints usage.
+pane share the service layer with the CLI, and filter/sort use the same query
+surface as the web UI (`f` filter, `F` sort, `T` type, `/` find); `q` quits.
+In scripts and pipes, bare `cards` still prints usage.
 
-```text
- Demo workspace · Engineering · my 1                                                         ● live
-  Backlog 23 │ To Do 9 │ In Progress 0 │ Review 0 │ Done 146
- ─ Done · 146 cards                                                                          119/146
-  Programming… Events seam 1f: Eve… ·          15d ↪2 ▾1  ╭───────────────────────────────────────╮
-  Programming… Events seam 1a: ext… ·          15d ↪1 ▾2  │                                       │
-  Programming… Events seam 1e: mig… ·          15d ↪2 ▾1  │   ## Events: actor/owner stream       │
-▌ Programming… Events: actor/owner… ·          17d ↪1 ▾1  │   filters + GET /v1/events catch-up   │
-                                                             ╰───────────────────────────────────────╯
-h/← lane ← • l/→ lane → • j/↓ down • enter open • / find • ? keys • q quit
-```
+![The terminal UI on the seeded demo board](assets/img/tui-board.png){ .cards-shot }
 
 → [Using Cards](using-cards.md) · [CLI reference](reference/cli.md)
 

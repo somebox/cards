@@ -77,11 +77,18 @@ The TUI runs **serverless** against the resolved workspace (same precedence:
 service as the CLI backend, and refreshes live from the workspace event bus.
 Quit with `q` or `Ctrl-C`.
 
+![The terminal UI on the seeded demo board](../assets/img/tui-board.png)
+
 Layout and keys (full reference on `?` in-app):
 
 - Board columns are **tabs**: `h`/`l` (or `←`/`→`) switches lanes,
   `shift+tab` switches boards, `k` at the list top focuses the tab bar.
-- `j`/`k` moves the cursor (the list scrolls); `/` filters within the lane.
+- `j`/`k` moves the cursor (the list scrolls); `/` finds by text within the
+  lane.
+- Query directives (the same surface the web UI uses): `f` opens the filter
+  prompt (filter terms, saved board filters, `owner:me` — `me` resolves to
+  the acting user), `F` cycles the sort presets shared with the web UI, `T`
+  narrows by card type. Active directives survive live refreshes.
 - `enter` opens the selected card as a **markdown document** (schema fields,
   in/outbound links, comments, activity) in a split pane; `enter` again makes
   it fullscreen; `esc` steps back fullscreen → split → list-only.

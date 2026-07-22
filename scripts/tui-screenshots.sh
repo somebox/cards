@@ -33,8 +33,14 @@ trap cleanup EXIT
 
 cp -R "$ROOT/examples/demo-workspace" "$WORK/ws"
 
-echo "building tui-shot…"
+echo "building cards + tui-shot…"
+go -C "$ROOT" build -o "$WORK/cards" ./cmd/cards
 go -C "$ROOT" build -o "$WORK/tui-shot" ./cmd/tui-shot
+
+# The demo workspace's live DB is gitignored and machine-local; restore the
+# committed snapshot instead so the capture is identical on every machine.
+rm -f "$WORK/ws"/work-cards.db*
+"$WORK/cards" import --workspace "$WORK/ws" --in "$WORK/ws/backlog.jsonl" >/dev/null 2>&1
 
 mkdir -p "$OUT"
 

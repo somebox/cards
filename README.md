@@ -16,40 +16,23 @@ view over the same API.
 
 ## Terminal UI
 
-The same binary also opens a full terminal UI — run `cards` with no command
-on an interactive terminal (it prints usage instead in scripts and pipes, so
+The same binary opens a terminal UI — run `cards` with no command on an
+interactive terminal (in scripts and pipes it prints usage instead, so
 automation is unaffected). It runs against the resolved workspace with no
-server required, and refreshes live from the event bus.
+server required, refreshes live from the event bus, and filters and sorts
+with the same query surface as the web UI.
 
-```
- Demo workspace · Engineering · my 1                                                         ● live 
-  Backlog 23 │ To Do 9 │ In Progress 0 │ Review 0 │ Done 146                                        
- ─ Done · 146 cards                                                                          119/146
-  Programming… Events seam 1f: Eve… ·          15d ↪2 ▾1  ╭───────────────────────────────────────╮
-  Programming… Events seam 1a: ext… ·          15d ↪1 ▾2  │                                       │
-  Programming… Events seam 1e: mig… ·          15d ↪2 ▾1  │   ## Events: actor/owner stream       │
-  Programming… Events seam 1d: com… ·          15d ↪2 ▾1  │   filters + GET /v1/events catch-up   │
-  Programming… Events seam 1c: Emi… ·          15d ↪3 ▾1  │   feed                                │
-  Programming… UI: tags as chips w… ·          15d ↪1 ▾3  │   Programming Task · Done ·           │
-  Programming… Events: condition e… ·          16d ↪6 ▾4  │   unassigned · v8 · card_cf… · 17d    │
-▌ Programming… Events: actor/owner… ·          17d ↪1 ▾1  │   ## description                      │
-                                                             ╰───────────────────────────────────────╯
-h/← lane ← • l/→ lane → • j/↓ down • enter open • / find • ? keys • q quit                          
-```
+![Cards terminal UI](./docs/assets/img/tui-board.png)
 
-Board columns are tabs (`h`/`l` switches lanes, `shift+tab` switches boards).
-`enter` opens the selected card as a markdown document — schema fields, in/
-outbound links, comments, activity — in a split pane; `enter` again makes it
-fullscreen; `esc` steps back out. `s` moves a card through its legal
-transitions, `o` assigns, `e` edits the title, `c` comments, `m` claims, `/`
-searches, and `?` shows the full key reference.
+Press `?` in the TUI for the key reference, or see the
+[terminal UI section of the CLI reference](https://somebox.github.io/cards/reference/cli/#terminal-ui).
 
 ## How It Works
 
-A card has a fixed envelope and schema-defined fields. The envelope gives every
-card an `id`, `type_id`, `title`, `status`, `owner`, `version`, links, comments,
-and timestamps. The custom data lives under `card.fields` and is validated by
-the card type.
+A card is a JSON document with a fixed core structure and typed,
+schema-defined fields. Every card has an `id`, `type_id`, `title`, `status`,
+`owner`, `version`, links, comments, and timestamps. The custom data is
+defined in `card.fields` and validated against the card type's schema.
 
 Here is a shortened task definition:
 
@@ -74,14 +57,20 @@ Here is a shortened task definition:
 }
 ```
 
-That same definition drives the API, CLI, MCP tool schema, and UI form. Adding a
-field to the card type changes the contract everywhere without adding a separate
-UI model.
+That definition is shared by the API, the CLI, the MCP tool schema, and the UI
+form. Adding a field to the card type changes the contract everywhere without
+a separate UI model — schemas are the contract, not one input among several.
 
 Boards are views over cards. They choose the types and columns to show, and can
 add transition rules such as `todo -> in_progress -> review -> done`. Cards
-live in one workspace, statuses come from the workspace columns, and boards add
-useful constraints without owning a separate copy of the data.
+belong to one workspace, statuses come from the workspace columns, and boards
+add constraints without owning a separate copy of the data.
+
+The design follows a small set of principles: a minimal core (cards, fields,
+events, links, comments, columns, storage), definitions as git-backed files,
+events and hooks instead of a workflow engine, and extensions as separate
+processes. The full list, with the reasoning behind each, is in the
+[philosophy](https://somebox.github.io/cards/concepts/philosophy/).
 
 ## Install
 
@@ -114,7 +103,8 @@ go install github.com/somebox/cards/cmd/cards@latest   # or @v0.1.2
 
 ## Quick Start
 
-Scaffold your own workspace and serve it — zero configuration:
+Setup only requires scaffolding a workspace and serving it — there is no
+configuration beyond the definition files themselves:
 
 ```bash
 cards init          # scaffold ./.cards with a starter "welcome" board
@@ -122,7 +112,7 @@ cards serve         # serve it at http://127.0.0.1:8787
 open http://127.0.0.1:8787/ui/boards/welcome
 ```
 
-That's the whole system running: one `.cards/` folder holding your board
+This is the complete system: one `.cards/` folder holding the board
 definitions and a `work-cards.db` SQLite file, with a web UI, a `/v1` REST
 API, and an MCP (agent) interface over it. Click a card to edit fields inline,
 drag it between columns, or attach a file.
@@ -208,7 +198,7 @@ workspace/
 
 `definitions/workspace.json` declares the shared vocabulary: columns, tags,
 link types, users, and settings such as `enforce_transitions`, `strict_fields`,
-`tag_policy`, and `default_user`. Card types define the shape of `fields`.
+`tag_policy`, and `default_user`. Card types define the schema of `fields`.
 Boards define filtered views and transition rules.
 
 The field catalog is intentionally small: `string`, `text`, `number`, `date`,
@@ -258,9 +248,9 @@ The event stream is available at `GET /v1/events/stream` over SSE, with
 
 ## Extensions
 
-Extensions are normal processes. The core does not load plugin code; it starts
-a declared command for hooks or lets a service subscribe to the API and event
-stream. A hook can be as small as:
+Extensions are separate processes. The core does not load plugin code; it
+starts a declared command for hooks or lets a service subscribe to the API and
+event stream. A hook is a declared command run on matching events:
 
 ```json
 {
@@ -292,16 +282,16 @@ restart-looping. `scripts/review-bot_test.sh` proves the loop end to end.
 
 ## Project Layout
 
-The binary entry points live in `cmd/cards/`. The service model is in
+The binary entry points are in `cmd/cards/`. The service model is in
 `internal/core/`, with transports in `internal/httpapi/`, `internal/cli/`,
 `internal/mcp/`, and `internal/tui/`. Workspace loading, SQLite storage, and
-hooks live in `internal/config/`, `internal/sqlite/`, and `internal/hooks/`.
+hooks are in `internal/config/`, `internal/sqlite/`, and `internal/hooks/`.
 The demo workspace is under `examples/`, and the longer design references are
 in `docs/`.
 
 ## Documentation And Development
 
-**Full documentation lives at <https://somebox.github.io/cards/>** — start there
+**Full documentation is at <https://somebox.github.io/cards/>** — start there
 for the [product overview](https://somebox.github.io/cards/), a
 [2-minute get-started](https://somebox.github.io/cards/get-started/), the
 [MCP/agent guide](https://somebox.github.io/cards/agents/mcp/), and the CLI,
