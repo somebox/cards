@@ -74,7 +74,13 @@ func run(args []string) error {
 	case "serve":
 		return serveCmd(reinject(rest[1:]))
 	case "init":
-		return initCmd(rest[1:]) // init takes a positional dir, not --workspace
+		// --quiet is peeled as a global (so `cards --quiet init` and
+		// `cards init --quiet` are equivalent); reinject it for init's own flag.
+		initArgs := rest[1:]
+		if globals.Quiet {
+			initArgs = append([]string{"--quiet"}, initArgs...)
+		}
+		return initCmd(initArgs) // init takes a positional dir, not --workspace
 	case "export":
 		return exportCmd(reinject(rest[1:]))
 	case "import":
