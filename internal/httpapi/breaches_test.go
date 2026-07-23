@@ -14,7 +14,12 @@ func TestAPIBreaches_WIPExceeded(t *testing.T) {
 	before, _ := listBefore["items"].([]any)
 
 	// Push one more than the demo board's configured in_progress limit (3).
-	for i := 0; i < len(before)+1; i++ {
+	const limit = 3
+	toCreate := limit - len(before) + 1
+	if toCreate < 1 {
+		toCreate = 1
+	}
+	for i := 0; i < toCreate; i++ {
 		resp, body := do(t, ts, "POST", "/v1/cards", map[string]any{
 			"type_id": "programming-task",
 			"title":   "breach smoke",

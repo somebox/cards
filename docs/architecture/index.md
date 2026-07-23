@@ -148,7 +148,7 @@ Tables:
 - `users`: registered users.
 - `idempotency_keys`: request key, actor, status, body, created_at
   (composite PK `key, actor`).
-- `fts_cards`: FTS5 index for title and searchable text fields.
+- `fts_cards`: FTS5 index for title plus field values (`upsertFTS`; `searchable_fields` is declared on types but not yet filtered — see [`design/fts-vs-like-disposition.md`](../design/fts-vs-like-disposition.md)).
 
 Definitions are not stored in SQLite. They are loaded from `definitions/`
 and cached in memory as normalized config. Git-backed files remain the source

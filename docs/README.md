@@ -69,6 +69,8 @@ For repository-wide code quality, style, and review expectations, see
 - [auth.md](./design/auth.md) — Identity and attribution design (excluded from the published site).
 - [core-boundaries.md](./design/core-boundaries.md) — Core boundary design (excluded from the published site).
 - [outbox-gonogo.md](./design/outbox-gonogo.md) — Outbox go/no-go gate (excluded from the published site).
+- [fts-vs-like-disposition.md](./design/fts-vs-like-disposition.md) — FTS5 vs LIKE decision at POC scale (excluded from the published site).
+- [tui-bus-disposition.md](./design/tui-bus-disposition.md) — TUI bus & surface review disposition (excluded from the published site).
 - [subscribers.md](./design/subscribers.md) — Durable subscribers RFC (excluded from the published site).
 
 ### [Examples](./examples)

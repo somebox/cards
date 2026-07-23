@@ -58,9 +58,10 @@ func IfEmpty(ctx context.Context, st core.Store, svc *core.Service, ws *core.Wor
 			},
 		},
 		{
-			TypeID: "research-goal", Title: "Evaluate SQLite FTS5 vs LIKE for POC scale", Status: "in_progress",
+			TypeID: "research-goal", Title: "Evaluate SQLite FTS5 vs LIKE for POC scale", Status: "done",
 			Fields: map[string]any{
 				"hypothesis": "LIKE is sufficient for <10k cards and avoids the FTS5 build/CGO complexity.",
+				"conclusion": "Keep FTS5 (already shipped via modernc, no CGO). CGO premise false; at 10k cards FTS ~40× faster than LIKE. LIKE stays for id-likeness and DSL $contains only. Evidence: docs/design/fts-vs-like-disposition.md",
 			},
 		},
 		{
