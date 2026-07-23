@@ -239,8 +239,8 @@ no match → `200 { "card": null }`. On a match → `200 { "card": {...} }`.
 > (`internal/core/errors.go:141-145`, raised from the CAS path at
 > `internal/sqlite/sqlite.go:730` <!-- guard: internal/sqlite/sqlite.go:730 symbol=ErrClaimRaced -->);
 > `take-next`/`claim` wrap the attempt in `claimWithRetry`
-> (`internal/core/service.go:1526` <!-- guard: internal/core/service.go:1526 symbol=claimWithRetry -->,
-> called at `:1491` <!-- guard: internal/core/service.go:1491 symbol=claimWithRetry -->),
+> (`internal/core/service.go:1529` <!-- guard: internal/core/service.go:1529 symbol=claimWithRetry -->,
+> called at `:1494` <!-- guard: internal/core/service.go:1494 symbol=claimWithRetry -->),
 > which retries the next candidate up to 3 times within one call before
 > returning `{ card: null }`. Verified by `internal/core/claimretry_test.go`.
 

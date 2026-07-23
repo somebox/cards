@@ -58,6 +58,29 @@ func TestLoadDemoWorkspace(t *testing.T) {
 	}
 }
 
+// TestRejectBoardTransitionOffBoardColumn ensures transitions may only name
+// columns that appear on the board itself — not arbitrary workspace columns.
+// Without this, transition_illegal.valid_options can echo statuses the board
+// does not surface (card 8c04883d).
+func TestRejectBoardTransitionOffBoardColumn(t *testing.T) {
+	dir := t.TempDir()
+	mustWrite(t, filepath.Join(dir, "definitions", "workspace.json"), `{
+		"id":"t","name":"T",
+		"columns":[{"id":"todo","name":"Todo"},{"id":"in_progress","name":"In Progress"},{"id":"archive","name":"Archive"}],
+		"settings":{"default_user":"u"}
+	}`)
+	mustWrite(t, filepath.Join(dir, "definitions", "card-types", "task.json"), `{
+		"id":"task","name":"Task","fields":[]
+	}`)
+	mustWrite(t, filepath.Join(dir, "definitions", "boards", "b.json"), `{
+		"id":"b","name":"B","columns":["todo","in_progress"],"card_type_ids":["task"],
+		"transitions":{"todo":["in_progress","archive"]}
+	}`)
+	if _, err := New(dir).Load(); err == nil {
+		t.Fatal("expected error for off-board transition target, got nil")
+	}
+}
+
 // TestRejectBoardUnknownColumn ensures a board referencing an unknown column
 // fails at load.
 func TestRejectBoardUnknownColumn(t *testing.T) {

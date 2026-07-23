@@ -777,7 +777,10 @@ func (s *Service) PatchCard(ctx context.Context, id string, req PatchCardRequest
 						log.Printf("ERROR: escalated condition append failed (type=%s card=%s): %v", ev.Type, id, err)
 					}
 				}
-				return nil, newTransitionIllegal(current.Status, allowed)
+				// valid_options must be board column ids (the statuses a client
+				// can actually target on this board), never workspace-only ids
+				// that slipped into a broken transitions map.
+				return nil, newTransitionIllegal(current.Status, filterToBoardColumns(b, allowed))
 			}
 		}
 		events = append(events, StatusChanged(id, current.Status, newStatus))

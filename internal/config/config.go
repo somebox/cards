@@ -362,24 +362,28 @@ func validateOptionThemes(f *core.FieldDef) error {
 
 func validateBoard(b *core.Board, ws *core.Workspace, types map[string]*core.CardType) ([]string, error) {
 	colSet := colSet(ws)
+	boardCols := map[string]bool{}
 	for _, c := range b.Columns {
 		if !colSet[c] {
 			return nil, fmt.Errorf("columns references unknown column %q", c)
 		}
+		boardCols[c] = true
 	}
 	for _, tid := range b.CardTypeIDs {
 		if _, ok := types[tid]; !ok {
 			return nil, fmt.Errorf("card_type_ids references unknown type %q", tid)
 		}
 	}
-	// Transitions reference columns.
+	// Transitions must reference this board's columns (a board subset), not
+	// arbitrary workspace column ids. Otherwise transition_illegal.valid_options
+	// can echo statuses the board cannot move to.
 	for from, nexts := range b.Transitions {
-		if !colSet[from] {
-			return nil, fmt.Errorf("transitions: unknown from-status %q", from)
+		if !boardCols[from] {
+			return nil, fmt.Errorf("transitions: from-status %q is not a board column", from)
 		}
 		for _, n := range nexts {
-			if !colSet[n] {
-				return nil, fmt.Errorf("transitions[%s]: unknown to-status %q", from, n)
+			if !boardCols[n] {
+				return nil, fmt.Errorf("transitions[%s]: to-status %q is not a board column", from, n)
 			}
 		}
 	}

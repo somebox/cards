@@ -411,17 +411,40 @@ func parseFieldDate(str string) (time.Time, error) {
 }
 
 // allowedFromStatuses returns statuses that may transition to `to` under b's graph.
+// Only board column ids are returned — off-board workspace ids in a broken
+// transitions map are dropped so TakeNext never selects them.
 func allowedFromStatuses(b *Board, to string) []string {
 	out := []string{}
 	for from, nexts := range b.Transitions {
-		if Contains(nexts, to) {
+		if Contains(nexts, to) && Contains(b.Columns, from) {
 			out = append(out, from)
 		}
 	}
 	if len(out) == 0 {
 		// No explicit edge; allow same-status (no-op) so a card already at `to`
 		// can still be claimed.
-		out = append(out, to)
+		if Contains(b.Columns, to) || len(b.Columns) == 0 {
+			out = append(out, to)
+		}
+	}
+	return out
+}
+
+// filterToBoardColumns keeps only ids that appear on b.Columns, preserving
+// the order of in. Used so transition_illegal.valid_options never echo a
+// workspace-only status the board does not surface.
+func filterToBoardColumns(b *Board, in []string) []string {
+	if b == nil || len(in) == 0 {
+		return in
+	}
+	if len(b.Columns) == 0 {
+		return append([]string(nil), in...)
+	}
+	out := make([]string, 0, len(in))
+	for _, id := range in {
+		if Contains(b.Columns, id) {
+			out = append(out, id)
+		}
 	}
 	return out
 }

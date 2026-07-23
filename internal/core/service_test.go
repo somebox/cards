@@ -199,6 +199,71 @@ func TestPatchCard_TransitionLegalAndIllegal(t *testing.T) {
 	}
 }
 
+// TestPatchCard_TransitionIllegal_ValidOptionsAreBoardColumns pins the
+// contract for card 8c04883d: transition_illegal.valid_options must be board
+// column ids, never workspace-only statuses that somehow appear in the graph.
+// Defense-in-depth — load validation should also reject off-board edges, but
+// if a hand-built Service still has them, emission must scrub them.
+func TestPatchCard_TransitionIllegal_ValidOptionsAreBoardColumns(t *testing.T) {
+	ws := &core.Workspace{
+		ID: "t", Name: "T",
+		Columns: []core.Column{
+			{ID: "todo", Name: "Todo"},
+			{ID: "in_progress", Name: "In Progress"},
+			{ID: "review", Name: "Review"},
+			{ID: "done", Name: "Done"},
+			{ID: "archive", Name: "Archive"}, // workspace-only; not on board
+		},
+		Settings: core.WorkspaceSettings{StrictFields: true, DefaultUser: "u"},
+	}
+	types := map[string]*core.CardType{
+		"task": {
+			ID: "task", Name: "Task", SchemaVersion: 1,
+			Fields:         []core.FieldDef{{ID: "description", Type: core.FieldText, Required: true}},
+			AllowedColumns: []string{"todo", "in_progress", "review", "done", "archive"},
+		},
+	}
+	eng := &core.Board{
+		ID: "eng", Name: "Engineering",
+		// Board deliberately omits "archive".
+		Columns:     []string{"todo", "in_progress", "review", "done"},
+		CardTypeIDs: []string{"task"},
+		// Broken graph: lists workspace-only "archive" as a legal next hop.
+		Transitions: map[string][]string{
+			"todo": {"in_progress", "archive"},
+		},
+	}
+	eng.Settings.EnforceTransitions = true
+	boards := map[string]*core.Board{"eng": eng}
+	svc, _ := newTestServiceWith(t, ws, types, boards)
+	ctx := ctx2()
+	c, err := svc.CreateCard(ctx, core.CreateCardRequest{
+		TypeID: "task", Title: "T", Status: "todo",
+		Fields: map[string]any{"description": "go"}, Actor: "u",
+	})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	bad := "done"
+	_, err = svc.PatchCard(ctx, c.ID, core.PatchCardRequest{Version: c.Version, Status: &bad, Actor: "u"})
+	ce := core.AsError(err)
+	if ce == nil || ce.Code != "transition_illegal" {
+		t.Fatalf("expected transition_illegal, got %v", err)
+	}
+	for _, opt := range ce.ValidOptions {
+		if opt == "archive" {
+			t.Fatalf("valid_options leaked workspace-only id %q: %v", opt, ce.ValidOptions)
+		}
+		if !core.Contains(boards["eng"].Columns, opt) {
+			t.Errorf("valid_options entry %q is not a board column (board=%v options=%v)",
+				opt, boards["eng"].Columns, ce.ValidOptions)
+		}
+	}
+	if len(ce.ValidOptions) != 1 || ce.ValidOptions[0] != "in_progress" {
+		t.Errorf("valid_options = %v, want [in_progress]", ce.ValidOptions)
+	}
+}
+
 func TestPatchCard_ForceBypassesTransition(t *testing.T) {
 	svc, _ := newTestService(t)
 	ctx := ctx2()
