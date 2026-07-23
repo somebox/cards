@@ -150,15 +150,15 @@ would be lost), so carry forward everything you keep:
   "name": "Programming Task",
   "schema_version": 2,
   "migrations": {
-    "2": { "from": 1, "summary": "Track PR URL before review",
-           "field_defaults": { "pull_request_url": null } }
+    "2": { "from": 1, "summary": "Completed cards carry a visual proof where appropriate",
+           "field_defaults": { "screenshot": null } }
   },
   "fields": [
     { "id": "description", "type": "text", "required": true, "display": "monospace" },
     { "id": "branch", "type": "string", "required": true, "display": "badge" },
-    { "id": "pull_request_url", "type": "string" },
     { "id": "kind", "type": "enum",
       "options": ["feature", "bug", "design", "infra"] },
+    { "id": "screenshot", "type": "artifact", "artifact_policy": "local" },
     { "id": "work_log", "type": "repeating", "display": "feed",
       "item_fields": [
         { "id": "commit_hash", "type": "string", "required": true },

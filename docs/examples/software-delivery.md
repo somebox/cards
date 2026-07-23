@@ -190,10 +190,10 @@ cards append card_auth_api work_log \
 cards patch card_auth_api --status review --version 2
 ```
 
-> A real deployment might add a `pull_request_url` field (type `string`) to
-> its `programming-task` definition and pass `--field pull_request_url=…`
-> here; the bundled demo workspace does not include it, so the example omits
-> it to stay runnable as-is.
+> A real deployment might add a custom string field (for example a tracker
+> issue URL) to its `programming-task` definition and pass `--field …` here;
+> the bundled demo schema keeps only `description`, `branch`, `kind`, and
+> `work_log`, so the example omits extras to stay runnable as-is.
 
 ### A7 — Complete API; unblocks dependency chain
 

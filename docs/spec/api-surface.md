@@ -39,8 +39,8 @@ the agent-facing transport defaults to the safe side.
 
 ```json
 "migrations": {
-  "2": { "from": 1, "summary": "Track PR URL before review",
-         "field_defaults": { "pull_request_url": null } }
+  "2": { "from": 1, "summary": "Completed cards carry a visual proof where appropriate",
+         "field_defaults": { "screenshot": null } }
 }
 ```
 Runtime applies only `field_defaults`; it does not rewrite history.
