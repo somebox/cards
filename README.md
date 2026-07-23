@@ -298,9 +298,14 @@ for the [product overview](https://somebox.github.io/cards/), a
 schema, events, and extension references.
 
 The site is built from the Markdown in [`docs/`](docs/) with MkDocs Material
-(`mkdocs.yml`); the source files remain browsable on GitHub. A code-verified map
-of what's actually built vs. proposed is in
-[`docs/reference/implementation-status.md`](docs/reference/implementation-status.md).
+(`mkdocs.yml`); the source files remain browsable on GitHub. Local entry
+points worth bookmarking:
+
+- [`docs/concepts/index.md`](docs/concepts/index.md) — vocabulary (workspace,
+  definitions, card types, cards, boards) and use-case setups
+- [`docs/reference/implementation-status.md`](docs/reference/implementation-status.md)
+  — code-verified map of what's built vs. proposed
+- [`docs/README.md`](docs/README.md) — full local doc index
 
 Cards is in beta. The core service, HTTP API, CLI, MCP server, web UI, TUI,
 and hook system are implemented, but the API should still be treated as
