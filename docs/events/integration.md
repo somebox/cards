@@ -37,16 +37,18 @@ board, or type. `?card_id=` is "watch this card"; `?types=status_changed` is
 import { EventSource } from "eventsource"; // or browser-native
 
 const es = new EventSource(
-  "http://127.0.0.1:8787/v1/events/stream?board_id=engineering&types=status_changed,comment_added"
+  "http://127.0.0.1:8787/v1/events/stream?board_id=engineering&types=card_created,status_changed,comment_added"
 );
-es.onmessage = (e) => {
+es.addEventListener("status_changed", (e) => {
   const evt = JSON.parse(e.data);
-  if (evt.type === "status_changed" && evt.diff.after === "review") runReviewBot(evt.card_id);
-};
+  if (evt.diff.after === "review") runReviewBot(evt.card_id);
+});
 ```
 
-The stream is **resumable**: it sets `Last-Event-ID` and `EventSource` sends it
-back on reconnect, so a dropped connection replays the gap rather than losing it.
+Durable events carry an SSE id, which `EventSource` sends back as
+`Last-Event-ID` on reconnect. The server performs a bounded replay; use the
+paged feed for authoritative catch-up rather than treating automatic reconnect
+as a gap-free guarantee.
 
 **3. The worker loop.** Events pair with the claim API to pull work, do it, and
 write results back:
@@ -55,33 +57,35 @@ write results back:
 const API = "http://127.0.0.1:8787";
 const headers = { "Content-Type": "application/json", "X-Work-Cards-Actor": "alice" };
 
-es.addEventListener("message", async (e) => {
-  if (JSON.parse(e.data).type !== "card_created") return;
-
+es.addEventListener("card_created", async (e) => {
   // Claim the oldest unowned matching card (POST /v1/cards/take-next)
   const claimRes = await fetch(`${API}/v1/cards/take-next`, {
     method: "POST",
     headers: { ...headers, "Idempotency-Key": crypto.randomUUID() },
     body: JSON.stringify({ type_id: "programming-task", status: "in_progress" }),
   });
+  if (!claimRes.ok) throw new Error(`claim failed: ${claimRes.status}`);
   const { card } = await claimRes.json();   // response: { card: Card | null }
   if (!card) return;
 
   await doWork(card);
 
   // Attach a comment (POST /v1/cards/{id}/comments)
-  await fetch(`${API}/v1/cards/${card.id}/comments`, {
+  const commentRes = await fetch(`${API}/v1/cards/${card.id}/comments`, {
     method: "POST",
     headers: { ...headers, "Idempotency-Key": crypto.randomUUID() },
     body: JSON.stringify({ body: "done ✓" }),
   });
+  if (!commentRes.ok) throw new Error(`comment failed: ${commentRes.status}`);
+  const commentedCard = await commentRes.json();
 
-  // Advance status (PATCH /v1/cards/{id})
-  await fetch(`${API}/v1/cards/${card.id}`, {
+  // Every mutation increments version, so advance from the comment response.
+  const advanceRes = await fetch(`${API}/v1/cards/${card.id}`, {
     method: "PATCH",
     headers: { ...headers, "Idempotency-Key": crypto.randomUUID() },
-    body: JSON.stringify({ version: card.version, status: "review" }),
+    body: JSON.stringify({ version: commentedCard.version, status: "review" }),
   });
+  if (!advanceRes.ok) throw new Error(`advance failed: ${advanceRes.status}`);
 });
 ```
 
@@ -115,13 +119,14 @@ board-level conditions are already built.
 
 There are two **origins** of events:
 
-### Mutation events — emitted on a write **[built]**
+### Card mutation events — emitted on a write **[built]**
 
 A direct, synchronous consequence of an API call. Always card-scoped.
 
 | Event | Fires when |
 |---|---|
 | `card_created` | a card is created |
+| `card_deleted` | a card is deleted (tombstone; rides along on `--state-only` export) |
 | `status_changed` | status moves |
 | `field_updated` | a scalar field changes |
 | `owner_changed` | owner set/cleared |
@@ -129,10 +134,13 @@ A direct, synchronous consequence of an API call. Always card-scoped.
 | `item_appended` / `item_updated` / `item_removed` | a repeating-field entry changes |
 | `link_added` / `link_removed` | a link changes |
 | `comment_added` / `comment_edited` | a comment changes |
-| `artifact_added` **[proposed]** | a file/artifact is attached (constant declared; no upload route or emit site yet) |
+| `artifact_added` | a file is attached to an artifact field |
 | `schema_upgraded` | a card is re-pinned to a new schema version |
-| `definition_reloaded` **[built]** | workspace definitions reloaded (`POST /v1/workspace/reload` or `serve --watch`) |
-| `definition_reload_failed` **[built]** | reload kept last-good; UI banner under `--watch` |
+
+Definition lifecycle signals are also built, but are not card mutations:
+`definition_reloaded` is published per affected board after
+`POST /v1/workspace/reload` or `serve --watch`; `definition_reload_failed`
+reports that reload kept the last-good definitions and drives the UI banner.
 
 ### Condition events — emitted when a declared threshold crosses **[built]**
 
@@ -161,28 +169,53 @@ consumer below receives them identically. Unlike mutation events they are
 
 ## Monitors — declaring conditions **[built]**
 
-Monitors are data, not code (schema-is-the-process). Declared per board (or
-workspace defaults), they tell the core which condition events to emit:
+Monitors are data, not code (schema-is-the-process). Declared per board, they
+tell the core which condition events to emit. WIP caps sit on the board itself
+(`wip_limits`) rather than inside `monitors`, because they also shape board UI;
+every other watcher lives under `monitors`:
 
 ```jsonc
 // definitions/boards/engineering.json
-"monitors": {
-  "wip_limit":          { "in_progress": 5, "review": 3 },
-  "max_time_in_status": { "in_progress": "8h", "review": "2d" },
-  "idle_after":         "3d",
-  "alert_when_empty":   ["todo"],
-  "emit_rejections":    true
+{
+  "wip_limits": { "in_progress": 5, "review": 3 },   // → wip_exceeded / wip_cleared
+  "monitors": {
+    "max_time_in_status": { "in_progress": "8h", "review": "2d" }, // → status_timeout
+    "idle_after":         "3d",                                    // → card_idle
+    "alert_when_empty":   ["todo"],                                 // → lane_drained / lane_refilled
+    "emit_rejections":    true                                      // → transition_rejected
+  }
 }
 ```
 
-Durations use Go-style strings (`"8h"`, `"2d"` → normalized). The core emits the
-matching event **once per crossing** (idempotent): it tracks the last-emitted
-state per `(board, column, condition)` and per `(card, status-entry)` so a
-condition that stays tripped does not re-fire. The inverse event
-(`wip_cleared`, `lane_refilled`, `card_unblocked`) fires when it recovers.
+`card_blocked` / `card_unblocked` need no declaration — they fire from open
+`blocked-by` / `depends-on` link sets on any board.
+
+Durations use Go-style strings plus a `d` (days) suffix (`"8h"`, `"2d"` →
+normalized via `ParseMonitorDuration`). The core emits the matching event
+**once per crossing** (idempotent): it tracks the last-emitted state per
+`(board, column, condition)` and per `(card, status-entry)` so a condition that
+stays tripped does not re-fire. The inverse event (`wip_cleared`,
+`lane_refilled`, `card_unblocked`) fires when it recovers.
 
 The core only emits — it does not promote cards, reassign owners, or move
 status in response. That is the integrator's job (see Coordinate).
+
+### Escalating a condition to a durable fact
+
+By default condition events are [ephemeral signals](#condition-events-are-ephemeral).
+To also append them to the event log (audit / restart-safe replay), list the
+types on the **workspace**, not the board:
+
+```jsonc
+// definitions/workspace.json
+"settings": {
+  "persist_conditions": ["wip_exceeded", "status_timeout"]
+}
+```
+
+Escalation is per event **type**, workspace-wide. Bus delivery follows the same
+path, but persisted events receive a durable id and appear in the feed;
+ephemeral signals have no replay cursor. See [`core.md`](core.md) §11.2.
 
 ### A temporal event, step by step
 
@@ -217,14 +250,15 @@ that could trip them.
 
 Because condition events are ephemeral and derived, a monitor's deadlines are
 scheduled **only while it has a live consumer** — an SSE subscriber whose
-`types` filter includes the event, a declared hook/webhook on that type, or an
-explicit `persist: true`. When the last consumer for `status_timeout`
-disconnects, those deadlines are dropped from the heap and the core stops
-computing them; when a consumer re-subscribes, the relevant deadlines are
-rebuilt from current state. A signal that would have fired while nobody was
-listening was, by definition, for nobody — and catch-up does not rely on replay
-(see below). So cancellation has two clean triggers: the condition no longer
-holds, or no one is left to tell.
+`types` filter includes the event, a declared hook/webhook on that type, or the
+type being listed in workspace `settings.persist_conditions`. When the last
+consumer for `status_timeout` disconnects (and the type is not escalated),
+those deadlines are dropped from the heap and the core stops computing them;
+when a consumer re-subscribes, the relevant deadlines are rebuilt from current
+state. A signal that would have fired while nobody was listening was, by
+definition, for nobody — and catch-up does not rely on replay (see below). So
+cancellation has two clean triggers: the condition no longer holds, or no one
+is left to tell.
 
 ### Condition events are ephemeral
 
@@ -237,9 +271,9 @@ Catch-up therefore splits in two: replay missed *facts* from the feed, and ask
 for *current* conditions via the [breaches query](#current-breaches-catch-up-for-conditions-built).
 A breach is itself derivable from the facts — the feed shows a card entered
 `review` at `T` and is still there, so "it's 9h overdue" is computable; the
-condition event is just a convenience signal on top. A monitor may set
-`persist: true` to also record its events in the feed (audit/history), at which
-point they replay like mutation events.
+condition event is just a convenience signal on top. Types listed in
+`settings.persist_conditions` are also recorded in the feed (audit/history),
+at which point they replay like mutation events.
 
 ## Observe
 
@@ -247,13 +281,14 @@ point they replay like mutation events.
 ```
 GET /v1/events/stream?card_id=&board_id=&types=&actor=&owner=
 ```
-Resumable via `Last-Event-ID` / `since=`. All five filters are built: `card_id`,
+Supports bounded replay via `Last-Event-ID` / `since=`. All five filters are built: `card_id`,
 `board_id`, `types` (CSV), `actor=` (events a user caused), and `owner=` (events
 on a user's cards). They make "watch this card", "follow @alice", and "follow my
 cards" the same primitive. The live stream is **best-effort**: a slow consumer
 whose buffer fills is dropped with a `: dropped, reconnect` comment — reconnect
 and replay from the feed (below). For durable catch-up, use the feed, not the
-stream.
+stream. Durable events carry an SSE `id:` cursor; ephemeral condition signals
+omit it so they cannot replace the client's last durable replay position.
 
 ### Catch-up feed **[built]**
 ```
@@ -262,7 +297,8 @@ GET /v1/events?actor=&owner=&type=&board_id=&since=&cursor=&limit=
 ```
 A cursor-paged query over the persisted events table for audit and "what did I
 miss while disconnected". The feed is a log of **facts** — mutation events only
-(plus any monitor marked `persist: true`). Ordered by event id ascending.
+(plus any condition type listed in `settings.persist_conditions`). Ordered by
+event id ascending.
 
 - **`since=` and `cursor=` are both event-id floors** (events with `id >` the
   value). `since=` is the recovery floor — your last-persisted event id; `cursor=`
@@ -281,9 +317,11 @@ id, however long the consumer was gone. (`event_retention_days` exists in
 workspace settings as a future knob but is not enforced today — retention is
 currently unbounded.) (The in-memory SSE buffer is bounded and may drop under
 backpressure; that is why durable recovery goes through the feed, then resumes
-the live stream.) Recovery is therefore: read the feed from your last id, paging
-on `cursor`, until `next_cursor` is empty → open the stream with `Last-Event-ID`
-set to that id. No event is lost between the two.
+the live stream.) The SSE handler replays at most 500 events and subscribes to
+live delivery after replay, so opening a stream is not an atomic feed-to-live
+handoff. Consumers that require strict continuity should page the feed from
+their saved id, open the stream, then reconcile the feed once more from the last
+processed durable id.
 
 ### Current breaches (catch-up for conditions) **[built]**
 ```
@@ -327,10 +365,10 @@ first-class webhook adds delivery guarantees.)
 - **Claim work** — `POST /v1/cards/take-next` (oldest unowned matching),
   `claim`, `release`. **[built]**
 - **Attach results** — `POST /v1/cards/{id}/comments` (text), append to a
-  `work_log` repeating field (structured progress) **[built]**; and
-  `POST /v1/cards/{id}/artifacts` to attach a file/log/report (multipart or
-  `{uri,mime,size,sha256}`), stored under workspace `artifacts/`, emitting
-  `artifact_added` **[proposed]**.
+  `work_log` repeating field (structured progress), or upload raw bytes to
+  `POST /v1/cards/{id}/artifacts/{field}`. Artifact bytes are stored under the
+  workspace `artifacts/` directory and the card records their metadata;
+  successful uploads emit `artifact_added`. **[built]**
 - **Advance** — `PATCH /v1/cards/{id}` (status/fields, optimistic concurrency),
   `upgrade-schema`. **[built]**
 
@@ -352,10 +390,10 @@ Two patterns, both built on existing primitives:
 ### Reprioritization when the ready lane empties
 `take-next` returning empty is the pull signal today. Add **[proposed]**:
 - a `priority`/`rank` field with `take-next`/`list` ordering by it, so
-  reprioritizing is "set priority" and is honored deterministically; and
-- the `lane_drained` event on the ready column as a push signal.
+  reprioritizing is "set priority" and is honored deterministically.
 
-An extension subscribes to `lane_drained`, then promotes the next backlog card
+The built `lane_drained` event supplies the push signal: an extension subscribes
+to it, then promotes the next backlog card
 by priority — the *policy* (which card, when) lives in the extension, the
 *signal* and *ordering* in the core.
 
@@ -373,11 +411,11 @@ by priority — the *policy* (which card, when) lives in the extension, the
   monitor has a live consumer and are reconstructible from state, so nothing is
   persisted. It holds no policy; it only emits. See the deadline scheduler and
   lazy-monitor sections above.
-- **Delivery.** Mutation events and condition events marked `persist: true`
-  append to the log and publish to the in-process bus. Ephemeral condition
-  signals are published to the bus only, so live consumers (SSE, hooks) see
-  one unified stream, while the durable feed contains only facts plus any
-  explicitly persisted conditions.
+- **Delivery.** Mutation events and condition types listed in
+  `settings.persist_conditions` append to the log and publish to the
+  in-process bus. Ephemeral condition signals are published to the bus only,
+  so live consumers (SSE, hooks) see one unified stream, while the durable
+  feed contains only facts plus any escalated conditions.
 
 ## Build order
 
@@ -388,7 +426,7 @@ by priority — the *policy* (which card, when) lives in the extension, the
 5. ~~Deadline-heap evaluator + temporal events (time-in-status, idle), lazy/refcounted.~~ **[done]**
 6. ~~`GET /v1/breaches` (current-conditions catch-up for the ephemeral signals).~~ **[done]**
 7. ~~`transition_rejected` (watch friction).~~ **[done]**
-8. Artifact upload (attach files).
+8. ~~Artifact upload (attach files).~~ **[done]**
 9. `card_ready` (DAG coordination) — `card_unblocked` itself is already **[done]** (seam 3c, see *The event model* above); `card_ready` (all dependencies satisfied, not just unblocked) remains unbuilt.
 10. Priority/rank + reprioritize-on-`lane_drained`.
 11. Webhooks (push delivery).

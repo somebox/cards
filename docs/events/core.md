@@ -266,9 +266,10 @@ stamp/store/dispatch sequences.
    either adopt the same discipline or accept at-least-once by contract.
 7. **Escalated-condition append failure.** `Condition` routes escalated types
    through `Emit`; if that append fails, the durable audit trail — the whole
-   reason `persist:true` was set — silently gains a hole. Best-effort callers
-   (e.g. `evaluateWIP`) must not fail the triggering mutation on it, but the
-   seam must **surface** the append error (log / observer / metric), never
+   reason the type was listed in `settings.persist_conditions` — silently
+   gains a hole. Best-effort callers (e.g. `evaluateWIP`) must not fail the
+   triggering mutation on it, but the seam must **surface** the append error
+   (log / observer / metric), never
    swallow it. (A signalled condition dropping is by definition for nobody; an
    escalated one dropping is data loss.)
 
@@ -361,6 +362,7 @@ Shift-left checks:
 ### 11.1 Durable mutation facts `[built]` (scope: card)
 
 - `card_created`
+- `card_deleted`
 - `status_changed`
 - `field_updated`
 - `owner_changed`
@@ -373,9 +375,7 @@ Shift-left checks:
 - `comment_added`
 - `comment_edited`
 - `schema_upgraded`
-- `artifact_added` **[proposed — constant declared; no upload route or emit site yet]**
-- `definition_reloaded` **[built]** — `POST /v1/workspace/reload` / `serve --watch`
-- `definition_reload_failed` **[built]** — last-good kept; see `docs/architecture/reload.md`
+- `artifact_added`
 
 (Per-type `diff` shapes remain as currently documented and wire-compatible.)
 
@@ -388,14 +388,14 @@ Examples: `status_timeout` `[built, 3e]`, `card_idle` `[built, 3e]`,
 Default to `Signal`; promote to durable fact only if recovery/audit use-cases
 require replay.
 
-**Escalation (`persist:true`) `[built, 3b]`.** Condition events are emitted
-through the single `Emitter.Condition` seam, which routes each event by policy:
-a type listed in workspace `settings.persist_conditions` (e.g.
+**Escalation (`settings.persist_conditions`) `[built, 3b]`.** Condition events
+are emitted through the single `Emitter.Condition` seam, which routes each
+event by policy: a type listed in workspace `settings.persist_conditions` (e.g.
 `["wip_exceeded"]`) goes through `Emit` (durable fact — appended to the log,
 replayable from the feed and surviving a restart); every other condition type
-goes through `Signal` (ephemeral). Bus and observer delivery are identical on
-both paths — persistence is the only difference, so a live consumer cannot tell
-an escalated event from a signalled one. This gives integrators an opt-in
+goes through `Signal` (ephemeral). Bus and observer dispatch use the same path;
+persisted events additionally receive a durable id and appear in the feed,
+while ephemeral events have no replay cursor. This gives integrators an opt-in
 audit/replay trail (each escalated event can become a durable system card on
 their side) without making all conditions durable by default.
 
@@ -403,6 +403,15 @@ their side) without making all conditions durable by default.
 
 The event envelope includes `scope` + `board_id`, keeping `card_id` optional by
 scope. Existing card-event consumers remain backward compatible.
+
+### 11.4 Definition lifecycle signals `[built]`
+
+`definition_reloaded` and `definition_reload_failed` are live, bus-only
+notifications from `POST /v1/workspace/reload` and `serve --watch`; they are
+not card mutations or durable feed entries. The reload path publishes them per
+affected board with `board_id` set (a failure with no known board has no
+`board_id`). A failed reload keeps the last-good definitions serving. See
+`docs/architecture/reload.md`.
 
 ---
 

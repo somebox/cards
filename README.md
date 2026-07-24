@@ -211,11 +211,11 @@ that reads cards and writes results back through the API.
 `definitions/` is committed; `work-cards.db` (live SQLite state) is **gitignored
 and machine-local**. To move a board between machines, commit a portable
 snapshot of the card state. `cards export --state-only` writes exactly that —
-definitions + current cards, links, and comments — while the mutation log stays
-SQLite-owned (only `card_deleted` tombstones ride along), so the snapshot is
-small and diffs cleanly. `cards import` restores it into a fresh workspace (it
-refuses a non-empty DB — never a silent overwrite). `scripts/board.sh` wraps
-both:
+current cards, links, comments, users, and deletion tombstones — while
+definitions remain separately committed under `definitions/` and the mutation
+log stays SQLite-owned. The snapshot is small and diffs cleanly. `cards import`
+restores it into a fresh workspace (it refuses a non-empty DB — never a silent
+overwrite). `scripts/board.sh` wraps both:
 
 ```bash
 scripts/board.sh export            # snapshot the live board -> backlog.jsonl, then: git commit && git push
@@ -226,11 +226,13 @@ scripts/board.sh import --force    # re-sync a machine that already has board st
 scripts/board.sh install-hook      # optional: auto-export before every commit so the snapshot never goes stale
 ```
 
-Defaults to `examples/demo-workspace`; set `CARDS_WS=<dir>` for another
-workspace. The event journal, condition marks, and any delivery state are *not*
+Defaults to `.cards`; set `CARDS_WS=<dir>` for another workspace. The event
+journal, condition marks, and any delivery state are *not*
 in the snapshot by design (they are SQLite-owned durable state) — a restore
-rebuilds card state, not history. See `docs/events/core.md` for the
-event contract and `docs/events/rollout.md` for staged rollout status.
+rebuilds card state, not history. See [`docs/events/core.md`](docs/events/core.md)
+for the wire event contract, [`docs/events/integration.md`](docs/events/integration.md)
+for how integrators consume mutation vs condition events, and
+[`docs/events/rollout.md`](docs/events/rollout.md) for staged rollout status.
 
 ## API And Runtime Behavior
 
@@ -244,7 +246,12 @@ writes can use `Idempotency-Key`, scoped per actor, so a network retry does not
 create duplicate cards or claim a different next task.
 
 The event stream is available at `GET /v1/events/stream` over SSE, with
-`Last-Event-ID` replay for clients that reconnect.
+`Last-Event-ID` replay for clients that reconnect. Events split into
+**mutation facts** (a write happened) and **condition signals** (a declared
+threshold crossed — WIP, idle, time-in-status, empty lane). The core emits
+signals; the integrator owns the response. Observe / act / coordinate planes,
+monitors, and the catch-up contract are spelled out in
+[`docs/events/integration.md`](docs/events/integration.md).
 
 ## Extensions
 
@@ -303,6 +310,8 @@ points worth bookmarking:
 
 - [`docs/concepts/index.md`](docs/concepts/index.md) — vocabulary (workspace,
   definitions, card types, cards, boards) and use-case setups
+- [`docs/events/integration.md`](docs/events/integration.md) — observe/act/
+  coordinate planes, mutation vs condition taxonomy, monitors, SSE + breaches
 - [`docs/reference/implementation-status.md`](docs/reference/implementation-status.md)
   — code-verified map of what's built vs. proposed
 - [`docs/README.md`](docs/README.md) — full local doc index

@@ -1,7 +1,7 @@
 # FTS5 vs LIKE — disposition (POC scale)
 
 **Status:** decided · keep FTS5 (already shipped)
-**Card:** `card_ded1a923` — *Evaluate SQLite FTS5 vs LIKE for POC scale*
+**Card:** `ded1a923` — *Evaluate SQLite FTS5 vs LIKE for POC scale*
 **Scope:** card full-text (`q` / `search_cards`), not id lookup and not the
 filter-DSL `$contains` operator (those stay on `LIKE` by design).
 
@@ -70,19 +70,20 @@ rows: title + ~1 line body, 10 rotating topic tokens, one of which is the
 needle. Shape is closer to "index the title + searchable text" than to a
 huge document corpus.
 
-| N cards | FTS5 `MATCH` (per query) | `LIKE` title/body | `lower(...) LIKE` |
-|--------:|-------------------------:|------------------:|------------------:|
-| 1,000   | ~25 µs                   | ~0.6 ms           | ~0.8 ms           |
-| 10,000  | ~160 µs                  | ~6.6 ms           | ~9.2 ms           |
-| 50,000  | ~675 µs                  | ~32 ms            | ~48 ms            |
+| N cards | FTS5 `MATCH` (per query) | plain `LIKE` title/body | `lower(...) LIKE` |
+|--------:|-------------------------:|------------------------:|------------------:|
+| 1,000   | ~25 µs                   | ~0.6 ms                 | ~0.8 ms           |
+| 10,000  | ~160 µs                  | ~6.6 ms                 | ~9.2 ms           |
+| 50,000  | ~675 µs                  | ~32 ms                  | ~48 ms            |
 
 Takeaways:
 
-- At the hypothesis ceiling (10k) FTS is ~40× faster than a case-sensitive
-  `LIKE` scan and ~60× faster than the case-insensitive form UI search
-  actually wants. Absolute LIKE cost (~7–9 ms) is still "fine" for a
-  single human keystroke on a quiet laptop — which is what made the
-  hypothesis *plausible*.
+- At the hypothesis ceiling (10k) FTS is ~40× faster than the plain `LIKE`
+  scan (ASCII-case-insensitive under SQLite's default settings) and ~60×
+  faster than the explicitly normalized `lower(...) LIKE` variant measured
+  here. Absolute LIKE cost (~7–9 ms) is still "fine" for a single human
+  keystroke on a quiet laptop — which is what made the hypothesis
+  *plausible*.
 - LIKE scales with N (full scan); FTS scales with hit cardinality /
   index height. By 50k, LIKE is into tens of milliseconds **before**
   row materialization, JSON field extract, or concurrent writers — the
@@ -93,8 +94,9 @@ Takeaways:
 
 POC scale does **not** require FTS for correctness of a demo. It *does*
 prefer FTS once search is a first-class API (`q`, MCP `search_cards`,
-UI `/ui/search`, TUI `/`) that agents and the web UI hit repeatedly, and
-the implementation cost is already paid.
+UI `/ui/search`) that agents and the web UI hit repeatedly, and the
+implementation cost is already paid. The TUI `/` command is a local substring
+find over the currently loaded board, not an FTS consumer.
 
 ---
 

@@ -225,8 +225,9 @@ registration must ship with.
 - **Schema authoring** *(proposed, card `9e3df3f7`)*. Author/edit card types via
   CLI/web with versioning, validation, and migration — instead of hand-editing
   JSON definition files.
-- **Upgrade to older pinned versions** *(proposed, card `60305944`)*. Serve
-  older card-type schemas from on-disk snapshots so pinned cards can round-trip.
+- **Historical schema snapshots and pinned-version validation** *(proposed)*.
+  Load older card-type schemas so pinned cards validate and round-trip against
+  their recorded version.
 
 ---
 

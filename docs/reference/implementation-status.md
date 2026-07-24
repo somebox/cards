@@ -66,7 +66,8 @@ type Card struct {
   set **only** `owner` (+ optional `status`) — they never touch custom `fields`.
   → *picraft note: D7's "claiming worker in `owner`, body in a custom field" holds
   — claim leaves your custom fields untouched.*
-- A non-empty owner must be a registered user (`unknown_user` 422 otherwise).
+- Setting `owner` via PATCH or `claim` requires a registered user (`unknown_user`
+  422 otherwise). `take-next` currently bypasses that lookup (see §5).
 - `claim` is compare-and-set on `version`; claiming a card already owned by a
   *different* actor → `409 version_conflict`. `release` sets owner back to `""`.
 
@@ -239,8 +240,8 @@ no match → `200 { "card": null }`. On a match → `200 { "card": {...} }`.
 > (`internal/core/errors.go:141-145`, raised from the CAS path at
 > `internal/sqlite/sqlite.go:730` <!-- guard: internal/sqlite/sqlite.go:730 symbol=ErrClaimRaced -->);
 > `take-next`/`claim` wrap the attempt in `claimWithRetry`
-> (`internal/core/service.go:1529` <!-- guard: internal/core/service.go:1529 symbol=claimWithRetry -->,
-> called at `:1494` <!-- guard: internal/core/service.go:1494 symbol=claimWithRetry -->),
+> (`internal/core/service.go:1565` <!-- guard: internal/core/service.go:1565 symbol=claimWithRetry -->,
+> called at `:1530` <!-- guard: internal/core/service.go:1530 symbol=claimWithRetry -->),
 > which retries the next candidate up to 3 times within one call before
 > returning `{ card: null }`. Verified by `internal/core/claimretry_test.go`.
 
@@ -403,8 +404,8 @@ not code — `board.monitors` + `wip_limits`), emitted by the core onto the
 (`Emitter.Condition`). Instant conditions evaluate synchronously on the
 triggering mutation; temporal conditions run through a tickless deadline
 scheduler armed from `status_since`. By default they are **ephemeral**
-(SSE-only); `settings.persist_conditions` escalates named types to the durable
-feed (`persist: true`). See `docs/events/index.md` §12 and `integration.md`.
+(live bus/SSE/hooks only); `settings.persist_conditions` escalates named types
+to the durable feed. See `docs/events/rollout.md` §12 and `integration.md`.
 
 ### `GET /v1/breaches` [built]
 
@@ -434,7 +435,7 @@ read-only, truncation) and `internal/httpapi/breaches_temporal_test.go`
    `type`/`types` (CSV), `board_id` (board's card types). `limit` default 100, max
    500.
 2. **Live SSE** — `GET /v1/events/stream?card_id=&board_id=&types=&actor=&owner=`,
-   resumable via `Last-Event-ID` / `since=`. All five filters are built.
+   with bounded replay via `Last-Event-ID` / `since=`. All five filters are built.
 3. **Per-card** — `GET /v1/cards/{id}/events` and `/history`.
 
 > **SSE retention / replay guarantee [built] — the load-bearing answer.** The
@@ -444,15 +445,19 @@ read-only, truncation) and `internal/httpapi/breaches_temporal_test.go`
 > best-effort**: a slow consumer whose buffer fills is dropped with a
 > `: dropped, reconnect` comment (it never blocks a writer). **Durable recovery
 > therefore goes through the feed, not the stream:** page `GET /v1/events` from
-> your last id until `next_cursor` is empty, then open the stream with
-> `Last-Event-ID` set to that id. No event is lost between the two.
+> your last id until `next_cursor` is empty. The SSE handler replays at most
+> 500 events and subscribes after replay, so opening it is not an atomic
+> feed-to-live handoff; strict consumers should open the stream and then
+> reconcile the feed once more from their last processed durable id.
 > *(`event_retention_days` exists in workspace settings as a future knob but is
 > not enforced today — retention is currently unbounded.)*
 
 `actor`/`owner` filters on both feed and stream are **[built]**. Board-scoped
 events are **[built]**: `Event` carries `Scope` (`card|board`) and `BoardID`,
 and the feed/stream filter by `board_id`; today the board-scoped emitters are
-the ephemeral `wip_exceeded`/`wip_cleared` signals.
+the ephemeral WIP and lane signals. Definition reload success/failure also
+publishes live events per affected board; those lifecycle signals are not
+durable feed entries.
 
 ---
 
@@ -462,17 +467,16 @@ the ephemeral `wip_exceeded`/`wip_cleared` signals.
   It is **not validated** against the user registry for create/patch/comment/
   append — open, no auth. This is deliberate: spawn many short-lived workers,
   each with its own `CARDS_USER`, with no pre-registration.
-- **Ownership is the one exception.** `owner` is a validated `user` reference, so
-  setting it — including `claim`/`take-next`, which make the actor the owner —
-  requires that id to be a **registered** user (`POST /v1/users {id, kind}`, open,
-  no auth), else `unknown_user`. **A worker that only creates/comments needs no
-  registration; a worker that *claims* must be registered first.** Register each
-  worker once at spawn.
+- **Ownership is mostly registry-backed.** Setting `owner` via PATCH, or using
+  `claim` (which makes the actor the owner), requires a registered user
+  (`POST /v1/users {id, kind}`) or returns `unknown_user`. `take-next` currently
+  bypasses that user lookup for `assign_to`/actor ownership; this is an
+  implementation inconsistency, not an authentication boundary.
 - **Stable orchestrator vs ephemeral workers:** both are just actor strings. Use a
   fixed `CARDS_USER` (e.g. `orchestrator`) for dispatch-owned writes and a distinct
-  one per worker. Workers that claim get registered; the orchestrator is registered
-  if it ever owns cards. No rate limits; collision = same actor string = same
-  identity (that's the only "auth").
+  one per worker. Register identities used with direct owner PATCH/`claim`.
+  No rate limits; collision = same actor string = same identity (that's the
+  only "auth").
 - **Resolution:** HTTP uses `X-Work-Cards-Actor` header → `CARDS_USER` →
   `default_user`. MCP uses `CARDS_USER` → `default_user` (no header).
 
@@ -514,16 +518,17 @@ unsupported.*
 ### Schema versioning & migration
 
 - A card type declares `schema_version` (int); each card is **pinned** to the
-  version it was created/upgraded against (`Card.schema_version`).
-- **Existing cards are NOT auto-migrated.** They validate lazily against their
-  pinned snapshot: adding an optional field leaves old cards valid; a new
-  *required* field never retro-invalidates old cards; a removed field stays on
-  old-version cards. The only way a card gains defaults / drops removed fields is
-  an explicit **`POST /v1/cards/{id}/upgrade-schema`**, which re-pins one card
-  forward (applies `migrations[N].field_defaults`, drops fields absent from the
-  target schema, re-validates, emits `schema_upgraded`). It is one-card-at-a-time
-  and refuses downgrades; today the target must be the type's currently-loaded
-  version.
+  version it was created/upgraded against (`Card.schema_version`), but that pin
+  is recorded metadata rather than a historical validation lookup today.
+- **Existing cards are NOT auto-migrated.** Only the current type definition is
+  loaded, so ordinary PATCH/append operations validate against the current
+  schema even when a card records an older version. Historical snapshots and
+  true pinned-version validation are unbuilt.
+- Explicit **`POST /v1/cards/{id}/upgrade-schema`** re-pins one card forward:
+  it applies `migrations[N].field_defaults`, drops fields absent from the
+  current target schema, re-validates, and emits `schema_upgraded`. It is
+  one-card-at-a-time, refuses downgrades, and today the target must be the
+  type's currently loaded version.
 - **Reload definitions [built].** `POST /v1/workspace/reload` (and CLI
   `cards reload`) is implemented on `cards serve` via `reloadableApp` in
   `cmd/cards/reload.go`: re-loads definitions, swaps the Service + HTTP router

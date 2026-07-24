@@ -276,17 +276,22 @@ See [`index.md`](../extensions/index.md) for the declaration format and
 
 ## Event Taxonomy: Mutation vs Condition
 
-Events have two origins. **Mutation events** (`status_changed`, `comment_added`,
-…) are the synchronous consequence of a write and are always card-scoped.
+Integrators talk to Cards on three planes — **observe** (SSE stream, catch-up
+feed, breaches), **act** (claim / attach / advance), and **coordinate**
+(transition graphs, dependency links, condition signals). Events themselves
+have two origins. **Mutation events** (`status_changed`, `comment_added`, …)
+are the synchronous consequence of a write and are always card-scoped.
 **Condition events** are emitted when a declared threshold crosses: instant ones
 (`wip_exceeded`, `lane_drained`, `card_blocked`, `transition_rejected`)
 evaluated right after the triggering mutation, and temporal ones
 (`status_timeout`, `card_idle`) emitted by a **monitor evaluator** goroutine
 that is driven by a deadline min-heap (it sleeps until the next deadline rather
 than polling on a fixed tick, and only schedules deadlines a live consumer is
-listening for unless the condition is persisted).
+listening for unless the condition is escalated via
+`settings.persist_conditions`).
 
-Condition events are declared as `monitors` on a board (data, not code) and
+Condition watchers are declared as board data — `wip_limits` for WIP caps and
+`monitors` for the rest (empty lane, time-in-status, idle, rejection) — and
 publish onto the same bus as mutation events, so SSE and hooks consume one
 unified stream. Board-level conditions use event `scope` (`card` | `board`)
 with a nullable `card_id` and a recorded `board_id`.

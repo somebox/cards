@@ -135,14 +135,16 @@ normative merge order lives in
 
 ## Schema versioning
 
-Versions are immutable snapshots: each `schema_version` is a fixed field
-list, every card pins one, and writes validate against the pinned version.
-Reloading definitions never migrates existing cards.
+Every card records a `schema_version`, and reloading definitions never migrates
+existing cards automatically. The runtime currently loads only the latest type
+definition, however, so ordinary writes validate against that current schema —
+not an immutable historical snapshot. True pinned-version validation and
+serving old type definitions remain unbuilt.
 
 To evolve a type, bump `schema_version` and describe the step in
-`migrations`. Each version is the *complete* field list — a field you leave
-out is dropped from cards when they upgrade (the dry-run shows exactly what
-would be lost), so carry forward everything you keep:
+`migrations`. The current definition is the complete target field list — a
+field you leave out is dropped when a card explicitly upgrades (the dry-run
+shows exactly what would be lost), so carry forward everything you keep:
 
 ```json
 {

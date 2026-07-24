@@ -44,6 +44,7 @@ For repository-wide code quality, style, and review expectations, see
 - [card-type-examples.md](./reference/card-type-examples.md) — Card Type definitions and validation.
 - [cli.md](./reference/cli.md) — `cards` CLI usage, queries, and backups.
 - [implementation-status.md](./reference/implementation-status.md) — Code-verified drift audit (built vs. proposed) and type mappings.
+- [INTEGRATOR-REFERENCE.md](./reference/INTEGRATOR-REFERENCE.md) — Single-page, code-verified integrator reference (data model, HTTP API, MCP, events, actor model, workspace, extensions, non-goals).
 
 ### [Agents](./agents)
 
@@ -55,7 +56,7 @@ For repository-wide code quality, style, and review expectations, see
 - [index.md](./events/index.md) — Slim overview/index for the event docs.
 - [core.md](./events/core.md) — Event contract: logs, buses, dispatch seams, observer queues, and built/proposed event types.
 - [rollout.md](./events/rollout.md) — Staged rollout history and current implementation status.
-- [integration.md](./events/integration.md) — Server-Sent Events (SSE), monitors, and conditional business logic.
+- [integration.md](./events/integration.md) — Observe/act/coordinate planes, mutation vs condition taxonomy, monitors, SSE, and breaches catch-up.
 
 ### [Extensions](./extensions)
 
@@ -69,8 +70,8 @@ For repository-wide code quality, style, and review expectations, see
 - [auth.md](./design/auth.md) — Identity and attribution design (excluded from the published site).
 - [core-boundaries.md](./design/core-boundaries.md) — Core boundary design (excluded from the published site).
 - [outbox-gonogo.md](./design/outbox-gonogo.md) — Outbox go/no-go gate (excluded from the published site).
-- [fts-vs-like-disposition.md](./design/fts-vs-like-disposition.md) — FTS5 vs LIKE decision at POC scale (excluded from the published site).
-- [tui-bus-disposition.md](./design/tui-bus-disposition.md) — TUI bus & surface review disposition (excluded from the published site).
+- [fts-vs-like-disposition.md](./design/fts-vs-like-disposition.md) — FTS5 vs LIKE decision at POC scale (published supplementary page, not in nav).
+- [tui-bus-disposition.md](./design/tui-bus-disposition.md) — TUI bus & surface review disposition (published supplementary page, not in nav).
 - [subscribers.md](./design/subscribers.md) — Durable subscribers RFC (excluded from the published site).
 
 ### [Examples](./examples)

@@ -30,12 +30,12 @@ Status summary: Steps 1–3 are built and merged as of 2026-07; Step 4 remains a
 Rolled out seam by seam, each its own reviewable slice. **Instant** conditions
 (synchronously evaluable, inline after the triggering mutation) land first;
 **temporal** conditions (scheduler-backed) land last, after the instant
-machinery has validated the Signal / Emit / `persist:true` paths.
+machinery has validated the Signal / Emit / persisted-condition paths.
 
 - **3a — WIP signal `[built]`.** `wip_exceeded` / `wip_cleared` fire when a board
   column crosses its configured limit; ephemeral `Signal`; crossing-deduped so
   they fire only on a state change, not every mutation.
-- **3b — persist:true escalation `[built]`.** One `Emitter.Condition`
+- **3b — persisted-condition escalation `[built]`.** One `Emitter.Condition`
   seam routes each condition by policy: types in workspace
   `settings.persist_conditions` go through `Emit` (durable, replayable), the rest
   through `Signal`. Bus/observer delivery is identical either way. See §11.2.
@@ -81,10 +81,11 @@ machinery has validated the Signal / Emit / `persist:true` paths.
   key). Lazy / refcounted: `InProcBus` gained `SetOnSubscriptionChange` (fired
   on subscribe, unsubscribe, *and* the slow-consumer drop inside `Publish` —
   a lost consumer never calls `Unsubscribe` itself) and `HasSubscriberFor`; a
-  type arms iff `bus.HasSubscriberFor(t) || emitter.IsPersisted(t)` — a
-  `persist:true` type is a permanent consumer (armed with zero subscribers),
-  exactly as specified. A serverless CLI process (no subscribers, nothing
-  persisted) never arms and the scheduler goroutine never does real work.
+  type arms iff `bus.HasSubscriberFor(t) || emitter.IsPersisted(t)` — a type
+  listed in workspace `settings.persist_conditions` is a permanent consumer
+  (armed with zero subscribers), exactly as specified. A serverless CLI
+  process (no subscribers, nothing persisted) never arms and the scheduler
+  goroutine never does real work.
   Live-verified against the real demo workspace with a synthetic condition
   type and the real wall clock (not just the fake).
 - **3e — temporal conditions `[built]`.** `status_timeout`/`card_idle` wired

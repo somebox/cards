@@ -112,8 +112,10 @@ write. (Snapshot export/import shipped first; the markdown mirror is planned.)
   **Retention guarantee:** the events table is append-only and never trimmed, so
   the feed is a *complete*, gap-free durable log replayable from any id regardless
   of how long a consumer was disconnected. Recovery = page the feed from your last
-  id until `next_cursor` is empty, then open the stream with `Last-Event-ID` set
-  to that id.
+  id until `next_cursor` is empty. The current SSE handler replays at most 500
+  events and subscribes to live delivery after replay, so the feed-to-stream
+  handoff is not atomic; strict consumers should open the stream and then
+  reconcile the feed again from their last processed durable id.
 - **Embedded:** in-process subscriber callbacks on mutation (no HTTP).
 
 ---

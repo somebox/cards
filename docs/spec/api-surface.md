@@ -2,27 +2,23 @@
 
 ## 5. Schema versioning
 
-Pure **versioned snapshots**. Each `schema_version` is an immutable field list;
-a card pins one and validates against it.
+Card rows record the `schema_version` they were created or upgraded against,
+and type versions are monotonic. Historical schema snapshots are **not loaded
+at runtime yet**: introspection serves only the current type definition, and
+PATCH/append validate against that current loaded schema rather than the card's
+recorded version.
 
-1. Monotonic `schema_version` per `type_id`. Introspection returns
-   `current_schema_version` per type. (Serving old-version schemas alongside
-   current — e.g. via `GET /workspace/card-types/:type_id?version=` — is
-   described in §11 but not yet implemented; see that section's status note.)
-2. Each card pins `schema_version` (default: current at create).
-3. Validation uses the pinned version on PATCH/append.
-4. **Additive (minor):** new optional fields in N+1. Cards on N stay valid;
-   upgrade optional.
-5. **New required fields:** only in a new version; existing cards are not
-   forced until upgraded.
-6. **Removed fields:** absent from the new version's snapshot. Old-version
-   cards keep the field (they validate against their own snapshot). The
-   `deprecated: true` flag is optional **within the current version** for
-   advance warning only — it is not how removal works.
-7. **Enum changes:** new values allowed in the new version; old cards may
-   retain removed values until edited.
-8. **Repeating `item_fields`:** new appends validate against the pinned
-   version. Existing entries are not re-validated unless the card is upgraded.
+Consequences in the current implementation:
+
+1. Creating a card records the type's current version.
+2. Reloading definitions never mutates existing cards automatically.
+3. A later required-field, enum, or repeating-item change can affect writes to
+   older cards because historical validation is not available.
+4. Removed fields may remain stored on an older card until explicit upgrade,
+   but ordinary writes do not validate against an immutable old snapshot.
+5. Serving old schemas (for example
+   `GET /workspace/card-types/:type_id?version=`) and true pinned-version
+   validation remain proposed.
 
 ### Upgrading
 
@@ -156,8 +152,8 @@ instead.)
 ### Links, comments, artifacts
 - `POST /cards/:id/links` / `DELETE /cards/:id/links/:type_id/:target`.
 - `POST /cards/:id/comments` / `PATCH /cards/:id/comments/:comment_id`.
-- `POST /cards/:id/artifacts` → store file, set/update an `artifact` field.
-  **[not yet implemented — no route registered; see §6]**
+- `POST /cards/:id/artifacts/:field` → upload raw bytes, store the file, and
+  set/update that `artifact` field. **[built]**
 
 ### Batch (proposed, not implemented)
 A future `POST /cards/batch` may accept an array of mutations with shared
@@ -169,7 +165,8 @@ exists in the current router.**
 - `GET /cards/:id/history` → resumption-ready timeline projection.
 - `GET /events?actor=&owner=&type=&types=&board_id=&since=&cursor=&limit=` → cursor-paged
   catch-up feed (append-only, gap-free; see §3 Event delivery).
-- `GET /events/stream?…` → SSE with `Last-Event-ID` replay.
+- `GET /events/stream?…` → SSE with bounded `Last-Event-ID` replay (max 500;
+  the feed-to-live handoff is not atomic).
 
 Both `/cards/:id/events` and `/cards/:id/history` return `{"items":[...]}`
 with a default/max `limit` but **no `next_cursor`** — there is currently no

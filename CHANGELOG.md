@@ -8,6 +8,40 @@ backwards-compatible fixes.
 
 ## [Unreleased]
 
+### Fixed
+- **`transition_illegal.valid_options` stay on the board.** Board `transitions`
+  edges must name that board's columns (not arbitrary workspace column ids);
+  load rejects off-board edges, and runtime scrubbing keeps error
+  `valid_options` and TakeNext from-status filters board-scoped. TakeNext no
+  longer treats an empty allowed-from set as "no status filter" (which could
+  claim any card and move it off-board), and invalid target statuses now return
+  a structured validation error instead of looking like an empty queue. Card
+  `8c04883d`; commit `c05e227` plus the pending review fixes.
+- **`cards --quiet init` stays quiet.** The peeled global `--quiet` flag is
+  reinjected into `init` so both `cards --quiet init` and `cards init --quiet`
+  suppress the Next: blurb. Regression coverage for `.cards/` walk-up,
+  `CARDS_HOME` / `~/.cards` fallback, and welcome-board seeding. Card
+  `b86c7fe9`; commit `367457a`.
+- **Ephemeral SSE signals preserve the durable replay cursor.** Live condition
+  events with no persisted event id omit the SSE `id:` field, so browser
+  `EventSource` reconnects from the last durable fact instead of resetting to
+  zero and skipping catch-up.
+
+### Changed
+- **Events integration docs** align with the shipped contract: `wip_limits` vs
+  `monitors`, workspace `settings.persist_conditions` (not per-monitor
+  `persist: true`), and `card_deleted` on the mutation taxonomy.
+- **Workspace/board concepts** docs restored and expanded (discovery,
+  onboarding, multi-workspace, portability).
+- **FTS5 vs LIKE disposition** recorded (`docs/design/fts-vs-like-disposition.md`);
+  demo seed research card closed with the keep-FTS5 conclusion.
+
+### Suggested release
+Promote to **v0.3.0** (minor under this project's pre-1.0 policy): alongside
+fixes and docs, board validation is tighter. A board that declares
+`transitions` without `columns` — accepted under v0.2.0 — now fails to load
+with a dedicated error. Boards that already declare both are unaffected.
+
 ## [0.2.0] - 2026-07-20
 
 ### Added

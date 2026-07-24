@@ -41,7 +41,8 @@ File: `definitions/workspace.json` (JSON only).
 - **Link types** are the relation vocabulary. Optional
   `source_types`/`target_types` restrict which card types may be linked;
   mismatches are rejected with the valid set echoed.
-- **Users** are registered actors — see [users & auth](../guides/users-and-auth.md).
+- **Users** are registered, assignable owners. Event actors may be arbitrary
+  strings — see [users & auth](../guides/users-and-auth.md).
 - **Reload**: `cards reload` (or `POST /v1/workspace/reload`) reloads
   definitions on a running server; `cards serve --watch` reloads on file
   change. Reloading never migrates existing cards.
@@ -106,7 +107,10 @@ Enforcement is opt-in, at either scope:
 | Board | `settings.enforce_transitions` + `transitions` | Board-specific graph |
 
 When off (the default), any valid column can move to any other. When on, the
-`transitions` map lists each status's allowed next statuses — and a rejected
+`transitions` map lists each status's allowed next statuses. Both keys and
+values must be **this board's columns** (a subset of `workspace.columns`) —
+load rejects edges that name workspace-only ids, and
+`transition_illegal.valid_options` only echoes board column ids. A rejected
 move is a structured error echoing the allowed targets:
 
 ```console
@@ -140,8 +144,9 @@ Legal changes emit `status_changed` events. Note that `depends-on` /
 | `max_time_in_status` | `status_timeout` | Column → max duration (`"168h"`) |
 | `idle_after` | `card_idle` | No mutation for the duration |
 
-Condition events are ephemeral (SSE-only) unless listed in the workspace's
-`settings.persist_conditions`, which escalates them to the durable log.
+Condition events are ephemeral (live bus/SSE/hooks only) unless listed in the
+workspace's `settings.persist_conditions`, which escalates them to the durable
+log.
 Current state is queryable anytime — `cards breaches`, `GET /v1/breaches`, or
 the MCP `breaches` tool ([using Cards](../using-cards.md#history-events-breaches)).
 

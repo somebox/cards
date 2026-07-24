@@ -16,12 +16,25 @@ board `engineering`. Board `engineering` has `enforce_transitions: true`:
 1. **auth-api** — implement API (must finish first).
 2. **auth-cli** — CLI client; **depends-on** auth-api.
 3. **auth-docs** — documentation; **blocked-by** auth-cli until CLI reaches
-   review.
+   done.
 
 Link types used (both stored on the *waiting* card):
 
 - `depends-on` (directed): source waits for target (ordering convention).
 - `blocked-by` (directed): source is hard-blocked while target is not `done`.
+
+Register the identity before assigning ownership:
+
+```http
+POST /v1/users
+Content-Type: application/json
+
+{ "id": "coder-agent", "kind": "agent" }
+```
+
+```bash
+cards users register --id coder-agent --kind agent
+```
 
 ### A1 — Create cards
 
@@ -52,12 +65,13 @@ cards create --type programming-task \
   --as coder-agent
 ```
 
-Create the CLI task and the docs card similarly (docs uses `research-goal`).
-Save ids as `card_auth_cli` and `card_auth_docs`.
+Create the CLI task similarly. Create the docs card as `research-goal` in
+`backlog` with its required `hypothesis` field. Save the returned ids as
+`card_auth_cli` and `card_auth_docs`.
 
 ### A2 — Wire dependencies (on the waiting card)
 
-CLI task depends on API; docs is blocked by CLI until CLI reaches review.
+CLI task depends on API; docs is blocked by CLI until CLI reaches done.
 
 ```http
 POST /v1/cards/card_auth_cli/links
@@ -81,6 +95,9 @@ cards link add card_auth_docs --type blocked-by --target card_auth_cli \
   --note "Docs follow CLI UX"
 ```
 
+Each link mutation increments its source card, so `card_auth_cli` and
+`card_auth_docs` are now version 2.
+
 > **Direction note.** `depends-on` and `blocked-by` are stored on the card
 > that is waiting/blocked. A card's outgoing edges answer "what am I waiting
 > on?" The old `blocks` type was removed because agents wired it backwards —
@@ -92,7 +109,7 @@ cards link add card_auth_docs --type blocked-by --target card_auth_cli \
 PATCH /v1/cards/card_auth_cli
 X-Work-Cards-Actor: coder-agent
 
-{ "owner": "coder-agent", "version": 1 }
+{ "owner": "coder-agent", "version": 2 }
 ```
 
 ```http
@@ -103,10 +120,12 @@ X-Work-Cards-Actor: coder-agent
 ```
 
 ```bash
-cards patch card_auth_cli --owner coder-agent --version 1
+cards patch card_auth_cli --owner coder-agent --version 2
 cards comment add card_auth_cli \
   --body "Waiting on auth-api card before implementation starts."
 ```
+
+The owner patch returns version 3; adding the comment returns version 4.
 
 ### A4 — Discover blocked / ready work
 
@@ -146,12 +165,12 @@ Illegal transition (enforced board) — jump `todo` → `review`:
 PATCH /v1/cards/card_auth_cli
 X-Work-Cards-Actor: coder-agent
 
-{ "status": "review", "version": 1 }
+{ "status": "review", "version": 4 }
 ```
 → `422 transition_illegal` with `valid_options: ["in_progress"]`.
 
 ```bash
-cards patch card_auth_cli --status review --version 1
+cards patch card_auth_cli --status review --version 4
 # same validation error (structured JSON to stderr)
 ```
 
@@ -164,7 +183,8 @@ updates by that id, not array index.
 POST /v1/cards/card_auth_api/fields/work_log/append
 X-Work-Cards-Actor: coder-agent
 
-{ "entry": {
+{ "version": 2,
+  "entry": {
     "commit_hash": "a1b2c3d",
     "notes": "Refresh handler + tests",
     "author": "coder-agent",
@@ -172,7 +192,8 @@ X-Work-Cards-Actor: coder-agent
   }
 }
 ```
-→ `200` includes `"entry_id": "ent_01HXYZ"`.
+→ `200` returns the updated card at version 3; the appended item includes
+`"entry_id": "ent_01HXYZ"`.
 
 ```http
 PATCH /v1/cards/card_auth_api
@@ -180,14 +201,15 @@ X-Work-Cards-Actor: coder-agent
 
 {
   "status": "review",
-  "version": 2
+  "version": 3
 }
 ```
 
 ```bash
 cards append card_auth_api work_log \
+  --version 2 \
   --entry-json '{"commit_hash":"a1b2c3d","notes":"Refresh handler + tests","author":"coder-agent","timestamp":"2026-06-25T14:30:00Z"}'
-cards patch card_auth_api --status review --version 2
+cards patch card_auth_api --status review --version 3
 ```
 
 > A real deployment might add a custom string field (for example a tracker
@@ -201,15 +223,15 @@ cards patch card_auth_api --status review --version 2
 PATCH /v1/cards/card_auth_api
 X-Work-Cards-Actor: coder-agent
 
-{ "status": "done", "version": 3 }
+{ "status": "done", "version": 4 }
 ```
 ```bash
-cards patch card_auth_api --status done --version 3
+cards patch card_auth_api --status done --version 4
 ```
 
-Now `blocked-by` for docs resolves (target `card_auth_cli` is not yet `review`,
-so docs stays blocked until CLI reaches `review`). Use `take-next` to pick the
-next eligible CLI task atomically:
+The API dependency is now resolved, so `take-next` can pick the next eligible
+programming task atomically. The docs card remains blocked until
+`card_auth_cli` reaches `done`:
 
 ```http
 POST /v1/cards/take-next
@@ -217,13 +239,9 @@ X-Work-Cards-Actor: coder-agent
 
 {
   "board_id": "engineering",
+  "type_id": "programming-task",
   "filter": {
-    "$and": [
-      { "type_id": { "$eq": "programming-task" } },
-      { "status": { "$eq": "todo" } },
-      { "has_link": { "$eq": "depends-on" } },
-      { "link_target": { "$eq": "card_auth_api" } }
-    ]
+    "status": { "$eq": "todo" }
   },
   "assign_to": "coder-agent",
   "status": "in_progress"
@@ -235,14 +253,16 @@ cards take-next --board engineering --filter-file ./filters/cli-after-api.json \
   --as coder-agent --status in_progress
 ```
 
-After CLI reaches `review`, the docs `blocked` query shrinks; docs move
-`backlog` → `todo` → `in_progress`, append `sources`, write `conclusion`:
+After CLI reaches `done`, the docs `blocked` query shrinks. If the docs card
+moves `backlog` → `todo` → `in_progress` → `review`, its version advances from
+2 to 5; append `sources`, then write `conclusion` while moving to done:
 
 ```http
 POST /v1/cards/card_auth_docs/fields/sources/append
 X-Work-Cards-Actor: coder-agent
 
-{ "entry": {
+{ "version": 5,
+  "entry": {
     "url": "https://github.com/org/repo/pull/42",
     "query": "Readme auth section",
     "findings": "Matches implementation",
@@ -255,7 +275,7 @@ X-Work-Cards-Actor: coder-agent
 PATCH /v1/cards/card_auth_docs
 X-Work-Cards-Actor: coder-agent
 
-{ "status": "done", "version": 4,
+{ "status": "done", "version": 6,
   "fields": { "conclusion": "Published docs/auth-refresh.md" } }
 ```
 
