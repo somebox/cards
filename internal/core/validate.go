@@ -328,10 +328,35 @@ func (s *Service) checkColumn(status string, ct *CardType) *Error {
 	if !colSet[status] {
 		return newUnknownEnum("status", status, columnIDs(s.ws))
 	}
-	if len(ct.AllowedColumns) > 0 && !Contains(ct.AllowedColumns, status) {
+	if ct != nil && len(ct.AllowedColumns) > 0 && !Contains(ct.AllowedColumns, status) {
 		return newUnknownEnum("status", status, ct.AllowedColumns)
 	}
 	return nil
+}
+
+// typeIDsAllowingStatus narrows an implicit TakeNext type pool to card types
+// that can legally enter status. An empty candidates slice means all types;
+// the result is always explicit so an empty compatible set cannot accidentally
+// become the store's "no type filter" behavior.
+func (s *Service) typeIDsAllowingStatus(candidates []string, status string) []string {
+	if len(candidates) == 0 {
+		candidates = make([]string, 0, len(s.types))
+		for id := range s.types {
+			candidates = append(candidates, id)
+		}
+		sort.Strings(candidates)
+	}
+	out := make([]string, 0, len(candidates))
+	for _, id := range candidates {
+		ct, ok := s.types[id]
+		if !ok {
+			continue
+		}
+		if len(ct.AllowedColumns) == 0 || Contains(ct.AllowedColumns, status) {
+			out = append(out, id)
+		}
+	}
+	return out
 }
 
 func (s *Service) checkUserExists(ctx context.Context, userID string) error {
@@ -412,8 +437,16 @@ func parseFieldDate(str string) (time.Time, error) {
 
 // allowedFromStatuses returns statuses that may transition to `to` under b's graph.
 // Only board column ids are returned — off-board workspace ids in a broken
-// transitions map are dropped so TakeNext never selects them.
+// transitions map are dropped so TakeNext never selects them. Returns nil/empty
+// when `to` is not reachable from any board column (including same-status);
+// callers must treat that as an empty candidate pool, never as "no filter".
 func allowedFromStatuses(b *Board, to string) []string {
+	// A malformed in-memory graph may explicitly contain an on-board →
+	// off-board edge. Reject the target itself before inspecting incoming
+	// edges; filtering only the from-status would still admit that edge.
+	if len(b.Columns) > 0 && !Contains(b.Columns, to) {
+		return nil
+	}
 	out := []string{}
 	for from, nexts := range b.Transitions {
 		if Contains(nexts, to) && Contains(b.Columns, from) {
@@ -422,7 +455,7 @@ func allowedFromStatuses(b *Board, to string) []string {
 	}
 	if len(out) == 0 {
 		// No explicit edge; allow same-status (no-op) so a card already at `to`
-		// can still be claimed.
+		// can still be claimed — but only when `to` itself is a board column.
 		if Contains(b.Columns, to) || len(b.Columns) == 0 {
 			out = append(out, to)
 		}
@@ -438,7 +471,7 @@ func filterToBoardColumns(b *Board, in []string) []string {
 		return in
 	}
 	if len(b.Columns) == 0 {
-		return append([]string(nil), in...)
+		return []string{}
 	}
 	out := make([]string, 0, len(in))
 	for _, id := range in {

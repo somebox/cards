@@ -42,6 +42,46 @@ func newServer(t *testing.T) (*httptest.Server, *core.Service) {
 	return ts, svc
 }
 
+// newOffBoardTransitionServer builds the defense-in-depth case that cannot
+// pass config validation: archive is a valid workspace/type status but is not
+// an engineering-board column, while the in-memory graph lists it as a target.
+func newOffBoardTransitionServer(t *testing.T) (*httptest.Server, *core.Service) {
+	t.Helper()
+	ws := &core.Workspace{
+		ID: "t", Name: "T",
+		Columns: []core.Column{
+			{ID: "todo", Name: "Todo"},
+			{ID: "in_progress", Name: "In Progress"},
+			{ID: "archive", Name: "Archive"},
+		},
+		Settings: core.WorkspaceSettings{StrictFields: true, DefaultUser: "local-dev"},
+	}
+	types := map[string]*core.CardType{
+		"task": {
+			ID: "task", Name: "Task", SchemaVersion: 1,
+			Fields:         []core.FieldDef{{ID: "description", Type: core.FieldText, Required: true}},
+			AllowedColumns: []string{"todo", "in_progress", "archive"},
+		},
+	}
+	board := &core.Board{
+		ID: "eng", Name: "Engineering",
+		Columns:     []string{"todo", "in_progress"},
+		CardTypeIDs: []string{"task"},
+		Transitions: map[string][]string{"todo": {"in_progress", "archive"}},
+	}
+	board.Settings.EnforceTransitions = true
+	boards := map[string]*core.Board{"eng": board}
+	st := sqlitetest.Open(t, ws, 1)
+	svc := core.NewService(ws, types, boards, st)
+	srv, err := httpapi.New(svc, ws, types, boards, nil, st)
+	if err != nil {
+		t.Fatalf("new http server: %v", err)
+	}
+	ts := httptest.NewServer(srv.Router())
+	t.Cleanup(ts.Close)
+	return ts, svc
+}
+
 func do(t *testing.T, ts *httptest.Server, method, path string, body any, headers map[string]string) (*http.Response, map[string]any) {
 	t.Helper()
 	var r *http.Request
@@ -125,6 +165,44 @@ func TestAPIPatchCard_TransitionIllegal(t *testing.T) {
 	opts := out["valid_options"].([]any)
 	if len(opts) != 1 || opts[0] != "in_progress" {
 		t.Errorf("valid_options = %v", opts)
+	}
+}
+
+func TestAPITransitionScopeRejectsOffBoardTargets(t *testing.T) {
+	ts, svc := newOffBoardTransitionServer(t)
+	ctx := core.WithActor(t.Context(), "local-dev")
+	card, err := svc.CreateCard(ctx, core.CreateCardRequest{
+		TypeID: "task", Title: "T", Status: "todo",
+		Fields: map[string]any{"description": "d"}, Actor: "local-dev",
+	})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	headers := map[string]string{"X-Work-Cards-Actor": "local-dev"}
+
+	resp, out := do(t, ts, "PATCH", "/v1/cards/"+card.ID, map[string]any{
+		"version": card.Version, "status": "archive",
+	}, headers)
+	if resp.StatusCode != 422 || out["error"] != "transition_illegal" {
+		t.Fatalf("off-board patch: status %d body %v", resp.StatusCode, out)
+	}
+	opts, _ := out["valid_options"].([]any)
+	if len(opts) != 1 || opts[0] != "in_progress" {
+		t.Fatalf("valid_options = %v, want [in_progress]", opts)
+	}
+
+	resp, out = do(t, ts, "POST", "/v1/cards/take-next", core.TakeNextRequest{
+		BoardID: "eng", Status: "archive", AssignTo: "local-dev",
+	}, headers)
+	if resp.StatusCode != 422 || out["error"] != "unknown_enum" {
+		t.Fatalf("off-board take-next: status %d body %v", resp.StatusCode, out)
+	}
+	still, err := svc.ResolveCard(t.Context(), card.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if still.Owner != "" || still.Status != "todo" || still.Version != card.Version {
+		t.Fatalf("card mutated by rejected requests: %+v", still)
 	}
 }
 

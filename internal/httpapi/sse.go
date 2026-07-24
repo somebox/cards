@@ -138,7 +138,13 @@ func writeSSEEvent(w io.Writer, e *core.Event) {
 		log.Printf("ERROR: SSE marshal event %d (%s): %v", e.ID, e.Type, err)
 		return
 	}
-	fmt.Fprintf(w, "id: %d\nevent: %s\ndata: %s\n\n", e.ID, e.Type, payload)
+	// Only durable events have a replay cursor. Emitting "id: 0" for an
+	// ephemeral condition would overwrite EventSource's last durable id; a
+	// reconnect would then omit Last-Event-ID and silently skip catch-up.
+	if e.ID > 0 {
+		fmt.Fprintf(w, "id: %d\n", e.ID)
+	}
+	fmt.Fprintf(w, "event: %s\ndata: %s\n\n", e.Type, payload)
 }
 
 // filterBoardEvents keeps only events whose card belongs to the board (POC:

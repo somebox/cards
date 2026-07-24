@@ -377,6 +377,9 @@ func validateBoard(b *core.Board, ws *core.Workspace, types map[string]*core.Car
 	// Transitions must reference this board's columns (a board subset), not
 	// arbitrary workspace column ids. Otherwise transition_illegal.valid_options
 	// can echo statuses the board cannot move to.
+	if len(b.Transitions) > 0 && len(b.Columns) == 0 {
+		return nil, fmt.Errorf("transitions require board columns")
+	}
 	for from, nexts := range b.Transitions {
 		if !boardCols[from] {
 			return nil, fmt.Errorf("transitions: from-status %q is not a board column", from)

@@ -767,7 +767,11 @@ func (s *Service) PatchCard(ctx context.Context, id string, req PatchCardRequest
 		}
 		if b := s.boardForCard(current); b != nil && b.Settings.EnforceTransitions && !req.Force {
 			allowed, ok := b.Transitions[current.Status]
-			if ok && !Contains(allowed, newStatus) {
+			// Scrub before the membership check so an off-board next hop in a
+			// broken in-memory graph cannot succeed — only board columns are
+			// legal targets (load validation already rejects these for files).
+			boardAllowed := filterToBoardColumns(b, allowed)
+			if !ok || !Contains(b.Columns, newStatus) || !Contains(boardAllowed, newStatus) {
 				// Opt-in: TakeNext never reaches this branch (it pre-filters
 				// candidates to legal from-statuses), so only a genuinely
 				// attempted-and-refused PatchCard move fires it. (3c)
@@ -780,7 +784,7 @@ func (s *Service) PatchCard(ctx context.Context, id string, req PatchCardRequest
 				// valid_options must be board column ids (the statuses a client
 				// can actually target on this board), never workspace-only ids
 				// that slipped into a broken transitions map.
-				return nil, newTransitionIllegal(current.Status, filterToBoardColumns(b, allowed))
+				return nil, newTransitionIllegal(current.Status, boardAllowed)
 			}
 		}
 		events = append(events, StatusChanged(id, current.Status, newStatus))
@@ -1466,6 +1470,14 @@ func (s *Service) TakeNext(ctx context.Context, req TakeNextRequest) (*Card, err
 	if actor == "" {
 		return nil, ActorRequired()
 	}
+	var requestedType *CardType
+	if req.TypeID != "" {
+		var ok bool
+		requestedType, ok = s.types[req.TypeID]
+		if !ok {
+			return nil, NotFound("card_type " + req.TypeID)
+		}
+	}
 	assignTo := req.AssignTo
 	if assignTo == "" {
 		assignTo = actor
@@ -1477,18 +1489,42 @@ func (s *Service) TakeNext(ctx context.Context, req TakeNextRequest) (*Card, err
 		Unowned: true,
 		Limit:   1,
 	}
+	var board *Board
 	if q.BoardID != "" {
-		b, ok := s.boards[q.BoardID]
+		var ok bool
+		board, ok = s.boards[q.BoardID]
 		if !ok {
 			return nil, NotFound("board " + q.BoardID)
 		}
-		s.applyBoardScope(&q, b)
+		s.applyBoardScope(&q, board)
 	}
-	// If a status move is requested under an enforced board, restrict
-	// candidates to statuses that may legally transition to req.Status.
+	// A requested status passes the same workspace/type/board layers as a
+	// PatchCard move before the store sees it. For an implicit type pool,
+	// retain only types that allow the target; an empty compatible set is an
+	// empty pool, never TypeIDIn=[] (which stores interpret as no filter).
 	if req.Status != "" {
-		if b := s.boardForTypeID(req.TypeID, req.BoardID); b != nil && b.Settings.EnforceTransitions {
-			q.StatusIn = allowedFromStatuses(b, req.Status)
+		if err := s.checkColumn(req.Status, requestedType); err != nil {
+			return nil, err
+		}
+		governingBoard := board
+		if governingBoard == nil {
+			governingBoard = s.boardForTypeID(req.TypeID, "")
+		}
+		if governingBoard != nil && len(governingBoard.Columns) > 0 && !Contains(governingBoard.Columns, req.Status) {
+			return nil, newUnknownEnum("status", req.Status, governingBoard.Columns)
+		}
+		if requestedType == nil {
+			q.TypeIDIn = s.typeIDsAllowingStatus(q.TypeIDIn, req.Status)
+			if len(q.TypeIDIn) == 0 {
+				return nil, nil
+			}
+		}
+		if governingBoard != nil && governingBoard.Settings.EnforceTransitions {
+			from := allowedFromStatuses(governingBoard, req.Status)
+			if len(from) == 0 {
+				return nil, nil
+			}
+			q.StatusIn = from
 		}
 	}
 	c, evs, err := claimWithRetry(3, func() (*Card, []*Event, error) {

@@ -162,6 +162,59 @@ func TestSSEActorFilter(t *testing.T) {
 		t.Fatal("timed out waiting for filtered SSE event")
 	}
 }
+// TestSSEOwnerFilter verifies the live stream honors ?owner= — a subscriber
+// watching a user's cards receives events for cards that user owns and not
+// others. Mirrors the feed's owner= filter (acceptance criterion b: actor= and
+// owner= on both /v1/events and /v1/events/stream).
+func TestSSEOwnerFilter(t *testing.T) {
+	ts, _ := newServer(t)
+	H := map[string]string{"X-Work-Cards-Actor": "local-dev", "Content-Type": "application/json"}
+
+	// Register the owner and create a card it will own.
+	do(t, ts, "POST", "/v1/users", map[string]any{"id": "worker-9", "kind": "agent"}, nil)
+	_, owned := do(t, ts, "POST", "/v1/cards", core.CreateCardRequest{
+		TypeID: "programming-task", Title: "owned", Status: "todo",
+		Fields: map[string]any{"description": "d", "branch": "b"},
+	}, H)
+	ownedID := owned["id"].(string)
+	_, claimed := do(t, ts, "POST", "/v1/cards/"+ownedID+"/claim",
+		map[string]any{"version": 1}, map[string]string{"X-Work-Cards-Actor": "worker-9"})
+	if claimed["owner"] != "worker-9" {
+		t.Fatalf("claim failed: %v", claimed)
+	}
+
+	// Subscribe filtered by owner=worker-9.
+	got := make(chan []string, 1)
+	go func() {
+		got <- readSSEEvents(t, ts.URL+"/v1/events/stream?owner=worker-9&types=status_changed", nil, 1)
+	}()
+	time.Sleep(200 * time.Millisecond)
+
+	// An unowned card's status change must be filtered out; the owned card's
+	// must arrive.
+	_, other := do(t, ts, "POST", "/v1/cards", core.CreateCardRequest{
+		TypeID: "programming-task", Title: "unowned", Status: "todo",
+		Fields: map[string]any{"description": "d", "branch": "b"},
+	}, H)
+	otherID := other["id"].(string)
+	do(t, ts, "PATCH", "/v1/cards/"+otherID, map[string]any{"version": 1, "status": "in_progress"}, H)
+	do(t, ts, "PATCH", "/v1/cards/"+ownedID, map[string]any{"version": claimed["version"], "status": "in_progress"}, H)
+
+	select {
+	case evs := <-got:
+		if len(evs) == 0 {
+			t.Fatal("no events received")
+		}
+		if !strings.Contains(evs[0], `"card_id":"`+ownedID+`"`) {
+			t.Errorf("expected owned card's event, got %s", evs[0])
+		}
+		if strings.Contains(evs[0], `"card_id":"`+otherID+`"`) {
+			t.Errorf("unowned card's event leaked through owner filter: %s", evs[0])
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("timed out waiting for owner-filtered SSE event")
+	}
+}
 
 func TestEventFeedInvalidCursor(t *testing.T) {
 	ts, _ := newServer(t)

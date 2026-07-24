@@ -81,6 +81,29 @@ func TestRejectBoardTransitionOffBoardColumn(t *testing.T) {
 	}
 }
 
+func TestRejectBoardTransitionsWithoutColumns(t *testing.T) {
+	dir := t.TempDir()
+	mustWrite(t, filepath.Join(dir, "definitions", "workspace.json"), `{
+		"id":"t","name":"T",
+		"columns":[{"id":"todo","name":"Todo"},{"id":"in_progress","name":"In Progress"}],
+		"settings":{"default_user":"u"}
+	}`)
+	mustWrite(t, filepath.Join(dir, "definitions", "card-types", "task.json"), `{
+		"id":"task","name":"Task","fields":[]
+	}`)
+	mustWrite(t, filepath.Join(dir, "definitions", "boards", "b.json"), `{
+		"id":"b","name":"B","columns":[],"card_type_ids":["task"],
+		"transitions":{"todo":["in_progress"]}
+	}`)
+	_, err := New(dir).Load()
+	if err == nil {
+		t.Fatal("expected error for transitions without board columns, got nil")
+	}
+	if !strings.Contains(err.Error(), "transitions require board columns") {
+		t.Errorf("error = %v, want dedicated message", err)
+	}
+}
+
 // TestRejectBoardUnknownColumn ensures a board referencing an unknown column
 // fails at load.
 func TestRejectBoardUnknownColumn(t *testing.T) {

@@ -575,6 +575,319 @@ func TestTakeNext_StatusRespectsTransitions(t *testing.T) {
 	}
 }
 
+func TestTakeNext_DeterministicGoverningBoardSelection(t *testing.T) {
+	ws := &core.Workspace{
+		ID: "t", Name: "T",
+		Columns: []core.Column{
+			{ID: "todo", Name: "Todo"},
+			{ID: "alpha", Name: "Alpha"},
+			{ID: "zulu", Name: "Zulu"},
+		},
+		Settings: core.WorkspaceSettings{StrictFields: true, DefaultUser: "u"},
+	}
+	types := map[string]*core.CardType{
+		"task": {
+			ID: "task", Name: "Task", SchemaVersion: 1,
+			AllowedColumns: []string{"todo", "alpha", "zulu"},
+		},
+	}
+	boards := map[string]*core.Board{
+		"z-board": {
+			ID: "z-board", Name: "Zulu",
+			Columns: []string{"todo", "alpha", "zulu"}, CardTypeIDs: []string{"task"},
+			Transitions: map[string][]string{"todo": {"zulu"}},
+		},
+		"a-board": {
+			ID: "a-board", Name: "Alpha",
+			Columns: []string{"todo", "alpha", "zulu"}, CardTypeIDs: []string{"task"},
+			Transitions: map[string][]string{"todo": {"alpha"}},
+		},
+	}
+	boards["z-board"].Settings.EnforceTransitions = true
+	boards["a-board"].Settings.EnforceTransitions = true
+	svc, _ := newTestServiceWith(t, ws, types, boards)
+	ctx := ctx2()
+	card, err := svc.CreateCard(ctx, core.CreateCardRequest{
+		TypeID: "task", Title: "T", Status: "todo", Actor: "u",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := svc.TakeNext(ctx, core.TakeNextRequest{
+		TypeID: "task", Status: "alpha", AssignTo: "alice", Actor: "alice",
+	})
+	if err != nil {
+		t.Fatalf("take-next: %v", err)
+	}
+	if got == nil || got.ID != card.ID || got.Status != "alpha" {
+		t.Fatalf("selected card = %+v, want %s moved by lexicographically first enforcing board", got, card.ID)
+	}
+}
+
+func TestTakeNext_ValidatesTargetAndImplicitTypePool(t *testing.T) {
+	ws := &core.Workspace{
+		ID: "t", Name: "T",
+		Columns:  []core.Column{{ID: "todo", Name: "Todo"}, {ID: "done", Name: "Done"}},
+		Settings: core.WorkspaceSettings{StrictFields: true, DefaultUser: "u"},
+	}
+	types := map[string]*core.CardType{
+		"todo-only": {ID: "todo-only", Name: "Todo only", SchemaVersion: 1, AllowedColumns: []string{"todo"}},
+		"movable":   {ID: "movable", Name: "Movable", SchemaVersion: 1, AllowedColumns: []string{"todo", "done"}},
+	}
+	svc, st := newTestServiceWith(t, ws, types, nil)
+	ctx := ctx2()
+	first, err := svc.CreateCard(ctx, core.CreateCardRequest{
+		TypeID: "todo-only", Title: "Cannot move", Status: "todo", Actor: "u",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := svc.CreateCard(ctx, core.CreateCardRequest{
+		TypeID: "movable", Title: "Can move", Status: "todo", Actor: "u",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := svc.TakeNext(ctx, core.TakeNextRequest{
+		Status: "done", AssignTo: "alice", Actor: "alice",
+	})
+	if err != nil {
+		t.Fatalf("implicit-type take-next: %v", err)
+	}
+	if got == nil || got.ID != second.ID || got.Status != "done" {
+		t.Fatalf("claimed = %+v, want movable card %s in done", got, second.ID)
+	}
+	still, err := st.GetCard(ctx, first.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if still.Owner != "" || still.Status != "todo" {
+		t.Fatalf("incompatible type was mutated: %+v", still)
+	}
+
+	got, err = svc.TakeNext(ctx, core.TakeNextRequest{
+		TypeID: "todo-only", Status: "done", AssignTo: "alice", Actor: "alice",
+	})
+	if got != nil {
+		t.Fatalf("explicit incompatible type was claimed: %+v", got)
+	}
+	if ce := core.AsError(err); ce == nil || ce.Code != "unknown_enum" {
+		t.Fatalf("explicit incompatible status error = %v, want unknown_enum", err)
+	}
+
+	got, err = svc.TakeNext(ctx, core.TakeNextRequest{
+		Status: "missing", AssignTo: "alice", Actor: "alice",
+	})
+	if got != nil {
+		t.Fatalf("unknown workspace status claimed: %+v", got)
+	}
+	if ce := core.AsError(err); ce == nil || ce.Code != "unknown_enum" {
+		t.Fatalf("unknown workspace status error = %v, want unknown_enum", err)
+	}
+}
+
+// TestTakeNext_OffBoardTargetRejected pins the regression where
+// allowedFromStatuses returned [] for an off-board target and TakeNext
+// assigned that to StatusIn — sqlite treats empty StatusIn as "no filter",
+// so any unowned card would be claimed and moved off-board.
+func TestTakeNext_OffBoardTargetRejected(t *testing.T) {
+	ws := &core.Workspace{
+		ID: "t", Name: "T",
+		Columns: []core.Column{
+			{ID: "todo", Name: "Todo"},
+			{ID: "in_progress", Name: "In Progress"},
+			{ID: "review", Name: "Review"},
+			{ID: "done", Name: "Done"},
+			{ID: "archive", Name: "Archive"},
+		},
+		Settings: core.WorkspaceSettings{StrictFields: true, DefaultUser: "u"},
+	}
+	types := map[string]*core.CardType{
+		"task": {
+			ID: "task", Name: "Task", SchemaVersion: 1,
+			Fields:         []core.FieldDef{{ID: "description", Type: core.FieldText, Required: true}},
+			AllowedColumns: []string{"todo", "in_progress", "review", "done", "archive"},
+		},
+	}
+	eng := &core.Board{
+		ID: "eng", Name: "Engineering",
+		Columns:     []string{"todo", "in_progress", "review", "done"},
+		CardTypeIDs: []string{"task"},
+		Transitions: map[string][]string{
+			// Deliberately malformed: archive is a workspace/type column but
+			// not a board column. TakeNext must reject the target even when
+			// the graph explicitly lists an incoming edge to it.
+			"todo":        {"in_progress", "archive"},
+			"in_progress": {"review"},
+			"review":      {"done", "in_progress"},
+		},
+	}
+	eng.Settings.EnforceTransitions = true
+	svc, st := newTestServiceWith(t, ws, types, map[string]*core.Board{"eng": eng})
+	ctx := ctx2()
+	c, err := svc.CreateCard(ctx, core.CreateCardRequest{
+		TypeID: "task", Title: "T", Status: "todo",
+		Fields: map[string]any{"description": "go"}, Actor: "u",
+	})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	got, err := svc.TakeNext(ctx, core.TakeNextRequest{
+		BoardID: "eng", Status: "archive", AssignTo: "alice", Actor: "alice",
+	})
+	if got != nil {
+		t.Fatalf("off-board target claimed %+v", got)
+	}
+	if ce := core.AsError(err); ce == nil || ce.Code != "unknown_enum" {
+		t.Fatalf("take-next error = %v, want unknown_enum", err)
+	}
+	// Card must remain unowned at todo — not claimed into archive.
+	still, err := st.GetCard(ctx, c.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if still.Owner != "" || still.Status != "todo" {
+		t.Errorf("card mutated: owner=%q status=%q, want unowned todo", still.Owner, still.Status)
+	}
+}
+
+// TestPatchCard_OffBoardTransitionTargetRejected ensures a hand-built board
+// whose transitions list an off-board next hop cannot actually move there
+// when EnforceTransitions is on (defense-in-depth beyond load validation).
+func TestPatchCard_OffBoardTransitionTargetRejected(t *testing.T) {
+	ws := &core.Workspace{
+		ID: "t", Name: "T",
+		Columns: []core.Column{
+			{ID: "todo", Name: "Todo"},
+			{ID: "in_progress", Name: "In Progress"},
+			{ID: "archive", Name: "Archive"},
+		},
+		Settings: core.WorkspaceSettings{StrictFields: true, DefaultUser: "u"},
+	}
+	types := map[string]*core.CardType{
+		"task": {
+			ID: "task", Name: "Task", SchemaVersion: 1,
+			Fields:         []core.FieldDef{{ID: "description", Type: core.FieldText, Required: true}},
+			AllowedColumns: []string{"todo", "in_progress", "archive"},
+		},
+	}
+	eng := &core.Board{
+		ID: "eng", Name: "Engineering",
+		Columns:     []string{"todo", "in_progress"},
+		CardTypeIDs: []string{"task"},
+		Transitions: map[string][]string{
+			"todo": {"in_progress", "archive"}, // archive is off-board
+		},
+	}
+	eng.Settings.EnforceTransitions = true
+	svc, _ := newTestServiceWith(t, ws, types, map[string]*core.Board{"eng": eng})
+	ctx := ctx2()
+	c, err := svc.CreateCard(ctx, core.CreateCardRequest{
+		TypeID: "task", Title: "T", Status: "todo",
+		Fields: map[string]any{"description": "go"}, Actor: "u",
+	})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	bad := "archive"
+	_, err = svc.PatchCard(ctx, c.ID, core.PatchCardRequest{Version: c.Version, Status: &bad, Actor: "u"})
+	ce := core.AsError(err)
+	if ce == nil || ce.Code != "transition_illegal" {
+		t.Fatalf("expected transition_illegal for off-board target, got %v", err)
+	}
+	for _, opt := range ce.ValidOptions {
+		if opt == "archive" {
+			t.Fatalf("valid_options leaked off-board id: %v", ce.ValidOptions)
+		}
+	}
+	// Positive: the one legal on-board target from "todo" must be echoed.
+	if len(ce.ValidOptions) != 1 || ce.ValidOptions[0] != "in_progress" {
+		t.Fatalf("valid_options = %v, want [in_progress]", ce.ValidOptions)
+	}
+
+	// A missing source key means no outgoing transitions, not unrestricted
+	// movement. This also fails closed for hand-built incomplete graphs.
+	orphan, err := svc.CreateCard(ctx, core.CreateCardRequest{
+		TypeID: "task", Title: "No source edge", Status: "in_progress",
+		Fields: map[string]any{"description": "go"}, Actor: "u",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	toTodo := "todo"
+	_, err = svc.PatchCard(ctx, orphan.ID, core.PatchCardRequest{
+		Version: orphan.Version, Status: &toTodo, Actor: "u",
+	})
+	ce = core.AsError(err)
+	if ce == nil || ce.Code != "transition_illegal" {
+		t.Fatalf("missing source key error = %v, want transition_illegal", err)
+	}
+	if len(ce.ValidOptions) != 0 {
+		t.Fatalf("missing source key valid_options = %v, want empty", ce.ValidOptions)
+	}
+}
+
+// TestTakeNext_OffBoardStatusAlreadyThereRejected pins the sibling guard in
+// allowedFromStatuses: when a card already sits at an off-board status and
+// TakeNext targets that same status, the same-status no-op fallback must NOT
+// fire (the Contains(b.Columns, to) guard) — otherwise the card is claimed and
+// left off-board, the same bug class as the empty-StatusIn footgun.
+func TestTakeNext_OffBoardStatusAlreadyThereRejected(t *testing.T) {
+	ws := &core.Workspace{
+		ID: "t", Name: "T",
+		Columns: []core.Column{
+			{ID: "todo", Name: "Todo"},
+			{ID: "in_progress", Name: "In Progress"},
+			{ID: "archive", Name: "Archive"},
+		},
+		Settings: core.WorkspaceSettings{StrictFields: true, DefaultUser: "u"},
+	}
+	types := map[string]*core.CardType{
+		"task": {
+			ID: "task", Name: "Task", SchemaVersion: 1,
+			Fields:         []core.FieldDef{{ID: "description", Type: core.FieldText, Required: true}},
+			AllowedColumns: []string{"todo", "in_progress", "archive"},
+		},
+	}
+	eng := &core.Board{
+		ID: "eng", Name: "Engineering",
+		Columns:     []string{"todo", "in_progress"}, // archive is off-board
+		CardTypeIDs: []string{"task"},
+		Transitions: map[string][]string{
+			"todo": {"in_progress"},
+		},
+	}
+	eng.Settings.EnforceTransitions = true
+	svc, st := newTestServiceWith(t, ws, types, map[string]*core.Board{"eng": eng})
+	ctx := ctx2()
+	// Card created directly at the off-board status.
+	c, err := svc.CreateCard(ctx, core.CreateCardRequest{
+		TypeID: "task", Title: "T", Status: "archive",
+		Fields: map[string]any{"description": "go"}, Actor: "u",
+	})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	got, err := svc.TakeNext(ctx, core.TakeNextRequest{
+		BoardID: "eng", Status: "archive", AssignTo: "alice", Actor: "alice",
+	})
+	if got != nil {
+		t.Fatalf("off-board same-status target claimed %+v", got)
+	}
+	if ce := core.AsError(err); ce == nil || ce.Code != "unknown_enum" {
+		t.Fatalf("take-next error = %v, want unknown_enum", err)
+	}
+	still, err := st.GetCard(ctx, c.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if still.Owner != "" {
+		t.Errorf("card claimed off-board: owner=%q, want unowned", still.Owner)
+	}
+}
+
 func TestHistoryAndEvents(t *testing.T) {
 	svc, _ := newTestService(t)
 	ctx := core.WithActor(ctx2(), "u")
