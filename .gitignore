@@ -46,5 +46,13 @@ examples/demo-workspace/artifacts/
 # pi agent working artifacts (dev-server tmp/run, audit scratch)
 /.pi/
 
+# pi subagent review runs (transcripts, scratch outputs — not portable state)
+/.pi-subagents/
+
+# Cursor IDE — share slash commands; keep local IDE state out
+.cursor/*
+!.cursor/commands/
+!.cursor/commands/**
+
 # MkDocs build output
 /site/
