@@ -195,7 +195,7 @@ lifecycle examples ([`index.md`](../examples/index.md)).
 | Interface | Notes |
 |-----------|-------|
 | **REST** | Source of truth; filters and SSE for reactive agents |
-| **CLI** | Mirrors REST paths/flags for most operations; a few REST routes (e.g. `release`) currently have no CLI command, and `--dry-run` coverage is inconsistent across write commands — see workspace-and-boards.md for the current gap list. |
+| **CLI** | Mirrors REST paths/flags for card operations, including `release` with optional status + force recovery. `--dry-run` coverage remains inconsistent across write commands — see workspace-and-boards.md for the current gap list. |
 | **MCP** | Typed tools from workspace introspection (one create tool per card type). Fixed tools include mutations (`claim`, `release`, entry/link/comment CRUD, `upgrade_schema` with `confirm:true` apply gate), `history`/`events`/`breaches`, and artifact attach/get. Still a **strict subset** of REST/CLI: no SSE/event streaming or user registration over MCP; no idempotency-key forwarding. See `internal/mcp/README.md` + mcp.md before assuming full parity. |
 | **Skills** | `take-and-work`, `append-commit-and-PR`, `upgrade-schema`, `resume-from-history` |
 | **Web UI** | Renders from `BoardPresentation` + field types. Inline click-to-edit on the card modal/detail (title/status/owner/tags/scalar fields) saves via `POST /ui/cards/{id}/save` with optimistic-concurrency `version`; drag-drop moves and unclaim call the `/v1` API. Board-scoped theming via `Board.theme` (design-system token overrides). See `docs/design-system.md`. |

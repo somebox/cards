@@ -8,6 +8,12 @@ backwards-compatible fixes.
 
 ## [Unreleased]
 
+### Added
+- **`cards release` closes the CLI recovery gap.** The new version-checked
+  command clears card ownership and can atomically set `--status`; `--force`
+  permits an explicit off-graph recovery move. It works through both the
+  serverless and `--url` backends and mirrors `POST /v1/cards/{id}/release`.
+
 ### Fixed
 - **`transition_illegal.valid_options` stay on the board.** Board `transitions`
   edges must name that board's columns (not arbitrary workspace column ids);

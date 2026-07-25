@@ -115,6 +115,7 @@ Global flags on every command: `--url`, `--as`, `--workspace`, `--json`,
 | `create` | `--type T --title T [--status S] [--field k=v]… [--tag t]… [--dry-run]` |
 | `patch <id>` | `--version N [--title] [--status] [--owner] [--field k=v]… [--dry-run]` |
 | `claim <id>` | Take ownership: `--version N [--status S]` |
+| `release <id>` | Clear ownership: `--version N [--status S] [--force]`; `--force` permits an off-graph recovery move |
 | `take-next` | Atomically claim the next eligible card: `[--type] [--board] [--assign-to] [--status] [--filter-file]` |
 | `delete <id>` | Delete (leaves a tombstone event) |
 | `comment add <id>` / `comment edit <id> <comment_id>` | `--body B` |
@@ -178,6 +179,8 @@ ids.
 
 ## Concurrency
 
-Pass `--version` on every `patch` / `claim` / entry mutation. A stale version
-exits with `version_conflict` and the current card on stderr — re-read,
-retry. There is no force-write flag.
+Pass `--version` on every `patch` / `claim` / `release` / entry mutation. A
+stale version exits with `version_conflict` and the current card on stderr —
+re-read, retry. `release --force` is the explicit recovery operation that may
+bypass a board transition while clearing ownership; ordinary patches remain
+transition-checked.

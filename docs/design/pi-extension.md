@@ -319,7 +319,7 @@ subset — progressive disclosure, philosophy §4):
 | `cards_update` | `PATCH /cards/:id` | fields/status/owner/tags with `version` + conflict retry per §5.5; `dry_run` supported. |
 | `cards_comment` | `POST /cards/:id/comments` | Markdown body; actor attributed. |
 | `cards_append_entry` | `POST /cards/:id/fields/:field/append` | Worklog/evidence entries on repeating fields. |
-| `cards_claim` / `cards_release` | `POST /cards/:id/claim`, release | Claim sets owner to the resolved actor; 409 surfaces the current owner. **release is HTTP-only** (errata 2026-07-18: no CLI verb exists and `patch --owner ""` is a no-op); the CLI backend throws `unsupported_backend`. |
+| `cards_claim` / `cards_release` | `POST /cards/:id/claim`, release | Claim sets owner to the resolved actor; 409 surfaces the current owner. CLI supports equivalent `claim` and `release` verbs; release clears ownership and may combine `--status` with `--force` for recovery. |
 | `cards_take_next` | `POST /cards/take-next` | The coordination-loop primitive; filters `status`/`type_id`/`board_id`. |
 
 Every tool: `promptSnippet` (one-line "Available tools" entry) +

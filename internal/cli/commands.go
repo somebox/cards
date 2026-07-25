@@ -26,6 +26,7 @@ func Commands() []Command {
 		{Name: "get", Short: "Show one card", Run: cmdGet},
 		{Name: "create", Short: "Create a card", Run: cmdCreate},
 		{Name: "patch", Short: "Patch a card (status/owner/tags/fields)", Run: cmdPatch},
+		{Name: "release", Short: "Release a claimed card", Run: cmdRelease},
 		{Name: "claim", Short: "Atomically claim a card", Run: cmdClaim},
 		{Name: "delete", Short: "Delete a card (tombstone event)", Run: cmdDelete},
 		{Name: "upgrade-schema", Short: "Upgrade a card to a newer schema version", Run: cmdUpgradeSchema},
@@ -243,6 +244,35 @@ func cmdClaim(c *Client, args []string) error {
 		body["status"] = *status
 	}
 	data, _, err := c.do("POST", "/cards/"+fs.Args()[0]+"/claim", body)
+	if err != nil {
+		return err
+	}
+	c.Print(data, false, "id")
+	return nil
+}
+
+func cmdRelease(c *Client, args []string) error {
+	fs := NewFlagSet()
+	status := fs.String("status", "")
+	version := fs.Int("version", 0)
+	force := fs.Bool("force", false)
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if len(fs.Args()) == 0 {
+		return fmt.Errorf("usage: cards release <id> --version N [--status S] [--force]")
+	}
+	if *version == 0 {
+		return fmt.Errorf("--version is required")
+	}
+	body := map[string]any{"version": *version}
+	if *status != "" {
+		body["status"] = *status
+	}
+	if *force {
+		body["force"] = true
+	}
+	data, _, err := c.do("POST", "/cards/"+fs.Args()[0]+"/release", body)
 	if err != nil {
 		return err
 	}

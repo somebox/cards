@@ -447,7 +447,15 @@ card — two workers calling it concurrently get different cards.
     { "tool": "release",   "arguments": { "card_id": "card_4430ab22...", "version": 3 } }
     ```
 
-    Note: `release` is HTTP/MCP-only — the CLI has no release verb today.
+=== "CLI release"
+
+    ```console
+    $ cards release 4430ab22 --version 3
+    $ cards release 4430ab22 --version 3 --status todo --force
+    ```
+
+    Release always clears ownership. `--status` combines recovery and status
+    movement in one version-checked write; `--force` permits an off-graph move.
 
 ### Comment
 

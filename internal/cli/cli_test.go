@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -149,6 +150,41 @@ func TestTakeNextQuietPrintsCardID(t *testing.T) {
 	got := strings.TrimSpace(out)
 	if !strings.HasPrefix(got, "card_") || strings.ContainsAny(got, "{}\n") {
 		t.Errorf("quiet take-next printed %q, want a bare card id", got)
+	}
+}
+
+func TestReleaseClearsOwnerAndSupportsForcedStatus(t *testing.T) {
+	c := newTestClient(t, Config{Quiet: true, As: "local-dev"})
+	id := strings.TrimSpace(mustRun(t, c, "create", "--type", "programming-task", "--title", "Release me", "--status", "todo", "--field", "description=d", "--field", "branch=b"))
+	mustRun(t, c, "claim", id, "--version", "1", "--status", "in_progress")
+
+	// in_progress -> done is illegal on the engineering board, so this also
+	// proves --force is forwarded alongside the atomic owner clear.
+	mustRun(t, c, "release", id, "--version", "2", "--status", "done", "--force")
+	card := newTestClientJSONGet(t, c, id)
+	if owner, ok := card["owner"]; ok && owner != "" {
+		t.Errorf("owner = %v, want absent or empty", owner)
+	}
+	if card["status"] != "done" {
+		t.Errorf("status = %v, want done", card["status"])
+	}
+	if card["version"] != float64(3) {
+		t.Errorf("version = %v, want 3", card["version"])
+	}
+}
+
+func TestReleaseStaleVersionReturnsConflict(t *testing.T) {
+	c := newTestClient(t, Config{Quiet: true, As: "local-dev"})
+	id := strings.TrimSpace(mustRun(t, c, "create", "--type", "task", "--title", "Release stale"))
+	mustRun(t, c, "claim", id, "--version", "1")
+
+	_, err := runCmd(t, c, "release", id, "--version", "1")
+	if err == nil {
+		t.Fatal("release with stale version succeeded")
+	}
+	var ce *cliError
+	if !errors.As(err, &ce) || ce.Code != "version_conflict" || ExitCode(err) != 4 {
+		t.Fatalf("release error = %v (exit %d), want version_conflict/4", err, ExitCode(err))
 	}
 }
 
