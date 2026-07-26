@@ -102,7 +102,11 @@ Details worth knowing:
   may map values to icons and colors with `option_themes`. Presentation only;
   no effect on validation.
 - **`searchable_fields`** — an optional type-level list of field ids (usually
-  `text`/`string`) indexed for full-text search alongside `title`.
+  `text`/`string`) indexed for full-text search alongside `title`. Declaring it
+  **restricts** the index to those fields; omitting it indexes every field
+  value. `title` is always searchable either way. Narrowing (or widening) the
+  list re-indexes existing cards on the next load, so a field you exclude stops
+  matching immediately rather than lingering in the index.
 - **`allowed_columns`** — an optional type-level subset of workspace columns;
   `status` must stay inside it even when no transition graph is enforced.
 - Richer payload validation (JSON schemas, file paths, commands) is not a

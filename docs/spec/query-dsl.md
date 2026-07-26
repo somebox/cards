@@ -80,7 +80,8 @@ jsonl` and local jq out of band.
 Rules:
 
 1. **Unknown enum value** → `unknown_enum`, echo `valid_options`.
-2. **Unknown tag** → `unknown_tag`, echo `tag_set` (+ `propose_tag` hint).
+2. **Unknown tag** (`tag_policy: locked`) → `unknown_tag`, echo `tag_set`;
+   the hint names the configured policy. Not raised under `tag_policy: open`.
 3. **Unknown user** → `unknown_user`, include registration call.
 4. **Unknown field** (strict mode) → `unknown_field`, echo field list.
 5. **card_link to missing card** → `target_card_missing`, echo target type +

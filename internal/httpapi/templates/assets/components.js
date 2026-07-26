@@ -914,8 +914,9 @@ document.addEventListener('alpine:init', function () {
   // server-rendered menu rows; chips for the CURRENT value are the one
   // sanctioned x-for — they mirror the live edit state of the input the user
   // is typing into (ephemeral), never API data (first paint is the
-  // server-rendered view cluster + input). Under 'propose' (default) Enter/
-  // comma chips arbitrary text; other policies restrict to tag_set. ----
+  // server-rendered view cluster + input). Under 'open' Enter/comma chips
+  // arbitrary text; under 'locked' (the default) input is restricted to
+  // tag_set. ----
   Alpine.data('tagChips', function (cfg) {
     return {
       ready: false, open: false, q: '', values: [], invalid: '',
@@ -930,7 +931,11 @@ document.addEventListener('alpine:init', function () {
         this.input.value = this.values.join(', ');
         this.input.dispatchEvent(new Event('change', { bubbles: true }));
       },
-      canFree: function () { return cfg.policy === 'propose' || cfg.policy === 'open'; },
+      // tag_policy is two-valued: 'open' accepts any string, anything else
+      // (including unset) restricts to tag_set. Fails closed, matching
+      // Service.validateTags — the two used to disagree, so the chip control
+      // accepted a free tag the API then rejected, losing the whole save.
+      canFree: function () { return cfg.policy === 'open'; },
       inSet: function (v) {
         return Array.prototype.some.call(this.$root.querySelectorAll('.combobox__option[data-value]'), function (el) {
           return el.getAttribute('data-value') === v;

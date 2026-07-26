@@ -17,7 +17,7 @@ func testStore(t *testing.T) (*Store, *core.Workspace) {
 		ID:       "t",
 		Name:     "T",
 		Columns:  []core.Column{{ID: "todo", Name: "To Do"}, {ID: "done", Name: "Done"}},
-		Settings: core.WorkspaceSettings{StrictFields: true, TagPolicy: "propose", DefaultUser: "u"},
+		Settings: core.WorkspaceSettings{StrictFields: true, TagPolicy: core.TagPolicyLocked, DefaultUser: "u"},
 	}
 	st, err := Open(":memory:", ws)
 	if err != nil {

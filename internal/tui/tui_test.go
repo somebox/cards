@@ -1017,3 +1017,46 @@ func TestCompileFilterText(t *testing.T) {
 		}
 	})
 }
+
+// TestInitialBoardHonorsDefaultBoard — the TUI opens on
+// settings.default_board rather than whichever board id sorts first. The tab
+// ORDER stays alphabetical (shift+tab stays predictable); only the starting
+// index moves. Without this, an agent or human in a multi-board workspace
+// lands on the wrong board every time.
+func TestInitialBoardHonorsDefaultBoard(t *testing.T) {
+	svc, result, done := openDemo(t)
+	defer done()
+
+	// Give the fixture a second board that sorts BEFORE the real one, so
+	// "alphabetically first" and "the declared default" disagree.
+	var first string
+	for id := range result.Boards {
+		if first == "" || id < first {
+			first = id
+		}
+	}
+	early := "aaa-sorts-first"
+	result.Boards[early] = &core.Board{
+		ID: early, Name: "Sorts First",
+		Columns:     result.Boards[first].Columns,
+		CardTypeIDs: result.Boards[first].CardTypeIDs,
+	}
+
+	// Unset: alphabetical wins (the historical behavior).
+	result.Workspace.Settings.DefaultBoard = ""
+	m0 := newModel(svc, result, "local-dev")
+	if got := m0.board().ID; got != early {
+		t.Errorf("with no default_board, initial board = %q, want %q", got, early)
+	}
+
+	// Declared: the setting wins.
+	result.Workspace.Settings.DefaultBoard = first
+	m := newModel(svc, result, "local-dev")
+	if got := m.board().ID; got != first {
+		t.Errorf("initial board = %q, want the declared default %q", got, first)
+	}
+	// Tab order is still alphabetical — only the starting index moved.
+	if m.boards_[0] != early {
+		t.Errorf("tab order changed: boards_[0] = %q, want %q", m.boards_[0], early)
+	}
+}

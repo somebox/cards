@@ -888,3 +888,72 @@ func TestUnknownThemeDegradesToDefault(t *testing.T) {
 		t.Error("board did not render under an unknown theme")
 	}
 }
+
+// TestSearchHonorsSearchableFields is the end-to-end half of the
+// searchable_fields work: it goes through core.NewService (which installs the
+// declaration on the store) and the real GET /v1/cards?q= handler, so it fails
+// if the wiring is dropped even when the sqlite-level unit tests still pass.
+func TestSearchHonorsSearchableFields(t *testing.T) {
+	ws := &core.Workspace{
+		ID: "t", Name: "T",
+		Columns:  []core.Column{{ID: "todo", Name: "Todo"}},
+		Settings: core.WorkspaceSettings{StrictFields: true, DefaultUser: "local-dev"},
+	}
+	types := map[string]*core.CardType{
+		"task": {
+			ID: "task", Name: "Task", SchemaVersion: 1,
+			Fields: []core.FieldDef{
+				{ID: "description", Type: core.FieldText, Required: true},
+				{ID: "internal_note", Type: core.FieldText},
+			},
+			// Only description is searchable; internal_note must not match.
+			SearchableFields: []string{"description"},
+			AllowedColumns:   []string{"todo"},
+		},
+	}
+	boards := map[string]*core.Board{"eng": {
+		ID: "eng", Name: "Engineering",
+		Columns: []string{"todo"}, CardTypeIDs: []string{"task"},
+	}}
+	st := sqlitetest.Open(t, ws, 1)
+	svc := core.NewService(ws, types, boards, st)
+	srv, err := httpapi.New(svc, ws, types, boards, nil, st)
+	if err != nil {
+		t.Fatalf("new http server: %v", err)
+	}
+	ts := httptest.NewServer(srv.Router())
+	defer ts.Close()
+
+	if _, err := svc.CreateCard(context.Background(), core.CreateCardRequest{
+		TypeID: "task", Title: "a card", Actor: "local-dev",
+		Fields: map[string]any{
+			"description":   "zzsearchabletoken",
+			"internal_note": "zzexcludedtoken",
+		},
+	}); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	hits := func(q string) int {
+		t.Helper()
+		res, err := http.Get(ts.URL + "/v1/cards?q=" + q)
+		if err != nil {
+			t.Fatalf("GET: %v", err)
+		}
+		defer res.Body.Close()
+		var page struct {
+			Items []core.Card `json:"items"`
+		}
+		if err := json.NewDecoder(res.Body).Decode(&page); err != nil {
+			t.Fatalf("decode: %v", err)
+		}
+		return len(page.Items)
+	}
+
+	if n := hits("zzsearchabletoken"); n != 1 {
+		t.Errorf("declared searchable field should match over HTTP, hits = %d, want 1", n)
+	}
+	if n := hits("zzexcludedtoken"); n != 0 {
+		t.Errorf("field outside searchable_fields must not match, hits = %d, want 0", n)
+	}
+}

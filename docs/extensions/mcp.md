@@ -30,6 +30,9 @@ For an overview of the key design properties of the MCP surface, see below.
 
 ## Why this shape works for agents
 
+- **Orient with `workspace` first.** Its `settings.default_board` names the
+  primary board in a multi-board workspace — use it rather than guessing, and
+  note `take_next` already defaults to it when given no `board_id`/`type_id`.
 - **The tool list is the manual.** `workspace` + the generated create/update
   tools encode every valid field, enum, and tag. There is nothing to guess.
 - **Type-per-card-type** makes category errors impossible at the tool boundary.

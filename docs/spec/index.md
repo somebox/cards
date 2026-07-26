@@ -72,7 +72,7 @@ Any→any by default; optional `transitions` per board or card type when
 The introspection endpoint returns the entire valid vocabulary; writes reject
 unknown values and echo the valid set; card links validate existence and
 optional type constraints; users must be registered; tags are a closed set
-with an explicit propose path.
+by default, which a workspace may open via `settings.tag_policy`.
 
 ### Dynamic domain URLs vs. stable agent API
 **Views** bind path patterns (e.g. `/orders/:order_id/parts`) to a filter

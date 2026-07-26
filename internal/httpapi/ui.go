@@ -439,14 +439,9 @@ func (s *Server) uiNewCardRedirect(w http.ResponseWriter, r *http.Request) {
 		boardID = ""
 	}
 	if boardID == "" {
-		ids := make([]string, 0, len(s.boards))
-		for id := range s.boards {
-			ids = append(ids, id)
-		}
-		sort.Strings(ids)
-		if len(ids) > 0 {
-			boardID = ids[0]
-		}
+		// settings.default_board when declared, else alphabetically first —
+		// one shared rule with the TUI and take-next (core.DefaultBoardID).
+		boardID = core.DefaultBoardID(s.ws, s.boards)
 	}
 	target := "/ui/boards/" + boardID + "?new=1"
 	if t := q.Get("type"); t != "" {

@@ -11,6 +11,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
+	"sort"
 	"strings"
 
 	"github.com/somebox/cards/internal/core"
@@ -60,6 +62,15 @@ func (l *Loader) Load() (*Result, error) {
 	if err != nil {
 		return nil, err
 	}
+	// default_board is cross-checked here rather than in loadWorkspace: it
+	// references a board, and boards are not loaded yet at that point. A
+	// dangling id fails startup like every other bad cross-reference.
+	if db := ws.Settings.DefaultBoard; db != "" {
+		if _, ok := boards[db]; !ok {
+			return nil, fmt.Errorf("workspace.json: settings.default_board %q names no board (available: %s)",
+				db, strings.Join(sortedBoardIDs(boards), ", "))
+		}
+	}
 	exts, err := LoadExtensions(l.workspaceDir)
 	if err != nil {
 		return nil, fmt.Errorf("load extensions: %w", err)
@@ -78,11 +89,14 @@ func (l *Loader) Load() (*Result, error) {
 	warnings = append(warnings, typeWarnings...)
 	warnings = append(warnings, boardWarnings...)
 	warnings = append(warnings, themeWarnings...)
-	return &Result{
+	result := &Result{
 		Workspace: ws, CardTypes: types, Boards: boards, Extensions: exts,
 		Themes:   themes,
 		Warnings: warnings,
-	}, nil
+	}
+	// Last, because it inspects the assembled Result (workspace + extensions).
+	result.Warnings = append(result.Warnings, inertWarnings(result)...)
+	return result, nil
 }
 
 // validatePersistConditions warns (does not fail Load) on any
@@ -117,11 +131,43 @@ func (l *Loader) loadWorkspace() (*core.Workspace, error) {
 	if ws.ID == "" {
 		return nil, fmt.Errorf("workspace.json: missing id")
 	}
-	// Defaults.
+	// Defaults. Unset tag_policy is "locked" — the behavior every workspace
+	// already had while the core ignored this setting, so upgrading never
+	// silently loosens tag validation on a workspace that omits the key.
 	if ws.Settings.TagPolicy == "" {
-		ws.Settings.TagPolicy = "propose"
+		ws.Settings.TagPolicy = core.TagPolicyLocked
+	}
+	// "propose" was specified in v0.4 and never implemented on any path. Fail
+	// loudly rather than silently picking a side: a workspace that declares it
+	// believes it has a moderation flow it never had, and quietly mapping it to
+	// either mode would hide that.
+	if !slices.Contains(core.TagPolicies(), ws.Settings.TagPolicy) {
+		return nil, fmt.Errorf("workspace.json: settings.tag_policy %q is not valid (want one of %s)%s",
+			ws.Settings.TagPolicy, strings.Join(core.TagPolicies(), ", "), proposeHint(ws.Settings.TagPolicy))
 	}
 	return &ws, nil
+}
+
+// sortedBoardIDs lists the loaded board ids for error messages — a rejection
+// should tell the author what they could have written (principle 9).
+func sortedBoardIDs(boards map[string]*core.Board) []string {
+	ids := make([]string, 0, len(boards))
+	for id := range boards {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	return ids
+}
+
+// proposeHint names the migration for the one invalid value that used to be
+// the documented default, so the error explains itself instead of just
+// rejecting.
+func proposeHint(policy string) string {
+	if policy != "propose" {
+		return ""
+	}
+	return "; 'propose' was never implemented — the core always enforced 'locked'. " +
+		"Use 'locked' to keep today's behavior, or 'open' to allow free tags."
 }
 
 func (l *Loader) loadCardTypes(ws *core.Workspace) (map[string]*core.CardType, []string, error) {

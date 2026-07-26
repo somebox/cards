@@ -30,8 +30,9 @@ File: `definitions/workspace.json` (JSON only).
   "settings": {
     "enforce_transitions": false,
     "strict_fields": true,
-    "tag_policy": "propose",
-    "default_user": "local-dev"
+    "tag_policy": "locked",
+    "default_user": "local-dev",
+    "default_board": "engineering"
   }
 }
 ```

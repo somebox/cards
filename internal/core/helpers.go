@@ -63,6 +63,37 @@ func WithActor(ctx context.Context, actor string) context.Context {
 
 type actorCtxKey struct{}
 
+// DefaultBoardID resolves which board a surface should open when it has no
+// other signal — the TUI's initial board, the web UI's new-card landing,
+// take-next with no board filter. It is settings.default_board when that names
+// a real board, otherwise the alphabetically-first board id (the behavior
+// every surface had before the setting existed). Returns "" for a workspace
+// with no boards.
+//
+// Every surface routes through this one function deliberately: the setting
+// exists because agents orient against the wrong board in multi-board
+// workspaces, and three independent copies of the fallback rule is how that
+// divergence started.
+func DefaultBoardID(ws *Workspace, boards map[string]*Board) string {
+	if ws != nil && ws.Settings.DefaultBoard != "" {
+		if _, ok := boards[ws.Settings.DefaultBoard]; ok {
+			return ws.Settings.DefaultBoard
+		}
+		// Config load rejects a dangling default_board, so reaching here means
+		// an in-process Workspace literal. Fall back rather than hand a caller
+		// a board id that resolves to nothing.
+	}
+	ids := make([]string, 0, len(boards))
+	for id := range boards {
+		ids = append(ids, id)
+	}
+	if len(ids) == 0 {
+		return ""
+	}
+	sort.Strings(ids)
+	return ids[0]
+}
+
 func defaultStatus(ct *CardType, ws *Workspace) string {
 	if len(ct.AllowedColumns) > 0 {
 		return ct.AllowedColumns[0]

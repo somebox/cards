@@ -90,6 +90,19 @@ func NewService(ws *Workspace, types map[string]*CardType, boards map[string]*Bo
 		opt(svc)
 	}
 	svc.emitter = newEmitter(st, svc.bus, svc.clock.Now)
+	// Hand the store each type's declared searchable_fields. Installed here
+	// rather than at store construction because a definitions reload builds a
+	// new Service around the SAME store — doing it here is what keeps the
+	// index rule in step with the reloaded schemas instead of frozen at
+	// startup. A store that maintains no full-text index simply doesn't
+	// implement the interface.
+	if ix, ok := st.(SearchableFieldsSetter); ok {
+		if err := ix.SetSearchableFields(searchableFieldsByType(types)); err != nil {
+			// Indexing config is not worth refusing to serve over; the index
+			// is a search accelerator, not the source of truth. Surface it.
+			log.Printf("WARN: could not apply searchable_fields to the search index: %v", err)
+		}
+	}
 	// Escalate any condition types the workspace opted into persisting (3b).
 	if len(ws.Settings.PersistConditions) > 0 {
 		esc := make([]EventType, 0, len(ws.Settings.PersistConditions))
@@ -1482,9 +1495,18 @@ func (s *Service) TakeNext(ctx context.Context, req TakeNextRequest) (*Card, err
 	if assignTo == "" {
 		assignTo = actor
 	}
+	// With no explicit board, fall back to settings.default_board so a worker
+	// that just calls take-next draws from the workspace's primary board
+	// rather than the whole card pool. Only applies when the caller also gave
+	// no type_id — an explicit type is its own scope, and silently AND-ing a
+	// board onto it would narrow a pool the caller thought they had chosen.
+	boardID := req.BoardID
+	if boardID == "" && req.TypeID == "" {
+		boardID = s.ws.Settings.DefaultBoard
+	}
 	q := CardQuery{
 		TypeID:  req.TypeID,
-		BoardID: req.BoardID,
+		BoardID: boardID,
 		Filter:  req.Filter,
 		Unowned: true,
 		Limit:   1,

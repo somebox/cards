@@ -220,7 +220,7 @@ func (s *Server) buildTools() []Tool {
 	tools := []Tool{}
 	// Introspection.
 	tools = append(tools, Tool{
-		Name: "workspace", Description: "Introspect the workspace: columns, card types, boards, link types, tags, users.",
+		Name: "workspace", Description: "Introspect the workspace: columns, card types, boards, link types, tags, users. In a multi-board workspace, settings.default_board names the primary board — orient against it unless told otherwise.",
 		InputSchema: objSchema(map[string]any{}),
 		run: func(ctx context.Context, args map[string]any) (any, error) {
 			return s.svc.Workspace(ctx)

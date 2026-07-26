@@ -145,12 +145,22 @@ type User struct {
 
 // WorkspaceSettings holds workspace-wide defaults. See SPEC.md §4.
 type WorkspaceSettings struct {
-	EnforceTransitions bool   `json:"enforce_transitions"`
-	StrictFields       bool   `json:"strict_fields"`
+	EnforceTransitions bool `json:"enforce_transitions"`
+	StrictFields       bool `json:"strict_fields"`
+	// TagPolicy is a two-value dial: tags are either open, or restricted to
+	// TagSet. Unset means TagPolicyLocked — the behavior every workspace
+	// already had while this setting went unread by the core. See
+	// docs/spec/data-model.md.
 	TagPolicy          string `json:"tag_policy"`
 	EventRetentionDays int    `json:"event_retention_days,omitempty"`
 	DefaultUser        string `json:"default_user,omitempty"`
-	Theme              string `json:"theme,omitempty"` // default UI theme (html[data-theme]); see docs/architecture/design-system.md
+	// DefaultBoard names the workspace's primary board. Surfaces that must
+	// pick one board with no other signal (the TUI's initial board, the web
+	// UI's new-card landing, take-next with no board filter) use it instead of
+	// falling back to the alphabetically-first board id. Empty preserves that
+	// alphabetical behavior. Config load rejects an id naming no board.
+	DefaultBoard string `json:"default_board,omitempty"`
+	Theme        string `json:"theme,omitempty"` // default UI theme (html[data-theme]); see docs/architecture/design-system.md
 	// PersistConditions escalates the named condition event types (e.g.
 	// "wip_exceeded") from ephemeral signals to durable, replayable facts. See
 	// docs/events/core.md §11.2 and seam 3b.
@@ -342,6 +352,20 @@ const (
 	EventStatusTimeout      EventType = "status_timeout"      // 3e
 	EventCardIdle           EventType = "card_idle"           // 3e
 )
+
+// Tag policies. A two-value dial, deliberately: tags are either open, or the
+// workspace restricts them to TagSet. A "propose" mode (unknown tags become
+// pending proposals) was specified in v0.4 but never implemented on any path,
+// and was dropped rather than built — accepting a write into a git-backed
+// definitions file is extension territory, not core (philosophy §2, §5).
+const (
+	TagPolicyOpen   = "open"   // any string is a valid tag; TagSet is UI suggestions
+	TagPolicyLocked = "locked" // tags must come from TagSet (the default)
+)
+
+// TagPolicies returns the valid settings.tag_policy values, for config
+// validation and the structured error it raises.
+func TagPolicies() []string { return []string{TagPolicyOpen, TagPolicyLocked} }
 
 // EventTypes returns the full catalog of event types — the 17 card/state facts
 // followed by the 9 condition signals from ConditionTypes. This is the single

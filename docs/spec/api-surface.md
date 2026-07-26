@@ -54,6 +54,11 @@ implementation — header only.)
 ### Workspace and definitions
 - `GET /workspace` → workspace + current card types (current version per
   type only) + boards + settings. **Does not currently include `views`.**
+  `settings.default_board` names the workspace's primary board when declared —
+  the answer to "which board matters" for an agent's first orienting call.
+  Surfaces that must pick one board with no other signal (TUI initial board,
+  `/ui/cards/new` landing, `take-next` with no `board_id`/`type_id`) use it;
+  unset falls back to the alphabetically-first board id.
 - `GET /boards/:board_id` → one board's definition (columns, card types,
   default filter, WIP limits); 404 for unknown ids.
 - `GET /workspace/card-types/:type_id?version=` → **not yet implemented**;
@@ -131,7 +136,9 @@ These ship in core because they need atomicity hard to replicate from outside.
   compare-and-set on `version`; `409` if already owned by another actor.
 - `POST /cards/take-next` → body `{ filter?, assign_to, status?,
   type_id?, board_id? }`. `type_id`/`board_id` narrow the candidate pool in
-  addition to `filter`. Picks the
+  addition to `filter`. With **neither** given, the pool is scoped to
+  `settings.default_board` when the workspace declares one; an explicit
+  `type_id` is its own scope and is never additionally board-scoped. Picks the
   oldest matching unowned card (`updated_at ASC, id ASC`), atomically claims
   it, returns it. `200 { card: null }` when nothing matches. Same
   `Idempotency-Key` returns the same card.

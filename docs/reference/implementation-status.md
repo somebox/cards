@@ -256,10 +256,10 @@ no match → `200 { "card": null }`. On a match → `200 { "card": {...} }`.
 > 20 cards, race-tested → exactly 20 successes, zero duplicates).
 > **Race retry [built].** A losing CAS surfaces `ErrClaimRaced`
 > (`internal/core/errors.go:141-145`, raised from the CAS path at
-> `internal/sqlite/sqlite.go:730` <!-- guard: internal/sqlite/sqlite.go:730 symbol=ErrClaimRaced -->);
+> `internal/sqlite/sqlite.go:746` <!-- guard: internal/sqlite/sqlite.go:746 symbol=ErrClaimRaced -->);
 > `take-next`/`claim` wrap the attempt in `claimWithRetry`
-> (`internal/core/service.go:1565` <!-- guard: internal/core/service.go:1565 symbol=claimWithRetry -->,
-> called at `:1530` <!-- guard: internal/core/service.go:1530 symbol=claimWithRetry -->),
+> (`internal/core/service.go:1587` <!-- guard: internal/core/service.go:1587 symbol=claimWithRetry -->,
+> called at `:1552` <!-- guard: internal/core/service.go:1552 symbol=claimWithRetry -->),
 > which retries the next candidate up to 3 times within one call before
 > returning `{ card: null }`. Verified by `internal/core/claimretry_test.go`.
 
@@ -682,7 +682,7 @@ instead of green-lighting.
 | § | Section | Change | Evidence |
 |---|---|---|---|
 | 4 | Events | temporal `/breaches` projection landed: `status_timeout`/`card_idle` cold catch-up, additive `BreachItem` fields, `limit`/`truncated` clamp echo — row split out of Entry 2026-07-18, whose stated range (`b3bfed5` → `0421efd`) the commit post-dates | `internal/core/breaches.go`; `internal/core/service.go` (shared deadline helpers); commit `1247e3b` |
-| 2 | take-next | anchors re-pinned against HEAD `bb6ffc5` (`internal/sqlite/sqlite.go:730`, `internal/core/service.go:1526`, called at `:1491`) and annotated with guard markers; `internal/docaudit` gained `TestImplStatusAnchorsResolve`, `TestCodeCommentDocPathsResolve`, and the boundary-commit tripwire (warning in normal `go test`, strict under `-tags=strictdoc`) | `internal/docaudit/docaudit_test.go` |
+| 2 | take-next | anchors re-pinned against HEAD `bb6ffc5` (`internal/sqlite/sqlite.go:746`, `internal/core/service.go:1526`, called at `:1491`) and annotated with guard markers; `internal/docaudit` gained `TestImplStatusAnchorsResolve`, `TestCodeCommentDocPathsResolve`, and the boundary-commit tripwire (warning in normal `go test`, strict under `-tags=strictdoc`) | `internal/docaudit/docaudit_test.go` |
 
 ### Entry 2026-07-18 (`b3bfed5` → `0421efd`)
 

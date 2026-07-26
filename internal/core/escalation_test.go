@@ -60,7 +60,7 @@ func TestEscalation_PersistedConditionSurvivesRestart(t *testing.T) {
 
 	t.Run("escalated persists and replays across restart", func(t *testing.T) {
 		svc, st := newTestServiceWithSettings(t, core.WorkspaceSettings{
-			StrictFields: true, TagPolicy: "propose", DefaultUser: "u",
+			StrictFields: true, TagPolicy: core.TagPolicyLocked, DefaultUser: "u",
 			PersistConditions: []string{"wip_exceeded"},
 		})
 		ev := cross(svc)

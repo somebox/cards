@@ -148,7 +148,7 @@ Tables:
 - `users`: registered users.
 - `idempotency_keys`: request key, actor, status, body, created_at
   (composite PK `key, actor`).
-- `fts_cards`: FTS5 index for title plus field values (`upsertFTS`; `searchable_fields` is declared on types but not yet filtered — see [`design/fts-vs-like-disposition.md`](../design/fts-vs-like-disposition.md)).
+- `fts_cards`: FTS5 index for title plus field values (`upsertFTS`). A type's `searchable_fields` restricts which field values are indexed; a type declaring none indexes all of them (title is always indexed). The declaration reaches the store via `core.SearchableFieldsSetter`, installed by `NewService`, so a definitions reload refreshes it; a changed declaration rebuilds the index once, gated on a digest in the `meta` table. See [`design/fts-vs-like-disposition.md`](../design/fts-vs-like-disposition.md).
 
 Definitions are not stored in SQLite. They are loaded from `definitions/`
 and cached in memory as normalized config. Git-backed files remain the source

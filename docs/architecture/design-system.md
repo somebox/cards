@@ -215,8 +215,10 @@ reuses the `.combobox__menu/__option` hooks — one menu language. **Stable
 theme hooks — renames are breaking.** Chips are `.chip`, so the view cluster
 and the edit control share sizing tokens (WYSIWYG). The edit form carries a
 hidden `""` sentinel input so clear-all posts and unsets server-side, JS or
-no JS. Tags chips are policy-aware: free-add under `open`/`propose` (the
-default), `tag_set`-only otherwise.
+no JS. Tags chips are policy-aware: free-add under `open`, `tag_set`-only under
+`locked` (the default). The control fails closed on any other value, matching
+`Service.validateTags` — the two used to disagree, so a free tag the chip
+accepted was rejected by the API, losing the whole save.
 
 **Icons** are monochromatic `currentColor` mask-images (data-URI SVG) keyed by
 `[data-type]`, optional config-emitted `[data-icon]`, and `[data-stat]` — one

@@ -24,6 +24,7 @@ import (
 	"image/color"
 	"os"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -212,12 +213,12 @@ type keyMap struct {
 
 func newKeyMap() keyMap {
 	return keyMap{
-		Up:      key.NewBinding(key.WithKeys("k", "up"), key.WithHelp("k/↑", "up")),
-		Down:    key.NewBinding(key.WithKeys("j", "down"), key.WithHelp("j/↓", "down")),
-		Left:    key.NewBinding(key.WithKeys("h", "left"), key.WithHelp("h/←", "lane ←")),
-		Right:   key.NewBinding(key.WithKeys("l", "right"), key.WithHelp("l/→", "lane →")),
-		Open:    key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "open")),
-		Board:   key.NewBinding(key.WithKeys("shift+tab"), key.WithHelp("shift+tab", "board")),
+		Up:        key.NewBinding(key.WithKeys("k", "up"), key.WithHelp("k/↑", "up")),
+		Down:      key.NewBinding(key.WithKeys("j", "down"), key.WithHelp("j/↓", "down")),
+		Left:      key.NewBinding(key.WithKeys("h", "left"), key.WithHelp("h/←", "lane ←")),
+		Right:     key.NewBinding(key.WithKeys("l", "right"), key.WithHelp("l/→", "lane →")),
+		Open:      key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "open")),
+		Board:     key.NewBinding(key.WithKeys("shift+tab"), key.WithHelp("shift+tab", "board")),
 		Search:    key.NewBinding(key.WithKeys("/"), key.WithHelp("/", "find")),
 		Filter:    key.NewBinding(key.WithKeys("f"), key.WithHelp("f", "filter")),
 		SortCycle: key.NewBinding(key.WithKeys("F"), key.WithHelp("F", "sort")),
@@ -354,16 +355,28 @@ func newModel(svc *core.Service, result *config.Result, actor string) model {
 	}
 	sort.Strings(boardIDs)
 
+	// The tab order stays alphabetical (stable, predictable with shift+tab),
+	// but the board we OPEN on is settings.default_board when declared —
+	// otherwise an agent or human lands on whichever board sorts first, which
+	// in a multi-board workspace is rarely the one that matters.
+	boardIdx := 0
+	if def := core.DefaultBoardID(result.Workspace, result.Boards); def != "" {
+		if i := slices.Index(boardIDs, def); i >= 0 {
+			boardIdx = i
+		}
+	}
+
 	m := model{
-		svc:     svc,
-		ws:      result.Workspace,
-		types:   result.CardTypes,
-		boards:  result.Boards,
-		actor:   actor,
-		boards_: boardIDs,
-		in:      in,
-		help:    help.New(),
-		keys:    newKeyMap(),
+		svc:      svc,
+		ws:       result.Workspace,
+		types:    result.CardTypes,
+		boards:   result.Boards,
+		actor:    actor,
+		boards_:  boardIDs,
+		boardIdx: boardIdx,
+		in:       in,
+		help:     help.New(),
+		keys:     newKeyMap(),
 	}
 	if bus := svc.Bus(); bus != nil {
 		m.sub = bus.Subscribe(core.EventFilter{}, 64)

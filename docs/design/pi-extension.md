@@ -256,7 +256,7 @@ Mirrors philosophy §9 and the API's coordination contract:
 | Invocation | Behavior |
 |---|---|
 | `/cards` | Interactive board view (TUI mode) or text board otherwise. |
-| `/cards board <id>` | Switch the viewed board (default: workspace default board). |
+| `/cards board <id>` | Switch the viewed board (default: `settings.default_board`, else the first board id). |
 | `/cards show <id>` | Print one card (title, status, owner, fields, links, recent comments) as markdown. |
 | `/cards use <id>` | Inject the card into LLM context (§6.2). |
 | `/cards search <q>` | FTS results as a pickable list (`ctx.ui.select`); choosing one opens `/cards show`. |

@@ -148,9 +148,18 @@ Workspace {
 WorkspaceSettings {
   enforce_transitions   bool (default false)
   strict_fields         bool (default true)
-  tag_policy            enum { open, propose, locked }  // default propose
+  tag_policy            enum { open, locked }  // default locked
+                        // open   = any string is a valid tag; tag_set is a suggestion list
+                        // locked = tags must come from tag_set (unknown_tag otherwise)
+                        // "propose" was specified in v0.4, never implemented, and dropped;
+                        // load rejects it with a structured error naming the migration.
   event_retention_days  int (optional)  // schema field exists; automatic trimming is not yet implemented (no background job reads it)
   default_user          string (optional)  // CLI/API alias "me"
+  default_board         string (optional)  // the workspace's primary board; must name a
+                        // real board or load fails. Used where a surface must pick one
+                        // board with no other signal: the TUI's initial board, the web
+                        // UI's new-card landing, and take-next with no board_id/type_id.
+                        // Unset = the alphabetically-first board id (historical behavior).
 }
 ```
 

@@ -105,14 +105,15 @@ find over the currently loaded board, not an FTS consumer.
 These do not reopen the FTS-vs-LIKE decision; they are polish on the
 chosen path:
 
-1. **`searchable_fields` is declared but not applied.** Card-type JSON
-   and `core.CardType.SearchableFields` carry the list; `upsertFTS`
-   currently concatenates *every* value in `card.Fields` via
-   `fmt.Sprint`. Effect: enums, branch names, work-log blobs, etc. get
-   indexed too. Harmless for recall at POC scale; noisier ranking and
-   larger index than the type author opted into. Fix when search quality
-   matters: look up the type's `SearchableFields` (and always `title`)
-   inside `upsertFTS`.
+1. ~~**`searchable_fields` is declared but not applied.**~~ **[fixed]**
+   `upsertFTS` now restricts the indexed body to the type's declared
+   `SearchableFields` (title always indexed); a type declaring none still
+   indexes every value, so nothing narrowed silently. The declaration reaches
+   the store through the optional `core.SearchableFieldsSetter`, installed by
+   `NewService` so a definitions reload refreshes it rather than freezing the
+   rule at startup, and a changed declaration rebuilds the index once (gated on
+   a digest in the `meta` table) so rows written under the old rule cannot keep
+   matching excluded fields.
 2. **No ranking.** Results ride the default `ListCards` order
    (`updated_at, id`), not `bm25(fts_cards)`. Acceptable while `q` is a
    filter; revisit if search becomes a primary navigation surface

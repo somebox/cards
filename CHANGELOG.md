@@ -9,6 +9,26 @@ backwards-compatible fixes.
 ## [Unreleased]
 
 ### Added
+- **Declared-but-inert settings warn at load.** A knob that is visible in the
+  definitions schema, validated at load, and then read by nothing is the
+  inverse of "schemas, not magic" — the author sets it, sees no error, and gets
+  no behavior change. Load now emits a warning naming each such knob and where
+  the work is tracked. The catalog lives next to the check
+  (`internal/config/inert.go`), so adding an inert field is a conscious act and
+  removing a row is how you record that the feature landed. Warnings, not load
+  errors: an inert knob cannot corrupt anything, and refusing to start over one
+  would break workspaces that set it in good faith. Two entries remain
+  (`settings.event_retention_days`, `extensions[].expose`) — `tag_policy`,
+  `default_board`, and `searchable_fields` all left the list this release.
+- **`settings.default_board` — name the workspace's primary board.** In a
+  multi-board workspace, every surface that had to pick one board with no other
+  signal fell back to whichever board id sorted first, so agents routinely
+  oriented against the wrong board. Declaring `default_board` now drives the
+  TUI's initial board, the `/ui/cards/new` landing, and `take-next` when given
+  neither `board_id` nor `type_id`; it is surfaced by `GET /v1/workspace`,
+  `cards workspace show`, and the MCP `workspace` tool. Unset preserves the
+  alphabetical fallback; an id naming no board fails load with the available
+  ids listed. One resolver (`core.DefaultBoardID`) backs every surface.
 - **`/v1/openapi.json` now describes the whole API.** The generated OpenAPI 3.1
   document went from 11 paths / 13 operations to **25 / 29**, adding the
   coordination atomics (`claim`, `release`), links, comments, repeating-field
@@ -26,6 +46,26 @@ backwards-compatible fixes.
   serverless and `--url` backends and mirrors `POST /v1/cards/{id}/release`.
 
 ### Fixed
+- **`searchable_fields` is honored.** A card type's declared
+  `searchable_fields` now restricts what `upsertFTS` indexes; previously the
+  list was declared, validated, and ignored, so every field value — enums,
+  branch names, work-log blobs — landed in the index regardless. A type that
+  declares nothing still indexes everything, so no existing workspace narrows
+  silently, and `title` stays searchable either way. The declaration reaches
+  the store through the optional `core.SearchableFieldsSetter` installed by
+  `NewService`, so a definitions reload refreshes it instead of freezing the
+  rule at startup; a changed declaration rebuilds the index once, gated on a
+  digest in a new `meta` table, so rows written under the old rule cannot keep
+  matching fields the workspace has since excluded.
+- **`tag_policy` is honored — tags worked nowhere on a fresh `cards init`.**
+  The core never read `settings.tag_policy`: `validateTags` rejected anything
+  outside `tag_set` unconditionally, so the starter workspace (`tag_set: []`,
+  `tag_policy: "open"`) refused *every* tag. The web UI's chip control did read
+  the setting, so it invited a free tag the API then rejected — failing the
+  whole `PATCH` and discarding any other edits in the same save. The
+  `unknown_tag` hint also hardcoded `'propose'` regardless of configuration.
+  `tag_policy` is now a two-value dial (`open` | `locked`), read by the core on
+  both write paths, with the hint naming the policy actually in force.
 - **OpenAPI request/response shapes that misdescribed the handlers.**
   `POST /v1/cards/take-next` is documented as returning `{card: …|null}` rather
   than a bare `Card`; `GET /v1/cards` gained the `blocked`, `has_link`,
@@ -53,6 +93,13 @@ backwards-compatible fixes.
   zero and skipping catch-up.
 
 ### Changed
+- **`tag_policy` drops `propose`; unset now means `locked`.** The `propose`
+  mode was specified in v0.4 and never implemented on any path — accepting a
+  write back into a git-backed definitions file is extension territory, not
+  core. Load now **rejects** `propose` with a structured error naming the
+  migration rather than silently picking a side. Unset defaults to `locked`
+  (previously `propose`), which preserves what every workspace actually did
+  while the setting went unread; set `"tag_policy": "open"` for free tags.
 - **Events integration docs** align with the shipped contract: `wip_limits` vs
   `monitors`, workspace `settings.persist_conditions` (not per-monitor
   `persist: true`), and `card_deleted` on the mutation taxonomy.

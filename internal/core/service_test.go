@@ -27,7 +27,7 @@ func testConfig() (*core.Workspace, map[string]*core.CardType, map[string]*core.
 			{ID: "blocked-by", Name: "Blocked by", Type: "directional"},
 			{ID: "related", Name: "Related", Type: "bidirectional"},
 		},
-		Settings: core.WorkspaceSettings{StrictFields: true, TagPolicy: "propose", DefaultUser: "u"},
+		Settings: core.WorkspaceSettings{StrictFields: true, TagPolicy: core.TagPolicyLocked, DefaultUser: "u"},
 	}
 	types := map[string]*core.CardType{
 		"task": {

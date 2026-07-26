@@ -133,7 +133,7 @@ Global flags on every command: `--url`, `--as`, `--workspace`, `--json`,
 | `events <id>` | Raw events with diffs: `[--types t1,t2] [--limit N]`; `events stream` follows live |
 | `feed` | Workspace-wide event feed |
 | `breaches` | Current WIP / drained-lane / blocked conditions |
-| `workspace show` | Full introspection: columns, types, boards, users |
+| `workspace show` | Full introspection: columns, types, boards, users. `settings.default_board` names the primary board when the workspace declares one — bare `cards` (TUI) opens it, and `take-next` with no `--board`/`--type` draws from it. |
 | `boards show [id]` | Board definition |
 
 ### Workspace lifecycle

@@ -32,7 +32,7 @@ func newTemporalServer(t *testing.T) (*httptest.Server, *clocktest.Fake) {
 		Columns: []core.Column{
 			{ID: "todo", Name: "Todo"}, {ID: "review", Name: "Review"}, {ID: "done", Name: "Done"},
 		},
-		Settings: core.WorkspaceSettings{StrictFields: true, TagPolicy: "propose", DefaultUser: "u"},
+		Settings: core.WorkspaceSettings{StrictFields: true, TagPolicy: core.TagPolicyLocked, DefaultUser: "u"},
 	}
 	types := map[string]*core.CardType{
 		"task": {

@@ -6,12 +6,16 @@ package sqlite
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/somebox/cards/internal/core"
@@ -22,6 +26,11 @@ import (
 type Store struct {
 	db *sql.DB
 	ws *core.Workspace
+	// searchable maps card type id -> declared searchable_fields, installed by
+	// core.NewService (and so refreshed on every definitions reload). Guarded
+	// because a reload can install a new map while writes are in flight.
+	mu         sync.RWMutex
+	searchable map[string][]string
 }
 
 // Open opens (or creates) the SQLite file at path and initializes schema.
@@ -148,6 +157,13 @@ func (s *Store) Init(ctx context.Context) error {
 			PRIMARY KEY (key, actor)
 		)`,
 		`CREATE VIRTUAL TABLE IF NOT EXISTS fts_cards USING fts5(card_id UNINDEXED, title, body)`,
+		// meta holds small store-level bookkeeping that is neither card state
+		// nor definitions — today just the searchable_fields digest that decides
+		// whether the FTS index owes a rebuild.
+		`CREATE TABLE IF NOT EXISTS meta (
+			key   TEXT PRIMARY KEY,
+			value TEXT NOT NULL
+		)`,
 		// condition_marks is the seam 3d fired-marker: dedupe state for
 		// temporal conditions (status_timeout/card_idle), keyed by identity
 		// so a card re-entering the same status later gets a fresh key. Not
@@ -590,7 +606,7 @@ func (s *Store) InsertCard(ctx context.Context, c *core.Card, ev *core.Event) er
 	if err := execCardInsert(tx, c); err != nil {
 		return err
 	}
-	if err := upsertFTS(tx, c); err != nil {
+	if err := s.upsertFTS(tx, c); err != nil {
 		return err
 	}
 	if ev != nil {
@@ -627,7 +643,7 @@ func (s *Store) UpdateCard(ctx context.Context, c *core.Card, evs []*core.Event)
 		}
 		return core.VersionConflict(c) // concurrent mutation
 	}
-	if err := upsertFTS(tx, c); err != nil {
+	if err := s.upsertFTS(tx, c); err != nil {
 		return err
 	}
 	for _, ev := range evs {
@@ -756,7 +772,7 @@ func (s *Store) ClaimAtomic(ctx context.Context, q core.CardQuery, owner, status
 			return nil, nil, err
 		}
 	}
-	if err := upsertFTS(tx, claimed); err != nil {
+	if err := s.upsertFTS(tx, claimed); err != nil {
 		return nil, nil, err
 	}
 
@@ -1258,19 +1274,160 @@ func execEventInsert(tx *sql.Tx, ev *core.Event) error {
 	return nil
 }
 
+// SetSearchableFields tells the store which fields each card type declares
+// searchable (core.CardType.SearchableFields). core.NewService installs it, so
+// a definitions reload — which builds a new Service around this same store —
+// refreshes it automatically rather than leaving a stale copy behind.
+//
+// A type absent from the map, or present with an empty list, indexes ALL of
+// its field values: an undeclared searchable_fields means "no restriction",
+// which is both the backward-compatible reading and the only one that doesn't
+// silently empty the index for every type that never declared it.
+//
+// When the declaration changes, the FTS index is rebuilt once — otherwise rows
+// written under the old rule would keep matching on fields the workspace has
+// since excluded.
+func (s *Store) SetSearchableFields(byType map[string][]string) error {
+	s.mu.Lock()
+	s.searchable = byType
+	s.mu.Unlock()
+
+	digest := searchableDigest(byType)
+	prev, err := s.metaGet("fts_searchable_digest")
+	if err != nil {
+		return err
+	}
+	if prev == digest {
+		return nil
+	}
+	if err := s.rebuildFTS(); err != nil {
+		return fmt.Errorf("rebuild fts index: %w", err)
+	}
+	return s.metaSet("fts_searchable_digest", digest)
+}
+
+// searchableFor returns the declared searchable fields for a type, and whether
+// the type restricts its index at all.
+func (s *Store) searchableFor(typeID string) (map[string]bool, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	ids, ok := s.searchable[typeID]
+	if !ok || len(ids) == 0 {
+		return nil, false
+	}
+	set := make(map[string]bool, len(ids))
+	for _, id := range ids {
+		set[id] = true
+	}
+	return set, true
+}
+
+// searchableDigest is a stable fingerprint of the declaration, used to decide
+// whether a rebuild is owed. Sorted so map iteration order can't churn it.
+func searchableDigest(byType map[string][]string) string {
+	typeIDs := make([]string, 0, len(byType))
+	for id := range byType {
+		typeIDs = append(typeIDs, id)
+	}
+	sort.Strings(typeIDs)
+	var b strings.Builder
+	for _, t := range typeIDs {
+		fields := append([]string(nil), byType[t]...)
+		sort.Strings(fields)
+		b.WriteString(t)
+		b.WriteString(":")
+		b.WriteString(strings.Join(fields, ","))
+		b.WriteString(";")
+	}
+	sum := sha256.Sum256([]byte(b.String()))
+	return hex.EncodeToString(sum[:])
+}
+
+// rebuildFTS re-indexes every card under the current declaration. Runs at most
+// once per declaration change (see SetSearchableFields).
+func (s *Store) rebuildFTS() error {
+	rows, err := s.db.Query(`SELECT id, type_id, title, fields FROM cards`)
+	if err != nil {
+		return err
+	}
+	type row struct{ id, typeID, title, fields string }
+	var all []row
+	for rows.Next() {
+		var r row
+		if err := rows.Scan(&r.id, &r.typeID, &r.title, &r.fields); err != nil {
+			rows.Close()
+			return err
+		}
+		all = append(all, r)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return err
+	}
+
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.Exec(`DELETE FROM fts_cards`); err != nil {
+		return err
+	}
+	for _, r := range all {
+		var fields any
+		if r.fields != "" {
+			_ = json.Unmarshal([]byte(r.fields), &fields)
+		}
+		c := &core.Card{ID: r.id, TypeID: r.typeID, Title: r.title, Fields: fields}
+		if err := s.upsertFTS(tx, c); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
 // upsertFTS maintains the FTS5 index for a card. The indexed body is the title
-// plus searchable field values (best-effort).
-func upsertFTS(tx *sql.Tx, c *core.Card) error {
+// plus field values — restricted to the type's declared searchable_fields when
+// it declares any, otherwise all of them.
+func (s *Store) upsertFTS(tx *sql.Tx, c *core.Card) error {
 	if _, err := tx.Exec(`DELETE FROM fts_cards WHERE card_id = ?`, c.ID); err != nil {
 		return err
 	}
 	body := c.Title
 	if m, ok := c.Fields.(map[string]any); ok {
-		for _, v := range m {
-			body += " " + fmt.Sprint(v)
+		only, restricted := s.searchableFor(c.TypeID)
+		// Sorted so the indexed body is deterministic for a given card —
+		// otherwise map iteration makes the stored text (and any golden
+		// assertion over it) vary run to run.
+		keys := make([]string, 0, len(m))
+		for k := range m {
+			if restricted && !only[k] {
+				continue
+			}
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, k := range keys {
+			body += " " + fmt.Sprint(m[k])
 		}
 	}
 	_, err := tx.Exec(`INSERT INTO fts_cards(card_id, title, body) VALUES(?,?,?)`, c.ID, c.Title, body)
+	return err
+}
+
+func (s *Store) metaGet(key string) (string, error) {
+	var v string
+	err := s.db.QueryRow(`SELECT value FROM meta WHERE key = ?`, key).Scan(&v)
+	if err == sql.ErrNoRows {
+		return "", nil
+	}
+	return v, err
+}
+
+func (s *Store) metaSet(key, value string) error {
+	_, err := s.db.Exec(
+		`INSERT INTO meta(key, value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+		key, value)
 	return err
 }
 

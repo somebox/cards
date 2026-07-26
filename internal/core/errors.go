@@ -49,13 +49,21 @@ func newUnknownEnum(field string, value any, options []string) *Error {
 	}
 }
 
-func newUnknownTag(value string, tagSet []string) *Error {
+// newUnknownTag reports the policy actually in force. The hint used to
+// hardcode "propose" regardless of configuration, which named a mode the
+// author had not chosen — the one diagnostic they got pointed at the wrong
+// setting.
+func newUnknownTag(value string, tagSet []string, policy string) *Error {
+	if policy == "" {
+		policy = TagPolicyLocked
+	}
 	return &Error{
 		Code: "unknown_tag", Value: value,
 		Message:      "Unknown tag.",
 		ValidOptions: tagSet,
-		Hint:         "Tag policy is 'propose'; add it to workspace.tag_set to use it.",
-		HTTPStatus:   422,
+		Hint: "Tag policy is '" + policy + "'; add it to workspace.tag_set, " +
+			"or set settings.tag_policy to 'open' to allow free tags.",
+		HTTPStatus: 422,
 	}
 }
 

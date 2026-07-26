@@ -4,6 +4,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/somebox/cards/internal/core"
 )
 
 // TestLoadDemoWorkspace loads examples/demo-workspace and asserts the shape
@@ -683,6 +685,207 @@ func TestLoadDemoWorkspaceNoSemanticWarnings(t *testing.T) {
 			strings.Contains(w, "unknown field") ||
 			strings.Contains(w, "icon") {
 			t.Errorf("demo-workspace should load clean; unexpected warning: %s", w)
+		}
+	}
+}
+
+// tagPolicyWorkspace writes a minimal loadable workspace whose settings block
+// is supplied verbatim, so tag_policy handling can be exercised at load.
+func tagPolicyWorkspace(t *testing.T, settings string) string {
+	t.Helper()
+	dir := t.TempDir()
+	mustWrite(t, filepath.Join(dir, "definitions", "workspace.json"), `{
+		"id":"t","name":"T",
+		"columns":[{"id":"todo","name":"Todo"}],
+		"tag_set":["bug"],
+		"settings":`+settings+`
+	}`)
+	mustWrite(t, filepath.Join(dir, "definitions", "card-types", "task.json"), `{
+		"id":"task","name":"Task","fields":[]
+	}`)
+	return dir
+}
+
+// TestTagPolicyDefaultsToLocked — an omitted tag_policy must resolve to
+// locked, which is what every workspace already did while the core ignored
+// the setting. Defaulting to open here would silently loosen tag validation
+// across every workspace that never declared the key.
+func TestTagPolicyDefaultsToLocked(t *testing.T) {
+	r, err := New(tagPolicyWorkspace(t, `{"default_user":"u"}`)).Load()
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	if got := r.Workspace.Settings.TagPolicy; got != core.TagPolicyLocked {
+		t.Errorf("tag_policy = %q, want %q", got, core.TagPolicyLocked)
+	}
+}
+
+func TestTagPolicyAcceptsBothModes(t *testing.T) {
+	for _, policy := range core.TagPolicies() {
+		r, err := New(tagPolicyWorkspace(t, `{"default_user":"u","tag_policy":"`+policy+`"}`)).Load()
+		if err != nil {
+			t.Fatalf("load %q: %v", policy, err)
+		}
+		if got := r.Workspace.Settings.TagPolicy; got != policy {
+			t.Errorf("tag_policy = %q, want %q", got, policy)
+		}
+	}
+}
+
+// TestTagPolicyRejectsPropose — "propose" was specified in v0.4 and never
+// implemented on any path. A workspace declaring it believes it has a
+// moderation flow it never had, so load fails loudly and names the migration
+// rather than quietly picking open or locked on the author's behalf.
+func TestTagPolicyRejectsPropose(t *testing.T) {
+	_, err := New(tagPolicyWorkspace(t, `{"default_user":"u","tag_policy":"propose"}`)).Load()
+	if err == nil {
+		t.Fatal("expected load to reject tag_policy propose, got nil")
+	}
+	for _, want := range []string{"propose", "locked", "open"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error must mention %q so the fix is obvious, got: %v", want, err)
+		}
+	}
+}
+
+func TestTagPolicyRejectsUnknownValue(t *testing.T) {
+	_, err := New(tagPolicyWorkspace(t, `{"default_user":"u","tag_policy":"whatever"}`)).Load()
+	if err == nil {
+		t.Fatal("expected load to reject an unknown tag_policy, got nil")
+	}
+}
+
+// TestDefaultBoardRejectsUnknownBoard — a dangling settings.default_board
+// fails startup like every other bad cross-reference (principle 9), and the
+// error lists what the author could have written.
+func TestDefaultBoardRejectsUnknownBoard(t *testing.T) {
+	dir := t.TempDir()
+	mustWrite(t, filepath.Join(dir, "definitions", "workspace.json"), `{
+		"id":"t","name":"T",
+		"columns":[{"id":"todo","name":"Todo"}],
+		"settings":{"default_user":"u","default_board":"ghost"}
+	}`)
+	mustWrite(t, filepath.Join(dir, "definitions", "card-types", "task.json"), `{
+		"id":"task","name":"Task","fields":[]
+	}`)
+	mustWrite(t, filepath.Join(dir, "definitions", "boards", "real.json"), `{
+		"id":"real","name":"Real","columns":["todo"],"card_type_ids":["task"]
+	}`)
+	_, err := New(dir).Load()
+	if err == nil {
+		t.Fatal("expected load to reject an unknown default_board, got nil")
+	}
+	for _, want := range []string{"ghost", "real"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error must mention %q, got: %v", want, err)
+		}
+	}
+}
+
+func TestDefaultBoardAcceptsDeclaredBoard(t *testing.T) {
+	dir := t.TempDir()
+	mustWrite(t, filepath.Join(dir, "definitions", "workspace.json"), `{
+		"id":"t","name":"T",
+		"columns":[{"id":"todo","name":"Todo"}],
+		"settings":{"default_user":"u","default_board":"real"}
+	}`)
+	mustWrite(t, filepath.Join(dir, "definitions", "card-types", "task.json"), `{
+		"id":"task","name":"Task","fields":[]
+	}`)
+	mustWrite(t, filepath.Join(dir, "definitions", "boards", "real.json"), `{
+		"id":"real","name":"Real","columns":["todo"],"card_type_ids":["task"]
+	}`)
+	r, err := New(dir).Load()
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	if got := r.Workspace.Settings.DefaultBoard; got != "real" {
+		t.Errorf("default_board = %q, want real", got)
+	}
+	if got := core.DefaultBoardID(r.Workspace, r.Boards); got != "real" {
+		t.Errorf("DefaultBoardID = %q, want real", got)
+	}
+}
+
+// TestInertWarningFiresForDeclaredKnob — a knob the loader accepts but nothing
+// consumes must say so. The author set it expecting behavior; silence is the
+// bug this warning exists to prevent.
+func TestInertWarningFiresForDeclaredKnob(t *testing.T) {
+	dir := t.TempDir()
+	mustWrite(t, filepath.Join(dir, "definitions", "workspace.json"), `{
+		"id":"t","name":"T",
+		"columns":[{"id":"todo","name":"Todo"}],
+		"settings":{"default_user":"u","event_retention_days":30}
+	}`)
+	mustWrite(t, filepath.Join(dir, "definitions", "card-types", "task.json"), `{
+		"id":"task","name":"Task","fields":[]
+	}`)
+	r, err := New(dir).Load()
+	if err != nil {
+		t.Fatalf("load must not fail over an inert knob: %v", err)
+	}
+	var found bool
+	for _, w := range r.Warnings {
+		if strings.Contains(w, "event_retention_days") && strings.Contains(w, "no effect") {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected an inert-knob warning for event_retention_days, got %v", r.Warnings)
+	}
+}
+
+// TestNoInertWarningWhenUndeclared — the warning is for authors who wrote the
+// key, not a standing lecture on every startup.
+func TestNoInertWarningWhenUndeclared(t *testing.T) {
+	dir := t.TempDir()
+	mustWrite(t, filepath.Join(dir, "definitions", "workspace.json"), `{
+		"id":"t","name":"T",
+		"columns":[{"id":"todo","name":"Todo"}],
+		"settings":{"default_user":"u"}
+	}`)
+	mustWrite(t, filepath.Join(dir, "definitions", "card-types", "task.json"), `{
+		"id":"task","name":"Task","fields":[]
+	}`)
+	r, err := New(dir).Load()
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	for _, w := range r.Warnings {
+		if strings.Contains(w, "no effect") {
+			t.Errorf("unexpected inert-knob warning on a workspace that declares none: %q", w)
+		}
+	}
+}
+
+// TestHonoredKnobsAreNotWarned locks in this sprint's actual outcome: the
+// three knobs that were inert at the start of it are honored now, so
+// declaring them must NOT warn. Re-adding one to the catalog by mistake fails
+// here.
+func TestHonoredKnobsAreNotWarned(t *testing.T) {
+	dir := t.TempDir()
+	mustWrite(t, filepath.Join(dir, "definitions", "workspace.json"), `{
+		"id":"t","name":"T",
+		"columns":[{"id":"todo","name":"Todo"}],
+		"tag_set":["bug"],
+		"settings":{"default_user":"u","tag_policy":"open","default_board":"b"}
+	}`)
+	mustWrite(t, filepath.Join(dir, "definitions", "card-types", "task.json"), `{
+		"id":"task","name":"Task","fields":[{"id":"description","type":"text"}],
+		"searchable_fields":["description"]
+	}`)
+	mustWrite(t, filepath.Join(dir, "definitions", "boards", "b.json"), `{
+		"id":"b","name":"B","columns":["todo"],"card_type_ids":["task"]
+	}`)
+	r, err := New(dir).Load()
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	for _, w := range r.Warnings {
+		for _, honored := range []string{"tag_policy", "default_board", "searchable_fields"} {
+			if strings.Contains(w, honored) && strings.Contains(w, "no effect") {
+				t.Errorf("%s is honored now and must not be warned as inert: %q", honored, w)
+			}
 		}
 	}
 }

@@ -96,3 +96,30 @@ type Store interface {
 	// Close releases any underlying resources.
 	Close() error
 }
+
+// SearchableFieldsSetter is an OPTIONAL Store capability: a store that keeps a
+// full-text index can be told which fields each card type declares searchable
+// (CardType.SearchableFields), keyed by type id. A type absent from the map —
+// or present with an empty list — places no restriction and indexes every
+// field value, which is both the backward-compatible reading and the only one
+// that doesn't silently empty the index for types that never declared it.
+//
+// It is deliberately not part of Store: search is an accelerator, and a store
+// without an index (the in-memory event-log fake) should not have to stub it.
+type SearchableFieldsSetter interface {
+	SetSearchableFields(byType map[string][]string) error
+}
+
+// searchableFieldsByType projects the declaration out of the loaded schemas.
+// Types declaring nothing are omitted rather than mapped to an empty slice —
+// the two mean the same thing to the store, and omitting keeps the digest
+// (and so the rebuild decision) stable when a type is added without one.
+func searchableFieldsByType(types map[string]*CardType) map[string][]string {
+	out := make(map[string][]string, len(types))
+	for id, ct := range types {
+		if len(ct.SearchableFields) > 0 {
+			out[id] = append([]string(nil), ct.SearchableFields...)
+		}
+	}
+	return out
+}

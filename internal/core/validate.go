@@ -307,14 +307,23 @@ func validateEntry(f *FieldDef, entry map[string]any) error {
 	return nil
 }
 
+// validateTags enforces settings.tag_policy. Under TagPolicyOpen a tag is any
+// string and TagSet is only a suggestion list for the UI; under TagPolicyLocked
+// (the default, and the behavior every workspace had while this setting was
+// unread) a tag must come from TagSet. An unrecognized policy value fails
+// closed to locked — config load rejects those, so reaching here means an
+// in-process Workspace literal, and the safe reading is the strict one.
 func (s *Service) validateTags(tags []string) error {
+	if s.ws.Settings.TagPolicy == TagPolicyOpen {
+		return nil
+	}
 	set := map[string]bool{}
 	for _, t := range s.ws.TagSet {
 		set[t] = true
 	}
 	for _, t := range tags {
 		if !set[t] {
-			return newUnknownTag(t, s.ws.TagSet)
+			return newUnknownTag(t, s.ws.TagSet, s.ws.Settings.TagPolicy)
 		}
 	}
 	return nil
