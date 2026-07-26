@@ -641,9 +641,17 @@ never acts on a condition. Out of scope, by design:
 
 This doc is *code-verified*: each entry below records the `git log` evidence
 for the source paths a section describes, over the range since the doc was
-last verified. **Current boundary:** `67e613f` **→ HEAD (`e25797c`,
-2026-07-26 — board sync after the contract-truth work)** — 20 commits.
-Reproduce any line with `git log --oneline 67e613f..HEAD -- <paths>`.
+last verified. **Current boundary:** `e25797c` **→ HEAD (`25cc1d0`,
+2026-07-26 — the boundary roll itself)**. The range actually audited is
+`67e613f`→`e25797c` (20 commits), recorded in the entry below; the commits
+after `e25797c` are this doc roll and carry no code.
+Reproduce any line with `git log --oneline 67e613f..e25797c -- <paths>`.
+
+> **Note on this line's first commit.** `TestImplStatusBoundaryCommit` measures
+> lag from the **first** commit cited here, so a roll that cites the *start* of
+> a 20-commit range is already at the limit the moment the roll commit lands —
+> it fails on its own commit. Cite the **end** of the audited range here and
+> record the range in the entry heading.
 
 ### Entry 2026-07-26 (`67e613f` → `e25797c`)
 
