@@ -641,9 +641,38 @@ never acts on a condition. Out of scope, by design:
 
 This doc is *code-verified*: each entry below records the `git log` evidence
 for the source paths a section describes, over the range since the doc was
-last verified. **Current boundary:** `bb6ffc5` **→ HEAD (`67e613f`,
-2026-07-20 — board sync after the v0.2.0 release)** — 6 commits.
-Reproduce any line with `git log --oneline bb6ffc5..HEAD -- <paths>`.
+last verified. **Current boundary:** `67e613f` **→ HEAD (`e25797c`,
+2026-07-26 — board sync after the contract-truth work)** — 20 commits.
+Reproduce any line with `git log --oneline 67e613f..HEAD -- <paths>`.
+
+### Entry 2026-07-26 (`67e613f` → `e25797c`)
+
+Headline: 20 commits. Two behavior-contract changes the doc had to absorb
+(fail-closed board transitions + the ephemeral-SSE cursor fix in `7cd5bd1`,
+which landed before this pass), and the contract-truth work: full OpenAPI
+route coverage with a both-directions drift guard (`635d2c9`), and three
+declared-but-unread workspace settings wired up (`ba3b6f3`). §1–§4 re-audited
+against the source; §5–§8 reviewed with the changes noted below.
+
+This entry also clears a standing failure: `TestImplStatusBoundaryCommit` had
+been red in the strict CI job since before `4ec0fa3`, at 23 commits behind.
+The lesson is recorded rather than just fixed — the guard warns in an ordinary
+`go test` run but is **strict in its own CI job**, so a warning seen locally is
+already a red build.
+
+| § | Section | Change | Evidence |
+|---|---|---|---|
+| 2 | HTTP API | `GET /v1/openapi.json` now documents **every** row of the endpoint table (25 paths / 29 operations, up from 11/13); coverage note added under the table | `internal/openapi/openapi.go`; `TestOpenAPICoversEveryRoute` (`internal/httpapi`) |
+| 2 | List filters | ceiling corrected to **500** (was documented as 200; `clampCardLimit` fixed the old ">200 → 50" bug); `sort` and `include` added to the read-params list | `internal/sqlite/sqlite.go` (`clampCardLimit`); `internal/httpapi/api.go` |
+| 2 | take-next | pool is scoped to `settings.default_board` when neither `board_id` nor `type_id` is given; an explicit `type_id` is never additionally board-scoped | `internal/core/service.go` (`TakeNext`); `internal/core/defaultboard_test.go` |
+| 2 | take-next | anchors re-pinned twice as the claim path moved — `internal/sqlite/sqlite.go:746`, `internal/core/service.go:1587` / `:1552` | `TestImplStatusAnchorsResolve` caught each move |
+| 4 | Events | ephemeral condition signals omit the SSE `id:` field so an `EventSource` reconnect keeps its last **durable** cursor; the canonical event catalog is now `core.EventTypes()` and the OpenAPI enum reads it rather than restating it | `internal/httpapi/sse.go`; `internal/core/types.go` (`EventTypes`); commit `7cd5bd1` |
+| 6 | Workspace & schema | `tag_policy` is a two-value dial (`open`\|`locked`) the core actually reads — it was declared, validated and ignored, so a fresh `cards init` rejected every tag; `propose` is dropped and **rejected at load**; unset now defaults to `locked` | `internal/core/validate.go`; `internal/config/config.go`; `internal/core/tagpolicy_test.go` |
+| 6 | Workspace & schema | `settings.default_board` added — resolves the TUI initial board, the `/ui/cards/new` landing and take-next scope through one helper; a dangling id fails load | `internal/core/helpers.go` (`DefaultBoardID`) |
+| 6 | Workspace & schema | `searchable_fields` is honored by the FTS indexer; a changed declaration rebuilds the index once, gated on a digest in a new `meta` table | `internal/sqlite/sqlite.go`; `internal/sqlite/searchable_test.go` |
+| 6 | Workspace & schema | load now **warns** on declared-but-inert knobs; two remain (`event_retention_days`, `extensions[].expose`) | `internal/config/inert.go` |
+| 5 | Actor & identity | reviewed, no change needed — `take-next` still bypasses the user-registry check that PATCH-owner and `claim` enforce. Documented here since 2026-07-18 and still undecided; tracked on the board | `internal/core/service.go` (`TakeNext`) |
+| 7–8 | Extensions / non-goals | reviewed, no change needed | — |
 
 ### Entry 2026-07-20 (`bb6ffc5` → `67e613f`)
 
