@@ -59,6 +59,16 @@ implementation — header only.)
 - `GET /workspace/card-types/:type_id?version=` → **not yet implemented**;
   card-type schemas are only available via the `card_types` map in
   `GET /workspace` (current version only).
+- `GET /openapi.json` → **implemented**: an OpenAPI 3.1 document generated from
+  the live workspace (`internal/openapi`), so the per-type field schemas are
+  this workspace's card types rather than a generic placeholder. It covers the
+  **whole `/v1` surface** — every route in the table below, including the
+  coordination atomics, the durable event feed, and the two reload-seam routes
+  (marked as `cards serve` only). `TestOpenAPICoversEveryRoute`
+  (`internal/httpapi`) walks the chi route table against the document in both
+  directions, so an endpoint cannot ship undocumented and a documented
+  operation cannot outlive its route. The document itself is the one
+  deliberate omission.
 - `POST /workspace/reload` → **implemented** on `cards serve` (`cmd/cards/reload.go`):
   re-loads definitions, swaps the live Service/router, emits `definition_reloaded`;
   failed reload returns 422, emits `definition_reload_failed`, and keeps the prior

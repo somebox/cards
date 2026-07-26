@@ -9,12 +9,31 @@ backwards-compatible fixes.
 ## [Unreleased]
 
 ### Added
+- **`/v1/openapi.json` now describes the whole API.** The generated OpenAPI 3.1
+  document went from 11 paths / 13 operations to **25 / 29**, adding the
+  coordination atomics (`claim`, `release`), links, comments, repeating-field
+  entries, the durable `/v1/events` catch-up feed, per-card `events`/`history`,
+  `/v1/users`, `/v1/health`, and the two `cards serve` reload-seam routes.
+  Mutating operations document the `Idempotency-Key` header and the structured
+  `403`/`409`/`422` envelopes; `Event.type` is generated from the new
+  `core.EventTypes()` so a new event type cannot ship against a stale contract.
+  `TestOpenAPICoversEveryRoute` walks the chi route table against the document
+  in both directions, so an undocumented endpoint — or a documented phantom —
+  fails the build. Found by the 2026-07-25 architecture audit.
 - **`cards release` closes the CLI recovery gap.** The new version-checked
   command clears card ownership and can atomically set `--status`; `--force`
   permits an explicit off-graph recovery move. It works through both the
   serverless and `--url` backends and mirrors `POST /v1/cards/{id}/release`.
 
 ### Fixed
+- **OpenAPI request/response shapes that misdescribed the handlers.**
+  `POST /v1/cards/take-next` is documented as returning `{card: …|null}` rather
+  than a bare `Card`; `GET /v1/cards` gained the `blocked`, `has_link`,
+  `link_target`, `include`, and `sort` parameters it has always read, its
+  `limit` ceiling is stated as 500 (not 200), and the `owner` description no
+  longer implies the API resolves `me` — the board UI substitutes the viewing
+  actor before calling. Artifact upload documents its optional `?version=`
+  guard.
 - **`transition_illegal.valid_options` stay on the board.** Board `transitions`
   edges must name that board's columns (not arbitrary workspace column ids);
   load rejects off-board edges, and runtime scrubbing keeps error

@@ -343,6 +343,23 @@ const (
 	EventCardIdle           EventType = "card_idle"           // 3e
 )
 
+// EventTypes returns the full catalog of event types — the 17 card/state facts
+// followed by the 9 condition signals from ConditionTypes. This is the single
+// programmatic enumeration; generated surfaces (the OpenAPI document's event
+// enum) read it instead of restating the list, so adding a type here cannot
+// leave a published contract behind.
+func EventTypes() []EventType {
+	return append([]EventType{
+		EventCardCreated, EventCardDeleted, EventFieldUpdated,
+		EventStatusChanged, EventOwnerChanged, EventTagsChanged,
+		EventItemAppended, EventItemUpdated, EventItemRemoved,
+		EventLinkAdded, EventLinkRemoved,
+		EventCommentAdded, EventCommentEdited,
+		EventSchemaUpgraded, EventArtifactAdded,
+		EventDefinitionReload, EventDefinitionReloadFailed,
+	}, ConditionTypes()...)
+}
+
 // ConditionTypes returns the full catalog of condition event types (built or
 // planned) — the set config validation checks settings.persist_conditions
 // entries against, so a typo (e.g. "wip_exceded") warns instead of silently

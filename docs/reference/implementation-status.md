@@ -190,7 +190,7 @@ mux in `cmd/cards/reload.go:104-112`.
 | GET | `/v1/events` | **catch-up feed** (cursor-paged, durable) — §4 |
 | GET | `/v1/events/stream` | **SSE live stream** — §4 |
 | GET | `/v1/breaches` | active condition breaches (WIP / lane / blocked / temporal — §4) |
-| GET | `/v1/openapi.json` | generated OpenAPI 3.1 |
+| GET | `/v1/openapi.json` | generated OpenAPI 3.1 — covers every row in this table (see note below) |
 | POST | `/v1/users` | register a user (open, no auth) |
 | POST | `/v1/workspace/reload` | re-run the definitions loader, swap the composition |
 | POST | `/v1/boards` | write + validate a board definition (see `cmd/cards/reload.go`) |
@@ -198,6 +198,24 @@ mux in `cmd/cards/reload.go:104-112`.
 UI handlers live under `/ui` (reference consumer; not part of the contract).
 **There are NO batch/bulk endpoints** — writes are strictly per-card;
 `take-next` claims exactly one card.
+
+> **OpenAPI coverage [built].** `GET /v1/openapi.json` documents **every**
+> operation in the table above — 25 paths / 29 operations — including the
+> coordination atomics (`claim`, `release`, `take-next`), links, comments,
+> repeating entries, the durable `/v1/events` feed, `/v1/users`, and the two
+> reload-seam routes (`/v1/workspace/reload`, `POST /v1/boards`, both flagged
+> `cards serve` only, since they live on the parent mux in
+> `cmd/cards/reload.go` rather than the `/v1` router). `/v1/openapi.json` is the
+> single deliberate omission — the document does not describe itself.
+> Mutating operations carry the `Idempotency-Key` header and the structured
+> `403`/`409`/`422` envelopes; the `Event.type` enum is generated from
+> `core.EventTypes()` rather than restated. Pinned by
+> `TestOpenAPICoversEveryRoute` (`internal/httpapi`), which walks the chi route
+> table against the document in **both** directions — an undocumented route and
+> a documented phantom both fail — plus the shape tests in `internal/openapi`.
+> *(Prior state: 11 paths / 13 operations, with `claim`, `release`, and the
+> event feed absent, and `take-next` documented as returning a bare `Card`
+> rather than `{card: …|null}`.)*
 
 ### Key request/response shapes
 

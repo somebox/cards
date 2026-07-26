@@ -197,8 +197,11 @@ Conventions that apply everywhere:
 !!! tip "Your workspace serves its own OpenAPI spec"
     A running server exposes an OpenAPI 3.1 document at `/v1/openapi.json`,
     generated from the live workspace — the per-type field schemas in it are
-    your card types, not a generic placeholder. Point codegen or an API client
-    at it for exact request shapes.
+    your card types, not a generic placeholder. It covers the whole `/v1`
+    surface, so codegen or an API client gets the coordination atomics
+    (`claim`, `release`, `take-next`) and the durable event feed alongside
+    plain card CRUD, with the idempotency header and the structured error
+    envelopes documented per operation.
 
 ### Introspect the workspace
 
