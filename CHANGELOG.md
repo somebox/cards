@@ -8,6 +8,12 @@ backwards-compatible fixes.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-08-04
+
+Minor release under pre-1.0 semver: several definition-load and API contract
+tightenings (see **Changed**). Boards that declare `transitions` without
+`columns` — accepted under v0.2.0 — now fail to load with a dedicated error.
+
 ### Added
 - **Declared-but-inert settings warn at load.** A knob that is visible in the
   definitions schema, validated at load, and then read by nothing is the
@@ -107,12 +113,8 @@ backwards-compatible fixes.
   onboarding, multi-workspace, portability).
 - **FTS5 vs LIKE disposition** recorded (`docs/design/fts-vs-like-disposition.md`);
   demo seed research card closed with the keep-FTS5 conclusion.
-
-### Suggested release
-Promote to **v0.3.0** (minor under this project's pre-1.0 policy): alongside
-fixes and docs, board validation is tighter. A board that declares
-`transitions` without `columns` — accepted under v0.2.0 — now fails to load
-with a dedicated error. Boards that already declare both are unaffected.
+- **Board load validation:** a board with `transitions` but no `columns` fails
+  at load time instead of accepting a broken graph.
 
 ## [0.2.0] - 2026-07-20
 
@@ -345,7 +347,8 @@ SSE — to a shippable baseline, and adds the following.
   already fixed); completed review/planning artifacts were archived under
   `docs/archive/`.
 
-[Unreleased]: https://github.com/somebox/cards/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/somebox/cards/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/somebox/cards/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/somebox/cards/compare/v0.1.3...v0.2.0
 [0.1.3]: https://github.com/somebox/cards/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/somebox/cards/compare/v0.1.1...v0.1.2

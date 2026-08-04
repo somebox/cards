@@ -97,7 +97,7 @@ the `./`.
 **Or, with Go `1.26.4`+ installed**, build from source:
 
 ```bash
-go install github.com/somebox/cards/cmd/cards@latest   # or @v0.1.2
+go install github.com/somebox/cards/cmd/cards@latest   # or @v0.3.0
 # from a checkout: go build -o cards ./cmd/cards
 ```
 
@@ -129,6 +129,61 @@ cards list                               # the board as JSON lines
 cards patch <id> --status in_progress --version 1
 cards comment add <id> --body "on it"
 ```
+
+## Adding Cards to a project
+
+Cards fits beside your code: one `.cards/` directory in the repo root, definitions
+in git, live state in a local SQLite file. From an existing checkout or empty
+project:
+
+```bash
+# 1. Install (see Install above), then scaffold a workspace
+cd my-app
+cards init
+
+# 2. Ignore machine-local DB state; commit definitions (and optional snapshots)
+cat >> .gitignore <<'EOF'
+.cards/work-cards.db
+.cards/work-cards.db-*
+.cards/logs/
+EOF
+git add .cards/definitions .gitignore
+git commit -m "Add Cards workspace (definitions)"
+
+# 3. Run the board (walk-up finds ./.cards/ like git finds .git/)
+cards serve
+open http://127.0.0.1:8787/ui/boards/welcome
+```
+
+Edit card types and boards under `.cards/definitions/` (JSON). The server picks
+up changes with `cards reload` or `cards serve --watch` — no restart required
+for definition edits.
+
+**CLI and agents** against the running server:
+
+```bash
+export CARDS_URL=http://127.0.0.1:8787
+export CARDS_USER=dev
+
+cards list --board welcome
+cards create --type task --title "Wire OAuth callback" --status todo \
+  --field description="Handle GitHub redirect" --field branch=feat/oauth
+cards take-next --board welcome --status in_progress
+```
+
+**Share board state across machines** by committing a JSONL snapshot (not the
+DB). After working locally with the server running:
+
+```bash
+cards export --workspace ./.cards --state-only --out .cards/backlog.jsonl
+git add .cards/backlog.jsonl && git commit -m "Sync board state"
+# elsewhere: git pull && cards import --workspace ./.cards --in .cards/backlog.jsonl
+```
+
+This repo uses `scripts/board.sh export|import` for the same flow on the
+engineering board. See [Syncing a board across machines](#syncing-a-board-across-machines)
+below and the [get-started guide](https://somebox.github.io/cards/get-started/)
+for MCP wiring and team conventions.
 
 `cards serve` with no `--workspace` walks up for a `.cards/` workspace like git
 finds `.git/`, falling back to a personal workspace at `~/.cards`. A bare
@@ -348,7 +403,7 @@ reserved for backwards-compatible fixes. Every change is recorded in
 [`CHANGELOG.md`](CHANGELOG.md), and each binary reports its provenance:
 
 ```bash
-cards version         # e.g. "cards v0.1.2 (a1b2c3d4e5f6) built 2026-07-06T…"
+cards version         # e.g. "cards v0.3.0 (a1b2c3d4e5f6) built 2026-08-04T…"
 ```
 
 A working-tree `go build` reports `dev` plus the commit; a tagged release
