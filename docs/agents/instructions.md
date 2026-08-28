@@ -1,65 +1,83 @@
 # Agent instructions
 
-A ready-to-paste instruction block for agents working a Cards board. Put it
-where your harness reads standing instructions — `CLAUDE.md` for Claude Code,
-the system prompt or project instructions for other harnesses — alongside the
-[MCP server config](mcp.md).
+Cards serves its own agent guidance. There is nothing to hand-paste and keep in
+sync.
 
-## Setup
+Two channels, with different reach:
 
-1. Install the `cards` binary — download it from the
-   [latest release](https://github.com/somebox/cards/releases/latest) or build
-   with `go install github.com/somebox/cards/cmd/cards@latest`
-   ([full install steps](../get-started.md)).
-2. Wire the MCP server into your harness: `cards mcp --workspace /abs/path`
-   ([config snippets](mcp.md)).
-3. For exact request shapes against a running server, fetch
-   `GET /v1/openapi.json` — an OpenAPI 3.1 document generated from the live
-   workspace, so the field schemas in it are your card types.
+- **MCP is harness-neutral.** Any MCP client receives the short coordination
+  instructions in the `initialize` handshake. This is the path that works
+  everywhere.
+- **The installed skill is Claude Code-shaped.** `cards init` writes
+  `.claude/skills/cards/`, which Claude Code and compatible harnesses discover.
+  It carries the fuller playbook. A harness that does not read
+  `.claude/skills/` should use MCP, or paste the output of
+  `cards mcp --print-instructions` into wherever it keeps standing instructions.
 
-Agents with shell access but no MCP client can use the CLI instead — the same
-operations with the same validation ([using Cards](../using-cards.md)
-shows CLI, HTTP, and MCP side by side).
+## Over MCP — automatic
 
-## The instruction block
+The server returns its instructions in the `initialize` handshake, so any MCP
+client picks them up on connect. Wire the server in
+([config snippets](mcp.md)) and you are done:
 
-The authoritative tool inventory is
-[`internal/mcp/README.md`](https://github.com/somebox/cards/blob/main/internal/mcp/README.md).
+```bash
+cards mcp --workspace /abs/path
+```
 
-````markdown
-## Working the Cards board
+The text covers what the tool schemas cannot — the coordination loop, optimistic
+concurrency and retry discipline, evidence norms, honest status moves, who owns
+card bookkeeping, and session-end persistence. It is deliberately short and
+size-capped, because it sits in every session's prompt prefix.
 
-You coordinate work through a Cards board, available via MCP tools.
+To read it, or to paste it into a harness that does not surface MCP
+instructions:
 
-- Call `workspace` first to learn the columns, card types, boards, and
-  registered users. Drive every decision from that schema — do not guess
-  field names or status values.
-- Pick up work with `take_next` (atomically claims the next eligible card),
-  or `list_cards` to survey and `claim` to take a specific card.
-- Mutations that change card state require the card's current `version`.
-  On a `version_conflict` error, the response includes the current card —
-  re-read it and retry with the new version. Do not blind-retry.
-- Record what you do on the card as you work:
-    - `add_comment` for decisions, questions, and status notes
-    - `append_entry` for work-log entries (commits, results, measurements)
-    - `attach_artifact` for files
-- Validation errors name the failing field and include `valid_options`.
-  Correct the value and retry — do not work around the schema.
-- Move the card's status as work progresses (`update_<type>`, or `claim` /
-  `release` for ownership). Boards may enforce allowed transitions; a
-  rejected move names the allowed next columns.
-- To resume interrupted work, call `history` on the card — it returns the
-  timeline of changes, comments, and entries.
-- No MCP connection? The `cards` CLI exposes the same operations with the
-  same validation (`cards --help`; set `CARDS_URL` to target the running
-  server so the board updates live).
-````
+```bash
+cards mcp --print-instructions
+```
 
-Two notes for the human setting this up:
+That needs no workspace and no running server, so it works from a bare install.
+
+## Over the CLI — an installed skill (Claude Code and compatible)
+
+Agents with shell access but no MCP client use the same operations with the same
+validation. `cards init` installs a skill covering board discovery, the CLI's
+flag-order and short-id rules, mapping questions to queries, sprint planning
+against a board, and recording work as it lands — plus a `project-practices`
+reference for setting a board up, designing card types, migrating a backlog in,
+and review/snapshot/release conventions:
+
+```bash
+cards init                    # installs .claude/skills/cards/ beside .cards/
+cards init --global           # installs into ~/.claude/skills/cards/
+cards init --no-skill         # workspace only
+```
+
+Running `init` in a project that already has a board installs the skill without
+touching the workspace. An existing skill is never overwritten — you are told it
+was left alone.
+
+The skill states the same invariants as the MCP handshake, so an agent driving
+the board over the CLI and one driving it over MCP behave identically. The skill
+is the larger document by design: it loads on demand, whereas the handshake sits
+in every session's prompt prefix.
+
+`.claude/skills/` is currently the only install target. Support for another
+harness's skill location is a follow-up, not a promise — until then, MCP is the
+neutral path.
+
+## Two notes for the human setting this up
 
 - Set `CARDS_USER` in the MCP server's environment to a distinct actor id per
-  agent (for example `agent-claude`, `agent-pi`) so the event history shows
-  who did what.
+  agent (for example `agent-claude`, `agent-pi`) so the event history shows who
+  did what.
 - The MCP surface has no idempotency keys yet. If your workflow retries
-  aggressively, route those writes through the [REST API](../spec/api-surface.md)
-  instead.
+  aggressively, route those writes through the
+  [REST API](../spec/api-surface.md) instead.
+
+## Exact request shapes
+
+For a running server, `GET /v1/openapi.json` is an OpenAPI 3.1 document
+generated from the live workspace, so the field schemas in it are your card
+types. The authoritative MCP tool inventory is
+[`internal/mcp/README.md`](https://github.com/somebox/cards/blob/main/internal/mcp/README.md).

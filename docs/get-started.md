@@ -35,7 +35,7 @@ to end. No account, no cloud, no database server.
 ## 2. Create a workspace and serve it
 
 ```bash
-cards init          # scaffold ./.cards with a starter "welcome" board
+cards init          # scaffold ./.cards + install the agent skill
 cards serve         # serve at http://127.0.0.1:8787
 open http://127.0.0.1:8787/ui/boards/welcome
 ```
@@ -45,6 +45,12 @@ That's the whole system: one `.cards/` folder holding your definitions and a
 interface over it. A bare `cards` on a terminal opens the TUI against the same
 workspace (no server required). `cards serve` with no `--workspace` walks up
 for a `.cards/` directory the way git finds `.git/`, falling back to `~/.cards`.
+
+`init` also installs the Cards agent skill at `.claude/skills/cards/`, beside
+your `.cards/` folder — the skill format Claude Code and compatible harnesses
+discover. Pass `--no-skill` to skip it; an existing skill is never overwritten.
+Harnesses that don't read `.claude/skills/` get their guidance over MCP instead,
+which is harness-neutral — see [agent instructions](agents/instructions.md).
 
 <figure markdown>
   ![The welcome board right after cards init](assets/img/welcome.png){ .cards-shot }
