@@ -78,8 +78,14 @@ func initCmd(args []string) error {
 		skillPath, skillCreated, skillErr = agentguide.InstallSkill(harnessRoot)
 	}
 
+	wrapSkillErr := func(err error) error {
+		if err == nil {
+			return nil
+		}
+		return fmt.Errorf("install agent skill: %w", err)
+	}
 	if *quiet {
-		return skillErr
+		return wrapSkillErr(skillErr)
 	}
 	if !created {
 		fmt.Printf("workspace already initialized at %s\n", dir)
@@ -88,7 +94,7 @@ func initCmd(args []string) error {
 	}
 	reportSkill(skillPath, skillCreated, *noSkill, skillErr)
 	if skillErr != nil {
-		return fmt.Errorf("install agent skill: %w", skillErr)
+		return wrapSkillErr(skillErr)
 	}
 	if !created {
 		return nil

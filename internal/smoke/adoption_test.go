@@ -96,8 +96,11 @@ type card struct {
 	Title  string         `json:"title"`
 	TypeID string         `json:"type_id"`
 	Fields map[string]any `json:"fields"`
-	Links  []struct {
-		Type string `json:"type"`
+	// type_id, not type — the wire name. Getting this wrong makes the
+	// hierarchy canary silently unmatchable on every run.
+	Links []struct {
+		TypeID string `json:"type_id"`
+		Target string `json:"target"`
 	} `json:"links"`
 }
 
@@ -198,7 +201,7 @@ var checks = []check{
 		}
 		for _, c := range s.cards {
 			for _, l := range c.Links {
-				if l.Type == declared {
+				if l.TypeID == declared {
 					return nil
 				}
 			}

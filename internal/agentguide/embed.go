@@ -132,6 +132,13 @@ func InstallSkill(root string) (path string, created bool, err error) {
 	if err := writeSkillTree(sub, staging); err != nil {
 		return dest, false, err
 	}
+	// MkdirTemp creates 0700 and Rename preserves it, which would leave the
+	// skill root owner-only while everything inside it is world-readable.
+	// A checkout shared with another uid — a CI runner, a container — could
+	// then see the directory but not read the skill.
+	if err := os.Chmod(staging, 0o755); err != nil {
+		return dest, false, err
+	}
 	if err := os.Rename(staging, dest); err != nil {
 		// Another process may have won the race between our check and our
 		// rename. A skill that is now present is the outcome we wanted.

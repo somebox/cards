@@ -81,8 +81,13 @@ all four):
 `strict_fields` and `tag_policy: locked` reject typos instead of silently
 creating a second vocabulary. `default_board` stops every surface guessing when
 there's more than one board — set it after that board file exists; load rejects
-an unknown id. One board with `wip_limits` (e.g. `{"in_progress": 2}`) beats
-several boards that split attention.
+an unknown id. The same coupling bites in reverse: deleting a card type while a
+board still lists it in `card_type_ids` also fails load, so rewrite the board in
+the same pass as the types it names. Run `cards --workspace .cards workspace
+show` after each definitions edit — it is the cheapest check that the workspace
+still loads, and one bad edit is far easier to unpick than three. One board with
+`wip_limits` (e.g. `{"in_progress": 2}`) beats several boards that split
+attention.
 
 ## 3. What each level should actually say
 

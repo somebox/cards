@@ -263,3 +263,22 @@ func TestSkillDescriptionCoversAdoption(t *testing.T) {
 		}
 	}
 }
+
+// The staging directory is created 0700 by MkdirTemp and Rename preserves the
+// mode, so without an explicit chmod the skill root ends up owner-only while
+// its own contents are world-readable — unreadable to a CI runner or container
+// running as another uid.
+func TestInstallSkillDirectoryIsReadable(t *testing.T) {
+	root := t.TempDir()
+	dest, _, err := InstallSkill(root)
+	if err != nil {
+		t.Fatalf("install: %v", err)
+	}
+	info, err := os.Stat(dest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if perm := info.Mode().Perm(); perm&0o055 != 0o055 {
+		t.Errorf("skill root is %v, want group/other read+execute (0755-style)", perm)
+	}
+}
