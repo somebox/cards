@@ -30,7 +30,7 @@ flags. This file is the deeper surface behind SKILL.md; the upstream docs are at
 | `claim <id>` | `--version N [--status S]` — sets owner to the actor. Owner must be a registered user (`users register`). |
 | `take-next` | Atomically claim oldest unowned match: `[--type] [--board] [--assign-to] [--status] [--filter-file]`. `{card:null}` = nothing eligible. |
 | `comment add <id> --body B` | Appends evidence; **bumps card version**. `comment edit <id> <comment_id>` to fix. |
-| `link add/remove <id>` | `--type depends-on\|blocked-by\|related --target ID [--note N]`. Stored on the source (waiting) card. Idempotent. |
+| `link add/remove <id>` | `--type T --target ID [--note N]`. Types come from the workspace (`cards workspace show`), not a fixed enum. Typical boards declare `depends-on` / `blocked-by` / `related`; hierarchy is a `part-of` type (child → parent) — see [project-practices.md](project-practices.md). Stored on the source. Idempotent. |
 | `append <id> <field>` | Repeating-field entry: `--version N --entry-json '{...}'`. Repeating fields are NOT patchable via `patch`. |
 | `attach <id> <field> <file>` | Upload to an `artifact` field (screenshots, evidence files). |
 | `delete <id>` | Leaves a tombstone event. |
@@ -50,7 +50,7 @@ flags. This file is the deeper surface behind SKILL.md; the upstream docs are at
 
 | Command | Notes |
 |---|---|
-| `init [dir] [--global]` | Scaffold `.cards/` (or `~/.cards` personal) and install this skill into `.claude/skills/cards/`. `--no-skill` opts out; an existing skill is never overwritten. |
+| `init [dir] [--global]` | Scaffold `.cards/` (or `~/.cards` personal) and install this skill into `.claude/skills/cards/`. `--no-skill` opts out; an existing skill directory is never overwritten. To update, review local edits, delete it, and re-run init. |
 | `serve` | `[--workspace] [--port 8787] [--seed] [--run-extensions] [--watch]`. Web UI at `/ui/boards/<id>`. |
 | `export` | `[--out F] [--state-only] [--with-artifacts]`. `--state-only` = definitions + current cards/links/comments (+ delete tombstones), small and diff-clean; the event log stays SQLite-owned. |
 | `import` | `--in F [--with-artifacts]`. **Refuses a non-empty DB** — never a silent overwrite. |

@@ -49,8 +49,10 @@ Claude Code and compatible harnesses read — next to the
 workspace (`--global` installs it under your home directory instead, following
 `$HOME` rather than `$CARDS_HOME`). It runs even when the workspace already
 exists — that is how an established project picks up the skill — and never
-overwrites one that is already there. `--no-skill` opts out. The matching
-short-form guidance served to MCP clients is printable with
+overwrites an existing skill directory. To pick up a newer playbook, review any
+local edits, delete `.claude/skills/cards`, and re-run `cards init`.
+`--no-skill` opts out.
+The matching short-form guidance served to MCP clients is printable with
 `cards mcp --print-instructions`.
 
 ## Two backends

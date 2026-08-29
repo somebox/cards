@@ -54,8 +54,9 @@ cards init --no-skill         # workspace only
 ```
 
 Running `init` in a project that already has a board installs the skill without
-touching the workspace. An existing skill is never overwritten — you are told it
-was left alone.
+touching the workspace. An existing skill directory is never overwritten — you
+are told when it was left alone or is incomplete. To pick up a newer playbook,
+review any local edits, delete `.claude/skills/cards`, and re-run `cards init`.
 
 The skill states the same invariants as the MCP handshake, so an agent driving
 the board over the CLI and one driving it over MCP behave identically. The skill
