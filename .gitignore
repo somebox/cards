@@ -56,3 +56,6 @@ examples/demo-workspace/artifacts/
 
 # MkDocs build output
 /site/
+
+# pi-pipeline run artifacts (local; not committed)
+.pi/pipeline/
