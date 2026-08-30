@@ -35,7 +35,7 @@ and MCP equivalents — are in [using Cards](../using-cards.md).
 
 ```console
 $ cd my-project
-$ cards init          # scaffolds ./.cards (definitions + starter welcome board)
+$ cards init          # scaffolds ./.cards + installs .claude/skills/cards/
 $ cards serve         # http://127.0.0.1:8787
 ```
 
@@ -43,6 +43,17 @@ $ cards serve         # http://127.0.0.1:8787
 `.cards/` walking up from the current directory, falling back to a personal
 workspace at `~/.cards`. `cards init --global` creates the personal one;
 `--workspace <dir>` is always the explicit override.
+
+`init` also installs the agent skill into `.claude/skills/cards/` — the location
+Claude Code and compatible harnesses read — next to the
+workspace (`--global` installs it under your home directory instead, following
+`$HOME` rather than `$CARDS_HOME`). It runs even when the workspace already
+exists — that is how an established project picks up the skill — and never
+overwrites an existing skill directory. To pick up a newer playbook, review any
+local edits, delete `.claude/skills/cards`, and re-run `cards init`.
+`--no-skill` opts out.
+The matching short-form guidance served to MCP clients is printable with
+`cards mcp --print-instructions`.
 
 ## Two backends
 

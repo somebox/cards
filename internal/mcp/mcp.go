@@ -23,6 +23,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/somebox/cards/internal/agentguide"
 	"github.com/somebox/cards/internal/core"
 )
 
@@ -38,9 +39,13 @@ type Server struct {
 	types  map[string]*core.CardType
 	boards map[string]*core.Board
 	actor  string // session-bound actor (CARDS_USER)
-	tools  []Tool
-	in     io.Reader
-	out    io.Writer
+	// version is reported as serverInfo.version in the initialize handshake.
+	// Per-server rather than a package var: a client is entitled to know which
+	// build it is talking to, and tests construct servers independently.
+	version string
+	tools   []Tool
+	in      io.Reader
+	out     io.Writer
 }
 
 // Tool is one MCP tool definition.
@@ -53,8 +58,25 @@ type Tool struct {
 }
 
 // New constructs the Server and generates tools from the workspace.
-func New(svc *core.Service, ws *core.Workspace, types map[string]*core.CardType, boards map[string]*core.Board, actor string) *Server {
-	s := &Server{svc: svc, ws: ws, types: types, boards: boards, actor: actor, in: os.Stdin, out: os.Stdout}
+// Option configures a Server at construction. Variadic, so the existing call
+// sites stay source-compatible — matching the core.ServiceOption pattern.
+type Option func(*Server)
+
+// WithVersion reports the running build in the initialize handshake instead of
+// the "dev" placeholder.
+func WithVersion(v string) Option {
+	return func(s *Server) {
+		if v != "" {
+			s.version = v
+		}
+	}
+}
+
+func New(svc *core.Service, ws *core.Workspace, types map[string]*core.CardType, boards map[string]*core.Board, actor string, opts ...Option) *Server {
+	s := &Server{svc: svc, ws: ws, types: types, boards: boards, actor: actor, version: "dev", in: os.Stdin, out: os.Stdout}
+	for _, opt := range opts {
+		opt(s)
+	}
 	s.tools = s.buildTools()
 	return s
 }
@@ -152,10 +174,15 @@ func (s *Server) handle(req jsonRPCRequest) *jsonRPCResponse {
 }
 
 func (s *Server) handleInitialize(req jsonRPCRequest) *jsonRPCResponse {
+	// instructions is the protocol's slot for standing guidance. It carries only
+	// what the tool schemas cannot state — the coordination loop, evidence norms,
+	// and who owns card bookkeeping — and is size-capped in internal/agentguide,
+	// because it sits in every session's prompt prefix.
 	result := map[string]any{
 		"protocolVersion": "2024-11-05",
-		"serverInfo":      map[string]any{"name": "cards", "version": "poc"},
+		"serverInfo":      map[string]any{"name": "cards", "version": s.version},
 		"capabilities":    map[string]any{"tools": map[string]any{}},
+		"instructions":    agentguide.MCPInstructions(),
 	}
 	return &jsonRPCResponse{JSONRPC: "2.0", ID: req.ID, Result: result}
 }

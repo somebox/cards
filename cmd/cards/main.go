@@ -246,11 +246,11 @@ Commands:
   workspace show
   boards show [board_id]
 
-  init         Scaffold a new workspace (./.cards or, with --global, ~/.cards)
+  init         Scaffold a new workspace + install the agent skill (--no-skill to skip)
   serve        Run the HTTP + web UI server
   export       Dump all card data as JSONL (local; --workspace <dir>)
   import       Load a JSONL export into the workspace DB (local; --workspace <dir>)
-  mcp          Run the stdio MCP server (--workspace <dir>)
+  mcp          Run the stdio MCP server (--workspace <dir>; --print-instructions)
   run-extensions  Run the hook supervisor (--workspace <dir>)
   do <id>      Invoke a run extension (--param k=v)
   extensions   List/show declared extensions

@@ -77,6 +77,25 @@ node --check internal/httpapi/templates/assets/*.js
 node --test "tests/js/*.test.cjs"
 ```
 
+For changes to `cards init`, the installed skill, or the MCP handshake, also run
+the deterministic end-to-end smoke — no API key, no network:
+
+```bash
+scripts/smoke-adoption.sh
+```
+
+The agentic half — whether a real agent can set a board up from the installed
+skill alone — needs a model and is not part of the gate:
+
+```bash
+CARDS_AGENT_CMD='claude -p' go test -tags smoke ./internal/smoke/
+CARDS_AGENT_CMD='claude -p' CARDS_SMOKE_RUNS=5 go test -tags smoke -v ./internal/smoke/
+```
+
+It asserts over the workspace the agent leaves behind rather than its
+transcript, and reports a per-check pass rate across runs. Without
+`CARDS_AGENT_CMD` it skips.
+
 For UI/template/CSS work, at minimum run:
 
 ```bash

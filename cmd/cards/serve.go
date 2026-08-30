@@ -13,6 +13,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/somebox/cards/internal/agentguide"
 	"github.com/somebox/cards/internal/config"
 	"github.com/somebox/cards/internal/httpapi"
 	"github.com/somebox/cards/internal/mcp"
@@ -192,8 +193,16 @@ func serveCmd(args []string) error {
 func mcpCmd(args []string) error {
 	fs := flag.NewFlagSet("mcp", flag.ContinueOnError)
 	workspace := fs.String("workspace", "", "workspace directory (contains definitions/)")
+	printInstructions := fs.Bool("print-instructions", false, "print the agent instructions served in the MCP handshake, then exit")
 	if err := fs.Parse(args); err != nil {
 		return err
+	}
+	// Lives on `mcp` rather than as its own verb: this text IS the handshake, and
+	// it needs no workspace — a harness can be wired from an installed binary
+	// with no checkout and no server running.
+	if *printInstructions {
+		fmt.Print(agentguide.MCPInstructions())
+		return nil
 	}
 	abs, autoInit, err := resolveWorkspaceDir(*workspace)
 	if err != nil {
@@ -214,6 +223,6 @@ func mcpCmd(args []string) error {
 	if actor == "" {
 		actor = result.Workspace.Settings.DefaultUser
 	}
-	srv := mcp.New(svc, result.Workspace, result.CardTypes, result.Boards, actor)
+	srv := mcp.New(svc, result.Workspace, result.CardTypes, result.Boards, actor, mcp.WithVersion(shortVersion()))
 	return srv.Serve()
 }

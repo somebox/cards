@@ -5,7 +5,7 @@ This package implements the Model Context Protocol (MCP) server for Work Cards, 
 ## Running the MCP Server
 
 ```bash
-cards mcp --workspace ./.work-cards
+cards mcp --workspace ./.cards
 ```
 
 The MCP server runs over stdio. Mutations delegate to the same service layer as HTTP/CLI, ensuring event emission and validation match the core contract.
