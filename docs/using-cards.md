@@ -620,9 +620,9 @@ $ cards import --in backlog.jsonl                   # refuses a non-empty DB —
 
 | Command | What it does |
 |---|---|
-| `cards init [dir] [--global]` | Scaffold a workspace (`./.cards`, or `~/.cards`) |
+| `cards init [dir] [--global]` | Scaffold a workspace (`./.cards`, or `~/.cards`). Also installs the Claude Code skill at `.claude/skills/cards/` unless `--no-skill`. |
 | `cards serve [--port 8787] [--seed] [--run-extensions] [--watch]` | HTTP + web UI server |
-| `cards mcp [--workspace <dir>]` | stdio MCP server |
+| `cards mcp [--workspace <dir>]` | stdio MCP server. `--print-instructions` prints the handshake text with no workspace. |
 | `cards reload` | Reload definitions on a running server |
 | `cards run-extensions` | Run the hook supervisor standalone |
 | `cards do <id> [--param k=v]` | Invoke a `run` extension |

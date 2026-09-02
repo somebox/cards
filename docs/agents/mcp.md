@@ -20,7 +20,11 @@ cards mcp --workspace ./examples/demo-workspace
 
 The actor for writes is resolved from `CARDS_USER`, falling back to the
 workspace's `default_user`. Point it at whatever workspace you want the agent to
-coordinate on.
+coordinate on. The `initialize` handshake already carries the short coordination
+rules (read `workspace` first, versions, evidence, honest status); there is
+nothing to paste. To read the same text without a running server:
+`cards mcp --print-instructions`. The fuller CLI playbook is the skill
+`cards init` installs — see [agent instructions](instructions.md).
 
 ## Wire it into a harness
 
