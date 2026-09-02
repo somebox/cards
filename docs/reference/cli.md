@@ -129,7 +129,7 @@ Global flags on every command: `--url`, `--as`, `--workspace`, `--json`,
 | `release <id>` | Clear ownership: `--version N [--status S] [--force]`; `--force` permits an off-graph recovery move |
 | `take-next` | Atomically claim the next eligible card: `[--type] [--board] [--assign-to] [--status] [--filter-file]` |
 | `delete <id>` | Delete (leaves a tombstone event) |
-| `comment add <id>` / `comment edit <id> <comment_id>` | `--body B` |
+| `comment add <id>` / `comment <id>` / `comment edit <id> <comment_id>` | `--body B`. `comment <id> --body B` is an alias for `add`. |
 | `append <id> <field>` | Add a repeating entry: `--version N --entry-json '{…}'` |
 | `patch-entry / remove-entry <id> <field> <entry_id>` | Edit/remove an entry |
 | `link add/remove <id>` | `--type T --target ID [--note N]` |

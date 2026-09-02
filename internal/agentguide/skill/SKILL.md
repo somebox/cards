@@ -165,7 +165,7 @@ invoked — the board is the survey source and the plan's destination. Fold it i
 
 §2 says *what* to record and when. The verbs:
 
-- `cards comment add <id> --body "..."` — the narrative.
+- `cards comment add <id> --body "..."` — the narrative. `cards comment <id> --body "..."` is the same call.
 - `cards patch <id> --version N --field k=v` — a dedicated field, when the card type has one
   for commits, branches, or PR links.
 - `cards append <id> <field> --version N --entry-json '{...}'` — repeating fields (`work_log`,

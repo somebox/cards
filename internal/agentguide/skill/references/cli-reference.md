@@ -29,7 +29,7 @@ flags. This file is the deeper surface behind SKILL.md; the upstream docs are at
 | `patch <id>` | `--version N [--title] [--status] [--owner] [--field k=v]... [--dry-run]`. Stale version → `version_conflict` with current card on stderr. |
 | `claim <id>` | `--version N [--status S]` — sets owner to the actor. Owner must be a registered user (`users register`). |
 | `take-next` | Atomically claim oldest unowned match: `[--type] [--board] [--assign-to] [--status] [--filter-file]`. `{card:null}` = nothing eligible. |
-| `comment add <id> --body B` | Appends evidence; **bumps card version**. `comment edit <id> <comment_id>` to fix. |
+| `comment add <id> --body B` | Appends evidence; **bumps card version**. `cards comment <id> --body B` is an alias for add. `comment edit <id> <comment_id>` to fix. |
 | `link add/remove <id>` | `--type T --target ID [--note N]`. Types come from the workspace (`cards workspace show`), not a fixed enum. Typical boards declare `depends-on` / `blocked-by` / `related`; hierarchy is a `part-of` type (child → parent) — see [project-practices.md](project-practices.md). Stored on the source. Idempotent. |
 | `append <id> <field>` | Repeating-field entry: `--version N --entry-json '{...}'`. Repeating fields are NOT patchable via `patch`. |
 | `attach <id> <field> <file>` | Upload to an `artifact` field (screenshots, evidence files). |

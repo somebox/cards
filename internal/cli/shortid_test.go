@@ -48,3 +48,19 @@ func TestCLIPatch_AmbiguousListsCandidates(t *testing.T) {
 		t.Errorf("ExitCode = %d, want 4", code)
 	}
 }
+
+func TestCLICommentAlias_ShortIDResolves(t *testing.T) {
+	c, st := newTestClientStore(t, Config{Quiet: true, As: "local-dev"})
+	full := coretest.CardID("CLICMT01", "q")
+	coretest.SeedCard(t, st, "demo", "programming-task", full,
+		map[string]any{"description": "d", "branch": "b"})
+
+	if _, err := runCmd(t, c, "comment", "CLICMT01", "--body", "via short id"); err != nil {
+		t.Fatalf("comment alias by short id: %v", err)
+	}
+	card := newTestClientJSONGet(t, c, full)
+	raw, _ := card["comments"].([]any)
+	if len(raw) == 0 {
+		t.Fatal("no comments after alias-by-short-id")
+	}
+}

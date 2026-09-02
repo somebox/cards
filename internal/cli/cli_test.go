@@ -460,3 +460,76 @@ func TestIDOfDottedPath(t *testing.T) {
 		t.Errorf(`idOf(card.missing) = %q, want ""`, got)
 	}
 }
+
+func TestCommentAliasAndExistingForms(t *testing.T) {
+	c := newTestClient(t, Config{Quiet: true, As: "demo"})
+	id := strings.TrimSpace(mustRun(t, c, "create", "--type", "task", "--title", "Comment me"))
+
+	mustRun(t, c, "comment", "add", id, "--body", "via add")
+	mustRun(t, c, "comment", id, "--body", "via alias")
+	mustRun(t, c, "comment", "--body", "flag before id", id)
+
+	comments := cardComments(t, c, id)
+	if len(comments) != 3 {
+		t.Fatalf("got %d comments, want 3 (add + alias + flag-before-id)", len(comments))
+	}
+	bodies := map[string]bool{}
+	for _, cm := range comments {
+		bodies[cm] = true
+	}
+	for _, want := range []string{"via add", "via alias", "flag before id"} {
+		if !bodies[want] {
+			t.Errorf("missing comment body %q in %v", want, comments)
+		}
+	}
+
+	card := newTestClientJSONGet(t, c, id)
+	raw, _ := card["comments"].([]any)
+	first := raw[0].(map[string]any)
+	cid, _ := first["id"].(string)
+	mustRun(t, c, "comment", "edit", id, cid, "--body", "edited")
+	got := cardComments(t, c, id)
+	if got[0] != "edited" {
+		t.Errorf("first comment after edit = %q, want edited", got[0])
+	}
+}
+
+func TestCommentHelpAndUsageListTheAlias(t *testing.T) {
+	c := newTestClient(t, Config{})
+	out, err := runCmd(t, c, "comment", "--help")
+	if !errors.Is(err, ErrHelp) {
+		t.Fatalf("comment --help err = %v, want ErrHelp", err)
+	}
+	for _, want := range []string{"comment add", "comment edit", "comment <id>"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("comment --help missing %q:\n%s", want, out)
+		}
+	}
+
+	_, err = runCmd(t, c, "comment")
+	if err == nil {
+		t.Fatal("bare comment succeeded")
+	}
+	msg := err.Error()
+	for _, want := range []string{"comment add", "comment edit", "comment <id>"} {
+		if !strings.Contains(msg, want) {
+			t.Errorf("bare comment usage missing %q:\n%s", want, msg)
+		}
+	}
+	if strings.Contains(msg, "unknown comment subcommand") {
+		t.Errorf("bare comment still reports unknown subcommand: %s", msg)
+	}
+}
+
+func cardComments(t *testing.T, c *Client, id string) []string {
+	t.Helper()
+	card := newTestClientJSONGet(t, c, id)
+	raw, _ := card["comments"].([]any)
+	out := make([]string, 0, len(raw))
+	for _, x := range raw {
+		m, _ := x.(map[string]any)
+		body, _ := m["body"].(string)
+		out = append(out, body)
+	}
+	return out
+}

@@ -238,6 +238,7 @@ Commands:
   link add <id> --type T --target ID [--note N]
   link remove <id> <type> <target>
   comment add <id> --body B
+  comment <id> --body B        (alias for add)
   comment edit <id> <comment_id> --body B
   attach <id> <field> <file>   Upload a file to an artifact field
   events <id> [--types t1,t2] [--limit N]

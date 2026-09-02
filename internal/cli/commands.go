@@ -459,42 +459,59 @@ func cmdLink(c *Client, args []string) error {
 
 func cmdComment(c *Client, args []string) error {
 	if len(args) == 0 {
-		return fmt.Errorf("usage: cards comment add <id> --body B | cards comment edit <id> <comment_id> --body B")
+		return fmt.Errorf("%s", commentUsage)
 	}
-	sub := args[0]
-	rest := args[1:]
-	switch sub {
+	switch args[0] {
+	case "-h", "--help", "--h", "help":
+		fmt.Println(commentUsage)
+		return ErrHelp
 	case "add":
-		fs := NewFlagSet()
-		body := fs.String("body", "")
-		if err := fs.Parse(rest); err != nil {
-			return err
-		}
-		if len(fs.Args()) == 0 || *body == "" {
-			return fmt.Errorf("usage: cards comment add <id> --body B")
-		}
-		data, _, err := c.do("POST", "/cards/"+fs.Args()[0]+"/comments", map[string]any{"body": *body})
-		if err != nil {
-			return err
-		}
-		c.Print(data, false, "id")
+		return commentAdd(c, args[1:])
 	case "edit":
-		fs := NewFlagSet()
-		body := fs.String("body", "")
-		if err := fs.Parse(rest); err != nil {
-			return err
-		}
-		if len(fs.Args()) < 2 || *body == "" {
-			return fmt.Errorf("usage: cards comment edit <id> <comment_id> --body B")
-		}
-		data, _, err := c.do("PATCH", "/cards/"+fs.Args()[0]+"/comments/"+fs.Args()[1], map[string]any{"body": *body})
-		if err != nil {
-			return err
-		}
-		c.Print(data, false, "id")
+		return commentEdit(c, args[1:])
 	default:
-		return fmt.Errorf("unknown comment subcommand %q", sub)
+		// `cards comment <id> --body B` is an alias for add. A card id as the
+		// first token used to hit "unknown comment subcommand".
+		return commentAdd(c, args)
 	}
+}
+
+const commentUsage = `usage:
+  cards comment add <id> --body B
+  cards comment edit <id> <comment_id> --body B
+  cards comment <id> --body B`
+
+func commentAdd(c *Client, args []string) error {
+	fs := NewFlagSet()
+	body := fs.String("body", "")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if len(fs.Args()) == 0 || *body == "" {
+		return fmt.Errorf("%s", commentUsage)
+	}
+	data, _, err := c.do("POST", "/cards/"+fs.Args()[0]+"/comments", map[string]any{"body": *body})
+	if err != nil {
+		return err
+	}
+	c.Print(data, false, "id")
+	return nil
+}
+
+func commentEdit(c *Client, args []string) error {
+	fs := NewFlagSet()
+	body := fs.String("body", "")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if len(fs.Args()) < 2 || *body == "" {
+		return fmt.Errorf("%s", commentUsage)
+	}
+	data, _, err := c.do("PATCH", "/cards/"+fs.Args()[0]+"/comments/"+fs.Args()[1], map[string]any{"body": *body})
+	if err != nil {
+		return err
+	}
+	c.Print(data, false, "id")
 	return nil
 }
 
