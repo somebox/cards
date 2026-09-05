@@ -73,7 +73,8 @@ type Card struct {
   → *picraft note: "claiming worker in `owner`, body in a custom field" holds
   — claim leaves your custom fields untouched.*
 - Setting `owner` via PATCH or `claim` requires a registered user (`unknown_user`
-  422 otherwise). `take-next` currently skips that lookup for `assign_to`/actor
+  422 otherwise) — registered via `POST /v1/users` / `cards users register`, or
+  declared in `workspace.users` / `settings.default_user`. `take-next` currently skips that lookup for `assign_to`/actor
   ownership — see §5 and backlog card `card_1c877e6ca3e04a24bdd3d2ff90286a84`.
 - `claim` is compare-and-set on `version`; claiming a card already owned by a
   *different* actor → `409 version_conflict`. `release` sets owner back to `""`.

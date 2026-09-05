@@ -368,7 +368,19 @@ func (s *Service) typeIDsAllowingStatus(candidates []string, status string) []st
 	return out
 }
 
+// checkUserExists accepts a user that is either registered in the store
+// (POST /v1/users, `cards users register`) or declared in the workspace
+// definitions — `workspace.users`, or the `settings.default_user` seed the
+// loader materializes when that list is empty. Definitions are the declared
+// contract, and they never reach the users table on their own, so consulting
+// only the store would leave a fresh `cards init` workspace unable to own the
+// cards its own default user creates.
 func (s *Service) checkUserExists(ctx context.Context, userID string) error {
+	for _, u := range s.ws.Users {
+		if u.ID == userID {
+			return nil
+		}
+	}
 	users, err := s.store.ListUsers(ctx)
 	if err != nil {
 		// A store failure must not masquerade as "unknown user".
