@@ -12,7 +12,7 @@ agents can claim cards, update typed fields, append evidence, and resume from
 the card history later. The web board and TUI are useful, but each is only one
 view over the same API.
 
-![Cards board UI](./media/board.png)
+![Cards browser dashboard showing the Engineering board grouped by status](./media/board.png)
 
 ## Terminal UI
 
@@ -72,6 +72,16 @@ events and hooks instead of a workflow engine, and extensions as separate
 processes. The full list, with the reasoning behind each, is in the
 [philosophy](https://somebox.github.io/cards/concepts/philosophy/).
 
+## Browser UI
+
+The browser board and card detail share the same schema-backed model. Workspace
+themes change presentation without forking the markup, and card details can
+show parent and related work items alongside fields, comments, and work logs.
+
+![Cards card details displayed in a classroom-style custom theme](./media/classroom-theme.png)
+
+![Card details showing parent and related work items](./media/work-item-relations.png)
+
 ## Install
 
 There is no separate database server — `cards` is a single self-contained
@@ -127,8 +137,12 @@ export CARDS_USER=me                     # actor for writes
 cards create --type task --title "My first task" --status todo
 cards list                               # the board as JSON lines
 cards patch <id> --status in_progress --version 1
-cards comment add <id> --body "on it"
+cards comment <id> --body "on it" # alias for `comment add`
 ```
+
+`cards release <id> --version N [--status S] [--force]` clears ownership under
+the same version check, can optionally move the card to another status, and
+uses `--force` only for an explicit off-graph recovery move.
 
 ## Adding Cards to a project
 
@@ -253,8 +267,12 @@ workspace/
 
 `definitions/workspace.json` declares the shared vocabulary: columns, tags,
 link types, users, and settings such as `enforce_transitions`, `strict_fields`,
-`tag_policy`, and `default_user`. Card types define the schema of `fields`.
-Boards define filtered views and transition rules.
+`default_user`, and `default_board`. If `tag_policy` is omitted it defaults to
+`locked`; set it to `open` to allow free-form tags (the starter workspace opts
+in to `open`). `default_board` selects the primary board for the initial TUI
+and for `take-next` when no board or type is specified. Card types define the
+schema of `fields`; their optional `searchable_fields` setting can restrict
+full-text indexing. Boards define filtered views and transition rules.
 
 The field catalog is intentionally small: `string`, `text`, `number`, `date`,
 `enum`, `tags`, `user`, `card_link`, `repeating`, and `artifact`. More specific
@@ -300,13 +318,16 @@ a structured `version_conflict` error with the current card attached. Retried
 writes can use `Idempotency-Key`, scoped per actor, so a network retry does not
 create duplicate cards or claim a different next task.
 
-The event stream is available at `GET /v1/events/stream` over SSE, with
-`Last-Event-ID` replay for clients that reconnect. Events split into
+The generated OpenAPI 3.1 contract is available at `GET /v1/openapi.json` and
+covers the complete `/v1` surface. Persisted mutation events can be paged from
+`GET /v1/events` for authoritative catch-up; `GET /v1/events/stream` provides
+a best-effort SSE stream with bounded `Last-Event-ID` replay. Use the paged
+feed for gap-free catch-up. Events split into
 **mutation facts** (a write happened) and **condition signals** (a declared
-threshold crossed — WIP, idle, time-in-status, empty lane). The core emits
-signals; the integrator owns the response. Observe / act / coordinate planes,
-monitors, and the catch-up contract are spelled out in
-[`docs/events/integration.md`](docs/events/integration.md).
+threshold crossed — WIP, idle, time-in-status, empty lane). Condition signals
+are ephemeral by default; the core emits them and the integrator owns the
+response. The observe / act / coordinate planes, monitors, and delivery
+contract are spelled out in [`docs/events/integration.md`](docs/events/integration.md).
 
 ## Extensions
 
