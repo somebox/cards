@@ -6,7 +6,7 @@ git-defined workspace, extensions, and the boundary of what cards deliberately
 does *not* do.
 
 This document is written from the source (`internal/...`, `cmd/cards/...`) and
-the real example workspace (`examples/demo-workspace/`), not from prose — where
+the demo workspace definitions (`internal/demo/assets/`), not from prose — where
 an older narrative doc drifts from the code, the drift is flagged inline. For
 the normative contract see [`spec/index.md`](../spec/index.md); for the
 events/integration design see

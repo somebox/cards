@@ -202,11 +202,13 @@ for MCP wiring and team conventions.
 `cards serve` with no `--workspace` walks up for a `.cards/` workspace like git
 finds `.git/`, falling back to a personal workspace at `~/.cards`. A bare
 `cards` on a terminal opens the TUI against that same workspace; in scripts and
-pipes it prints usage instead. To run the bundled demo board (the project's own
-dogfooding backlog), point at it explicitly:
+pipes it prints usage instead. To look around a fuller board first, install the
+demo workspace (two boards, sample cards, example extensions) into a directory
+of its own:
 
 ```bash
-cards serve --workspace ./examples/demo-workspace --port 8787 --seed
+cards demo                                  # writes ./cards-demo
+cards serve --workspace ./cards-demo
 open http://127.0.0.1:8787/ui/boards/engineering
 ```
 
@@ -243,7 +245,7 @@ export CARDS_USER=alice
 For MCP clients, run the stdio server:
 
 ```bash
-./cards mcp --workspace ./examples/demo-workspace
+./cards mcp --workspace ./.cards
 ```
 
 ## Configuration
@@ -349,16 +351,17 @@ event stream. A hook is a declared command run on matching events:
 }
 ```
 
-Run declared hooks with the server, or run the supervisor separately:
+Run declared hooks with the server, or run the supervisor separately (here
+against the demo workspace, which declares this hook):
 
 ```bash
-./cards serve --workspace ./examples/demo-workspace --run-extensions
-./cards run-extensions --workspace ./examples/demo-workspace
+./cards serve --workspace ./cards-demo --run-extensions
+./cards run-extensions --workspace ./cards-demo
 ```
 
 The demo workspace also declares a supervised service, `review-bot`: a small
 SSE worker (Node stdlib only, no npm dependencies) that claims cards reaching
-`review` and comments — see `examples/demo-workspace/README.md`. **It
+`review` and comments — see the `README.md` that `cards demo` installs. **It
 requires Node on `PATH`**; on a Node-less machine its launcher logs
 `node: not found — service review-bot skipped` and stays down instead of
 restart-looping. `scripts/review-bot_test.sh` proves the loop end to end.

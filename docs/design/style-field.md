@@ -189,7 +189,7 @@ render per-option color+icon.
 
 ```bash
 scripts/dev-server.sh
-# or: go build -o cards ./cmd/cards && ./cards serve --workspace ./examples/demo-workspace --port 8787 --seed
+# or: go build -o cards ./cmd/cards && ./cards serve --workspace ./.cards --port 8787
 open 'http://127.0.0.1:8787/ui/boards/engineering?theme=labels'
 ```
 

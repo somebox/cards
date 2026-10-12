@@ -7,7 +7,7 @@
       "runtimeArgs": [
         "serve",
         "--workspace",
-        "examples/demo-workspace",
+        "./.cards",
         "--port",
         "8788"
       ],

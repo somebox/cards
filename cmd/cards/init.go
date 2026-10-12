@@ -107,6 +107,8 @@ func initCmd(args []string) error {
 		fmt.Println("  cards                 # serve it from this directory")
 	}
 	fmt.Println("  open http://127.0.0.1:8787/ui/boards/welcome")
+	fmt.Println()
+	fmt.Println("Want to look around a fuller board first? `cards demo` installs a sample workspace.")
 	return nil
 }
 

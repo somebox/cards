@@ -6,8 +6,12 @@
 # dependency-free watcher that hashes relevant files every second.
 #
 # Usage:
-#   scripts/dev-server.sh
-#   PORT=8788 CARDS_WS=./examples/demo-workspace scripts/dev-server.sh
+#   scripts/dev-server.sh                    # the project board (.cards)
+#   cards demo /tmp/cards-demo && PORT=8788 CARDS_WS=/tmp/cards-demo scripts/dev-server.sh
+#
+# A fresh clone has an empty .cards DB: run `scripts/board.sh import` first to
+# restore the committed board. There is no --seed here — sample cards belong
+# in a `cards demo` workspace, never in the project board.
 #
 # The production binary embeds templates/CSS, so UI edits require a rebuild.
 # This script keeps that dev loop automatic.
@@ -85,7 +89,7 @@ build_and_start() {
   fi
 
   : > "$LOG"
-  "$BIN" serve --workspace "$WS" --port "$PORT" --seed >"$LOG" 2>&1 &
+  "$BIN" serve --workspace "$WS" --port "$PORT" >"$LOG" 2>&1 &
   server_pid=$!
   echo "$server_pid" > "$PIDFILE"
   echo "dev-server: serving http://${HOST}:${PORT} pid=$server_pid log=$LOG"

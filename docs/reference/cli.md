@@ -55,6 +55,12 @@ local edits, delete `.claude/skills/cards`, and re-run `cards init`.
 The matching short-form guidance served to MCP clients is printable with
 `cards mcp --print-instructions`.
 
+To explore before setting up a real board, `cards demo [dir]` installs a sample
+workspace (an engineering board with sample cards, a welcome board, and two
+example extensions) into a new directory, `./cards-demo` by default, and prints
+how to open it. `--seed=false` leaves its boards empty. It refuses a directory
+that already has files in it; delete the directory when you are done.
+
 ## Two backends
 
 Client commands (`list`, `create`, `patch`, …) work in either of two modes:
@@ -152,6 +158,7 @@ Global flags on every command: `--url`, `--as`, `--workspace`, `--json`,
 | Command | Purpose |
 |---|---|
 | `init [dir] [--global]` | Scaffold a workspace |
+| `demo [dir] [--seed=false]` | Install the sample workspace into a new directory (default `./cards-demo`) |
 | `serve` | `[--workspace] [--port 8787] [--seed] [--run-extensions] [--watch]` |
 | `mcp` | stdio MCP server (`[--workspace]`) |
 | `reload` | Reload definitions on a running server |

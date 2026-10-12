@@ -15,7 +15,6 @@
 #   scripts/board.sh install-hook        # add a git pre-commit hook that auto-exports before each commit
 #
 # Workspace defaults to .cards (the project board); override with CARDS_WS=<dir>.
-# The example workspace lives at examples/demo-workspace.
 # The cards binary is auto-detected (./cards, then $PATH, then `go run`);
 # override with CARDS_BIN="/path/to/cards".
 

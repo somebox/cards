@@ -5,8 +5,8 @@ the data model, the HTTP API, the MCP surface, events, the actor model, the
 git-defined workspace, extensions, and the boundary of what cards deliberately
 does *not* do.
 
-This document is written from the source (`internal/...`) and the real example
-workspace (`examples/demo-workspace/`), not from prose — where the older
+This document is written from the source (`internal/...`) and the demo
+workspace definitions (`internal/demo/assets/`), not from prose — where the older
 narrative docs drift from the code, the drift is flagged inline. For the
 normative contract see [`index.md`](../spec/index.md); for the events/integration design
 see [`integration.md`](../events/integration.md); for runtime shape see

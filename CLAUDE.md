@@ -78,11 +78,11 @@ Read the full version: [`docs/concepts/philosophy.md`](docs/concepts/philosophy.
 | CLI client | `internal/cli/` | CLI commands over the HTTP API (wired into `cmd/cards/`) |
 | Doc audit | `internal/docaudit/` | docs-integrity guards as ordinary Go tests (no non-test code) |
 | OpenAPI | `internal/openapi/` | OpenAPI 3.1 document generated from live workspace definitions |
-| Seed | `internal/seed/` | demo users/cards inserted into an empty workspace DB (`--seed`) |
+| Seed | `internal/seed/` | sample users/cards inserted into an empty workspace DB (`cards demo`, `serve --seed`) |
 | Starter | `internal/starter/` | embedded starter material (welcome cards) scaffolded by `cards init` |
 | Theme CSS | `internal/themecss/` | workspace theme CSS validation against the `docs/design/themes.md` contract |
 | Project board | `.cards/` | the live dogfooding backlog — definitions + `backlog.jsonl` (+ `backlog.md` overview) |
-| Demo workspace | `examples/demo-workspace/` | frozen example material (docs, screenshots, what `cards init` scaffolds) |
+| Demo workspace | `internal/demo/` | sample workspace embedded in the binary; `cards demo [dir]` installs it, tests install a fresh copy per test via `internal/demo/demotest`. Never a dev default — `.cards` is the only workspace in the repo |
 | TUI | `internal/tui/`, `cmd/cards/tui.go` | terminal UI behind bare `cards` (`interactive()` guard: both streams TTY, no `--json`) |
 | UI templates/CSS | `internal/httpapi/templates/` | `layout.html`, `board.html`, `card_modal.html`, `style.css`, etc. |
 
@@ -111,7 +111,7 @@ browser. Two ways:
 
 ```bash
 go build -o cards ./cmd/cards
-./cards serve --workspace ./.cards --port 8787 --seed
+./cards serve --workspace ./.cards --port 8787
 open http://127.0.0.1:8787/ui/boards/engineering
 ```
 
@@ -122,7 +122,7 @@ scripts/dev-server.sh
 open 'http://127.0.0.1:8787/ui/boards/engineering?theme=labels'
 ```
 
-`scripts/dev-server.sh` rebuilds and restarts the demo server when files under
+`scripts/dev-server.sh` rebuilds and restarts the dev server when files under
 `cmd/`, `internal/`, or `.cards/definitions/` change. If
 [`air`](https://github.com/air-verse/air) is installed it delegates to
 `.air.toml`; otherwise it uses a small dependency-free polling watcher. Override

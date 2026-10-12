@@ -6,12 +6,13 @@ import (
 	"testing"
 
 	"github.com/somebox/cards/internal/core"
+	"github.com/somebox/cards/internal/demo/demotest"
 )
 
-// TestLoadDemoWorkspace loads examples/demo-workspace and asserts the shape
+// TestLoadDemoWorkspace loads the demo workspace (internal/demo) and asserts the shape
 // documented in the spec.
 func TestLoadDemoWorkspace(t *testing.T) {
-	dir := filepath.Join("..", "..", "examples", "demo-workspace")
+	dir := demotest.Dir(t)
 	r, err := New(dir).Load()
 	if err != nil {
 		t.Fatalf("load: %v", err)
@@ -675,7 +676,7 @@ func TestWarnOrphanCardPreviewType(t *testing.T) {
 }
 
 func TestLoadDemoWorkspaceNoSemanticWarnings(t *testing.T) {
-	dir := filepath.Join("..", "..", "examples", "demo-workspace")
+	dir := demotest.Dir(t)
 	r, err := New(dir).Load()
 	if err != nil {
 		t.Fatalf("load: %v", err)
@@ -684,7 +685,7 @@ func TestLoadDemoWorkspaceNoSemanticWarnings(t *testing.T) {
 		if strings.Contains(w, "hard-reject next sprint") ||
 			strings.Contains(w, "unknown field") ||
 			strings.Contains(w, "icon") {
-			t.Errorf("demo-workspace should load clean; unexpected warning: %s", w)
+			t.Errorf("demo workspace should load clean; unexpected warning: %s", w)
 		}
 	}
 }

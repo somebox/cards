@@ -8,6 +8,7 @@ import (
 	"github.com/somebox/cards/internal/agentguide"
 	"github.com/somebox/cards/internal/config"
 	"github.com/somebox/cards/internal/core"
+	"github.com/somebox/cards/internal/demo/demotest"
 	"github.com/somebox/cards/internal/mcp"
 	"github.com/somebox/cards/internal/seed"
 	"github.com/somebox/cards/internal/sqlite/sqlitetest"
@@ -36,7 +37,7 @@ func TestInitializeServesInstructions(t *testing.T) {
 // serverInfo.version answered "poc" on every build including tagged releases,
 // so a client could not tell what it was talking to.
 func TestInitializeReportsRealVersion(t *testing.T) {
-	r, err := config.New("../../examples/demo-workspace").Load()
+	r, err := config.New(demotest.Dir(t)).Load()
 	if err != nil {
 		t.Fatalf("load: %v", err)
 	}

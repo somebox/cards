@@ -127,7 +127,7 @@ merge.
 the primitives are the event stream and hooks. The demo workspace ships a
 working example: the `review-notify` hook runs a script whenever a card
 reaches `review` on the engineering board
-([`extensions.json`](https://github.com/somebox/cards/blob/main/examples/demo-workspace/definitions/extensions.json)).
+([`extensions.json`](https://github.com/somebox/cards/blob/main/internal/demo/assets/definitions/extensions.json)).
 The same file also declares `review-bot`, a supervised Node **service** that
 subscribes to the event stream itself and claims review cards — one
 transition, two extension kinds (see [Extensions](extensions/index.md),
@@ -621,6 +621,7 @@ $ cards import --in backlog.jsonl                   # refuses a non-empty DB —
 | Command | What it does |
 |---|---|
 | `cards init [dir] [--global]` | Scaffold a workspace (`./.cards`, or `~/.cards`). Also installs the Claude Code skill at `.claude/skills/cards/` unless `--no-skill`. |
+| `cards demo [dir] [--seed=false]` | Install the sample workspace into a new directory (default `./cards-demo`) to explore |
 | `cards serve [--port 8787] [--seed] [--run-extensions] [--watch]` | HTTP + web UI server |
 | `cards mcp [--workspace <dir>]` | stdio MCP server. `--print-instructions` prints the handshake text with no workspace. |
 | `cards reload` | Reload definitions on a running server |

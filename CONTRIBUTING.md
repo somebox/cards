@@ -103,16 +103,16 @@ go test ./internal/httpapi ./internal/docaudit ./internal/themecss
 node --test "tests/js/*.test.cjs"
 ```
 
-Track and share the demo board state in git:
+Track and share the project board state in git:
 
-The project's own dev tasks live in the demo workspace at
-`examples/demo-workspace`. The live SQLite database (`work-cards.db`) is
-machine-local and gitignored; the committed, portable state is `backlog.jsonl`.
+The project's own dev tasks live in the project board at `.cards/`. The live
+SQLite database (`work-cards.db`) is machine-local and gitignored; the
+committed, portable state is `backlog.jsonl`.
 Export before committing so cards, statuses, and comments are tracked in git
 and shared with other contributors:
 
 ```bash
-scripts/board.sh export   # writes examples/demo-workspace/backlog.jsonl
+scripts/board.sh export   # writes .cards/backlog.jsonl
 ```
 
 Load that state back into a fresh workspace:

@@ -107,8 +107,7 @@ meant to be committed. One process serves one workspace
 (`cards serve --workspace <dir>`); running several workspaces means running
 several processes on different ports.
 
-In a git-tracked project the workspace is usually `./.cards` (or, in this
-repo, also the frozen demo copy under `examples/demo-workspace/`). Authoring
+In a git-tracked project the workspace is usually `./.cards`. Authoring
 detail: [Workspace & boards](../reference/workspace-and-boards.md).
 
 ## Definitions are workspace-local
@@ -264,15 +263,12 @@ many boards inside it — one per project or area. Data persists outside any rep
 **A project repo.** A `.cards/` workspace committed to the repo (definitions +
 `backlog.jsonl`). Every contributor — human or agent — runs a local server (or
 the TUI) against the checkout. This project does exactly that: its live
-dogfooding backlog lives in [`.cards/`](../../.cards/); the frozen demo material
-also ships under [`examples/demo-workspace/`](../../examples/demo-workspace/).
+dogfooding backlog lives in [`.cards/`](../../.cards/).
 
 **Developing Cards (dogfooding).** Point explicitly at the checkout workspace:
 
 ```bash
 cards serve --workspace ./.cards --port 8787
-# or the frozen demo:
-cards serve --workspace ./examples/demo-workspace --port 8787 --seed
 ```
 
 **Team / shared host.** The same repo workspace, served on one host behind a

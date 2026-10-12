@@ -9,6 +9,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/somebox/cards/internal/config"
 	"github.com/somebox/cards/internal/core"
+	"github.com/somebox/cards/internal/demo/demotest"
 	"github.com/somebox/cards/internal/seed"
 	"github.com/somebox/cards/internal/sqlite"
 	"github.com/somebox/cards/internal/uioptions"
@@ -470,15 +471,14 @@ func TestShiftTabSwitchesBoard(t *testing.T) {
 	}
 }
 
-// openDemoCopy copies the demo workspace DB to a temp dir and opens it, so
-// mutation tests never touch the checked-out database.
+// openDemoCopy installs the demo workspace into a temp dir and opens a fresh
+// seeded DB there, so mutation tests never share state.
 func openDemoCopy(t *testing.T) (*core.Service, *config.Result, func()) {
 	t.Helper()
-	// Definitions come from the committed demo workspace; the DB is built
-	// fresh from the seed material in a temp dir. The local
-	// examples/demo-workspace/work-cards.db is gitignored and machine-local,
-	// so copying it worked on a dev machine and always failed in CI.
-	result, err := config.New("../../examples/demo-workspace").Load()
+	// Definitions come from the demo embedded in the binary (internal/demo);
+	// the DB is built fresh from the seed material, never copied from a
+	// machine-local database.
+	result, err := config.New(demotest.Dir(t)).Load()
 	if err != nil {
 		t.Fatalf("load workspace: %v", err)
 	}

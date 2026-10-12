@@ -81,6 +81,8 @@ func run(args []string) error {
 			initArgs = append([]string{"--quiet"}, initArgs...)
 		}
 		return initCmd(initArgs) // init takes a positional dir, not --workspace
+	case "demo":
+		return demoCmd(rest[1:]) // demo takes a positional dir, not --workspace
 	case "export":
 		return exportCmd(reinject(rest[1:]))
 	case "import":
@@ -199,6 +201,7 @@ Usage:
   cards                                Interactive TUI on a terminal; this help otherwise
   cards version                        Print version, commit, and build info
   cards init [dir] [--global]          Scaffold a new workspace
+  cards demo [dir] [--seed=false]      Install a sample workspace to explore (default ./cards-demo)
   cards serve [--workspace <dir>] [--port 8787] [--seed]
   cards <command> [flags]              (serverless by default; CARDS_URL targets a server)
   cards <command> --help               List a command's flags
@@ -248,6 +251,7 @@ Commands:
   boards show [board_id]
 
   init         Scaffold a new workspace + install the agent skill (--no-skill to skip)
+  demo         Install the sample workspace (two boards, sample cards, example extensions)
   serve        Run the HTTP + web UI server
   export       Dump all card data as JSONL (local; --workspace <dir>)
   import       Load a JSONL export into the workspace DB (local; --workspace <dir>)

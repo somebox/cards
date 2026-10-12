@@ -2,7 +2,7 @@ package docaudit
 
 // Starter-vs-demo definition sync (sprint 2026-07-06 Phase 2): for every card
 // type that exists in BOTH internal/starter/assets (what `cards init` ships)
-// and examples/demo-workspace (what the docs/demo show), the `fields` array
+// and internal/demo/assets (what `cards demo` installs), the `fields` array
 // must be identical — otherwise a fresh init and the demo board silently
 // fork (e.g. one gains an artifact field the other lacks, and `cards attach`
 // works out of the box on one but not the other). Workspace-specific keys
@@ -37,7 +37,7 @@ func loadCardTypeFields(t *testing.T, path string) (id string, fields []any) {
 
 func TestStarterAndDemoCardTypeFieldsStayInSync(t *testing.T) {
 	starterDir := "internal/starter/assets/definitions/card-types"
-	demoDir := "examples/demo-workspace/definitions/card-types"
+	demoDir := "internal/demo/assets/definitions/card-types"
 
 	starterFiles, err := filepath.Glob("../../" + starterDir + "/*.json")
 	if err != nil || len(starterFiles) == 0 {

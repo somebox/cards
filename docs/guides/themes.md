@@ -134,6 +134,7 @@ targets a future version of the hook catalog.
 
 - `journal` and `labels` ship in the binary (view with `?theme=journal` /
   `?theme=labels` on any workspace).
-- `jeeruh` ships as a workspace theme in
-  [`examples/demo-workspace/definitions/themes/`](https://github.com/somebox/cards/tree/main/examples/demo-workspace/definitions/themes)
+- `jeeruh` ships as a workspace theme in the demo workspace (`cards demo`
+  writes it to `definitions/themes/`; source:
+  [`internal/demo/assets/definitions/themes/`](https://github.com/somebox/cards/tree/main/internal/demo/assets/definitions/themes))
   — the best starting point to copy.
