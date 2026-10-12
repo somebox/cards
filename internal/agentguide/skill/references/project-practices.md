@@ -37,8 +37,9 @@ board, no `link_types`, no `.gitignore`. Fine for a first look. For a real
 project board, replace the starter definitions — and delete the welcome cards
 — *before* creating work. Changing columns while those cards exist fails
 validation; `default_board` must name a board file that already exists or the
-workspace will not load. Write the JSON in this document into `definitions/`;
-don't layer it onto the tutorial.
+workspace will not load. Write the files in §2 ("The ladder as files") into
+`definitions/`, removing the starter `boards/welcome.json` and
+`card-types/task.json` in the same pass; don't layer them onto the tutorial.
 
 ## 2. Start minimal and climb only when the board complains
 
@@ -77,6 +78,93 @@ all four):
 { "enforce_transitions": true, "strict_fields": true,
   "tag_policy": "locked", "default_board": "engineering" }
 ```
+
+### The ladder as files
+
+Five files under `.cards/definitions/`. This is the whole starting point; it
+loads as written (`cards --workspace .cards workspace show` to confirm).
+
+`workspace.json`:
+
+```json
+{
+  "id": "myproject", "name": "My Project",
+  "columns": [
+    { "id": "backlog", "name": "Backlog" },
+    { "id": "todo", "name": "To Do" },
+    { "id": "in_progress", "name": "In Progress" },
+    { "id": "review", "name": "Review" },
+    { "id": "done", "name": "Done" }
+  ],
+  "tag_set": [],
+  "link_types": [
+    { "id": "part-of", "name": "Part of", "type": "directional" },
+    { "id": "depends-on", "name": "Depends on", "type": "directional" },
+    { "id": "blocked-by", "name": "Blocked by", "type": "directional" },
+    { "id": "related", "name": "Related", "type": "bidirectional" }
+  ],
+  "settings": {
+    "default_user": "me",
+    "enforce_transitions": true, "strict_fields": true,
+    "tag_policy": "locked", "default_board": "engineering"
+  }
+}
+```
+
+`card-types/epic.json`, `card-types/story.json`, `card-types/task.json`:
+
+```json
+{ "id": "epic", "name": "Epic", "schema_version": 1,
+  "fields": [ { "id": "goal", "type": "text", "required": true } ],
+  "allowed_columns": ["backlog", "todo", "in_progress", "review", "done"] }
+```
+
+```json
+{ "id": "story", "name": "Story", "schema_version": 1,
+  "fields": [
+    { "id": "outcome", "type": "text", "required": true },
+    { "id": "acceptance", "type": "text", "required": true }
+  ],
+  "allowed_columns": ["backlog", "todo", "in_progress", "review", "done"] }
+```
+
+```json
+{ "id": "task", "name": "Task", "schema_version": 1,
+  "fields": [
+    { "id": "actions", "type": "text", "required": true },
+    { "id": "verify", "type": "string", "required": false },
+    { "id": "work_log", "type": "repeating", "display": "feed",
+      "item_fields": [
+        { "id": "commit", "type": "string", "required": true },
+        { "id": "notes", "type": "text" }
+      ] }
+  ],
+  "allowed_columns": ["backlog", "todo", "in_progress", "review", "done"] }
+```
+
+`boards/engineering.json`:
+
+```json
+{
+  "id": "engineering", "name": "Engineering",
+  "columns": ["backlog", "todo", "in_progress", "review", "done"],
+  "card_type_ids": ["epic", "story", "task"],
+  "settings": { "enforce_transitions": true },
+  "wip_limits": { "in_progress": 2 },
+  "transitions": {
+    "backlog": ["todo", "in_progress"],
+    "todo": ["backlog", "in_progress"],
+    "in_progress": ["todo", "review"],
+    "review": ["in_progress", "done"],
+    "done": ["review"]
+  },
+  "presentation": { "lane_group_by": "status" }
+}
+```
+
+The `default_user` declared in settings counts as a registered user, so it can
+own cards from the first claim; every other actor registers once with
+`cards users register --id <id> --kind agent`.
 
 `strict_fields` and `tag_policy: locked` reject typos instead of silently
 creating a second vocabulary. `default_board` stops every surface guessing when

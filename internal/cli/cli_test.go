@@ -125,6 +125,16 @@ func TestListOutputModes(t *testing.T) {
 			}
 		}
 	})
+	t.Run("quiet prints nothing for an empty collection", func(t *testing.T) {
+		c := newTestClient(t, Config{Quiet: true})
+		out, err := runCmd(t, c, "list", "--q", "zzz-no-such-card-zzz")
+		if err != nil {
+			t.Fatalf("list: %v", err)
+		}
+		if out != "" {
+			t.Errorf("quiet empty list printed %q, want nothing", out)
+		}
+	})
 	t.Run("json pretty-prints the envelope", func(t *testing.T) {
 		c := newTestClient(t, Config{JSON: true})
 		out, err := runCmd(t, c, "list")

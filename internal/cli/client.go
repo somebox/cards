@@ -252,15 +252,21 @@ func parseErr(data []byte) error {
 func (c *Client) Print(data []byte, isCollection bool, idPath string) {
 	switch {
 	case c.cfg.Quiet:
-		// Extract ids from a {"items":[...]} envelope.
+		// Extract ids from a {"items":[...]} envelope. Presence of the key
+		// decides, not its length: an empty collection prints nothing, so
+		// `list -q | while read id` never feeds a literal `{"items":[]}`
+		// to the next command.
 		var env struct {
-			Items []map[string]any `json:"items"`
+			Items json.RawMessage `json:"items"`
 		}
 		if err := json.Unmarshal(data, &env); err == nil && len(env.Items) > 0 {
-			for _, it := range env.Items {
-				fmt.Println(idOf(it, idPath))
+			var items []map[string]any
+			if json.Unmarshal(env.Items, &items) == nil {
+				for _, it := range items {
+					fmt.Println(idOf(it, idPath))
+				}
+				return
 			}
-			return
 		}
 		// Fallback: single object id.
 		var m map[string]any

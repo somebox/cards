@@ -67,7 +67,10 @@ type Card struct {
   → *picraft note: D7's "claiming worker in `owner`, body in a custom field" holds
   — claim leaves your custom fields untouched.*
 - Setting `owner` via PATCH or `claim` requires a registered user (`unknown_user`
-  422 otherwise). `take-next` currently bypasses that lookup (see §5).
+  422 otherwise). "Registered" means in the users table (`POST /v1/users`,
+  `cards users register`) **or** declared in the definitions (`workspace.users`,
+  or the `settings.default_user` seed) — so a fresh `cards init` workspace's
+  default user can own cards. `take-next` currently bypasses that lookup (see §5).
 - `claim` is compare-and-set on `version`; claiming a card already owned by a
   *different* actor → `409 version_conflict`. `release` sets owner back to `""`.
 
@@ -258,8 +261,8 @@ no match → `200 { "card": null }`. On a match → `200 { "card": {...} }`.
 > (`internal/core/errors.go:141-145`, raised from the CAS path at
 > `internal/sqlite/sqlite.go:746` <!-- guard: internal/sqlite/sqlite.go:746 symbol=ErrClaimRaced -->);
 > `take-next`/`claim` wrap the attempt in `claimWithRetry`
-> (`internal/core/service.go:1587` <!-- guard: internal/core/service.go:1587 symbol=claimWithRetry -->,
-> called at `:1552` <!-- guard: internal/core/service.go:1552 symbol=claimWithRetry -->),
+> (`internal/core/service.go:1599` <!-- guard: internal/core/service.go:1599 symbol=claimWithRetry -->,
+> called at `:1564` <!-- guard: internal/core/service.go:1564 symbol=claimWithRetry -->),
 > which retries the next candidate up to 3 times within one call before
 > returning `{ card: null }`. Verified by `internal/core/claimretry_test.go`.
 
@@ -487,7 +490,8 @@ durable feed entries.
   each with its own `CARDS_USER`, with no pre-registration.
 - **Ownership is mostly registry-backed.** Setting `owner` via PATCH, or using
   `claim` (which makes the actor the owner), requires a registered user
-  (`POST /v1/users {id, kind}`) or returns `unknown_user`. `take-next` currently
+  (`POST /v1/users {id, kind}`, or declared in `workspace.users` /
+  `settings.default_user`) or returns `unknown_user`. `take-next` currently
   bypasses that user lookup for `assign_to`/actor ownership; this is an
   implementation inconsistency, not an authentication boundary.
 - **Stable orchestrator vs ephemeral workers:** both are just actor strings. Use a

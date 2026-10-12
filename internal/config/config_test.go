@@ -890,3 +890,42 @@ func TestHonoredKnobsAreNotWarned(t *testing.T) {
 		}
 	}
 }
+
+// TestDefaultUserJoinsDeclaredUsers — settings.default_user is materialized
+// into workspace.users even when other users are declared, not only when the
+// list is empty. Otherwise a workspace that declares an agent (say review-bot)
+// silently strips its own default actor of the right to own cards: every
+// unattributed write resolves to that actor, and claim then 422s unknown_user.
+func TestDefaultUserJoinsDeclaredUsers(t *testing.T) {
+	cases := []struct {
+		name, users string
+		want        []string
+	}{
+		{"empty list", `[]`, []string{"me"}},
+		{"others declared", `[{"id":"review-bot","kind":"agent"}]`, []string{"review-bot", "me"}},
+		{"already declared", `[{"id":"me","kind":"human"}]`, []string{"me"}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			mustWrite(t, filepath.Join(dir, "definitions", "workspace.json"), `{
+				"id":"t","name":"T",
+				"columns":[{"id":"a","name":"A"}],
+				"users":`+tc.users+`,
+				"settings":{"default_user":"me"}
+			}`)
+			mustWrite(t, filepath.Join(dir, "definitions", "card-types", ".keep"), "")
+			r, err := New(dir).Load()
+			if err != nil {
+				t.Fatalf("load: %v", err)
+			}
+			var got []string
+			for _, u := range r.Workspace.Users {
+				got = append(got, u.ID)
+			}
+			if strings.Join(got, ",") != strings.Join(tc.want, ",") {
+				t.Errorf("users = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
