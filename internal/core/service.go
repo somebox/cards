@@ -463,8 +463,20 @@ func (s *Service) commitCard(ctx context.Context, next *Card, evs []*Event) erro
 // immutable after startup, only Users is refreshed per call.
 func (s *Service) Workspace(ctx context.Context) (*WorkspaceSnapshot, error) {
 	ws := *s.ws
+	// Registered users first, then any definition-declared user the store
+	// does not know — both count as registered for ownership.
 	if users, err := s.store.ListUsers(ctx); err == nil && len(users) > 0 {
-		ws.Users = users
+		seen := make(map[string]bool, len(users))
+		for _, u := range users {
+			seen[u.ID] = true
+		}
+		merged := append([]User(nil), users...)
+		for _, u := range s.ws.Users {
+			if !seen[u.ID] {
+				merged = append(merged, u)
+			}
+		}
+		ws.Users = merged
 	}
 	curVersions := map[string]int{}
 	for id, ct := range s.types {

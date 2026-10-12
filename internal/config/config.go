@@ -79,11 +79,13 @@ func (l *Loader) Load() (*Result, error) {
 	if err != nil {
 		return nil, fmt.Errorf("load themes: %w", err)
 	}
-	// Seed users from settings.default_user if users list is empty.
-	if len(ws.Users) == 0 && ws.Settings.DefaultUser != "" {
-		ws.Users = []core.User{
-			{ID: ws.Settings.DefaultUser, Kind: "human", CreatedAt: nowUTC()},
-		}
+	// Materialize settings.default_user into the declared users whenever it
+	// is missing — not only when the list is empty — so the actor every
+	// unattributed write resolves to can also own cards, and introspection
+	// lists exactly the users the ownership check accepts.
+	if du := ws.Settings.DefaultUser; du != "" &&
+		!slices.ContainsFunc(ws.Users, func(u core.User) bool { return u.ID == du }) {
+		ws.Users = append(ws.Users, core.User{ID: du, Kind: "human", CreatedAt: nowUTC()})
 	}
 	warnings := validatePersistConditions(ws)
 	warnings = append(warnings, typeWarnings...)

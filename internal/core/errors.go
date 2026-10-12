@@ -71,7 +71,7 @@ func newUnknownUser(value string) *Error {
 	return &Error{
 		Code: "unknown_user", Value: value,
 		Message: "Unknown user.",
-		Hint:    "Register first: POST /v1/users",
+		Hint:    "Register first: `cards users register --id <id>` or POST /v1/users, or declare the user in workspace.json.",
 		HTTPStatus: 422,
 	}
 }
