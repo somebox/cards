@@ -18,12 +18,12 @@ import (
 func demoCmd(args []string) error {
 	fs := flag.NewFlagSet("demo", flag.ContinueOnError)
 	withSeed := fs.Bool("seed", true, "fill the boards with sample cards and users (--seed=false for empty boards)")
-	if err := fs.Parse(args); err != nil {
+	target, err := parseWithDir(fs, args)
+	if err != nil {
 		return err
 	}
-	target := "cards-demo"
-	if fs.NArg() > 0 {
-		target = fs.Arg(0)
+	if target == "" {
+		target = "cards-demo"
 	}
 	dir, err := filepath.Abs(target)
 	if err != nil {
