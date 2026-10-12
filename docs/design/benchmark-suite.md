@@ -49,7 +49,7 @@ Existing race tests we build on, not duplicate:
 ### 3.1 Fixtures (shared, deterministic)
 
 One embedded mini-workspace, generated from a fixed seed (not the live
-`examples/demo-workspace`, which drifts). Mirrors the shape of `testConfig()`
+project board, which drifts). Mirrors the shape of `testConfig()`
 in `internal/core/service_test.go`:
 
 - Workspace `bench`, 1 board `eng` (transitions `todo→in_progress→review→done`,

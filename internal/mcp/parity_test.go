@@ -12,6 +12,7 @@ import (
 
 	"github.com/somebox/cards/internal/config"
 	"github.com/somebox/cards/internal/core"
+	"github.com/somebox/cards/internal/demo/demotest"
 	"github.com/somebox/cards/internal/mcp"
 	"github.com/somebox/cards/internal/sqlite/sqlitetest"
 )
@@ -256,7 +257,7 @@ func TestMCPEntryLinkComment_HappyAndConflicts(t *testing.T) {
 // nothing (the prior version of this test did exactly that).
 func newMCPServerWithStaleCard(t *testing.T) (*mcp.Server, string) {
 	t.Helper()
-	r, err := config.New("../../examples/demo-workspace").Load()
+	r, err := config.New(demotest.Dir(t)).Load()
 	if err != nil {
 		t.Fatalf("load: %v", err)
 	}

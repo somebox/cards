@@ -10,6 +10,7 @@ import (
 
 	"github.com/somebox/cards/internal/config"
 	"github.com/somebox/cards/internal/core"
+	"github.com/somebox/cards/internal/demo/demotest"
 	"github.com/somebox/cards/internal/httpapi"
 	"github.com/somebox/cards/internal/openapi"
 	"github.com/somebox/cards/internal/sqlite/sqlitetest"
@@ -72,7 +73,7 @@ func TestOpenAPICoversEveryRoute(t *testing.T) {
 // `servers: [{url: /v1}]` base.
 func routedOps(t *testing.T) map[string]bool {
 	t.Helper()
-	r, err := config.New("../../examples/demo-workspace").Load()
+	r, err := config.New(demotest.Dir(t)).Load()
 	if err != nil {
 		t.Fatalf("load: %v", err)
 	}
@@ -118,7 +119,7 @@ func normalizeRoute(route string) string {
 
 func documentedOps(t *testing.T) map[string]bool {
 	t.Helper()
-	r, err := config.New("../../examples/demo-workspace").Load()
+	r, err := config.New(demotest.Dir(t)).Load()
 	if err != nil {
 		t.Fatalf("load: %v", err)
 	}

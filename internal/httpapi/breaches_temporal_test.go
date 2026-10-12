@@ -14,6 +14,7 @@ import (
 
 	"github.com/somebox/cards/internal/config"
 	"github.com/somebox/cards/internal/core"
+	"github.com/somebox/cards/internal/demo/demotest"
 	"github.com/somebox/cards/internal/httpapi"
 	"github.com/somebox/cards/internal/seed"
 	"github.com/somebox/cards/internal/sqlite/sqlitetest"
@@ -32,7 +33,7 @@ func newBreachesTemporalServer(t *testing.T) *httptest.Server {
 // slow the runner is between seed and request.
 func newBreachesTemporalServerWith(t *testing.T, threshold string) *httptest.Server {
 	t.Helper()
-	r, err := config.New("../../examples/demo-workspace").Load()
+	r, err := config.New(demotest.Dir(t)).Load()
 	if err != nil {
 		t.Fatalf("load: %v", err)
 	}

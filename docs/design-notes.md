@@ -300,9 +300,9 @@ none. `internal/starter/starter_test.go` pins the seed + idempotency.
 **Two distinct surfaces — don't conflate them.**
 - **Fresh-install onboarding** (this decision): the `starter` welcome board,
   generated on demand, never committed.
-- **The maintainer dogfood board** (`examples/demo-workspace/`, committed as
+- **The maintainer dogfood board** (`.cards/`, committed as
   `backlog.jsonl`): a real, groomed engineering board that happens to also
-  carry a few onboarding-titled cards in its history. It is kept as-is — it
-  doubles as a realistic example workspace shipped with the repo. If those
+  carry a few onboarding-titled cards in its history. It is kept as-is; the
+  example workspace users can install is a separate thing (`cards demo`). If those
   specific cards ever read as clutter *on the dogfood board*, that's a board-
   grooming task, independent of the first-install onboarding policy above.

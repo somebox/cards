@@ -19,6 +19,7 @@ import (
 
 	"github.com/somebox/cards/internal/config"
 	"github.com/somebox/cards/internal/core"
+	"github.com/somebox/cards/internal/demo/demotest"
 	"github.com/somebox/cards/internal/httpapi"
 	"github.com/somebox/cards/internal/seed"
 	"github.com/somebox/cards/internal/sqlite"
@@ -53,7 +54,7 @@ func newTestClient(t *testing.T, cfg Config) *Client {
 // crafted short-id fixtures through the shared coretest seam.
 func newTestClientStore(t *testing.T, cfg Config) (*Client, *sqlite.Store) {
 	t.Helper()
-	r, err := config.New("../../examples/demo-workspace").Load()
+	r, err := config.New(demotest.Dir(t)).Load()
 	if err != nil {
 		t.Fatalf("load: %v", err)
 	}

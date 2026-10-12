@@ -13,6 +13,7 @@ import (
 
 	"github.com/somebox/cards/internal/config"
 	"github.com/somebox/cards/internal/core"
+	"github.com/somebox/cards/internal/demo/demotest"
 	"github.com/somebox/cards/internal/httpapi"
 	"github.com/somebox/cards/internal/sqlite/sqlitetest"
 )
@@ -59,7 +60,7 @@ func TestRender_GoldenTypeThemedBoards(t *testing.T) {
 
 func newGoldenServer(t *testing.T) (*httptest.Server, []string) {
 	t.Helper()
-	r, err := config.New("../../examples/demo-workspace").Load()
+	r, err := config.New(demotest.Dir(t)).Load()
 	if err != nil {
 		t.Fatalf("load: %v", err)
 	}

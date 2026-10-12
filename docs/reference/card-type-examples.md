@@ -26,8 +26,9 @@ The smallest useful type — one markdown body:
 The type this documentation uses throughout — required description, a branch
 badge, an enum with themed options, and a work-log feed. See it with its
 rendered result in [card definitions](card-definitions.md),
-and as shipped in
-[`examples/demo-workspace`](https://github.com/somebox/cards/tree/main/examples/demo-workspace/definitions/card-types).
+and as shipped in the demo workspace
+([`internal/demo/assets`](https://github.com/somebox/cards/tree/main/internal/demo/assets/definitions/card-types),
+installed by `cards demo`).
 
 ## Research: research goal
 

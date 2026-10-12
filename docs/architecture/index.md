@@ -71,8 +71,8 @@ about without a framework.
 The Go binary provides several entry points:
 
 ```bash
-cards serve --workspace ./examples/demo-workspace --port 8787
-cards mcp --workspace ./examples/demo-workspace
+cards serve --workspace ./.cards --port 8787
+cards mcp --workspace ./.cards
 cards list --board engineering --owner me
 ```
 
@@ -164,8 +164,8 @@ A workspace is a directory with `definitions/` loaded at startup. The binary,
 CLI, and clients all take `--workspace <dir>`:
 
 ```bash
-cards serve --workspace ./examples/demo-workspace --port 8787
-cards list --workspace ./examples/demo-workspace
+cards serve --workspace ./.cards --port 8787
+cards list --workspace ./.cards
 ```
 
 The `--workspace` flag points at a directory containing `definitions/`
@@ -188,7 +188,7 @@ local boards, views, or card types.
 Primary mode for Python and Node harnesses:
 
 ```bash
-cards serve --workspace ./examples/demo-workspace --port 8787
+cards serve --workspace ./.cards --port 8787
 ```
 
 Clients connect to `http://127.0.0.1:8787/v1`. SSE streams use the same process.
@@ -219,7 +219,7 @@ CLI commands call the same service layer directly when local, or optionally call
 The Go binary can expose MCP over stdio:
 
 ```bash
-cards mcp --workspace ./examples/demo-workspace
+cards mcp --workspace ./.cards
 ```
 
 MCP tools should be generated from the same normalized workspace introspection
@@ -312,7 +312,7 @@ embed Work Cards without managing a separate process.
 ```python
 from work_cards import Cards
 
-cards = Cards.start(workspace="./examples/demo-workspace")
+cards = Cards.start(workspace="./.cards")
 cards.create(type_id="programming-task", title="Update docs", status="todo",
              fields={"description": "Clarify setup", "branch": "docs/setup"})
 ```
@@ -321,7 +321,7 @@ cards.create(type_id="programming-task", title="Update docs", status="todo",
 
 ```ts
 import { Cards } from "@work-cards/client";
-const cards = await Cards.start({ workspace: "./examples/demo-workspace" });
+const cards = await Cards.start({ workspace: "./.cards" });
 await cards.create({ type_id: "programming-task", title: "Update docs", status: "todo",
                      fields: { description: "Clarify setup", branch: "docs/setup" } });
 ```

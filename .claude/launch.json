@@ -4,7 +4,7 @@
     {
       "name": "cards-serve",
       "runtimeExecutable": "./cards",
-      "runtimeArgs": ["serve", "--workspace", "examples/demo-workspace", "--port", "8788"],
+      "runtimeArgs": ["serve", "--workspace", "./.cards", "--port", "8788"],
       "port": 8788
     },
     {

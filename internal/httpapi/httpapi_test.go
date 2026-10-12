@@ -14,6 +14,7 @@ import (
 	"github.com/somebox/cards/internal/config"
 	"github.com/somebox/cards/internal/core"
 	"github.com/somebox/cards/internal/core/coretest"
+	"github.com/somebox/cards/internal/demo/demotest"
 	"github.com/somebox/cards/internal/httpapi"
 	"github.com/somebox/cards/internal/seed"
 	"github.com/somebox/cards/internal/sqlite"
@@ -24,7 +25,7 @@ import (
 // seeds it, and returns a running httptest server.
 func newServer(t *testing.T) (*httptest.Server, *core.Service) {
 	t.Helper()
-	r, err := config.New("../../examples/demo-workspace").Load()
+	r, err := config.New(demotest.Dir(t)).Load()
 	if err != nil {
 		t.Fatalf("load: %v", err)
 	}
@@ -761,7 +762,7 @@ func TestCommentsHTTP(t *testing.T) {
 // tests can insert cards with crafted ids (e.g. colliding short-id suffixes).
 func newServerStore(t *testing.T) (*httptest.Server, *core.Service, *sqlite.Store) {
 	t.Helper()
-	r, err := config.New("../../examples/demo-workspace").Load()
+	r, err := config.New(demotest.Dir(t)).Load()
 	if err != nil {
 		t.Fatalf("load: %v", err)
 	}

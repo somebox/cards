@@ -37,13 +37,14 @@ cleanup() {
 }
 trap cleanup EXIT
 
-cp -R "$ROOT/examples/demo-workspace" "$WORK/ws"
-rm -f "$WORK/ws/work-cards.db"
-
 echo "building cards…"
 go -C "$ROOT" build -o "$WORK/cards" ./cmd/cards
 
-"$WORK/cards" serve --workspace "$WORK/ws" --port "$PORT" --seed \
+# The demo workspace embedded in the binary, installed fresh with its sample
+# cards, so every machine captures the same board.
+"$WORK/cards" demo "$WORK/ws" >/dev/null
+
+"$WORK/cards" serve --workspace "$WORK/ws" --port "$PORT" \
   >"$WORK/serve.log" 2>&1 &
 SERVER_PID=$!
 

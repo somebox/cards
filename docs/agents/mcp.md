@@ -15,7 +15,7 @@ versioned, and event-emitting exactly like a human's.
 The MCP server runs over **stdio**:
 
 ```bash
-cards mcp --workspace ./examples/demo-workspace
+cards mcp --workspace ./.cards
 ```
 
 The actor for writes is resolved from `CARDS_USER`, falling back to the

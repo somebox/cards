@@ -248,7 +248,7 @@ X-Work-Cards-Actor: coder-agent
 }
 ```
 ```bash
-# illustrative filter-file path; not shipped in examples/demo-workspace
+# illustrative filter-file path; not shipped in the demo workspace
 cards take-next --board engineering --filter-file ./filters/cli-after-api.json \
   --as coder-agent --status in_progress
 ```

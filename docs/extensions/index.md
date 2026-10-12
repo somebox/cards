@@ -387,15 +387,15 @@ its own repo per the extensions-over-plugins rule. Spec:
 The demo workspace ships a supervised `service` that runs the worker loop
 from [`integration.md`](../events/integration.md) (§ Quickstart, "3. The
 worker loop", line 37) as a real process:
-[`review-bot.mjs`](https://github.com/somebox/cards/blob/main/examples/demo-workspace/.cards/ext/review-bot.mjs)
+[`review-bot.mjs`](https://github.com/somebox/cards/blob/main/internal/demo/assets/.cards/ext/review-bot.mjs)
 subscribes to `/v1/events/stream?board_id=engineering&types=status_changed`
 and, on every `status_changed` into `review`, claims the oldest unowned
 review card via `POST /v1/cards/take-next` and comments back as actor
 `review-bot`. Reconnects send `Last-Event-ID`, so a server restart
 mid-stream replays the gap instead of losing events. It is declared in
-[`extensions.json`](https://github.com/somebox/cards/blob/main/examples/demo-workspace/definitions/extensions.json)
+[`extensions.json`](https://github.com/somebox/cards/blob/main/internal/demo/assets/definitions/extensions.json)
 with `autostart: true` and `restart_policy: on-failure`, starts under
-`cards serve --workspace examples/demo-workspace --run-extensions`, and
+`cards serve --workspace ./cards-demo --run-extensions` (after `cards demo`), and
 **requires Node on `PATH`** (stdlib `fetch` + a hand-rolled SSE reader —
 zero npm dependencies). The `review-bot.sh` launcher gates the runtime: on
 a Node-less machine it logs `node: not found — service review-bot skipped`
@@ -406,7 +406,7 @@ extension kinds (hook: bus JSON on stdin; service: dials SSE itself).
 (also `go test ./cmd/cards -run TestReviewBotScript`) proves the loop:
 card → `review` ⇒ bot comment asserted by author; kill/restart mid-stream
 ⇒ resumption from the last event id; supervisor stability (≤1 restart in a
-5s window). See `examples/demo-workspace/README.md`.
+5s window). See the `README.md` that `cards demo` installs.
 
 ## Related documents
 

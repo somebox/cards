@@ -3,5 +3,5 @@
   "contract": 1,
   "description": "A familiar cloud issue-tracker look — Atlassian-blue chrome, flat white cards.",
   "fonts": "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap",
-  "source": "https://github.com/somebox/cards (examples/demo-workspace)"
+  "source": "https://github.com/somebox/cards (internal/demo/assets)"
 }

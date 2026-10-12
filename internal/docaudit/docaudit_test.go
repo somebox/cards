@@ -23,16 +23,15 @@ var shortID = regexp.MustCompile(`\b[0-9a-f]{8}\b`)
 
 // TestROADMAPCardIDsResolve guards against the "dangling card reference" rot:
 // every card short-id cited in docs/roadmap.md must resolve against the
-// committed backlog snapshot (examples/demo-workspace/backlog.jsonl), which
-// carries current cards plus card_deleted tombstones — so a reference to a
+// project board's committed snapshot (.cards/backlog.jsonl), which carries
+// current cards plus card_deleted tombstones — so a reference to a
 // since-retired card still resolves, but a typo'd or invented id fails.
 //
 // Refresh the snapshot after board changes with:
 //
-//	cards export --workspace examples/demo-workspace --state-only \
-//	  --out examples/demo-workspace/backlog.jsonl
+//	scripts/board.sh export
 func TestROADMAPCardIDsResolve(t *testing.T) {
-	backlog := readRepoFile(t, "examples/demo-workspace/backlog.jsonl")
+	backlog := readRepoFile(t, ".cards/backlog.jsonl")
 	roadmap := readRepoFile(t, "docs/roadmap.md")
 
 	seen := map[string]bool{}
@@ -43,8 +42,8 @@ func TestROADMAPCardIDsResolve(t *testing.T) {
 		seen[id] = true
 		if !strings.Contains(backlog, id) {
 			t.Errorf("docs/roadmap.md cites card short-id %q, which resolves to no card in "+
-				"examples/demo-workspace/backlog.jsonl — a dangling reference, or the snapshot is stale "+
-				"(regenerate with: cards export --workspace examples/demo-workspace --state-only --out examples/demo-workspace/backlog.jsonl)", id)
+				".cards/backlog.jsonl — a dangling reference, or the snapshot is stale "+
+				"(regenerate with: scripts/board.sh export)", id)
 		}
 	}
 	if len(seen) == 0 {

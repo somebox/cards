@@ -8,6 +8,27 @@ backwards-compatible fixes.
 
 ## [Unreleased]
 
+### Added
+- **`cards demo [dir]` installs a sample workspace to explore.** The demo —
+  an engineering board with six card types and a review lane, a welcome board,
+  the `jeeruh` theme, and the `review-notify` hook and `review-bot` service
+  examples — now ships inside the binary. `cards demo` writes it to a new
+  directory (`./cards-demo` by default), fills it with sample cards, and
+  prints how to open it; `--seed=false` leaves the boards empty. It refuses a
+  directory that already has files in it. `cards init` ends with a one-line
+  pointer to it.
+
+### Removed
+- **`examples/demo-workspace/` is gone from the repo.** It was a second
+  workspace beside `.cards`, and the dev tooling still defaulted to it. Its
+  definitions and extensions moved into the binary (`internal/demo`); tests
+  install a fresh copy per test; the frozen `backlog.jsonl` of 2026-07 dev
+  cards is not carried over. Anything that ran `--workspace
+  ./examples/demo-workspace` should run `cards demo` once and point at that
+  directory instead. `scripts/dev-server.sh` and `.air.toml` no longer pass
+  `--seed`, so a fresh clone's project board is never filled with sample
+  cards.
+
 ## [0.3.0] - 2026-08-04
 
 Minor release under pre-1.0 semver: several definition-load and API contract

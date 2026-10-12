@@ -26,21 +26,18 @@ for c in \
 done
 [ -n "$CHROME" ] || { echo "error: no Chrome/Chromium found" >&2; exit 1; }
 
-# --- headless render against a throwaway copy of the demo workspace ----------
+# --- headless render against a fresh install of the demo workspace ----------
 WORK="$(mktemp -d)"
 cleanup() { rm -rf "$WORK"; }
 trap cleanup EXIT
-
-cp -R "$ROOT/examples/demo-workspace" "$WORK/ws"
 
 echo "building cards + tui-shot…"
 go -C "$ROOT" build -o "$WORK/cards" ./cmd/cards
 go -C "$ROOT" build -o "$WORK/tui-shot" ./cmd/tui-shot
 
-# The demo workspace's live DB is gitignored and machine-local; restore the
-# committed snapshot instead so the capture is identical on every machine.
-rm -f "$WORK/ws"/work-cards.db*
-"$WORK/cards" import --workspace "$WORK/ws" --in "$WORK/ws/backlog.jsonl" >/dev/null 2>&1
+# The demo embedded in the binary, installed with its sample cards, so the
+# capture is identical on every machine.
+"$WORK/cards" demo "$WORK/ws" >/dev/null
 
 mkdir -p "$OUT"
 

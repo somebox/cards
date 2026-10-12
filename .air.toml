@@ -12,7 +12,7 @@ tmp_dir = ".pi/tmp/air"
 [build]
 cmd = "go build -o .pi/tmp/air/cards ./cmd/cards"
 bin = ".pi/tmp/air/cards"
-args_bin = ["serve", "--workspace", "./.cards", "--port", "8787", "--seed"]
+args_bin = ["serve", "--workspace", "./.cards", "--port", "8787"]
 include_dir = ["cmd", "internal", ".cards/definitions"]
 include_ext = ["go", "html", "css", "js", "json", "yaml", "yml"]
 exclude_dir = [".git", ".pi", "docs", "media", "bin", "dist", "build", "vendor"]

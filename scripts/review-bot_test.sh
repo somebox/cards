@@ -3,7 +3,7 @@
 # review-bot_test.sh — automated proof of the review-bot cards-extension seed
 # (Sprint 07-19 Phase 3; docs/plans/2026-07-19-sprint-plan.md).
 #
-# Against a temp workspace copied from examples/demo-workspace, proves:
+# Against a temp workspace installed with `cards demo --seed=false`, proves:
 #   1. BLOCKER — `cards serve --run-extensions` autostarts the bot; a
 #      status_changed → review triggers a comment authored by "review-bot",
 #      asserted via the CLI. The pre-existing review-notify HOOK fires on the
@@ -33,7 +33,7 @@ cd "$repo_root"
 SUBSCRIBE_TIMEOUT="${REVIEW_BOT_SUBSCRIBE_TIMEOUT:-10}"
 COMMENT_TIMEOUT="${REVIEW_BOT_COMMENT_TIMEOUT:-20}"
 STABILITY_WINDOW="${REVIEW_BOT_STABILITY_WINDOW:-5}"
-BOT_SEED="examples/demo-workspace/.cards/ext/review-bot.mjs"
+BOT_SEED="internal/demo/assets/.cards/ext/review-bot.mjs"
 
 fail() { echo "FAIL: $*" >&2; exit 1; }
 note() { echo "== $*"; }
@@ -73,15 +73,12 @@ trap cleanup EXIT
 note "building cards"
 go build -o "$TMP/cards" ./cmd/cards
 
-# The temp workspace is a COPY of the demo workspace minus machine-local
-# state (live DB, logs): it carries the engineering board (with a `review`
-# column and enforced transitions) and the bot's extensions.json declaration.
-# No --seed: the only review-lane cards are the ones this test drives, so
-# take-next's oldest-unowned claim stays deterministic.
-mkdir -p "$TMP/ws"
-cp -R examples/demo-workspace/. "$TMP/ws/"
-rm -f "$TMP/ws"/work-cards.db "$TMP/ws"/work-cards.db-shm "$TMP/ws"/work-cards.db-wal
-rm -f "$TMP/ws"/.cards/logs/*.log 2>/dev/null || true
+# The temp workspace is the demo embedded in the binary, installed fresh: it
+# carries the engineering board (with a `review` column) and the bot's
+# extensions.json declaration. --seed=false: the only review-lane cards are
+# the ones this test drives, so take-next's oldest-unowned claim stays
+# deterministic.
+"$TMP/cards" demo --seed=false "$TMP/ws" >/dev/null
 BOT_LOG="$TMP/ws/.cards/logs/review-bot.log"
 
 PORT="$(node -e 'const s=require("node:net").createServer().listen(0,"127.0.0.1",()=>{console.log(s.address().port);s.close();})')"

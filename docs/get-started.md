@@ -92,17 +92,19 @@ cards mcp          # stdio MCP server over the resolved workspace
 → Wiring it into Claude Code / pi / Cursor and the coordination loop:
 [MCP quickstart](agents/mcp.md).
 
-## 5. (Optional) Run the project's own board
+## 5. (Optional) Explore the demo workspace
 
-Cards is developed on its own board. The bundled demo workspace is the real
-engineering backlog, shipped as a portable `backlog.jsonl` snapshot:
+`cards demo` installs a sample workspace — an engineering board with six card
+types and sample cards, a welcome board, and two example extensions — into a
+directory of its own, so you can explore before setting up a real board:
 
 ```bash
-cards serve --workspace ./examples/demo-workspace --port 8787 --seed
+cards demo                                  # writes ./cards-demo
+cards serve --workspace ./cards-demo
 open http://127.0.0.1:8787/ui/boards/engineering
 ```
 
-Because the snapshot is committed, cloning the repo clones the board. See
+Delete the directory when you are done. See
 [Concepts](concepts/index.md) for the model and
 [card definitions](reference/card-definitions.md) for
 defining your own types.

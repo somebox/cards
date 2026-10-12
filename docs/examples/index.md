@@ -6,7 +6,7 @@ work (append) → status transitions → completion. Each step shows equivalent
 
 Assumptions:
 
-- Sidecar running: `cards serve --workspace ./demo-workspace --port 8787`
+- Sidecar running: `cards serve --workspace ./.cards --port 8787`
 - Base URL: `http://127.0.0.1:8787/v1`
 - Actor for writes: register users once; CLI uses `CARDS_USER` or `--as`.
   Every write carries the actor via the **`X-Work-Cards-Actor`** header

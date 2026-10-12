@@ -266,7 +266,7 @@ Rules:
 - **Board themes** may override only non-inverting **hue** tokens
   (`boardThemeTokens` whitelist: accents, flat, label, `--type-*`, `--link-*`,
   `--rel-*`) — never neutral/ink/surface tokens, so dark mode keeps working.
-  Example (`examples/demo-workspace/definitions/boards/welcome.json`):
+  Example (`definitions/boards/welcome.json` in the workspace `cards demo` installs):
 
   ```json
   "theme": { "--c-accent": "#a8623c", "--c-flat": "#e4ded3", "--type-task": "#7a5c3a" }
