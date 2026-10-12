@@ -370,8 +370,8 @@ func (s *Service) typeIDsAllowingStatus(candidates []string, status string) []st
 
 // checkUserExists accepts a user that is either registered in the store
 // (POST /v1/users, `cards users register`) or declared in the workspace
-// definitions — `workspace.users`, or the `settings.default_user` seed the
-// loader materializes when that list is empty. Definitions are the declared
+// definitions — `workspace.users`, which the loader always extends with
+// `settings.default_user` when it is missing. Definitions are the declared
 // contract, and they never reach the users table on their own, so consulting
 // only the store would leave a fresh `cards init` workspace unable to own the
 // cards its own default user creates.
